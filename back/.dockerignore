@@ -1,0 +1,5 @@
+/target
+/note.txt
+/log
+.cargo
+.env
