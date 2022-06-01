@@ -1,5 +1,5 @@
-dev:
-    just dev-frontend & P1=$! & just dev-backend & P2=$! && wait P1 P2
+# dev:
+#     just dev-frontend & P1=$! & just dev-backend & P2=$! && wait P1 P2
 
 dev-frontend:
     cd ./frontend && yarn dev
