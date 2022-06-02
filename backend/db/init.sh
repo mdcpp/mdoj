@@ -4,10 +4,11 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
 		id SERIAL NOT NULL PRIMARY KEY,
 		create_time DATE,
 		update_time DATE,
+		token_salt CHAR(32) NOT NULL,
 		name_user VARCHAR(128) NOT NULL,
 		privilege INTEGER DEFAULT 3 NOT NULL,
 		hashed_password bytea NOT NULL,
-		description VARCHAR(512) DEFAULT ""
+		description VARCHAR(512) DEFAULT ''
 	);
   COMMIT;
 EOSQL

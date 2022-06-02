@@ -13,4 +13,7 @@ sea-orm = { version = "0.8", features = [
     "macros",
     "mock",
 ] }
-sha2 = "0.10"
+# vendored feature was required to compile musl rust, enable vendored result in long compile time
+# openssl = { version = "0.10", features = ["vendored"] }
+openssl = { version = "0.10" }
+rand = "0.8"

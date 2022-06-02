@@ -1,10 +1,13 @@
 use actix_web::{middleware, web::Data, App, HttpServer};
+mod config;
 mod route;
 mod state;
 use std::env;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    config::init().await;
+
     let host = env::var("HOST").unwrap_or("0.0.0.0".to_owned());
     let port = env::var("PORT")
         .unwrap_or("8080".to_owned())

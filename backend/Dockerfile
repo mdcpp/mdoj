@@ -3,7 +3,7 @@ WORKDIR /complier
 
 # install musl-gcc for ring
 RUN USER=root apt update -y
-RUN USER=root apt install musl-tools -y
+# RUN USER=root apt install musl-tools -y
 
 RUN rustup target add ${targets}
 
