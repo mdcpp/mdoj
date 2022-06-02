@@ -1,9 +1,9 @@
-use actix_web::{route, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder};
 
-pub fn new_token() -> impl Responder {
+pub async fn new_token() -> impl Responder {
     HttpResponse::Ok().body("todo!(\"get\")")
 }
 
-pub fn delete_token() -> impl Responder {
+pub async fn delete_token() -> impl Responder {
     HttpResponse::Ok().body("todo!(\"get\")")
 }

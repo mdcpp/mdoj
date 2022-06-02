@@ -1,9 +1,6 @@
-use actix_web::{
-    dev::{Service, ServiceRequest},
-    web::Data,
-    App, HttpServer,
-};
+use actix_web::{middleware, web::Data, App, HttpServer};
 mod route;
+mod state;
 use std::env;
 
 #[actix_web::main]
@@ -16,7 +13,8 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            // .app_data(Data::new(state.clone()))
+            .wrap(middleware::Logger::default())
+            .app_data(Data::new(state::generate_state()))
             .configure(route::configure)
     })
     .bind((host, port))?
