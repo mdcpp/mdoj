@@ -1,8 +1,9 @@
 use crate::entity;
+use crate::entity::user_table::Entity as User_db;
 use openssl::aes;
 use sea_orm::prelude::*;
 
-const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
+// const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
 
 pub struct AuthPayload<'a> {
     username: &'a str,
