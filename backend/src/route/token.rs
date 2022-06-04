@@ -1,6 +1,8 @@
 use actix_web::{HttpResponse, Responder};
 // use openssl;
 
+use crate::controller::user;
+
 pub async fn new_token() -> impl Responder {
     // openssl::aes::AesKey::from(_)
     HttpResponse::Ok().body("todo!(\"get\")")

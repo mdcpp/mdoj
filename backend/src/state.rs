@@ -8,7 +8,7 @@ pub struct AppState {
 
 pub async fn generate_state() -> AppState {
     let uri = std::env::var("POSTGRES")
-        .unwrap_or("postgres://postgres:admin@localhost/postgres".to_owned());
+        .unwrap_or("postgres://postgres:postgres@192.168.1.199/postgres".to_owned());
     let db_conn: DatabaseConnection = sea_orm::Database::connect(uri).await.unwrap();
     AppState {
         db_conn: Arc::new(db_conn),

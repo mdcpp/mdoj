@@ -1,5 +1,7 @@
 use actix_web::{middleware, web::Data, App, HttpServer};
 mod config;
+mod controller;
+mod entity;
 mod route;
 mod state;
 use std::env;
@@ -10,7 +12,7 @@ async fn main() -> std::io::Result<()> {
 
     let host = env::var("HOST").unwrap_or("0.0.0.0".to_owned());
     let port = env::var("PORT")
-        .unwrap_or("8080".to_owned())
+        .unwrap_or("8079".to_owned())
         .parse::<u16>()
         .unwrap();
 
