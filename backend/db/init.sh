@@ -4,15 +4,15 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
 		id SERIAL NOT NULL PRIMARY KEY,
 		create_time DATE,
 		update_time DATE,
-		name_user VARCHAR(128) NOT NULL,
+		name_user VARCHAR(64) NOT NULL,
 		privilege INTEGER DEFAULT 3 NOT NULL,
 		hashed_password bytea NOT NULL,
+		salt bytea NOT NULL,
 		description VARCHAR(512) DEFAULT ''
 	);
 	CREATE TABLE token_table(
 		id SERIAL NOT NULL PRIMARY KEY,
-		CONSTRAINT FK_user FOREIGN KEY (id) REFERENCES user_table(id),
-		chipper CHAR(32) NOT NULL
+		salt bytea NOT NULL
 	);
 	CREATE TABLE question_table(
 		id SERIAL NOT NULL PRIMARY KEY,

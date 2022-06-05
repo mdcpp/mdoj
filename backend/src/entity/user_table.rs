@@ -12,21 +12,14 @@ pub struct Model {
     pub name_user: String,
     pub privilege: i32,
     pub hashed_password: Vec<u8>,
+    pub salt: Vec<u8>,
     pub description: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::token_table::Entity")]
-    TokenTable,
     #[sea_orm(has_many = "super::question_user::Entity")]
     QuestionUser,
-}
-
-impl Related<super::token_table::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TokenTable.def()
-    }
 }
 
 impl Related<super::question_user::Entity> for Entity {

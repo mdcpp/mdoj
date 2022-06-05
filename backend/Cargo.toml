@@ -7,13 +7,25 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
+
 sea-orm = { version = "0.8", features = [
     "sqlx-postgres",
     "runtime-actix-rustls",
     "macros",
     "mock",
 ] }
+
 # vendored feature was required to compile musl rust, enable vendored result in long compile time
 # openssl = { version = "0.10", features = ["vendored"] }
+
 openssl = { version = "0.10" }
 rand = "0.8"
+
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.0"
+serde_json = "1.0"
+
+lru = "0.7"
+
+# test in async
+async-std = { version = "1.11", features = ["attributes"] }
