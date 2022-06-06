@@ -1,7 +1,7 @@
 use openssl::symm::Mode;
-use openssl::{aes,base64};
-use serde::{Deserialize, Serialize};
+use openssl::{aes, base64};
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
 const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
 
@@ -16,12 +16,9 @@ pub struct AuthPayload<'a> {
     pub password: &'a str,
 }
 
-pub fn generate<'a>(payload: TokenPayload<'a>,salt:&[u8; 32])->String {
+pub fn generate<'a>(payload: TokenPayload<'a>, salt: &[u8; 32]) -> String {
     todo!()
 }
 
-pub async fn revoke() {
-
-}
+pub async fn revoke() {}
 pub async fn verify() {}
-

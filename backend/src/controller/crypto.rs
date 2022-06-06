@@ -1,80 +1,102 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
-use crate::entity::{token_table as token, prelude::TokenTable as Token};
-use openssl::symm::Mode;
-use openssl::{aes,base64};
-use serde::{Deserialize, Serialize};
-use rand::prelude::*;
+use crate::entity::{prelude::TokenTable as Token, token_table as token};
 use lru::LruCache;
-
+use openssl::symm::Mode;
+use openssl::{aes, base64};
+use rand::prelude::*;
+use sea_orm::{DatabaseConnection, EntityTrait, Set};
+use serde::{de::DeserializeOwned, Serialize};
 
 const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
 
+type SaltType = [u8; 32];
+type CounterType = i32;
 
-type salt_type=[u8; 32];
-pub struct Cache{
-    lru: LruCache<usize, salt_type>,
-    state: usize
+pub struct Cache {
+    lru: LruCache<usize, SaltType>,
+    counter: CounterType,
 }
 
-impl Cache{
-    pub fn new()->Self{
-        Cache{
-           lru:LruCache::new(100),
-           state: 0
+impl Cache {
+    pub fn new() -> Self {
+        Cache {
+            lru: LruCache::new(100),
+            counter: 0,
         }
     }
 }
 
-
-
-
-pub fn encode<T>(payload:T,salt:salt_type,cache:&mut Cache)->String where T:Serialize{
+pub async fn encode<T>(payload: T, cache: &mut Cache, conn: &DatabaseConnection) -> String
+where
+    T: Serialize,
+{
+    let mut rng = rand::thread_rng();
+    let salt: SaltType = rng.gen();
     // regist salt
-    let id=cache.state;
-    cache.lru.put(id, salt); 
-    cache.state=cache.state+1;
+    let id = cache.counter;
+    Token::insert(token::ActiveModel {
+        id: Set(id),
+        salt: Set(salt.to_vec()),
+    })
+    .exec(conn)
+    .await
+    .unwrap();
+    cache.counter = cache.counter + 1;
     // serialize payload
     let bytea = bincode::serialize(&payload).unwrap();
-    let len=bincode::serialize(&(bytea.len() as u32)).unwrap();
-    let id=bincode::serialize(&(id as u32)).unwrap();
+    let len = bincode::serialize(&(bytea.len() as u32)).unwrap();
+    let id = bincode::serialize(&(id as CounterType)).unwrap();
     // fill bytea with random bytes (AES IGE require the input bytea to be multiple of 16)
     let mut rng = rand::thread_rng();
-    let mut seed=rng.gen::<[u8;32]>().to_vec();
-    seed.truncate(16-bytea.len()%16+12);
-    let bytea=[len,bytea,seed.to_owned()].concat();
+    let mut seed = rng.gen::<[u8; 32]>().to_vec();
+    seed.truncate(16 - bytea.len() % 16 + 12);
+    let bytea = [len, bytea, seed.to_owned()].concat();
     // encrypt aes256
-    let key=aes::AesKey::new_encrypt(AES_KEY).unwrap();
+    let key = aes::AesKey::new_encrypt(AES_KEY).unwrap();
     let mut output = vec![0u8; bytea.len()];
-    aes::aes_ige(&bytea,&mut output,&key,& mut salt.clone(),Mode::Encrypt);
+    aes::aes_ige(&bytea, &mut output, &key, &mut salt.clone(), Mode::Encrypt);
     // encrypt base64
-    base64::encode_block(&[id,output].concat())
+    base64::encode_block(&[id, output].concat())
 }
 
-fn decode<'a, T>(input:&str,salt:salt_type,cache:Cache)->Option<T> where T:Deserialize<'a>{
-
-    match base64::decode_block(&input){
+pub async fn decode<'a, T>(input: &str, cache: Cache, conn: &DatabaseConnection) -> Option<T>
+where
+    T: DeserializeOwned,
+{
+    match base64::decode_block(&input) {
         Ok(x) => {
-            let id:u32=bincode::deserialize_from(&x[0..4]).unwrap();
-            // cache.lru.get<u32>(&id);
-            // get salt by id
-            let key=aes::AesKey::new_decrypt(AES_KEY).unwrap();
-            let mut output=vec![0_u8;x.len()-4];
-            aes::aes_ige(&x[4..(x.len()-1)], &mut output, &key, &mut salt.clone(), Mode::Decrypt);
-            let offset:u32=bincode::deserialize(&(output[0..4])).unwrap() ;
-            let output: &'a Vec<u8>=& output.clone();
-            match bincode::deserialize::<'a>(& output[4..(offset as usize +4)]) {
-                Ok(x) =>Some(x),
-                Err(_) => None,
+            let id: CounterType = bincode::deserialize_from(&x[0..4]).unwrap();
+            let h = Token::find_by_id(id).one(conn).await.unwrap();
+            match h {
+                Some(model) => {
+                    let key = aes::AesKey::new_decrypt(AES_KEY).unwrap();
+                    let salt = model.salt;
+                    let mut output = vec![0_u8; x.len() - 4];
+                    aes::aes_ige(
+                        &x[4..(x.len() - 1)],
+                        &mut output,
+                        &key,
+                        &mut salt.clone(),
+                        Mode::Decrypt,
+                    );
+                    let offset: u32 = bincode::deserialize(&(output[0..4])).unwrap();
+                    // let output: &'a Vec<u8>=&output;
+                    match bincode::deserialize(&output[4..(offset as usize + 3)]) {
+                        Ok(x) => Some(x),
+                        Err(_) => None,
+                    }
+                }
+                None => None,
             }
-        },
+            // get salt by id
+        }
         Err(_) => None,
     }
-
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use super::*;
     // check if openssl panic
     // #[async_std::test]
