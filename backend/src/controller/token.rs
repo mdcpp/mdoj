@@ -1,10 +1,10 @@
 use crate::entity::{prelude::TokenTable as Token, token_table as token};
 use lru::LruCache;
-use openssl::symm::Mode;
-use openssl::{aes, base64};
+use openssl::{aes, base64, symm::Mode};
 use rand::prelude::*;
 use sea_orm::{DatabaseConnection, EntityTrait, Set};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::sync::Mutex;
 
 // Initialization vector:iv
 const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
@@ -13,20 +13,29 @@ type InitVecType = [u8; 32];
 type CounterType = i32;
 // token::Model::id;
 
+#[derive(Debug)]
 pub struct Cache {
-    lru: LruCache<usize, InitVecType>,
-    counter: CounterType,
+    lru: Mutex<LruCache<CounterType, InitVecType>>,
+    counter: Mutex<CounterType>,
 }
 
 impl Cache {
-    pub fn new() -> Self {
+    pub fn new(cap: usize) -> Self {
         Cache {
-            lru: LruCache::new(100),
-            counter: 0,
+            lru: Mutex::new(LruCache::new(cap)),
+            counter: Mutex::new(0),
         }
     }
-    async fn insert(&mut self, val: InitVecType, conn: &DatabaseConnection) -> CounterType {
-        let id = self.counter;
+    async fn insert(&self, val: InitVecType, conn: &DatabaseConnection) -> CounterType {
+        // get id and put into cache
+        let mut lrug = self.lru.lock().unwrap();
+        let mut idg = self.counter.lock().unwrap();
+        *idg = *idg + 1;
+        let id = (*idg).clone();
+        lrug.put(id, val).unwrap();
+        drop(lrug);
+        drop(idg);
+
         Token::insert(token::ActiveModel {
             id: Set(id),
             salt: Set(val.to_vec()),
@@ -34,14 +43,15 @@ impl Cache {
         .exec(conn)
         .await
         .unwrap();
-        self.counter = self.counter + 1;
         id
     }
-    async fn retrieve(
-        &mut self,
-        key: CounterType,
-        conn: &DatabaseConnection,
-    ) -> Option<InitVecType> {
+    async fn retrieve(&self, key: CounterType, conn: &DatabaseConnection) -> Option<InitVecType> {
+        let mut lrug = self.lru.lock().unwrap();
+        let result = lrug.get(&key);
+        if result.is_some() {
+            return Some(result.unwrap().clone());
+        }
+        drop(lrug);
         match Token::find_by_id(key).one(conn).await.unwrap() {
             Some(x) => {
                 let init_vec: InitVecType = x.salt.try_into().unwrap_or_else(|_| {
@@ -147,7 +157,35 @@ impl Otoken {
 
 #[cfg(test)]
 mod test {
+    use sea_orm::{DatabaseBackend, MockDatabase};
+
     use super::*;
+    use std::sync::Arc;
+    use std::thread;
+
+    #[async_std::test]
+    #[ignore]
+    async fn cache_test() {
+        struct AppState {
+            conn: Arc<DatabaseConnection>,
+            cache: Arc<Cache>,
+        }
+        let db: DatabaseConnection = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        let state = AppState {
+            conn: Arc::new(db),
+            cache: Arc::new(Cache::new(100)),
+        };
+
+        // spawn 100 thread
+        // (0..100).for_each(|_|{
+        //     thread::spawn( move || async move {
+        //         let mut rng = rand::thread_rng();
+        //         let random: InitVecType = rng.gen();
+
+        //         state.cache.insert(random, &(*state.conn));
+        //     });
+        // });
+    }
     // check if openssl panic
     // #[async_std::test]
     // #[ignore]
