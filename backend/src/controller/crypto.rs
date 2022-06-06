@@ -12,6 +12,7 @@ const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
 
 type SaltType = [u8; 32];
 type CounterType = i32;
+// token::Model::id;
 
 pub struct Cache {
     lru: LruCache<usize, SaltType>,
@@ -60,7 +61,7 @@ where
     base64::encode_block(&[id, output].concat())
 }
 
-pub async fn decode<'a, T>(input: &str, cache: Cache, conn: &DatabaseConnection) -> Option<T>
+pub async fn decode<T>(input: &str, cache: Cache, conn: &DatabaseConnection) -> Option<T>
 where
     T: DeserializeOwned,
 {
