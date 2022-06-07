@@ -18,7 +18,7 @@ version = "0.8"
 features = ["sqlx-postgres", "runtime-actix-rustls", "macros", "mock","sqlx-sqlite"]
 
 [dependencies.openssl]
-version = "0.1"
+version = "0.10"
 # vendored feature was required to compile musl rust, enable vendored result in long compile time
 # features = ["vendored"]
 
