@@ -2,7 +2,8 @@ use crate::entity::{prelude::TokenTable as Token, token_table as token};
 use lru::LruCache;
 use openssl::{aes, base64, symm::Mode};
 use rand::prelude::*;
-use sea_orm::{DatabaseConnection, EntityTrait, Set};
+use sea_orm::prelude::{*};
+use sea_orm::{ Set};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -57,6 +58,8 @@ impl Cache {
                 let init_vec: InitVecType = x.salt.try_into().unwrap_or_else(|_| {
                     panic!("expect a vector length to be 32(length of init_vec)")
                 });
+                let mut lrug = self.lru.lock().unwrap();
+                lrug.put(key, init_vec);
                 Some(init_vec)
             }
             None => None,
