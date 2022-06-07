@@ -168,7 +168,9 @@ mod test {
     use std::sync::Arc;
     use std::time;
 
-    #[async_std::test]
+    // #[actix_rt::test] 
+    #[actix_web::test]
+    // #[async_std::test]
     async fn cache_test() {
         impl Clone for AppState {
             fn clone(&self) -> Self {
