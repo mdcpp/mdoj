@@ -2,8 +2,8 @@ use crate::entity::{prelude::TokenTable as Token, token_table as token};
 use lru::LruCache;
 use openssl::{aes, base64, symm::Mode};
 use rand::prelude::*;
-use sea_orm::prelude::{*};
-use sea_orm::{ Set};
+use sea_orm::prelude::*;
+use sea_orm::Set;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -161,7 +161,7 @@ impl Otoken {
 #[cfg(test)]
 mod test {
     use actix_web::rt::time::sleep;
-    use sea_orm::{DatabaseBackend, MockDatabase};
+    use sea_orm::{ConnectionTrait, Database, DatabaseBackend, DbBackend, MockDatabase, Schema};
 
     use super::*;
     use futures::future::join_all;
@@ -170,10 +170,6 @@ mod test {
 
     #[async_std::test]
     async fn cache_test() {
-        struct AppState {
-            conn: Arc<DatabaseConnection>,
-            cache: Arc<Cache>,
-        }
         impl Clone for AppState {
             fn clone(&self) -> Self {
                 AppState {
@@ -182,7 +178,19 @@ mod test {
                 }
             }
         }
-        let db: DatabaseConnection = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        // let db: DatabaseConnection = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        let schema = Schema::new(DbBackend::Sqlite);
+
+        let stmt = schema.create_table_from_entity(Token);
+        db.execute(db.get_database_backend().build(&stmt))
+            .await
+            .unwrap();
+
+        struct AppState {
+            conn: Arc<DatabaseConnection>,
+            cache: Arc<Cache>,
+        }
         let state = AppState {
             conn: Arc::new(db),
             cache: Arc::new(Cache::new(100)),
