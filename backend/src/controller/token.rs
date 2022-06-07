@@ -195,7 +195,7 @@ mod test {
         }
         let state = AppState {
             conn: Arc::new(db),
-            cache: Arc::new(Cache::new(100)),
+            cache: Arc::new(Cache::new(50)),
         };
 
         async fn spawn_one_thread(state: AppState) -> Option<bool> {
@@ -219,7 +219,8 @@ mod test {
 
         let result = join_all(promises).await;
 
-        dbg!(result);
+        // dbg!(&result);
+        assert_eq!(result,vec![Some(true);100]);
     }
     // check if openssl panic
     // #[async_std::test]
