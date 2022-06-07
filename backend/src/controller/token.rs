@@ -32,7 +32,7 @@ impl Cache {
         let mut idg = self.counter.lock().unwrap();
         *idg = *idg + 1;
         let id = (*idg).clone();
-        lrug.put(id, val).unwrap();
+        lrug.put(id, val);
         drop(lrug);
         drop(idg);
 
@@ -157,18 +157,27 @@ impl Otoken {
 
 #[cfg(test)]
 mod test {
+    use actix_web::rt::time::sleep;
     use sea_orm::{DatabaseBackend, MockDatabase};
 
     use super::*;
+    use futures::future::join_all;
     use std::sync::Arc;
-    use std::thread;
+    use std::time;
 
     #[async_std::test]
-    #[ignore]
     async fn cache_test() {
         struct AppState {
             conn: Arc<DatabaseConnection>,
             cache: Arc<Cache>,
+        }
+        impl Clone for AppState {
+            fn clone(&self) -> Self {
+                AppState {
+                    conn: self.conn.clone(),
+                    cache: self.cache.clone(),
+                }
+            }
         }
         let db: DatabaseConnection = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
         let state = AppState {
@@ -176,15 +185,28 @@ mod test {
             cache: Arc::new(Cache::new(100)),
         };
 
-        // spawn 100 thread
-        // (0..100).for_each(|_|{
-        //     thread::spawn( move || async move {
-        //         let mut rng = rand::thread_rng();
-        //         let random: InitVecType = rng.gen();
+        async fn spawn_one_thread(state: AppState) -> Option<bool> {
+            let mut rng = rand::thread_rng();
+            let random: InitVecType = rng.gen();
 
-        //         state.cache.insert(random, &(*state.conn));
-        //     });
-        // });
+            let key = state.cache.insert(random, &(*state.conn)).await;
+            sleep(time::Duration::from_millis(10)).await;
+            let random_output = state.cache.retrieve(key, &(*state.conn)).await;
+            match random_output {
+                Some(x) => Some(x == random),
+                None => None,
+            }
+        }
+
+        let mut promises = Vec::new();
+
+        for _ in 0..100 {
+            promises.push(spawn_one_thread(state.clone()));
+        }
+
+        let result = join_all(promises).await;
+
+        dbg!(result);
     }
     // check if openssl panic
     // #[async_std::test]

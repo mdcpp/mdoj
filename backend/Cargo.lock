@@ -412,6 +412,7 @@ dependencies = [
  "actix-web",
  "async-std",
  "bincode",
+ "futures",
  "lru",
  "openssl",
  "rand",
