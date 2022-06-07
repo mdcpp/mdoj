@@ -70,7 +70,7 @@ impl Cache {
     }
 }
 
-async fn encode<T>(payload: T, cache: &mut Cache, conn: &DatabaseConnection) -> String
+async fn encode<T>(payload: T, cache: &Cache, conn: &DatabaseConnection) -> String
 where
     T: Serialize,
 {
@@ -102,7 +102,7 @@ where
     base64::encode_block(&[id, output].concat())
 }
 
-async fn decode<T>(input: &str, cache: &mut Cache, conn: &DatabaseConnection) -> Option<T>
+async fn decode<T>(input: &str, cache: & Cache, conn: &DatabaseConnection) -> Option<T>
 where
     T: DeserializeOwned,
 {
@@ -161,16 +161,75 @@ impl Otoken {
 #[cfg(test)]
 mod test {
     use actix_web::rt::time::sleep;
-    use sea_orm::{ConnectionTrait, Database, DatabaseBackend, DbBackend, MockDatabase, Schema};
+    use sea_orm::{ConnectionTrait, Database, DbBackend, Schema};
 
     use super::*;
     use futures::future::join_all;
     use std::sync::Arc;
     use std::time;
 
-    // #[actix_rt::test] 
     #[actix_web::test]
-    // #[async_std::test]
+    async fn crypto_test() {
+        impl Clone for AppState {
+            fn clone(&self) -> Self {
+                AppState {
+                    conn: self.conn.clone(),
+                    cache: self.cache.clone(),
+                }
+            }
+        }
+        // let db: DatabaseConnection = MockDatabase::new(DatabaseBackend::Postgres).into_connection();
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        let schema = Schema::new(DbBackend::Sqlite);
+
+        let stmt = schema.create_table_from_entity(Token);
+        db.execute(db.get_database_backend().build(&stmt))
+            .await
+            .unwrap();
+
+        struct AppState {
+            conn: Arc<DatabaseConnection>,
+            cache: Arc<Cache>,
+        }
+        let state = AppState {
+            conn: Arc::new(db),
+            cache: Arc::new(Cache::new(50)),
+        };
+
+
+        #[derive(Serialize, Deserialize,Clone,PartialEq)]
+        struct Auth{
+            issuer_id:usize,
+        }
+
+        async fn spawn_one_thread(state: AppState) -> Option<bool> {
+            let mut rng = rand::thread_rng();
+            let random: usize = rng.gen();
+            let payload=Auth{issuer_id:random};
+            let token=encode(payload.clone(),&(*state.cache),&(*state.conn)).await;
+            sleep(time::Duration::from_millis(10)).await;
+
+            let decrypto:Option<Auth>=decode(&token, &(*state.cache),&(*state.conn)).await;
+        
+            match decrypto {
+                Some(x) => Some(payload==x),
+                None => None,
+            }
+        }
+
+        let mut promises = Vec::new();
+
+        // for _ in 0..100 {
+            promises.push(spawn_one_thread(state.clone()));
+        // }
+
+        let result = join_all(promises).await;
+
+        // dbg!(&result);
+        assert_eq!(result,vec![Some(true);1]);
+    }
+
+    #[actix_web::test]
     async fn cache_test() {
         impl Clone for AppState {
             fn clone(&self) -> Self {

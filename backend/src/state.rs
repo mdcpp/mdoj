@@ -16,6 +16,6 @@ pub async fn generate_state() -> AppState {
     let db_conn: DatabaseConnection = sea_orm::Database::connect(uri).await.unwrap();
     AppState {
         db_conn: Arc::new(db_conn),
-        token_cache: Arc::new((Cache::new(100))),
+        token_cache: Arc::new(Cache::new(100)),
     }
 }
