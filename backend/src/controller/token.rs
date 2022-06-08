@@ -90,7 +90,6 @@ where
     // encrypt aes256
     let key = aes::AesKey::new_encrypt(AES_KEY).unwrap();
     let mut output = vec![0u8; bytea.len()];
-    assert!(bytea.len() == output.len());
     aes::aes_ige(
         &bytea,
         &mut output,
@@ -121,14 +120,14 @@ where
             let key = aes::AesKey::new_decrypt(AES_KEY).unwrap();
             let mut output = vec![0_u8; x.len() - 4];
             aes::aes_ige(
-                &x[4..(x.len() - 1)],
+                &x[4..x.len()],
                 &mut output,
                 &key,
                 &mut init_vec.clone(),
                 Mode::Decrypt,
             );
             let offset: u32 = bincode::deserialize(&(output[0..4])).unwrap();
-            match bincode::deserialize(&output[4..(offset as usize + 3)]) {
+            match bincode::deserialize(&output[4..(offset as usize + 4)]) {
                 Ok(x) => Some(x),
                 Err(_) => None,
             }
@@ -171,6 +170,7 @@ mod test {
 
     #[actix_web::test]
     async fn crypto_test() {
+        const SCALE:usize=300;
         impl Clone for AppState {
             fn clone(&self) -> Self {
                 AppState {
@@ -220,18 +220,19 @@ mod test {
 
         let mut promises = Vec::new();
 
-        // for _ in 0..100 {
+        for _ in 0..SCALE {
             promises.push(spawn_one_thread(state.clone()));
-        // }
+        }
 
         let result = join_all(promises).await;
 
         // dbg!(&result);
-        assert_eq!(result,vec![Some(true);1]);
+        assert_eq!(result,vec![Some(true);SCALE]);
     }
 
     #[actix_web::test]
     async fn cache_test() {
+        const SCALE:usize=3000;
         impl Clone for AppState {
             fn clone(&self) -> Self {
                 AppState {
@@ -255,7 +256,7 @@ mod test {
         }
         let state = AppState {
             conn: Arc::new(db),
-            cache: Arc::new(Cache::new(50)),
+            cache: Arc::new(Cache::new(100)),
         };
 
         async fn spawn_one_thread(state: AppState) -> Option<bool> {
@@ -273,29 +274,13 @@ mod test {
 
         let mut promises = Vec::new();
 
-        for _ in 0..100 {
+        for _ in 0..SCALE {
             promises.push(spawn_one_thread(state.clone()));
         }
 
         let result = join_all(promises).await;
 
         // dbg!(&result);
-        assert_eq!(result,vec![Some(true);100]);
+        assert_eq!(result,vec![Some(true);SCALE]);
     }
-    // check if openssl panic
-    // #[async_std::test]
-    // #[ignore]
-    // async fn generate_token(){
-    //     #[derive(Serialize, Deserialize)]
-    //     pub struct payload<'a> {
-    //         pub username: &'a str,
-    //         pub password: &'a str,
-    //     }
-    //     let data=payload{ username: "Lorem Ipsum", password: "readable variations" };
-    //     let init_vec=b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
-    //     let token=encode(data,  &init_vec).await;
-    //     dbg!(token);
-    // }
-
-    // How to setup mock database which contain random value?
 }
