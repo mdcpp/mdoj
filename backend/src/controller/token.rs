@@ -10,7 +10,7 @@ use std::sync::Mutex;
 // Initialization vector:iv
 const AES_KEY: &[u8; 32] = include_bytes!["../../config/aes"];
 
-type InitVecType = [u8; 32];
+type InitVecType = [u8; 32]; 
 type CounterType = i32;
 // token::Model::id;
 
@@ -137,25 +137,36 @@ where
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Otoken {
-    role: u32,
+pub struct TokenData{
+    // something that contain itself inside the token
 }
-impl Otoken {
-    pub async fn encrypt<T>(&self, conn: &DatabaseConnection, cache: &mut Cache) -> String
-    where
-        T: Serialize,
+
+pub struct Otoken<'a> {
+    id: i32,
+    data:Option<TokenData>,
+    runtime:Option<(&'a Cache,&'a DatabaseConnection)>
+}
+impl<'a> Otoken<'a> {
+    pub fn set_runtime(&mut self,conn:&'a DatabaseConnection,cache:&'a Cache){
+        self.runtime=Some((cache,conn));
+    }
+    pub fn set_data(&mut self,data:TokenData){
+        self.data=Some(data);
+    }
+    pub async fn encrypt(&self) -> String
     {
-        encode(self, cache, conn).await
+        assert!(self.runtime.is_some());
+        encode(self.data.as_ref().unwrap(), self.runtime.unwrap().0, self.runtime.unwrap().1).await
     }
-    pub async fn decrypt<T>(inp: &str, conn: &DatabaseConnection, cache: &mut Cache) -> Option<T>
-    where
-        T: DeserializeOwned,
-    {
-        decode(inp, cache, conn).await
-    }
-    pub async fn revoke() {
-        todo!();
-    }
+    // pub async fn link(){}
+    // pub async fn decrypt(inp: &str, conn: &DatabaseConnection, cache: &mut Cache) ->Option<Otoken>
+    // {
+    //     let result:Option<Otoken>=decode(inp, cache, conn).await;
+    //     todo!()
+    // }
+    // pub async fn revoke() {
+    //     todo!();
+    // }
 }
 
 #[cfg(test)]

@@ -12,6 +12,7 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
 	);
 	CREATE TABLE token_table(
 		id SERIAL NOT NULL PRIMARY KEY,
+		CONSTRAINT FK_user FOREIGN KEY (id) REFERENCES user_table(id),
 		salt bytea NOT NULL
 	);
 	CREATE TABLE question_table(
