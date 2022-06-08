@@ -90,6 +90,7 @@ where
     // encrypt aes256
     let key = aes::AesKey::new_encrypt(AES_KEY).unwrap();
     let mut output = vec![0u8; bytea.len()];
+    assert!(bytea.len() == output.len());
     aes::aes_ige(
         &bytea,
         &mut output,
