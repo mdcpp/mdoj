@@ -208,7 +208,6 @@
 //             cache: Arc::new(Cache::new(50)),
 //         };
 
-
 //         #[derive(Serialize, Deserialize,Clone,PartialEq)]
 //         struct Auth{
 //             issuer_id:usize,
@@ -222,7 +221,7 @@
 //             sleep(time::Duration::from_millis(10)).await;
 
 //             let decrypto:Option<Auth>=decode(&token, &(*state.cache),&(*state.conn)).await;
-        
+
 //             match decrypto {
 //                 Some(x) => Some(payload==x),
 //                 None => None,
