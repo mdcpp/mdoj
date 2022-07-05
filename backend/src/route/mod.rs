@@ -1,4 +1,5 @@
 mod token;
+mod user;
 use actix_web::web;
 
 pub fn configure(cfg: &mut actix_web::web::ServiceConfig) {

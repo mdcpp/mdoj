@@ -10,7 +10,6 @@ pub struct Model {
     pub create_time: Option<Date>,
     pub update_time: Option<Date>,
     pub name_user: String,
-    pub privilege: i32,
     pub hashed_password: Vec<u8>,
     pub salt: Vec<u8>,
     pub description: Option<String>,

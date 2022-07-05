@@ -33,6 +33,8 @@ pub struct TokenState<'a> {
 
 impl<'a> TokenState<'a> {
     pub async fn new(conn: &'a DatabaseConnection) -> TokenState<'a> {
+        // delete all token when init
+        token::Entity::delete_many().exec(conn).await.unwrap();
         let session=Session::find().filter(session::Column::Key.eq("TokenStateCounter")).one(conn).await.unwrap();
         let mut counter:CounterType=0;
         if let Some(x) = session{
@@ -53,6 +55,8 @@ fn get_time() -> TimeType {
         .as_secs() as TimeType
 }
 
+// TODO
+// releationship: user
 pub async fn issue<'a>(state: &TokenState<'a>, data: TokenData) -> String {
     let now = get_time();
 
@@ -66,21 +70,19 @@ pub async fn issue<'a>(state: &TokenState<'a>, data: TokenData) -> String {
 
     let base64 = base64::encode_block(&[count_in_bytes, seed.to_vec()].concat());
 
-    state
+    state 
         .cache
         .lock()
         .unwrap()
         .put((count, seed), (now + TTL, data));
 
-    Token::insert(token::ActiveModel {
+    let h=(token::ActiveModel {
         id: Set(count),
         key: Set(seed.to_vec()),
         data: Set(payload),
         ttl: Set(now + TTL),
-    })
-    .exec(state.conn)
-    .await
-    .unwrap();
+        // FK_user:Set(data.user_pkey)
+    }).insert(state.conn).await.unwrap();
 
     base64
 }
