@@ -1,45 +1,35 @@
-// use super::crypto;
-// use super::token;
-// use crate::entity;
-// use crate::entity::prelude::UserTable;
-// use crate::entity::user_table;
-// use openssl::sha::sha256;
-// use sea_orm::prelude::*;
+use entity::{prelude::UserTable as User, user_table as user};
+use openssl::sha;
+use rand::{thread_rng, Rng};
+use bincode;
+use crate::controller::role;
 
-// pub struct CtrlUser {
-//     pub model: Option<entity::user_table::Model>,
-// }
+pub struct UserData<'a>{
+    name:&'a str,
+    password:&'a str,
+    description:&'a str
+}
 
-// impl CtrlUser {
-//     async fn verify_identity<'a>(
-//         &mut self,
-//         payload: token::AuthPayload<'a>,
-//         conn: DatabaseConnection,
-//     ) -> bool {
-//         let bytea = sha256(payload.password.as_bytes());
-//         let user: Option<user_table::Model> = UserTable::find()
-//             .filter(user_table::Column::NameUser.eq(payload.username))
-//             .filter(user_table::Column::HashedPassword.eq(bytea.as_slice()))
-//             .one(&conn)
-//             .await
-//             .unwrap();
-//         match user {
-//             Some(user) => {
-//                 self.model = Some(user);
-//                 true
-//             }
-//             None => false,
-//         }
-//     }
-//     async fn generate_token() {
-//         todo!();
-//     }
-//     async fn verify_token() {
-//         todo!();
-//     }
-// }
+const SALT_LENGHT:usize=32;
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-// }
+fn hash(input:&[u8],salt:&[u8])->[u8;32]{
+    let mut hasher = sha::Sha256::new();
+    hasher.update(&[input,salt].concat());
+    hasher.finish()
+}
+
+pub fn create_user(user:UserData){
+    let mut rng=thread_rng();
+    let salt:[u8;SALT_LENGHT]=rng.gen();
+
+    let password_in_bytes=bincode::serialize(user.password).unwrap();
+
+    let hash=hash(&password_in_bytes,&salt);
+
+    todo!();
+    // TODO
+    // insert model into db
+    // releationship
+    
+    
+}

@@ -1,3 +1,4 @@
+# should be seperated into parts
 psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
   BEGIN;
 	CREATE TABLE user_table(
@@ -17,6 +18,11 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
 		key bytea NOT NULL,
 		data bytea NOT NULL
 	);
+	CREATE TABLE session_table(
+		id SERIAL NOT NULL PRIMARY KEY, 
+		key VARCHAR(64),
+		data bytea NOT NULL
+	);
 	CREATE TABLE question_table(
 		id SERIAL NOT NULL PRIMARY KEY,
 		title VARCHAR(128) DEFAULT '',
@@ -26,6 +32,15 @@ psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
 		id SERIAL NOT NULL PRIMARY KEY,
 		CONSTRAINT FK_user FOREIGN KEY (id) REFERENCES user_table(id),
 		CONSTRAINT FK_question FOREIGN KEY (id) REFERENCES question_table(id)
+	);
+	CREATE TABLE group_table(
+		id VARCHAR(32) NOT NULL PRIMARY KEY,
+		data bytea NOT NULL
+	);
+	CREATE TABLE group_user(
+		id SERIAL NOT NULL PRIMARY KEY,
+		CONSTRAINT FK_user FOREIGN KEY (id) REFERENCES user_table(id),
+		CONSTRAINT FK_group FOREIGN KEY (id) REFERENCES group_table(id)
 	);
   COMMIT;
 EOSQL

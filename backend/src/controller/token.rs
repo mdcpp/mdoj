@@ -1,4 +1,5 @@
-use crate::entity::{prelude::TokenTable as Token, token_table as token};
+use entity::{prelude::TokenTable as Token, token_table as token};
+use entity::{prelude::SessionTable as Session, session_table as session};
 use bincode;
 use lru::LruCache;
 use openssl::{aes, base64, symm::Mode};
@@ -12,10 +13,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+const CacheSize: usize = 1000;
 const TTL: i64 = 3600;
-type TTLType = i64;
+type TimeType = i64;
 type RandomType = [u8; 32];
 type TokenType = (i32, RandomType);
+type CounterType=i32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TokenData {
@@ -24,25 +27,30 @@ pub struct TokenData {
 
 pub struct TokenState<'a> {
     counter: AtomicI32,
-    cache: Mutex<LruCache<(i32, RandomType), (TTLType, TokenData)>>,
+    cache: Mutex<LruCache<(CounterType, RandomType), (TimeType, TokenData)>>,
     conn: &'a DatabaseConnection,
 }
 
 impl<'a> TokenState<'a> {
-    pub fn new(conn: &'a DatabaseConnection) -> Self {
+    pub async fn new(conn: &'a DatabaseConnection) -> TokenState<'a> {
+        let session=Session::find().filter(session::Column::Key.eq("TokenStateCounter")).one(conn).await.unwrap();
+        let mut counter:CounterType=0;
+        if let Some(x) = session{
+            counter=bincode::deserialize(&x.data).unwrap();
+        }
         TokenState {
-            counter: AtomicI32::new(0),
-            cache: Mutex::new(LruCache::new(1000)),
+            counter: AtomicI32::new(counter),//TODO: retrieve counter from "session_table"
+            cache: Mutex::new(LruCache::new(CacheSize)),
             conn: &conn,
         }
     }
 }
 
-fn get_time() -> TTLType {
+fn get_time() -> TimeType {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs() as TTLType
+        .as_secs() as TimeType
 }
 
 pub async fn issue<'a>(state: &TokenState<'a>, data: TokenData) -> String {

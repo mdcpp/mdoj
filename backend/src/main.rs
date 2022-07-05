@@ -1,7 +1,6 @@
 use actix_web::{middleware, web::Data, App, HttpServer};
 mod config;
 mod controller;
-mod entity;
 mod route;
 mod state;
 use std::env;

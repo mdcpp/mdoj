@@ -1,3 +1,4 @@
+// this module is used for initing config(if config file not exist, create one)
 use rand::prelude::*;
 use std::{fs, io::Write, path};
 
