@@ -70,19 +70,19 @@ pub async fn issue<'a>(state: &TokenState<'a>, data: TokenData) -> String {
 
     let base64 = base64::encode_block(&[count_in_bytes, seed.to_vec()].concat());
 
-    state 
-        .cache
-        .lock()
-        .unwrap()
-        .put((count, seed), (now + TTL, data));
-
     let h=(token::ActiveModel {
         id: Set(count),
         key: Set(seed.to_vec()),
         data: Set(payload),
         ttl: Set(now + TTL),
-        // FK_user:Set(data.user_pkey)
+        user_id: Set(data.user_pkey),
     }).insert(state.conn).await.unwrap();
+
+    state 
+        .cache
+        .lock()
+        .unwrap()
+        .put((count, seed), (now + TTL, data));
 
     base64
 }

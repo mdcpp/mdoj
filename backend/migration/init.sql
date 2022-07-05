@@ -34,7 +34,7 @@ CREATE TABLE question_user(
 	CONSTRAINT FK_question FOREIGN KEY (question_id) REFERENCES question_table(id)
 );
 CREATE TABLE group_table(
-	id VARCHAR(32) NOT NULL PRIMARY KEY,
+	id SERIAL NOT NULL PRIMARY KEY,
 	data bytea NOT NULL
 );
 CREATE TABLE group_user(

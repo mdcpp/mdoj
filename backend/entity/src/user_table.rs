@@ -10,6 +10,7 @@ pub struct Model {
     pub create_time: Option<Date>,
     pub update_time: Option<Date>,
     pub name_user: String,
+    pub privilege: i32,
     pub hashed_password: Vec<u8>,
     pub salt: Vec<u8>,
     pub description: Option<String>,
@@ -17,17 +18,17 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::group_user::Entity")]
-    GroupUser,
-    #[sea_orm(has_many = "super::question_user::Entity")]
-    QuestionUser,
     #[sea_orm(has_many = "super::token_table::Entity")]
     TokenTable,
+    #[sea_orm(has_many = "super::question_user::Entity")]
+    QuestionUser,
+    #[sea_orm(has_many = "super::group_user::Entity")]
+    GroupUser,
 }
 
-impl Related<super::group_user::Entity> for Entity {
+impl Related<super::token_table::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::GroupUser.def()
+        Relation::TokenTable.def()
     }
 }
 
@@ -37,9 +38,9 @@ impl Related<super::question_user::Entity> for Entity {
     }
 }
 
-impl Related<super::token_table::Entity> for Entity {
+impl Related<super::group_user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::TokenTable.def()
+        Relation::GroupUser.def()
     }
 }
 

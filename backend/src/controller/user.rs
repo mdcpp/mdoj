@@ -48,5 +48,4 @@ pub async fn create_user<'a>(state:&Userstate<'a>,user:UserData<'a>){
         ..Default::default()
     }).insert(state.conn).await.unwrap();
 
-    
 }

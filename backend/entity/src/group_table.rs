@@ -7,8 +7,6 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub create_time: Option<Date>,
-    pub update_time: Option<Date>,
     pub data: Vec<u8>,
 }
 

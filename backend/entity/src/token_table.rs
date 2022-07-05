@@ -7,6 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub user_id: i32,
     pub ttl: i64,
     pub key: Vec<u8>,
     pub data: Vec<u8>,
@@ -16,7 +17,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::user_table::Entity",
-        from = "Column::Id",
+        from = "Column::UserId",
         to = "super::user_table::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"

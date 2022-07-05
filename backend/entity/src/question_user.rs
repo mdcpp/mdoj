@@ -7,13 +7,15 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub user_id: i32,
+    pub question_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::question_table::Entity",
-        from = "Column::Id",
+        from = "Column::QuestionId",
         to = "super::question_table::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
@@ -21,7 +23,7 @@ pub enum Relation {
     QuestionTable,
     #[sea_orm(
         belongs_to = "super::user_table::Entity",
-        from = "Column::Id",
+        from = "Column::UserId",
         to = "super::user_table::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
