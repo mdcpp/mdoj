@@ -5,10 +5,6 @@ edition = "2021"
 publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-name = "entity"
-path = "src/lib.rs"
-
 [dependencies]
 actix-web = "4"
 futures = "0.3"

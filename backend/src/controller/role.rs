@@ -1,26 +1,28 @@
 use bincode;
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 
+use entity::{group_table as group, prelude::GroupTable as Group};
 
 pub enum Role {
     Admin,
-    User
+    User,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RoleData{
-    create_problem:bool,
-    create_contest:bool,
-    create_user:bool,
-    delete_problem:bool,
-    delete_contest:bool,
-    delete_user:bool,
+pub struct RoleData {
+    create_problem: bool,
+    create_contest: bool,
+    create_user: bool,
+    delete_problem: bool,
+    delete_contest: bool,
+    delete_user: bool,
 }
 
-impl Role{
-    pub fn to_data(&self)->RoleData{
-        match self{
-            Role::Admin => RoleData{
+impl Role {
+    pub fn to_data(&self) -> RoleData {
+        match self {
+            Role::Admin => RoleData {
                 create_problem: true,
                 create_contest: true,
                 create_user: true,
@@ -28,9 +30,9 @@ impl Role{
                 delete_contest: true,
                 delete_user: true,
             },
-            Role::User => RoleData{
+            Role::User => RoleData {
                 create_problem: false,
-                create_contest:false,
+                create_contest: false,
                 create_user: false,
                 delete_problem: false,
                 delete_contest: false,
@@ -38,7 +40,14 @@ impl Role{
             },
         }
     }
-    pub fn to_binary(&self)->Vec<u8>{
+    pub fn to_binary(&self) -> Vec<u8> {
         bincode::serialize(&self.to_data()).unwrap()
     }
+}
+
+pub async fn init_role(conn: &DatabaseConnection) {
+    //TODO
+    //get data of role
+
+
 }

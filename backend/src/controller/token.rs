@@ -1,6 +1,6 @@
-use entity::{prelude::TokenTable as Token, token_table as token};
-use entity::{prelude::SessionTable as Session, session_table as session};
 use bincode;
+use entity::{prelude::SessionTable as Session, session_table as session};
+use entity::{prelude::TokenTable as Token, token_table as token};
 use lru::LruCache;
 use openssl::{aes, base64, symm::Mode};
 use rand::prelude::*;
@@ -18,7 +18,7 @@ const TTL: i64 = 3600;
 type TimeType = i64;
 type RandomType = [u8; 32];
 type TokenType = (i32, RandomType);
-type CounterType=i32;
+type CounterType = i32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TokenData {
@@ -35,13 +35,17 @@ impl<'a> TokenState<'a> {
     pub async fn new(conn: &'a DatabaseConnection) -> TokenState<'a> {
         // delete all token when init
         token::Entity::delete_many().exec(conn).await.unwrap();
-        let session=Session::find().filter(session::Column::Key.eq("TokenStateCounter")).one(conn).await.unwrap();
-        let mut counter:CounterType=0;
-        if let Some(x) = session{
-            counter=bincode::deserialize(&x.data).unwrap();
+        let session = Session::find()
+            .filter(session::Column::Key.eq("TokenStateCounter"))
+            .one(conn)
+            .await
+            .unwrap();
+        let mut counter: CounterType = 0;
+        if let Some(x) = session {
+            counter = bincode::deserialize(&x.data).unwrap();
         }
         TokenState {
-            counter: AtomicI32::new(counter),//TODO: retrieve counter from "session_table"
+            counter: AtomicI32::new(counter), //TODO: retrieve counter from "session_table"
             cache: Mutex::new(LruCache::new(CacheSize)),
             conn: &conn,
         }
@@ -70,15 +74,18 @@ pub async fn issue<'a>(state: &TokenState<'a>, data: TokenData) -> String {
 
     let base64 = base64::encode_block(&[count_in_bytes, seed.to_vec()].concat());
 
-    let h=(token::ActiveModel {
+    let h = (token::ActiveModel {
         id: Set(count),
+        user_id: Set(data.user_pkey),
+        ttl: Set(now + TTL),
         key: Set(seed.to_vec()),
         data: Set(payload),
-        ttl: Set(now + TTL),
-        user_id: Set(data.user_pkey),
-    }).insert(state.conn).await.unwrap();
+    })
+    .insert(state.conn)
+    .await
+    .unwrap();
 
-    state 
+    state
         .cache
         .lock()
         .unwrap()

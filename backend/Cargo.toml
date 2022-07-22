@@ -19,7 +19,7 @@ entity = { path = "./entity" }
 
 [dependencies.sea-orm]
 version = "0.8"
-features = ["sqlx-postgres", "runtime-actix-rustls", "macros", "mock","sqlx-sqlite"]
+features = ["sqlx-postgres", "runtime-actix-rustls", "macros", "mock", "sqlx-sqlite"]
 
 [dependencies.openssl]
 version = "0.10"
