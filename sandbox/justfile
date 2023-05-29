@@ -1,0 +1,26 @@
+build-plugin:
+    docker export $(docker create nickblah/lua:5.2.4-luarocks-jammy) | tar -C plugins/lua-5.2/rootfs -xvf -
+    docker export $(docker create gcc:12.3-bullseye) | tar -C plugins/gcc-12.3/rootfs -xvf -
+
+build-nsjail:
+    cd nsjail-sys/nsjail && make
+
+install-deps-debian:
+    echo "todo!()"
+
+install-deps-fedora:
+    echo "todo!()"
+
+prepare:
+    mkdir -p temp
+    mkdir -p log
+    touch log/sandbox.log
+    touch log/nsjail.log
+
+test:
+    rm -rf temp/* 
+    cargo test --target-dir sudo-target -- --nocapture
+
+run:
+    rm -rf temp/* 
+    cargo run --target-dir sudo-target

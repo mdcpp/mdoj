@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+message Plugin {
+  string extension = 1;
+  string description = 2;
+  string uuid = 4;
+}
+
+message ListRequest{}
+message ListResponse{
+    repeated Plugin plugins = 1;
+}
+
+message Task{
+    bytes input = 1;
+    bytes output = 2;
+    ExamMethod method = 3 ;
+}
+
+message JudgeRequest{
+    bytes source = 2;
+    repeated Task tasks = 9;
+    int64 memory = 6;
+    uint64 cpu_us = 7;
+    string uuid = 8;
+}
+message JudgeResponse{
+    JudgeStatus status = 2;
+    optional uint32 finished = 4;
+    optional uint64 time = 3;
+}
+
+enum JudgeStatus{
+    TimeLimitExcess = 0;
+    MemoryLimitExcess = 1;
+    RuntimeError = 2;
+    CompileError = 3;
+    Panic = 4;
+    NotFound = 5;
+    Accepted = 6;
+    WrongAnswer = 7;
+    Compiling = 9;
+    Running = 8;
+}
+
+enum ExamMethod{
+    ExactlySame = 0;
+}
+
+service PluginProvider {
+    rpc List(ListRequest) returns (ListResponse);
+    rpc Judge(JudgeRequest) returns (stream JudgeResponse);
+}
