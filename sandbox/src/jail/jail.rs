@@ -1,9 +1,16 @@
 use std::{
     path::{Path, PathBuf},
-    sync::atomic::{AtomicI64, Ordering},
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Mutex,
+    },
 };
 
-use super::{limit::LimitReason, Error};
+use super::{
+    limit::LimitReason,
+    resource::{ResourceCounter, ResourceCounterInner, ResourceGuard},
+    Error,
+};
 use std::process::Stdio;
 use tokio::{
     fs,
@@ -44,19 +51,22 @@ impl Limit {
 }
 
 pub struct Prison {
-    counter: AtomicI64,
+    id_counter: AtomicI64,
+    resource: ResourceCounter,
     tmp: PathBuf,
 }
 
 impl Prison {
     pub fn new(tmp: impl AsRef<Path>) -> Self {
+        let config = CONFIG.get().unwrap();
         Self {
-            counter: Default::default(),
+            id_counter: Default::default(),
+            resource: ResourceCounter::new(config.runtime.available_memory),
             tmp: tmp.as_ref().to_path_buf(),
         }
     }
     pub async fn create<'a>(&'a self, root: impl AsRef<Path>) -> Result<Cell<'a>, Error> {
-        let id = self.counter.fetch_add(1, Ordering::Release).to_string();
+        let id = self.id_counter.fetch_add(1, Ordering::Release).to_string();
         let container_root = self.tmp.join(id.clone());
 
         fs::create_dir(container_root.clone()).await?;
@@ -87,11 +97,15 @@ impl<'a> Drop for Cell<'a> {
 }
 
 impl<'a> Cell<'a> {
-    pub fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<Process, Error> {
+    pub async fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<Process, Error> {
         log::debug!("preparing Cell");
         let config = CONFIG.get().unwrap();
 
         let cgroup_name = format!("modj/{}", self.id);
+
+        let reversed_memory = limit.user_mem + limit.kernel_mem;
+
+        let resource_guard = self.controller.resource.allocate(reversed_memory).await;
 
         let mem_limit: MemLimit = MemLimit {
             user: limit.user_mem,
@@ -165,13 +179,18 @@ impl<'a> Cell<'a> {
 
         let process = Some(process);
 
-        Ok(Process { process, limiter })
+        Ok(Process {
+            process,
+            limiter,
+            resource_guard,
+        })
     }
 }
 
-pub struct Process {
+pub struct Process<'a> {
     process: Option<Child>,
     limiter: Limiter,
+    resource_guard: ResourceGuard<'a>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -191,7 +210,7 @@ impl ProcessStatus {
     }
 }
 
-impl Drop for Process {
+impl<'a> Drop for Process<'a> {
     fn drop(&mut self) {
         let mut process = self.process.take().unwrap();
         tokio::spawn(async move {
@@ -201,7 +220,7 @@ impl Drop for Process {
     }
 }
 
-impl Process {
+impl<'a> Process<'a> {
     pub fn stdin(&mut self) -> Option<ChildStdin> {
         self.process.as_mut().unwrap().stdin.take()
     }
@@ -263,33 +282,35 @@ mod test {
     async fn exec() {
         crate::init::new().await;
 
-        let prison = Prison::new("temp");
-        let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
+        {
+            let prison = Prison::new("temp");
+            let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
 
-        let mut process = cell
-            .execute(
-                &vec!["/usr/local/bin/lua", "/test.lua"],
-                Limit {
-                    cpu_us: 3 * 1000 * 1000,
-                    rt_us: 3 * 1000 * 1000,
-                    total_us: 3 * 1000 * 1000,
-                    swap_user: 0,
-                    kernel_mem: 128 * 1024 * 1024,
-                    user_mem: 512 * 1024 * 1024,
-                    lockdown: false,
-                },
-            )
-            .unwrap();
+            let mut process = cell
+                .execute(
+                    &vec!["/usr/local/bin/lua", "/test.lua"],
+                    Limit {
+                        cpu_us: 3 * 1000 * 1000,
+                        rt_us: 3 * 1000 * 1000,
+                        total_us: 3 * 1000 * 1000,
+                        swap_user: 0,
+                        kernel_mem: 128 * 1024 * 1024,
+                        user_mem: 512 * 1024 * 1024,
+                        lockdown: false,
+                    },
+                )
+                .await
+                .unwrap();
 
-        let status = process.wait().await;
+            let status = process.wait().await;
 
-        assert!(status.succeed());
+            assert!(status.succeed());
 
-        let out = process.read_all().await.unwrap();
-        assert_eq!(out, b"hello world\n");
+            let out = process.read_all().await.unwrap();
+            assert_eq!(out, b"hello world\n");
+        }
 
         // unlike async-std, tokio won't wait for all background task to finish before exit
-        drop(cell);
         time::sleep(time::Duration::from_millis(12)).await;
     }
 }

@@ -3,6 +3,7 @@ use thiserror::Error;
 pub mod cpuacct;
 pub mod jail;
 pub mod limit;
+pub mod resource;
 
 #[derive(Error, Debug)]
 pub enum Error {

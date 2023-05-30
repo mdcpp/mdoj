@@ -12,8 +12,8 @@ use tokio::{process::Child, sync::oneshot, task::JoinHandle, time};
 
 use super::cpuacct::{CpuAcct, CpuStatKey};
 
-const INTERVAL: u64 = 300 * 1000; // 300ms
-const ACCURACY: u64 = 20; // 15ms
+const INTERVAL: u64 = 100 * 1000; // 100ms
+const ACCURACY: u64 = 10; // 10ms
 
 #[derive(Clone, Debug, Default)]
 pub struct CpuLimit {
@@ -228,5 +228,4 @@ impl State {
 #[derive(Default)]
 struct LimitCounter {
     round: usize,
-    previous: CpuLimit,
 }

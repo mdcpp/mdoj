@@ -48,9 +48,11 @@ pub struct Judge<'a> {
 
 impl<'a> Judge<'a> {
     pub async fn compile(&self, source_code: Vec<u8>) -> Option<()> {
-        let mut proc = report!(self
-            .cell
-            .execute(&self.spec.compile.args(), self.spec.compile.limit()));
+        let mut proc = report!(
+            self.cell
+                .execute(&self.spec.compile.args(), self.spec.compile.limit())
+                .await
+        );
 
         report!(proc.write_all(source_code).await);
 
@@ -79,10 +81,14 @@ impl<'a> Judge<'a> {
         }
     }
     pub async fn execute_task(&self, input: Vec<u8>) -> Option<TaskChecker> {
-        let mut proc = report!(self.cell.execute(
-            &self.spec.compile.args(),
-            self.spec.execute.limit(self.limit.cpu_us, self.limit.mem)
-        ));
+        let mut proc = report!(
+            self.cell
+                .execute(
+                    &self.spec.compile.args(),
+                    self.spec.execute.limit(self.limit.cpu_us, self.limit.mem)
+                )
+                .await
+        );
 
         report!(proc.write_all(input).await);
 

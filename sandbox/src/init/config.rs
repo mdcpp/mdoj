@@ -55,7 +55,7 @@ impl Default for Plugin {
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
     pub temp: String,
-    pub available_memory: u64,
+    pub available_memory: i64,
     pub bind: String,
 }
 

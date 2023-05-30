@@ -6,14 +6,14 @@ uuid = "f060f3c5-b2b2-46be-97ba-a128e5922aee" # be sure it's unique
 
 [compile]
 command = ["lua", "/compile.lua"]
-kernel_mem = 16777216
-user_mem = 33554432
+kernel_mem = 67108864
+user_mem = 268435456
 rt_time = 1000000
 cpu_time = 10000000
 
 [execute]
 command = ["lua", "/execute.lua"]
-kernel_mem = 16777216
+kernel_mem = 67108864
 multiplier_memory = 6 # user_mem
 rt_time = 100000
 multiplier_cpu = 3 # cpu_time
