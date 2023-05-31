@@ -2,7 +2,9 @@
 
 use std::{collections::VecDeque, sync::Mutex};
 
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time};
+
+use crate::init::config::CONFIG;
 
 pub struct ResourceCounter(Mutex<ResourceCounterInner>);
 
@@ -14,7 +16,20 @@ impl ResourceCounter {
         }))
     }
     pub async fn allocate(&self, memory: i64) -> ResourceGuard {
-        let rx={
+        let config = CONFIG.get().unwrap();
+
+        if memory > config.runtime.available_memory {
+            log::error!(
+                "Unable to preserve(allocate) {}B memory out of {}B, sandbox's process stall.",
+                memory,
+                config.runtime.available_memory
+            );
+            loop {
+                time::sleep(time::Duration::from_secs(3600)).await;
+            }
+        }
+
+        let rx = {
             let mut self_lock = self.0.lock().unwrap();
 
             let (tx, rx) = oneshot::channel();
@@ -37,7 +52,7 @@ impl ResourceCounter {
         let mut self_lock = &mut *self.0.lock().unwrap();
 
         self_lock.memory += de_memory;
-        if let Some((memory, channel)) = self_lock.queue.front() {
+        if let Some((memory, _)) = self_lock.queue.front() {
             if memory < &self_lock.memory {
                 self_lock.memory -= memory;
                 let (_, channel) = self_lock.queue.pop_front().unwrap();
