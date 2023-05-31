@@ -6,27 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["migration"]
 
 [dependencies]
-actix-web = "4"
-rand = "0.8"
-bincode = "1.0"
-serde_json = "1.0"
-lru = "0.7"
-futures = "0.3"
-entity = { path = "./entity" }
+moka = "0.11.1"
+prost = "0.11.9"
 
 [dependencies.sea-orm]
-version = "0.8"
+version = "0.11.3"
 features = ["sqlx-postgres", "runtime-actix-rustls", "macros", "mock", "sqlx-sqlite"]
+
+[dependencies.tonic]
+version = "0.9.2"
+features = ["transport","channel","codegen","tls","prost"]
 
 [dependencies.openssl]
 version = "0.10"
 # vendored feature was required to compile musl rust, enable vendored result in long compile time
 # features = ["vendored"]
-
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
 
