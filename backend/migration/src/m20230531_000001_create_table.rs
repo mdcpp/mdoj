@@ -14,7 +14,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(User::Id)
                             .integer()
                             .auto_increment()
-                            .primary_key().not_null(),
+                            .primary_key()
+                            .not_null(),
                     )
                     .col(ColumnDef::new(User::Name).char().not_null())
                     .col(ColumnDef::new(User::HashPwd).binary().not_null())
@@ -30,7 +31,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Token::Id)
                             .integer()
                             .auto_increment()
-                            .primary_key().not_null(),
+                            .primary_key()
+                            .not_null(),
                     )
                     .col(ColumnDef::new(Token::Content).big_integer().not_null())
                     .col(ColumnDef::new(Token::UserId).integer().not_null())
@@ -51,7 +53,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Group::Id)
                             .integer()
                             .auto_increment()
-                            .primary_key().not_null(),
+                            .primary_key()
+                            .not_null(),
                     )
                     .col(ColumnDef::new(Group::Name).char())
                     .col(ColumnDef::new(Group::OwnerId).integer().not_null())
@@ -72,7 +75,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(UserGroup::Id)
                             .integer()
                             .auto_increment()
-                            .primary_key().not_null(),
+                            .primary_key()
+                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(UserGroup::Permission)

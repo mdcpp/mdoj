@@ -1,4 +1,4 @@
-pub mod model;
 pub mod entities;
+pub mod model;
 
 fn main() {}

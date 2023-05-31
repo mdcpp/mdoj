@@ -10,7 +10,7 @@ pub struct Model {
     pub name: Option<String>,
     pub owner_id: i32,
 }
- 
+
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
