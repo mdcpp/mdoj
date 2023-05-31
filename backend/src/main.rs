@@ -1,5 +1,3 @@
 pub mod model;
 
-fn main(){
-
-}
+fn main() {}

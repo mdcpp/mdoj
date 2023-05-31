@@ -33,7 +33,63 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Token::Content).big_integer().not_null())
-                    .col(ColumnDef::new(Token::Permission).big_integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user")
+                            .from(Token::Table, Token::UserId)
+                            .to(User::Table, User::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(Group::Table)
+                    .col(
+                        ColumnDef::new(Group::Id)
+                            .integer()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Group::Name).char())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user")
+                            .from(Group::Table, Group::OwnerId)
+                            .to(User::Table, User::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(UserGroup::Table)
+                    .col(
+                        ColumnDef::new(UserGroup::Id)
+                            .integer()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(UserGroup::Permission)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user")
+                            .from(UserGroup::Table, UserGroup::UserId)
+                            .to(User::Table, User::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-user")
+                            .from(UserGroup::Table, UserGroup::GroupId)
+                            .to(Group::Table, Group::Id),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -41,7 +97,15 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        todo!();
+        manager
+            .drop_table(Table::drop().table(User::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Token::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Group::Table).to_owned())
+            .await?;
         Ok(())
     }
 }
@@ -61,5 +125,22 @@ enum Token {
     Table,
     Id,
     Content,
+    UserId,
+}
+
+#[derive(Iden)]
+enum Group {
+    Table,
+    Id,
+    OwnerId,
+    Name,
+}
+
+#[derive(Iden)]
+enum UserGroup {
+    Table,
+    Id,
+    UserId,
+    GroupId,
     Permission,
 }
