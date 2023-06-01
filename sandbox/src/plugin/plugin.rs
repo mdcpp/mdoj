@@ -38,22 +38,25 @@ impl PluginServer {
     }
 }
 
+
 macro_rules! report {
-    ($e:expr,$s:expr,$tx:expr) => {
+    ($tx:ident,$e:expr) => {
+        if $tx.send(Result::<_, Status>::Ok($e)).await.is_err() {
+            log::warn!("gRPC client close stream before finished");
+        };
+    };
+}
+
+macro_rules! report_on_none {
+    ($e:expr,$s:expr,$tx:ident) => {
         match $e {
             Some(x) => x,
             None => {
-                if $tx
-                    .send(Result::<_, Status>::Ok(JudgeResponse {
-                        status: $s as i32,
-                        time: None,
-                        finished: None,
-                    }))
-                    .await
-                    .is_err()
-                {
-                    log::warn!("gRPC client close stream before finished");
-                };
+                report!($tx,JudgeResponse {
+                    status: $s as i32,
+                    time: None,
+                    finished: None,
+                });
                 return ();
             }
         }
@@ -95,15 +98,15 @@ impl PluginProvider for PluginServer {
         };
 
         tokio::spawn(async move {
-            let spec = report!(inner.plugins.get(&request.uuid), JudgeStatus::NotFound, tx);
+            let spec = report_on_none!(inner.plugins.get(&request.uuid), JudgeStatus::NotFound, tx);
 
-            let judge = report!(
+            let judge = report_on_none!(
                 inner.judger.create(spec, limit).await,
                 JudgeStatus::CompileError,
                 tx
             );
 
-            report!(
+            report_on_none!(
                 judge.compile(request.source).await,
                 JudgeStatus::CompileError,
                 tx
@@ -113,7 +116,17 @@ impl PluginProvider for PluginServer {
 
             for task in request.tasks {
                 i += 1;
-                let checker = report!(
+
+                report!(
+                    tx,
+                    JudgeResponse {
+                        status: JudgeStatus::Running as i32,
+                        finished: Some(i),
+                        time: None,
+                    }
+                );
+
+                let checker = report_on_none!(
                     judge.execute_task(task.input).await,
                     JudgeStatus::RuntimeError,
                     tx
@@ -128,27 +141,29 @@ impl PluginProvider for PluginServer {
 
                 let time = Some(checker.cpu_usage.total_us);
 
-                let status = match checker.check(task.output, method) {
-                    true => JudgeStatus::Accepted,
-                    false => JudgeStatus::WrongAnswer,
+                match checker.check(task.output, method) {
+                    true => {
+                        report!(
+                            tx,
+                            JudgeResponse {
+                                status: JudgeStatus::Accepted as i32,
+                                finished: Some(i),
+                                time,
+                            }
+                        );
+                    }
+                    false => {
+                        report!(
+                            tx,
+                            JudgeResponse {
+                                status: JudgeStatus::WrongAnswer as i32,
+                                finished: Some(i),
+                                time,
+                            }
+                        );
+                        break;
+                    }
                 };
-
-                if tx
-                    .send(Ok(JudgeResponse {
-                        status: status as i32,
-                        finished: Some(i),
-                        time,
-                    }))
-                    .await
-                    .is_err()
-                {
-                    log::warn!("gRPC client close stream before finished");
-                    break;
-                };
-
-                if status != JudgeStatus::Accepted {
-                    break;
-                }
             }
         });
 

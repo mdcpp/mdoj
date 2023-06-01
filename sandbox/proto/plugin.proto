@@ -41,6 +41,7 @@ enum JudgeStatus{
     WrongAnswer = 7;
     Compiling = 9;
     Running = 8;
+    InsufficientResource = 10;
 }
 
 enum ExamMethod{
