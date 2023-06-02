@@ -7,6 +7,9 @@ dev-frontend:
 dev-backend:
     cd ./backend && cargo run
 
+dev-sandbox:
+    cd sandbox && sudo just test
+
 clean:
     cd ./frontend && yarn cache clean
     cd ./backend && cargo clean
