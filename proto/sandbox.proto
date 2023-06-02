@@ -22,7 +22,7 @@ message JudgeRequest{
 }
 message JudgeResponse{
     JudgeStatus status = 2;
-    optional uint32 finished = 4;
+    optional uint32 task = 5;
     optional uint64 time = 3;
 }
 

@@ -41,7 +41,7 @@ impl PluginServer {
 macro_rules! report {
     ($tx:ident,$e:expr) => {
         if $tx.send(Result::<_, Status>::Ok($e)).await.is_err() {
-            log::warn!("gRPC client close stream before finished");
+            log::warn!("gRPC client close stream before task");
         };
     };
 }
@@ -56,7 +56,7 @@ macro_rules! report_status {
                     JudgeResponse {
                         status: x as i32,
                         time: None,
-                        finished: None,
+                        task: None,
                     }
                 );
                 return ();
@@ -110,6 +110,15 @@ impl PluginProvider for PluginServer {
                 tx
             );
 
+            report!(
+                tx,
+                JudgeResponse {
+                    status: JudgeStatus::Compiling as i32,
+                    task: None,
+                    time: None,
+                }
+            );
+
             let judge = report_status!(inner.judger.create(spec, limit).await, tx);
 
             report_status!(judge.compile(request.source).await, tx);
@@ -123,7 +132,7 @@ impl PluginProvider for PluginServer {
                     tx,
                     JudgeResponse {
                         status: JudgeStatus::Running as i32,
-                        finished: Some(i),
+                        task: Some(i),
                         time: None,
                     }
                 );
@@ -145,7 +154,7 @@ impl PluginProvider for PluginServer {
                             tx,
                             JudgeResponse {
                                 status: JudgeStatus::Accepted as i32,
-                                finished: Some(i),
+                                task: Some(i),
                                 time,
                             }
                         );
@@ -155,7 +164,7 @@ impl PluginProvider for PluginServer {
                             tx,
                             JudgeResponse {
                                 status: JudgeStatus::WrongAnswer as i32,
-                                finished: Some(i),
+                                task: Some(i),
                                 time,
                             }
                         );
