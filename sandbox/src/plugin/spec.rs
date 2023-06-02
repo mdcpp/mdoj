@@ -41,7 +41,7 @@ impl PluginSpec {
         let mut paths = fs::read_dir(path).await?;
 
         while let Some(path) = paths.next_entry().await? {
-            if path.metadata().await?.is_dir() {
+            if path.metadata().await?.is_dir()&&path.path().join("spec.toml").exists() {
                 let spec = PluginSpec::from_file(path.path()).await?;
                 btree.insert(spec.uuid.clone(), spec);
             }
