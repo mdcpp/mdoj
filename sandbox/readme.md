@@ -20,3 +20,11 @@ After that, build this crate(``cargo build --release``).
 ## How to develop a plugin?
 
 Follow guide in ``/plugins/readme.md``
+
+## Setup
+
+### Standalone
+
+### Docker
+
+config.toml need to specify the host path instead of the container path.

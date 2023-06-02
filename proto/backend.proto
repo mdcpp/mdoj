@@ -1,0 +1,17 @@
+syntax = "proto3";
+import public "sandbox.proto";
+
+message Token { uint64 content = 1; }
+
+message GroupPerm {
+  bool create_problem = 1;
+  bool edit_problem = 2;
+  bool delete_problem = 3;
+  bool create_edu = 4;
+  bool edit_edu = 5;
+  bool delete_edu = 6;
+  bool add_user = 7;
+}
+
+
+
