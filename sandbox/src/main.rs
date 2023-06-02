@@ -12,7 +12,7 @@ async fn main() {
     let config = CONFIG.get().unwrap();
     let addr = config.runtime.bind.parse().unwrap();
 
-    let plugin_provider = plugin::plugin::PluginServer::new().await;
+    let plugin_provider = plugin::plugin::LangJudger::new().await;
 
     log::info!("Server started");
     Server::builder()

@@ -6,7 +6,7 @@ use crate::jail::{
     resource::ResourceUsage,
 };
 
-use super::{spec::PluginSpec, JudgeStatus};
+use super::{spec::LangSpec, JudgeStatus};
 
 macro_rules! report {
     ($e:expr,$s:ident) => {
@@ -32,11 +32,11 @@ impl Judger {
     }
     pub async fn create<'a>(
         &'a self,
-        spec: &'a PluginSpec,
+        spec: &'a LangSpec,
         limit: Limit,
-    ) -> Result<Judge<'a>, JudgeStatus> {
+    ) -> Result<Task<'a>, JudgeStatus> {
         let cell = report!(self.prison.create(spec.root()).await, Panic);
-        Ok(Judge { limit, spec, cell })
+        Ok(Task { limit, spec, cell })
     }
     pub fn usage(&self) -> ResourceUsage {
         self.prison.usage()
@@ -48,13 +48,13 @@ pub struct Limit {
     pub mem: i64,
 }
 
-pub struct Judge<'a> {
+pub struct Task<'a> {
     limit: Limit,
-    spec: &'a PluginSpec,
+    spec: &'a LangSpec,
     cell: Cell<'a>,
 }
 
-impl<'a> Judge<'a> {
+impl<'a> Task<'a> {
     pub async fn compile(&self, source_code: Vec<u8>) -> Result<(), JudgeStatus> {
         let mut proc = report!(
             self.cell
@@ -89,7 +89,7 @@ impl<'a> Judge<'a> {
             false => JudgeStatus::Compiling,
         })
     }
-    pub async fn execute_task(&self, input: Vec<u8>) -> Result<TaskChecker, JudgeStatus> {
+    pub async fn execute_task(&self, input: Vec<u8>) -> Result<TaskResult, JudgeStatus> {
         let mut proc = report!(
             self.cell
                 .execute(
@@ -107,7 +107,7 @@ impl<'a> Judge<'a> {
         let cpu_usage = proc.cpu_usage();
 
         match status.succeed() {
-            true => Ok(TaskChecker {
+            true => Ok(TaskResult {
                 cpu_usage,
                 output: report!(proc.read_all().await, RuntimeError),
             }),
@@ -116,7 +116,7 @@ impl<'a> Judge<'a> {
     }
 }
 
-pub struct TaskChecker {
+pub struct TaskResult {
     pub cpu_usage: CpuLimit,
     output: Vec<u8>,
 }
@@ -128,7 +128,7 @@ pub enum CheckMethod {
     SpaceNewline = 3, // treat one blank, double blank, newline (or a mixture of them) as one space, match non-blank word
 }
 
-impl TaskChecker {
+impl TaskResult {
     pub fn check(&self, out: Vec<u8>, method: CheckMethod) -> bool {
         match method {
             CheckMethod::ExactSame => out.iter().eq(self.output.iter()),

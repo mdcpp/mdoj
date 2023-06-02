@@ -8,32 +8,33 @@ use tonic::{Request, Response, Status};
 use super::{
     judge::{Judger, Limit},
     proto::prelude::*,
-    spec::PluginSpec,
+    spec::LangSpec,
 };
 use plugin_provider_server::PluginProvider;
 
 use crate::{init::config::CONFIG, plugin::judge::CheckMethod};
 
-pub struct PluginServer(Arc<PluginInner>);
 
-pub struct PluginInner {
+pub struct LangJudger(Arc<LangJudgerInner>);
+
+pub struct LangJudgerInner {
     judger: Judger,
-    plugins: BTreeMap<String, PluginSpec>,
+    langs: BTreeMap<String, LangSpec>,
 }
 
-impl PluginServer {
+impl LangJudger {
     pub async fn new() -> Self {
         let config = CONFIG.get().unwrap();
-        let plugins = match PluginSpec::from_root(config.plugin.path.clone()).await {
+        let plugins = match LangSpec::from_root(config.plugin.path.clone()).await {
             Ok(x) => x,
             Err(err) => {
                 log::error!("Error initializing server {}", err);
                 panic!("Fatal error");
             }
         };
-        PluginServer(Arc::new(PluginInner {
+        LangJudger(Arc::new(LangJudgerInner {
             judger: Judger::new(&config.runtime.temp),
-            plugins,
+            langs: plugins,
         }))
     }
 }
@@ -68,12 +69,12 @@ macro_rules! report_status {
 type JudgeStream = Pin<Box<dyn Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
 #[async_trait::async_trait]
-impl PluginProvider for PluginServer {
+impl PluginProvider for LangJudger {
     async fn list(&self, _: Request<ListRequest>) -> Result<Response<ListResponse>, Status> {
         log::trace!("Printing a list of plugins");
         let mut response = Vec::new();
 
-        for (uuid, plugin) in &self.0.plugins {
+        for (uuid, plugin) in &self.0.langs {
             response.push(Plugin {
                 extension: plugin.extension.to_owned(),
                 description: plugin.description.to_owned(),
@@ -104,7 +105,7 @@ impl PluginProvider for PluginServer {
         tokio::spawn(async move {
             let spec = report_status!(
                 inner
-                    .plugins
+                    .langs
                     .get(&request.uuid)
                     .ok_or(super::JudgeStatus::NotFound),
                 tx
@@ -137,7 +138,7 @@ impl PluginProvider for PluginServer {
                     }
                 );
 
-                let checker = report_status!(judge.execute_task(task.input).await, tx);
+                let result = report_status!(judge.execute_task(task.input).await, tx);
 
                 let method: CheckMethod = match task.method {
                     0 => CheckMethod::ExactSame,
@@ -146,9 +147,9 @@ impl PluginProvider for PluginServer {
                     _ => CheckMethod::SpaceNewline,
                 };
 
-                let time = Some(checker.cpu_usage.total_us);
+                let time = Some(result.cpu_usage.total_us);
 
-                match checker.check(task.output, method) {
+                match result.check(task.output, method) {
                     true => {
                         report!(
                             tx,

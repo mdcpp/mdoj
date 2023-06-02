@@ -8,7 +8,7 @@ use crate::{init::config::CONFIG, jail::jail::Limit};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct PluginSpec {
+pub struct LangSpec {
     pub description: String,
     pub extension: String,
     pub uuid: String,
@@ -17,9 +17,9 @@ pub struct PluginSpec {
     pub execute: Execute,
 }
 
-impl PluginSpec {
+impl LangSpec {
     // todo!(): perform spec check
-    pub async fn from_file(path: impl AsRef<Path>) -> Result<PluginSpec, Error> {
+    pub async fn from_file(path: impl AsRef<Path>) -> Result<LangSpec, Error> {
         let mut buf = Vec::new();
 
         log::debug!("Loading Plugin from {}", path.as_ref().to_string_lossy());
@@ -29,20 +29,20 @@ impl PluginSpec {
 
         let spec = std::str::from_utf8(&buf).expect("invaild spec");
 
-        let spec: PluginSpec = toml::from_str(spec)?;
+        let spec: LangSpec = toml::from_str(spec)?;
 
         log::info!("Plugin {} loaded", spec.name);
 
         Ok(spec)
     }
-    pub async fn from_root(path: impl AsRef<Path>) -> Result<BTreeMap<String, PluginSpec>, Error> {
+    pub async fn from_root(path: impl AsRef<Path>) -> Result<BTreeMap<String, LangSpec>, Error> {
         let mut btree = BTreeMap::new();
 
         let mut paths = fs::read_dir(path).await?;
 
         while let Some(path) = paths.next_entry().await? {
             if path.metadata().await?.is_dir()&&path.path().join("spec.toml").exists() {
-                let spec = PluginSpec::from_file(path.path()).await?;
+                let spec = LangSpec::from_file(path.path()).await?;
                 btree.insert(spec.uuid.clone(), spec);
             }
         }
