@@ -70,6 +70,7 @@ type JudgeStream = Pin<Box<dyn Stream<Item = Result<JudgeResponse, Status>> + Se
 #[async_trait::async_trait]
 impl PluginProvider for PluginServer {
     async fn list(&self, _: Request<ListRequest>) -> Result<Response<ListResponse>, Status> {
+        log::trace!("Printing a list of plugins");
         let mut response = Vec::new();
 
         for (uuid, plugin) in &self.0.plugins {
@@ -88,6 +89,7 @@ impl PluginProvider for PluginServer {
         &self,
         request: Request<JudgeRequest>,
     ) -> Result<Response<Self::JudgeStream>, Status> {
+        log::trace!("Running judge");
         let request = request.into_inner();
 
         let (tx, rx) = mpsc::channel(2);
@@ -115,7 +117,7 @@ impl PluginProvider for PluginServer {
             );
 
             let mut i = 0;
- 
+
             for task in request.tasks {
                 i += 1;
 
@@ -175,6 +177,12 @@ impl PluginProvider for PluginServer {
     }
 
     async fn load(&self, _: Request<LoadRequest>) -> Result<Response<LoadResponse>, Status> {
-        todo!()
+        log::trace!("Retrieving plugin server usage");
+        let usage = self.0.judger.usage();
+        Ok(Response::new(LoadResponse {
+            all_available_mem: usage.all_available_mem,
+            available_mem: usage.available_mem,
+            running_task: usage.tasks,
+        }))
     }
 }

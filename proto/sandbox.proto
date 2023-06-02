@@ -53,9 +53,9 @@ enum ExamMethod{
 message LoadRequest{}
 
 message LoadResponse{
-    uint64 available_mem = 1;
+    int64 available_mem = 1;
     uint64 running_task = 2;
-    uint64 all_available_mem = 3;
+    int64 all_available_mem = 3;
 }
 
 service PluginProvider {

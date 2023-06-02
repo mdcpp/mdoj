@@ -19,4 +19,6 @@ pub enum Error {
     Stall,
     #[error("Fail calling cgroup, check subsystem and hier support")]
     CGroup,
+    #[error("Impossible to run the task given the provided resource preservation policy")]
+    InsufficientResource
 }

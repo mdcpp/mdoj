@@ -65,7 +65,7 @@ impl Prison {
             tmp: tmp.as_ref().to_path_buf(),
         }
     }
-    pub fn usage(&self)->ResourceUsage{
+    pub fn usage(&self) -> ResourceUsage {
         self.resource.usage()
     }
     pub async fn create<'a>(&'a self, root: impl AsRef<Path>) -> Result<Cell<'a>, Error> {
@@ -108,7 +108,7 @@ impl<'a> Cell<'a> {
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
-        let resource_guard = self.controller.resource.allocate(reversed_memory).await;
+        let resource_guard = self.controller.resource.allocate(reversed_memory).await?;
 
         let mem_limit: MemLimit = MemLimit {
             user: limit.user_mem,

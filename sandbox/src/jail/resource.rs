@@ -6,10 +6,12 @@ use tokio::{sync::oneshot, time};
 
 use crate::init::config::CONFIG;
 
-pub struct ResourceUsage{
-    pub available_mem:i64,
-    pub all_available_mem:i64,
-    pub tasks:u64,
+use super::Error;
+
+pub struct ResourceUsage {
+    pub available_mem: i64,
+    pub all_available_mem: i64,
+    pub tasks: u64,
 }
 
 pub struct ResourceCounter(Mutex<ResourceCounterInner>);
@@ -18,28 +20,25 @@ impl ResourceCounter {
     pub fn new(memory: i64) -> Self {
         Self(Mutex::new(ResourceCounterInner {
             memory,
-            all_mem:memory,
+            all_mem: memory,
             queue: VecDeque::new(),
             tasks: 0,
         }))
     }
-    pub fn usage(&self)->ResourceUsage{
-        let self_lock=self.0.lock().unwrap();
-        ResourceUsage { available_mem: self_lock.memory, all_available_mem: self_lock.all_mem, tasks:self_lock.tasks }
+    pub fn usage(&self) -> ResourceUsage {
+        let self_lock = self.0.lock().unwrap();
+        ResourceUsage {
+            available_mem: self_lock.memory,
+            all_available_mem: self_lock.all_mem,
+            tasks: self_lock.tasks,
+        }
     }
-    pub async fn allocate(&self, memory: i64) -> ResourceGuard {
+    pub async fn allocate(&self, memory: i64) -> Result<ResourceGuard,Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
         if memory > config.runtime.available_memory {
-            log::error!(
-                "Unable to preserve(allocate) {}B memory out of {}B, sandbox's process stall.",
-                memory,
-                config.runtime.available_memory
-            );
-            loop {
-                time::sleep(time::Duration::from_secs(3600)).await;
-            }
+            return Err(Error::InsufficientResource);
         }
 
         let rx = {
@@ -56,7 +55,7 @@ impl ResourceCounter {
 
         rx.await.unwrap();
 
-        ResourceGuard::new(self, memory)
+        Ok(ResourceGuard::new(self, memory))
     }
     fn deallocate(&self, de_memory: i64) {
         let mut self_lock = &mut *self.0.lock().unwrap();
@@ -74,7 +73,7 @@ impl ResourceCounter {
 
 pub struct ResourceCounterInner {
     memory: i64,
-    all_mem:i64,
+    all_mem: i64,
     queue: VecDeque<(i64, oneshot::Sender<()>)>,
     tasks: u64,
 }
@@ -87,7 +86,10 @@ pub struct ResourceGuard<'a> {
 impl<'a> ResourceGuard<'a> {
     fn new(counter: &'a ResourceCounter, memory: i64) -> Self {
         counter.0.lock().unwrap().tasks += 1;
-        Self { mem: memory, counter }
+        Self {
+            mem: memory,
+            counter,
+        }
     }
 }
 

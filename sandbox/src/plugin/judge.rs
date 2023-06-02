@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::jail::{
     jail::{Cell, Prison},
     limit::CpuLimit,
+    resource::ResourceUsage,
 };
 
 use super::spec::PluginSpec;
@@ -32,6 +33,9 @@ impl Judger {
     pub async fn create<'a>(&'a self, spec: &'a PluginSpec, limit: Limit) -> Option<Judge<'a>> {
         let cell = report!(self.prison.create(spec.root()).await);
         Some(Judge { limit, spec, cell })
+    }
+    pub fn usage(&self) -> ResourceUsage {
+        self.prison.usage()
     }
 }
 
