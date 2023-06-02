@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package sandbox;
+
 message Plugin {
   string extension = 1;
   string description = 2;

@@ -3,5 +3,5 @@ use crate::proto::prelude;
 
 struct ServiceState{
     db:DatabaseConnection,
-    // cc:
+    // cc
 }
