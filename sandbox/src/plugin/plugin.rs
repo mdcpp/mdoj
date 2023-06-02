@@ -46,15 +46,15 @@ macro_rules! report {
     };
 }
 
-macro_rules! report_on_none {
-    ($e:expr,$s:expr,$tx:ident) => {
+macro_rules! report_status {
+    ($e:expr,$tx:ident) => {
         match $e {
-            Some(x) => x,
-            None => {
+            Ok(x) => x,
+            Err(x) => {
                 report!(
                     $tx,
                     JudgeResponse {
-                        status: $s as i32,
+                        status: x as i32,
                         time: None,
                         finished: None,
                     }
@@ -102,19 +102,17 @@ impl PluginProvider for PluginServer {
         };
 
         tokio::spawn(async move {
-            let spec = report_on_none!(inner.plugins.get(&request.uuid), JudgeStatus::NotFound, tx);
-
-            let judge = report_on_none!(
-                inner.judger.create(spec, limit).await,
-                JudgeStatus::CompileError,
+            let spec = report_status!(
+                inner
+                    .plugins
+                    .get(&request.uuid)
+                    .ok_or(super::JudgeStatus::NotFound),
                 tx
             );
 
-            report_on_none!(
-                judge.compile(request.source).await,
-                JudgeStatus::CompileError,
-                tx
-            );
+            let judge = report_status!(inner.judger.create(spec, limit).await, tx);
+
+            report_status!(judge.compile(request.source).await, tx);
 
             let mut i = 0;
 
@@ -130,11 +128,7 @@ impl PluginProvider for PluginServer {
                     }
                 );
 
-                let checker = report_on_none!(
-                    judge.execute_task(task.input).await,
-                    JudgeStatus::RuntimeError,
-                    tx
-                );
+                let checker = report_status!(judge.execute_task(task.input).await, tx);
 
                 let method: CheckMethod = match task.method {
                     0 => CheckMethod::ExactSame,

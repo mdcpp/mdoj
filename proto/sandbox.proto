@@ -30,7 +30,7 @@ enum JudgeStatus{
     TimeLimitExcess = 0;
     MemoryLimitExcess = 1;
     RuntimeError = 2;
-    CompileError = 3;
+    CompileError = 3; 
     Panic = 4;
     NotFound = 5;
     Accepted = 6;

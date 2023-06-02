@@ -1,18 +1,10 @@
 use std::{collections::BTreeMap, path::Path};
 
+use super::Error;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use tokio::{fs, io::AsyncReadExt};
 
 use crate::{init::config::CONFIG, jail::jail::Limit};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("`{0}`")]
-    Serde(#[from] toml::de::Error),
-    #[error("`{0}`")]
-    IO(#[from] std::io::Error),
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

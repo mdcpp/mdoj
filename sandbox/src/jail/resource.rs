@@ -33,7 +33,7 @@ impl ResourceCounter {
             tasks: self_lock.tasks,
         }
     }
-    pub async fn allocate(&self, memory: i64) -> Result<ResourceGuard,Error> {
+    pub async fn allocate(&self, memory: i64) -> Result<ResourceGuard, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 

@@ -6,14 +6,14 @@ use crate::jail::{
     resource::ResourceUsage,
 };
 
-use super::spec::PluginSpec;
+use super::{spec::PluginSpec, JudgeStatus};
 
 macro_rules! report {
-    ($e:expr) => {
+    ($e:expr,$s:ident) => {
         match $e {
             Err(e) => {
                 log::error!("{}", e);
-                return None;
+                return Err(JudgeStatus::$s);
             }
             Ok(x) => x,
         }
@@ -30,9 +30,13 @@ impl Judger {
             prison: Prison::new(tmp),
         }
     }
-    pub async fn create<'a>(&'a self, spec: &'a PluginSpec, limit: Limit) -> Option<Judge<'a>> {
-        let cell = report!(self.prison.create(spec.root()).await);
-        Some(Judge { limit, spec, cell })
+    pub async fn create<'a>(
+        &'a self,
+        spec: &'a PluginSpec,
+        limit: Limit,
+    ) -> Result<Judge<'a>, JudgeStatus> {
+        let cell = report!(self.prison.create(spec.root()).await, Panic);
+        Ok(Judge { limit, spec, cell })
     }
     pub fn usage(&self) -> ResourceUsage {
         self.prison.usage()
@@ -51,18 +55,19 @@ pub struct Judge<'a> {
 }
 
 impl<'a> Judge<'a> {
-    pub async fn compile(&self, source_code: Vec<u8>) -> Option<()> {
+    pub async fn compile(&self, source_code: Vec<u8>) -> Result<(), JudgeStatus> {
         let mut proc = report!(
             self.cell
                 .execute(&self.spec.compile.args(), self.spec.compile.limit())
-                .await
+                .await,
+            CompileError
         );
 
-        report!(proc.write_all(source_code).await);
+        report!(proc.write_all(source_code).await, CompileError);
 
         let status = proc.wait().await.succeed();
 
-        let stdout = report!(proc.read_all().await);
+        let stdout = report!(proc.read_all().await, CompileError);
 
         let stdout = String::from_utf8_lossy(&stdout);
 
@@ -79,33 +84,34 @@ impl<'a> Judge<'a> {
             }
         });
 
-        match status {
-            true => Some(()),
-            false => None,
-        }
+        Err(match status {
+            true => JudgeStatus::CompileError,
+            false => JudgeStatus::Compiling,
+        })
     }
-    pub async fn execute_task(&self, input: Vec<u8>) -> Option<TaskChecker> {
+    pub async fn execute_task(&self, input: Vec<u8>) -> Result<TaskChecker, JudgeStatus> {
         let mut proc = report!(
             self.cell
                 .execute(
                     &self.spec.compile.args(),
                     self.spec.execute.limit(self.limit.cpu_us, self.limit.mem)
                 )
-                .await
+                .await,
+            RuntimeError
         );
 
-        report!(proc.write_all(input).await);
+        report!(proc.write_all(input).await, RuntimeError);
 
         let status = proc.wait().await;
 
         let cpu_usage = proc.cpu_usage();
 
         match status.succeed() {
-            true => Some(TaskChecker {
+            true => Ok(TaskChecker {
                 cpu_usage,
-                output: report!(proc.read_all().await),
+                output: report!(proc.read_all().await, RuntimeError),
             }),
-            false => None,
+            false => Err(JudgeStatus::WrongAnswer),
         }
     }
 }
