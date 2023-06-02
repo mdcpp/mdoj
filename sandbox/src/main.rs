@@ -1,6 +1,8 @@
 use init::config::CONFIG;
 use tonic::transport::Server;
 
+use crate::plugin::proto::prelude::judge_service_server::JudgeServiceServer;
+
 pub mod init;
 pub mod jail;
 pub mod plugin;
@@ -17,7 +19,7 @@ async fn main() {
     log::info!("Server started");
     Server::builder()
         .add_service(
-            plugin::proto::prelude::plugin_provider_server::PluginProviderServer::new(
+            JudgeServiceServer::new(
                 plugin_provider,
             ),
         )

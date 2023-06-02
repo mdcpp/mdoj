@@ -8,8 +8,8 @@ message Plugin {
   string uuid = 4;
 }
 
-message LangRequest{}
-message LangDescription{
+message ListRequest{}
+message ListResponse{
     repeated Plugin plugins = 1;
 }
 
@@ -50,16 +50,16 @@ enum ExamMethod{
     ExactlySame = 0;
 }
 
-message UsageRequest{}
+message LoadRequest{}
 
-message JudgerUsage{
+message LoadResponse{
     int64 available_mem = 1;
     uint64 running_task = 2;
     int64 all_available_mem = 3;
 }
 
-service JudgeService {
-    rpc Langs(LangRequest) returns (LangDescription);
-    rpc Run(JudgeRequest) returns (stream JudgeResponse);
-    rpc Usage(UsageRequest) returns (JudgerUsage);
+service PluginProvider {
+    rpc List(ListRequest) returns (ListResponse);
+    rpc Judge(JudgeRequest) returns (stream JudgeResponse);
+    rpc Load(LoadRequest) returns (LoadResponse);
 }

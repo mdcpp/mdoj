@@ -7,16 +7,14 @@ use tonic::{Request, Response, Status};
 
 use super::{
     judge::{Judger, Limit},
-    proto::prelude::*,
+    proto::prelude::{*, judge_service_server::JudgeService},
     spec::LangSpec,
 };
-use plugin_provider_server::PluginProvider;
 
 use crate::{init::config::CONFIG, plugin::judge::CheckMethod};
 
-
 pub struct LangJudger(Arc<LangJudgerInner>);
-
+ 
 pub struct LangJudgerInner {
     judger: Judger,
     langs: BTreeMap<String, LangSpec>,
@@ -66,11 +64,11 @@ macro_rules! report_status {
     };
 }
 
-type JudgeStream = Pin<Box<dyn Stream<Item = Result<JudgeResponse, Status>> + Send>>;
+type RunStream = Pin<Box<dyn Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
 #[async_trait::async_trait]
-impl PluginProvider for LangJudger {
-    async fn list(&self, _: Request<ListRequest>) -> Result<Response<ListResponse>, Status> {
+impl JudgeService for LangJudger {
+    async fn langs(&self, _: Request<LangRequest>) -> Result<Response<LangDescription>, Status> {
         log::trace!("Printing a list of plugins");
         let mut response = Vec::new();
 
@@ -81,15 +79,15 @@ impl PluginProvider for LangJudger {
                 uuid: uuid.to_owned(),
             });
         }
-        Ok(Response::new(ListResponse { plugins: response }))
+        Ok(Response::new(LangDescription { plugins: response }))
     }
 
-    type JudgeStream = JudgeStream;
+    type RunStream = RunStream;
 
-    async fn judge(
+    async fn run(
         &self,
         request: Request<JudgeRequest>,
-    ) -> Result<Response<Self::JudgeStream>, Status> {
+    ) -> Result<Response<Self::RunStream>, Status> {
         log::trace!("Running judge");
         let request = request.into_inner();
 
@@ -176,14 +174,14 @@ impl PluginProvider for LangJudger {
         });
 
         Ok(Response::new(
-            Box::pin(ReceiverStream::new(rx)) as Self::JudgeStream
+            Box::pin(ReceiverStream::new(rx)) as Self::RunStream
         ))
     }
 
-    async fn load(&self, _: Request<LoadRequest>) -> Result<Response<LoadResponse>, Status> {
+    async fn usage(&self, _: Request<UsageRequest>) -> Result<Response<JudgerUsage>, Status> {
         log::trace!("Retrieving plugin server usage");
         let usage = self.0.judger.usage();
-        Ok(Response::new(LoadResponse {
+        Ok(Response::new(JudgerUsage {
             all_available_mem: usage.all_available_mem,
             available_mem: usage.available_mem,
             running_task: usage.tasks,
