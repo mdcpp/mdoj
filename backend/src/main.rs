@@ -1,6 +1,7 @@
 pub mod entities;
+pub mod init;
 pub mod model;
-pub mod service;
 pub mod proto;
+pub mod service;
 
 fn main() {}

@@ -8,7 +8,7 @@ use std::{
 
 use super::{
     limit::LimitReason,
-    resource::{ResourceCounter, ResourceCounterInner, ResourceGuard},
+    resource::{ResourceCounter, ResourceGuard, ResourceUsage},
     Error,
 };
 use std::process::Stdio;
@@ -64,6 +64,9 @@ impl Prison {
             resource: ResourceCounter::new(config.runtime.available_memory),
             tmp: tmp.as_ref().to_path_buf(),
         }
+    }
+    pub fn usage(&self)->ResourceUsage{
+        self.resource.usage()
     }
     pub async fn create<'a>(&'a self, root: impl AsRef<Path>) -> Result<Cell<'a>, Error> {
         let id = self.id_counter.fetch_add(1, Ordering::Release).to_string();

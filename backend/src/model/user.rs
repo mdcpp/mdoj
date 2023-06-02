@@ -1,7 +1,7 @@
 use crate::entities::prelude::*;
 
-struct UserMod{
-    orm:User,
+struct UserMod {
+    orm: User,
 }
 
 impl UserMod {

@@ -38,7 +38,6 @@ impl PluginServer {
     }
 }
 
-
 macro_rules! report {
     ($tx:ident,$e:expr) => {
         if $tx.send(Result::<_, Status>::Ok($e)).await.is_err() {
@@ -52,11 +51,14 @@ macro_rules! report_on_none {
         match $e {
             Some(x) => x,
             None => {
-                report!($tx,JudgeResponse {
-                    status: $s as i32,
-                    time: None,
-                    finished: None,
-                });
+                report!(
+                    $tx,
+                    JudgeResponse {
+                        status: $s as i32,
+                        time: None,
+                        finished: None,
+                    }
+                );
                 return ();
             }
         }
@@ -113,7 +115,7 @@ impl PluginProvider for PluginServer {
             );
 
             let mut i = 0;
-
+ 
             for task in request.tasks {
                 i += 1;
 
@@ -170,5 +172,9 @@ impl PluginProvider for PluginServer {
         Ok(Response::new(
             Box::pin(ReceiverStream::new(rx)) as Self::JudgeStream
         ))
+    }
+
+    async fn load(&self, _: Request<LoadRequest>) -> Result<Response<LoadResponse>, Status> {
+        todo!()
     }
 }

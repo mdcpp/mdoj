@@ -31,7 +31,7 @@ once_cell = "1.17.1"
 prost = "0.11.9"
 smart-default = "0.7.1"
 thiserror = "1.0.40"
-tokio-stream = "0.1.14"
+tokio-stream = "0.1.14" 
 toml = "0.7.4"
 
 [dependencies.serde]

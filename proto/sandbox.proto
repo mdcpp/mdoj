@@ -13,12 +13,6 @@ message ListResponse{
     repeated Plugin plugins = 1;
 }
 
-message Task{
-    bytes input = 1;
-    bytes output = 2;
-    ExamMethod method = 3 ;
-}
-
 message JudgeRequest{
     bytes source = 2;
     repeated Task tasks = 9;
@@ -46,11 +40,26 @@ enum JudgeStatus{
     InsufficientResource = 10;
 }
 
+message Task{
+    bytes input = 1;
+    bytes output = 2;
+    ExamMethod method = 3 ;
+}
+
 enum ExamMethod{
     ExactlySame = 0;
+}
+
+message LoadRequest{}
+
+message LoadResponse{
+    uint64 available_mem = 1;
+    uint64 running_task = 2;
+    uint64 all_available_mem = 3;
 }
 
 service PluginProvider {
     rpc List(ListRequest) returns (ListResponse);
     rpc Judge(JudgeRequest) returns (stream JudgeResponse);
+    rpc Load(LoadRequest) returns (LoadResponse);
 }

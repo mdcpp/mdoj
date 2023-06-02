@@ -6,16 +6,29 @@ use tokio::{sync::oneshot, time};
 
 use crate::init::config::CONFIG;
 
+pub struct ResourceUsage{
+    pub available_mem:i64,
+    pub all_available_mem:i64,
+    pub tasks:u64,
+}
+
 pub struct ResourceCounter(Mutex<ResourceCounterInner>);
 
 impl ResourceCounter {
     pub fn new(memory: i64) -> Self {
         Self(Mutex::new(ResourceCounterInner {
             memory,
+            all_mem:memory,
             queue: VecDeque::new(),
+            tasks: 0,
         }))
     }
+    pub fn usage(&self)->ResourceUsage{
+        let self_lock=self.0.lock().unwrap();
+        ResourceUsage { available_mem: self_lock.memory, all_available_mem: self_lock.all_mem, tasks:self_lock.tasks }
+    }
     pub async fn allocate(&self, memory: i64) -> ResourceGuard {
+        log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
         if memory > config.runtime.available_memory {
@@ -43,10 +56,7 @@ impl ResourceCounter {
 
         rx.await.unwrap();
 
-        ResourceGuard {
-            memory,
-            counter: &self,
-        }
+        ResourceGuard::new(self, memory)
     }
     fn deallocate(&self, de_memory: i64) {
         let mut self_lock = &mut *self.0.lock().unwrap();
@@ -64,16 +74,28 @@ impl ResourceCounter {
 
 pub struct ResourceCounterInner {
     memory: i64,
+    all_mem:i64,
     queue: VecDeque<(i64, oneshot::Sender<()>)>,
+    tasks: u64,
 }
 
 pub struct ResourceGuard<'a> {
-    memory: i64,
+    mem: i64,
     counter: &'a ResourceCounter,
+}
+
+impl<'a> ResourceGuard<'a> {
+    fn new(counter: &'a ResourceCounter, memory: i64) -> Self {
+        counter.0.lock().unwrap().tasks += 1;
+        Self { mem: memory, counter }
+    }
 }
 
 impl<'a> Drop for ResourceGuard<'a> {
     fn drop(&mut self) {
-        self.counter.deallocate(self.memory);
+        {
+            self.counter.0.lock().unwrap().tasks -= 1;
+        }
+        self.counter.deallocate(self.mem);
     }
 }
