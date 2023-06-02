@@ -7,12 +7,21 @@ pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::new();
 const CONFIG_PATH: &'static str = "config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
     #[serde(default)]
     pub database: Database,
     #[serde(default)]
     pub log_level: usize,
+    #[serde(default)]
+    pub sandbox:Vec<Sandbox>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Sandbox{
+    address: String,
+    port:u16,
+    memory: i64,
+    cpu_weight: usize
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,11 +36,6 @@ impl Default for Database {
         }
     }
 }
-
-pub struct Sandbox{
-    
-}
-
 
 pub async fn init() {
     let mut buf = Vec::new();

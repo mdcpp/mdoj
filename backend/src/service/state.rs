@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{proto::prelude::{plugin_provider_client::PluginProviderClient, *}, init::config::CONFIG};
+use crate::{proto::prelude::{plugin_provider_client::PluginProviderClient}, init::config::CONFIG};
 use sea_orm::{DatabaseConnection, Database};
 use tonic::transport::Channel;
 

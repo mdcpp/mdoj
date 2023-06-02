@@ -1,6 +1,6 @@
 pub mod entities;
 pub mod init;
-pub mod model;
+pub mod controller;
 pub mod proto;
 pub mod service;
 
