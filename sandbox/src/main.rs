@@ -18,11 +18,7 @@ async fn main() {
 
     log::info!("Server started");
     Server::builder()
-        .add_service(
-            JudgeServiceServer::new(
-                plugin_provider,
-            ),
-        )
+        .add_service(JudgeServiceServer::new(plugin_provider))
         .serve(addr)
         .await
         .unwrap();

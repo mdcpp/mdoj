@@ -7,14 +7,14 @@ use tonic::{Request, Response, Status};
 
 use super::{
     judge::{Judger, Limit},
-    proto::prelude::{*, judge_service_server::JudgeService},
+    proto::prelude::{judge_service_server::JudgeService, *},
     spec::LangSpec,
 };
 
 use crate::{init::config::CONFIG, plugin::judge::CheckMethod};
 
 pub struct LangJudger(Arc<LangJudgerInner>);
- 
+
 pub struct LangJudgerInner {
     judger: Judger,
     langs: BTreeMap<String, LangSpec>,
@@ -39,7 +39,7 @@ impl LangJudger {
 
 macro_rules! report {
     ($tx:ident,$e:expr) => {
-        if $tx.send(Result::<_, Status>::Ok($e)).await.is_err() {
+        if $tx.send($e).await.is_err() {
             log::warn!("gRPC client close stream before task");
         };
     };
@@ -50,14 +50,18 @@ macro_rules! report_status {
         match $e {
             Ok(x) => x,
             Err(x) => {
-                report!(
-                    $tx,
-                    JudgeResponse {
+                let res = match x {
+                    Panic => Err(Status::internal("Error ruuning language plugin")),
+                    InsufficientResource => {
+                        Err(Status::resource_exhausted("Cannot preserve enough memory"))
+                    }
+                    _ => Ok(JudgeResponse {
                         status: x as i32,
                         time: None,
                         task: None,
-                    }
-                );
+                    }),
+                };
+                report!($tx, res);
                 return ();
             }
         }
@@ -111,11 +115,11 @@ impl JudgeService for LangJudger {
 
             report!(
                 tx,
-                JudgeResponse {
+                Ok(JudgeResponse {
                     status: JudgeStatus::Compiling as i32,
                     task: None,
                     time: None,
-                }
+                })
             );
 
             let judge = report_status!(inner.judger.create(spec, limit).await, tx);
@@ -129,11 +133,11 @@ impl JudgeService for LangJudger {
 
                 report!(
                     tx,
-                    JudgeResponse {
+                    Ok(JudgeResponse {
                         status: JudgeStatus::Running as i32,
                         task: Some(i),
                         time: None,
-                    }
+                    })
                 );
 
                 let result = report_status!(judge.execute_task(task.input).await, tx);
@@ -151,21 +155,21 @@ impl JudgeService for LangJudger {
                     true => {
                         report!(
                             tx,
-                            JudgeResponse {
+                            Ok(JudgeResponse {
                                 status: JudgeStatus::Accepted as i32,
                                 task: Some(i),
                                 time,
-                            }
+                            })
                         );
                     }
                     false => {
                         report!(
                             tx,
-                            JudgeResponse {
+                            Ok(JudgeResponse {
                                 status: JudgeStatus::WrongAnswer as i32,
                                 task: Some(i),
                                 time,
-                            }
+                            })
                         );
                         break;
                     }

@@ -31,13 +31,11 @@ enum JudgeStatus{
     MemoryLimitExcess = 1;
     RuntimeError = 2;
     CompileError = 3; 
-    Panic = 4;
     NotFound = 5;
     Accepted = 6;
     WrongAnswer = 7;
     Compiling = 9;
     Running = 8;
-    InsufficientResource = 10;
 }
 
 message Task{
