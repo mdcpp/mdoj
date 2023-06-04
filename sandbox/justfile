@@ -12,8 +12,8 @@ prepare:
 
 test:
     rm -rf temp/* 
-    cargo test --target-dir sudo-target -- --nocapture
+    cargo test
 
 run:
     rm -rf temp/* 
-    cargo run --target-dir sudo-target
+    cargo run

@@ -5,10 +5,10 @@ dev-frontend:
     cd ./frontend && yarn dev
 
 dev-backend:
-    cd ./backend && cargo run
+    cd backend && just run
 
 dev-sandbox:
-    cd sandbox && sudo just test
+    cd sandbox && sudo just run
 
 clean:
     cd ./frontend && yarn cache clean
