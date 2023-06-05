@@ -54,6 +54,8 @@ message JudgerUsage{
     int64 available_mem = 1;
     uint64 running_task = 2;
     int64 all_available_mem = 3;
+    float all_available_cpu_usage = 4;
+    float cpu_usage = 5;
 }
 
 service JudgeService {

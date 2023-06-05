@@ -3,7 +3,7 @@ use cgroups_rs::{hierarchies, Hierarchy};
 use super::config::CONFIG;
 
 pub fn init() {
-    let config=CONFIG.get().unwrap();
+    let config = CONFIG.get().unwrap();
     let hier = hierarchies::V2::new();
     let subsystems = hier.subsystems();
     if let None = subsystems.iter().find(|sub| match sub {
@@ -27,9 +27,9 @@ pub fn init() {
         log::error!("Subsystem Mem(Memory) is unavailable.");
     };
 
-    if !config.nsjail.rootless{
-        let uid=unsafe{libc::getuid()};
-        if uid!=0{
+    if !config.nsjail.rootless {
+        let uid = unsafe { libc::getuid() };
+        if uid != 0 {
             log::warn!("config.rootless is set to false, require root to run");
         }
     }

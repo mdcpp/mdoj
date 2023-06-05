@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, pin::Pin, sync::Arc};
 
 use futures::Stream;
+use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
@@ -51,7 +52,7 @@ macro_rules! report_status {
             Ok(x) => x,
             Err(x) => {
                 let res = match x {
-                    Panic => Err(Status::internal("Error ruuning language plugin")),
+                    Panic => Err(Status::internal("Error running language plugin")),
                     InsufficientResource => {
                         Err(Status::resource_exhausted("Cannot preserve enough memory"))
                     }
@@ -184,11 +185,17 @@ impl JudgeService for LangJudger {
 
     async fn usage(&self, _: Request<UsageRequest>) -> Result<Response<JudgerUsage>, Status> {
         log::trace!("Retrieving plugin server usage");
-        let usage = self.0.judger.usage();
+
+        let mut sys = System::new();
+        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+
+        let judger = self.0.judger.usage();
         Ok(Response::new(JudgerUsage {
-            all_available_mem: usage.all_available_mem,
-            available_mem: usage.available_mem,
-            running_task: usage.tasks,
+            all_available_mem: judger.all_available_mem,
+            available_mem: judger.available_mem,
+            running_task: judger.tasks,
+            all_available_cpu_usage: sys.cpus().len() as f32,
+            cpu_usage: sys.global_cpu_info().cpu_usage(),
         }))
     }
 }
