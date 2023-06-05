@@ -1,6 +1,6 @@
 /target
 /sudo-target
-/temp/*
+.temp
 /nsjail-sys/target
 /sandbox.log
 /nsjail.log

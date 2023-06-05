@@ -1,7 +1,7 @@
 log_level = 1
 
 [runtime]
-temp = "temp"
+temp = ".temp"
 available_memory = 1073741824 # 1GiB
 bind = "0.0.0.0:8080"
 

@@ -15,7 +15,7 @@ After that, build this crate(``cargo build --release``).
 ## System Requirement
 
 1. CGroupv2 support
-2. Linux kernel 4.16 or later
+2. Linux kernel 5.14 or later
 
 ## How to develop a plugin?
 

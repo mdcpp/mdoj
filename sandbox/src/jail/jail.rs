@@ -286,7 +286,7 @@ mod test {
         crate::init::new().await;
 
         {
-            let prison = Prison::new("temp");
+            let prison = Prison::new(".temp");
             let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let mut process = cell
