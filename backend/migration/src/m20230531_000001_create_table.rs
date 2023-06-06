@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(User::Name).char().not_null())
                     .col(ColumnDef::new(User::HashPwd).binary().not_null())
-                    .col(ColumnDef::new(User::Permission).big_integer().not_null())
+                    .col(ColumnDef::new(User::Permission).integer().default(0).not_null())
                     .to_owned(),
             )
             .await?;
@@ -79,8 +79,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(UserGroup::Permission)
-                            .big_integer()
+                        ColumnDef::new(UserGroup::Permission).integer().default(0)
                             .not_null(),
                     )
                     .col(ColumnDef::new(UserGroup::UserId).integer().not_null())
