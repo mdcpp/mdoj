@@ -39,3 +39,5 @@
     ```sh
     cargo run -- status
     ```
+
+<!-- https://www.sea-ql.org/SeaORM/docs/generate-entity/entity-structure/#column-type -->

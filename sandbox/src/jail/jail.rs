@@ -1,9 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicI64, Ordering},
-        Mutex,
-    },
+    sync::atomic::{AtomicI64, Ordering},
 };
 
 use super::{

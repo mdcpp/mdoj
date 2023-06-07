@@ -57,6 +57,7 @@ pub struct Runtime {
     pub temp: String,
     pub available_memory: i64,
     pub bind: String,
+    pub accuracy: u64,
 }
 
 impl Default for Runtime {
@@ -65,6 +66,7 @@ impl Default for Runtime {
             temp: "temp".to_owned(),
             available_memory: 1073741824,
             bind: "0.0.0.0:8080".to_owned(),
+            accuracy: 50 * 1000,
         }
     }
 }
@@ -72,20 +74,36 @@ impl Default for Runtime {
 pub async fn init() {
     let mut buf = Vec::new();
 
-    let config = if fs::metadata(CONFIG_PATH).await.is_ok() {
-        let mut config = fs::File::open(CONFIG_PATH)
-            .await
-            .expect(&format!("Cannot found ,{}", CONFIG_PATH));
-        config.read_to_end(&mut buf).await.unwrap();
-        std::str::from_utf8(&buf).expect("Config file may container non-utf8 character")
-    } else {
-        println!("using default config");
-        ""
+    let config_file = fs::File::open(CONFIG_PATH).await;
+
+    let config: GlobalConfig = match config_file {
+        Ok(mut x) => {
+            if x.metadata().await.unwrap().is_file() {
+                x.read_to_end(&mut buf).await.unwrap();
+                let config = std::str::from_utf8(&buf).expect("Unable to parse config, Check config is correct");
+                toml::from_str(config).unwrap()
+            } else {
+                panic!(
+                    "Unable to open config file, {} should not be symlink or folder",
+                    CONFIG_PATH
+                );
+            }
+        }
+        Err(_) => {
+            println!("Unable to find {}, generating default config",CONFIG_PATH);
+
+            let config: GlobalConfig = toml::from_str("").unwrap();
+
+            let config_txt = toml::to_string(&config).unwrap();
+            fs::write(CONFIG_PATH, config_txt)
+                .await
+                .unwrap();
+
+            config
+        }
     };
 
-    let config: GlobalConfig = toml::from_str(config).unwrap();
-
-    CONFIG.set(config).ok();
+    CONFIG.set(config).expect("config have been set twice, which indicated a bug in the program");
 }
 
 #[cfg(test)]

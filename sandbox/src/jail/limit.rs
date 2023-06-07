@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::init::config::CONFIG;
+
 use super::Error;
 use cgroups_rs::{
     cgroup_builder::CgroupBuilder, cpu::CpuController, hierarchies, memory::MemController, Cgroup,
@@ -13,7 +15,6 @@ use tokio::{process::Child, sync::oneshot, task::JoinHandle, time};
 use super::cpuacct::{CpuAcct, CpuStatKey};
 
 const INTERVAL: u64 = 50 * 1000; // 50ms
-const ACCURACY: u64 = 4; // 12.5ms
 
 #[derive(Clone, Debug, Default)]
 pub struct CpuLimit {
@@ -24,6 +25,8 @@ pub struct CpuLimit {
 
 impl CpuLimit {
     fn to_cgroup(&self, cgroup_name: &str, memory: MemLimit) -> Result<Cgroup, Error> {
+        let config = CONFIG.get().unwrap();
+
         log::trace!("Creating new control group {}", cgroup_name);
         let hier = Box::new(hierarchies::V2::new());
 
@@ -34,10 +37,10 @@ impl CpuLimit {
             .memory_swap_limit(memory.swap)
             .done()
             .cpu()
-            .period(INTERVAL)
-            .quota(INTERVAL as i64)
-            .realtime_period(INTERVAL)
-            .realtime_runtime(INTERVAL as i64)
+            .period(config.runtime.accuracy)
+            .quota(config.runtime.accuracy as i64)
+            .realtime_period(config.runtime.accuracy)
+            .realtime_runtime(config.runtime.accuracy as i64)
             .done()
             .build(hier)?)
     }
@@ -136,6 +139,8 @@ impl Limiter {
         };
 
         let handle = tokio::spawn(async move {
+            let config = CONFIG.get().unwrap();
+
             log::trace!("Cpu resource monitor started");
             let limit = limit.clone();
             loop {
@@ -143,7 +148,7 @@ impl Limiter {
                     handle_status.lock().unwrap().exhaust(reason);
                     break;
                 }
-                time::sleep(time::Duration::from_nanos(INTERVAL / ACCURACY)).await;
+                time::sleep(time::Duration::from_nanos(config.runtime.accuracy / 2)).await;
             }
             log::trace!("Killing process");
             state.cgroup.kill().unwrap();
