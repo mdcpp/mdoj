@@ -2,6 +2,5 @@
 /sudo-target
 .temp
 /nsjail-sys/target
-/sandbox.log
-/nsjail.log
 *.log
+/config.toml
