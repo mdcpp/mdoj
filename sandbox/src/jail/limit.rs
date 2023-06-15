@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    ops::{Div, Mul},
     sync::{Arc, Mutex},
 };
 
@@ -21,6 +22,30 @@ pub struct CpuLimit {
     pub cpu_us: u64,
     pub rt_us: i64,
     pub total_us: u64,
+}
+
+impl Mul<u64> for CpuLimit {
+    type Output = CpuLimit;
+
+    fn mul(self, rhs: u64) -> Self::Output {
+        Self {
+            cpu_us: self.cpu_us * rhs,
+            rt_us: self.rt_us * (rhs as i64),
+            total_us: self.total_us * rhs,
+        }
+    }
+}
+
+impl Div<u64> for CpuLimit {
+    type Output = CpuLimit;
+
+    fn div(self, rhs: u64) -> Self::Output {
+        Self {
+            cpu_us: self.cpu_us / rhs,
+            rt_us: self.rt_us / (rhs as i64),
+            total_us: self.total_us / rhs,
+        }
+    }
 }
 
 impl CpuLimit {
@@ -126,9 +151,12 @@ impl Limiter {
     pub fn cpu_usage(&self) -> CpuLimit {
         self.status.as_ref().lock().unwrap().cpu_usage.clone()
     }
-    pub fn from_limit(cgroup_name: &str, limit: CpuLimit, memory: MemLimit) -> Result<Self, Error> {
+    pub fn from_limit(cgroup_name: &str, cpu: CpuLimit, memory: MemLimit) -> Result<Self, Error> {
+        let config = CONFIG.get().unwrap();
+
         log::debug!("Starting a new limiter");
-        let cgroup = limit.to_cgroup(cgroup_name, memory)?;
+
+        let cgroup = cpu.to_cgroup(cgroup_name, memory)?;
         let status = Arc::new(Mutex::new(Status::default()));
         let handle_status = status.clone();
 
@@ -139,10 +167,8 @@ impl Limiter {
         };
 
         let handle = tokio::spawn(async move {
-            let config = CONFIG.get().unwrap();
-
             log::trace!("Cpu resource monitor started");
-            let limit = limit.clone();
+            let limit = cpu.clone();
             loop {
                 if let Some(reason) = state.check(&limit).unwrap() {
                     handle_status.lock().unwrap().exhaust(reason);
@@ -184,16 +210,20 @@ struct State {
 
 impl State {
     fn check_cpu(&mut self, cap: &CpuLimit) -> Result<Option<LimitReason>, Error> {
+        let config = CONFIG.get().unwrap();
+
         let cpu: &CpuController = self.cgroup.controller_of().ok_or(Error::CGroup)?;
         let cpuacct = CpuAcct::from_controller(cpu);
 
-        let mut previous_limit = &mut self.status.as_ref().lock().unwrap().cpu_usage;
+        let previous_limit = &mut self.status.as_ref().lock().unwrap().cpu_usage;
 
         self.record_round = cpuacct.get(CpuStatKey::NrPeriods).ok_or(Error::CGroup)?;
 
-        previous_limit.cpu_us = cpuacct.get(CpuStatKey::UserUsec).ok_or(Error::CGroup)? as u64;
-        previous_limit.rt_us = cpuacct.get(CpuStatKey::SystemUsec).ok_or(Error::CGroup)?;
-        previous_limit.total_us = cpuacct.get(CpuStatKey::UsageUsec).ok_or(Error::CGroup)? as u64;
+        *previous_limit = CpuLimit {
+            cpu_us: cpuacct.get(CpuStatKey::UserUsec).ok_or(Error::CGroup)? as u64,
+            rt_us: cpuacct.get(CpuStatKey::SystemUsec).ok_or(Error::CGroup)?,
+            total_us: cpuacct.get(CpuStatKey::UsageUsec).ok_or(Error::CGroup)? as u64,
+        } / config.platform.cpu_time_multiplier;
 
         Ok(if cap.cpu_us < previous_limit.cpu_us {
             log::trace!("Cpu Resource limit reach");

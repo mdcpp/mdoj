@@ -1,9 +1,12 @@
 use std::path::Path;
 
-use crate::jail::{
-    jail::{Cell, Prison},
-    limit::CpuLimit,
-    resource::ResourceUsage,
+use crate::{
+    init::config::CONFIG,
+    jail::{
+        jail::{Cell, Prison},
+        limit::CpuLimit,
+        resource::ResourceUsage,
+    },
 };
 
 use super::{spec::LangSpec, JudgeStatus};
@@ -90,6 +93,7 @@ impl<'a> Task<'a> {
         })
     }
     pub async fn execute_task(&self, input: Vec<u8>) -> Result<TaskResult, JudgeStatus> {
+        let config = CONFIG.get().unwrap();
         let mut proc = report!(
             self.cell
                 .execute(

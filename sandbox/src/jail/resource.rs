@@ -37,7 +37,7 @@ impl ResourceCounter {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
-        if memory > config.runtime.available_memory {
+        if memory > config.platform.available_memory {
             return Err(Error::InsufficientResource);
         }
 

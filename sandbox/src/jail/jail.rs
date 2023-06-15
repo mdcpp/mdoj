@@ -58,7 +58,7 @@ impl Prison {
         let config = CONFIG.get().unwrap();
         Self {
             id_counter: Default::default(),
-            resource: ResourceCounter::new(config.runtime.available_memory),
+            resource: ResourceCounter::new(config.platform.available_memory),
             tmp: tmp.as_ref().to_path_buf(),
         }
     }

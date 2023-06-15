@@ -12,11 +12,29 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub runtime: Runtime,
     #[serde(default)]
+    pub platform: Platform,
+    #[serde(default)]
     pub nsjail: Nsjail,
     #[serde(default)]
     pub plugin: Plugin,
     #[serde(default)]
     pub log_level: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Platform {
+    pub cpu_time_multiplier: u64,
+    pub available_memory: i64,
+}
+
+impl Default for Platform {
+    fn default() -> Self {
+        Self {
+            cpu_time_multiplier: 1,
+            available_memory: 1073741824,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -55,7 +73,6 @@ impl Default for Plugin {
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
     pub temp: String,
-    pub available_memory: i64,
     pub bind: String,
     pub accuracy: u64,
 }
@@ -64,7 +81,6 @@ impl Default for Runtime {
     fn default() -> Self {
         Self {
             temp: "temp".to_owned(),
-            available_memory: 1073741824,
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
         }
@@ -80,7 +96,8 @@ pub async fn init() {
         Ok(mut x) => {
             if x.metadata().await.unwrap().is_file() {
                 x.read_to_end(&mut buf).await.unwrap();
-                let config = std::str::from_utf8(&buf).expect("Unable to parse config, Check config is correct");
+                let config = std::str::from_utf8(&buf)
+                    .expect("Unable to parse config, Check config is correct");
                 toml::from_str(config).unwrap()
             } else {
                 panic!(
@@ -90,20 +107,20 @@ pub async fn init() {
             }
         }
         Err(_) => {
-            println!("Unable to find {}, generating default config",CONFIG_PATH);
+            println!("Unable to find {}, generating default config", CONFIG_PATH);
 
             let config: GlobalConfig = toml::from_str("").unwrap();
 
             let config_txt = toml::to_string(&config).unwrap();
-            fs::write(CONFIG_PATH, config_txt)
-                .await
-                .unwrap();
+            fs::write(CONFIG_PATH, config_txt).await.unwrap();
 
             config
         }
     };
 
-    CONFIG.set(config).expect("config have been set twice, which indicated a bug in the program");
+    CONFIG
+        .set(config)
+        .expect("config have been set twice, which indicated a bug in the program");
 }
 
 #[cfg(test)]
