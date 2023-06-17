@@ -41,12 +41,14 @@ impl ResourceCounter {
             return Err(Error::InsufficientResource);
         }
 
-        let rx = {
+        let rx: oneshot::Receiver<()> = {
             let mut self_lock = self.0.lock().unwrap();
 
             let (tx, rx) = oneshot::channel();
 
             self_lock.queue.push_back((memory, tx));
+
+            drop(self_lock);
 
             self.deallocate(memory);
 
@@ -54,6 +56,8 @@ impl ResourceCounter {
         };
 
         rx.await.unwrap();
+
+        log::trace!("get {}B memory", memory);
 
         Ok(ResourceGuard::new(self, memory))
     }

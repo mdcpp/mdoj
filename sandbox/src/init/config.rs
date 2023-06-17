@@ -92,35 +92,41 @@ pub async fn init() {
 
     let config_file = fs::File::open(CONFIG_PATH).await;
 
-    let config: GlobalConfig = match config_file {
-        Ok(mut x) => {
-            if x.metadata().await.unwrap().is_file() {
-                x.read_to_end(&mut buf).await.unwrap();
-                let config = std::str::from_utf8(&buf)
-                    .expect("Unable to parse config, Check config is correct");
-                toml::from_str(config).unwrap()
-            } else {
-                panic!(
-                    "Unable to open config file, {} should not be symlink or folder",
-                    CONFIG_PATH
-                );
-            }
+    match CONFIG.get() {
+        Some(_) => {
+            #[cfg(not(test))]
+            panic!("config have been set twice, which indicated a bug in the program");
         }
-        Err(_) => {
-            println!("Unable to find {}, generating default config", CONFIG_PATH);
+        None => {
+            let config: GlobalConfig = match config_file {
+                Ok(mut x) => {
+                    if x.metadata().await.unwrap().is_file() {
+                        x.read_to_end(&mut buf).await.unwrap();
+                        let config = std::str::from_utf8(&buf)
+                            .expect("Unable to parse config, Check config is correct");
+                        toml::from_str(config).unwrap()
+                    } else {
+                        panic!(
+                            "Unable to open config file, {} should not be symlink or folder",
+                            CONFIG_PATH
+                        );
+                    }
+                }
+                Err(_) => {
+                    println!("Unable to find {}, generating default config", CONFIG_PATH);
 
-            let config: GlobalConfig = toml::from_str("").unwrap();
+                    let config: GlobalConfig = toml::from_str("").unwrap();
 
-            let config_txt = toml::to_string(&config).unwrap();
-            fs::write(CONFIG_PATH, config_txt).await.unwrap();
+                    let config_txt = toml::to_string(&config).unwrap();
+                    fs::write(CONFIG_PATH, config_txt).await.unwrap();
 
-            config
+                    config
+                }
+            };
+
+            CONFIG.set(config).ok();
         }
-    };
-
-    CONFIG
-        .set(config)
-        .expect("config have been set twice, which indicated a bug in the program");
+    }
 }
 
 #[cfg(test)]

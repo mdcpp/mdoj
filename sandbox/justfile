@@ -7,13 +7,15 @@ build-nsjail:
 prepare:
     mkdir -p .temp
     mkdir -p log
-    touch log/sandbox.log
-    touch log/nsjail.log
+
+clean:
+    sudo rm -rf .temp/* 
+    cargo clean
 
 test:
-    rm -rf .temp/* 
-    cargo test
+    sudo rm -rf .temp/* 
+    cargo test --jobs 1 --no-fail-fast
 
 run:
-    rm -rf .temp/* 
+    sudo rm -rf .temp/* 
     cargo run
