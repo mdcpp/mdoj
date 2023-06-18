@@ -137,6 +137,7 @@ pub struct Limiter {
     cgroup: Cgroup,
     handle: Option<JoinHandle<()>>,
     status: Arc<Mutex<Status>>,
+    jails_pids: Vec<i32>
 }
 
 impl Drop for Limiter {
@@ -176,14 +177,17 @@ impl Limiter {
                 }
                 time::sleep(time::Duration::from_nanos(config.runtime.accuracy / 2)).await;
             }
-            log::trace!("Killing process");
+            log::trace!("Killing process inside cgroup");
             state.cgroup.kill().unwrap();
+            log::trace!("Killing nsjail");
+            todo!();
         });
 
         Ok(Limiter {
             cgroup,
             handle: Some(handle),
             status,
+            jails_pids:Vec::new()
         })
     }
     pub fn add_child(&self, child: &Child) -> Result<(), Error> {

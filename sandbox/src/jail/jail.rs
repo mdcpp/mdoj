@@ -101,7 +101,7 @@ impl<'a> Cell<'a> {
         log::debug!("preparing Cell");
         let config = CONFIG.get().unwrap();
 
-        let cgroup_name = format!("modj/{}", self.id);
+        let cgroup_name = format!("modj.{}", self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
@@ -118,7 +118,6 @@ impl<'a> Cell<'a> {
             total_us: limit.total_us,
         };
 
-        let limiter = Limiter::from_limit(&cgroup_name, cpu_limit, mem_limit)?;
 
         let mut cmd: Vec<&str> = Vec::new();
 
@@ -141,6 +140,13 @@ impl<'a> Cell<'a> {
         }
 
         cmd.push("-m none:tmp:tmpfs:size=268435456");
+        cmd.push("--use_cgroupv2");
+        cmd.push("--disable_clone_newcgroup");
+
+        cmd.push("--cgroupv2_mount");
+        let cgroup_mount=format!("/sys/fs/cgroup/{}",&cgroup_name);
+        cmd.push(&cgroup_mount);
+
         cmd.push("-Me");
 
         cmd.push("-l");
@@ -175,7 +181,7 @@ impl<'a> Cell<'a> {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        limiter.add_child(&process)?;
+        let limiter = Limiter::from_limit(&cgroup_name, cpu_limit, mem_limit)?;
 
         let process = Some(process);
 
@@ -290,9 +296,9 @@ mod test {
                 .execute(
                     &vec!["/usr/local/bin/lua", "/test.lua"],
                     Limit {
-                        cpu_us: 3 * 1000 * 1000,
-                        rt_us: 3 * 1000 * 1000,
-                        total_us: 3 * 1000 * 1000,
+                        cpu_us: 1000* 1000 * 1000,
+                        rt_us: 1000* 1000 * 1000,
+                        total_us: 30*1000 * 1000,
                         swap_user: 0,
                         kernel_mem: 128 * 1024 * 1024,
                         user_mem: 512 * 1024 * 1024,
