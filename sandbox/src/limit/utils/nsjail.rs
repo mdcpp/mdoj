@@ -149,6 +149,18 @@ impl NsJail {
         let cmds: Vec<String> = vec!["--chroot".to_owned(), root.to_owned()];
         LimitBuilder { cmds }
     }
+    pub async fn wait(&self) -> Option<i32> {
+        let status = self
+            .process
+            .as_ref()
+            .unwrap()
+            .lock()
+            .await
+            .wait()
+            .await
+            .unwrap();
+        status.code()
+    }
     pub async fn kill(&self) -> Result<(), Error> {
         self.process.as_ref().unwrap().lock().await.kill().await?;
         Ok(())

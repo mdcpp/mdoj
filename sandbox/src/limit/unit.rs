@@ -39,7 +39,6 @@ impl<'a> Unit<'a> {
             .allocate(reversed_memory)
             .await?;
 
-
         let nsjail = NsJail::new(&self.root)
             .cgroup(&cg_name)
             .done()
@@ -49,16 +48,12 @@ impl<'a> Unit<'a> {
             .common()
             .build()?;
 
-        let proc_state = Arc::new(ProcState {
-            nsjail,
-            memory_holder,
-        });
-
-        let limiter = Limiter::new(&cg_name, limit, proc_state.clone())?;
+        let limiter = Limiter::new(&cg_name, limit)?;
 
         Ok(RunningProc {
             limiter,
-            state: proc_state,
+            nsjail,
+            memory_holder,
         })
     }
 }

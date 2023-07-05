@@ -5,6 +5,8 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use cgroups_rs::{cgroup_builder::CgroupBuilder, hierarchies};
+use tokio::sync::oneshot;
+use tokio::sync::oneshot::Receiver;
 use tokio::task::JoinHandle;
 use tokio::time;
 
@@ -15,10 +17,15 @@ use crate::{init::config::CONFIG, limit::proc::ProcState};
 pub mod cpu;
 pub mod mem;
 
+pub enum LimitReason {
+    Cpu,
+    Mem,
+}
+
 pub struct Limiter {
     task: JoinHandle<()>,
-    proc_state: Arc<ProcState>,
     state: Arc<AtomicPtr<LimiterState>>,
+    limit_oneshot: Option<Receiver<LimitReason>>,
 }
 
 #[derive(Default)]
@@ -34,7 +41,9 @@ impl Drop for Limiter {
 }
 
 impl Limiter {
-    pub fn new(cg_name: &str, limit: Limit, proc_state: Arc<ProcState>) -> Result<Self, Error> {
+    pub fn new(cg_name: &str, limit: Limit) -> Result<Self, Error> {
+        let (tx, rx) = oneshot::channel();
+
         let state = Box::into_raw(Box::new(LimiterState::default()));
         let state = Arc::new(AtomicPtr::new(state));
 
@@ -56,7 +65,6 @@ impl Limiter {
             .done()
             .build(hier)?;
 
-        let proc_state_taken = proc_state.clone();
         let state_taken = state.clone();
         let task = tokio::spawn(async move {
             loop {
@@ -67,15 +75,16 @@ impl Limiter {
 
                 // let mut resource_status = ResourceStatus::Running;
                 let mut end = false;
+                let mut reason = LimitReason::Mem;
 
                 if mem.oom {
-                    // resource_status = ResourceStatus::MemExhausted;
+                    reason = LimitReason::Mem;
                     end = true;
                 } else if cpu.rt_us > limit.rt_us
                     || cpu.cpu_us > limit.cpu_us
                     || cpu.total_us > limit.total_us
                 {
-                    // resource_status = ResourceStatus::CpuExhausted;
+                    reason = LimitReason::Cpu;
                     end = true;
                 }
 
@@ -86,7 +95,8 @@ impl Limiter {
                     ));
                 }
                 if end {
-                    proc_state_taken.nsjail.kill().await.ok();
+                    tx.send(reason).ok();
+                    cg.kill().unwrap();
                     break;
                 }
             }
@@ -94,13 +104,18 @@ impl Limiter {
 
         Ok(Limiter {
             task,
-            proc_state,
             state,
+            limit_oneshot: Some(rx),
         })
     }
     pub async fn status(self) -> (CpuStatistics, MemStatistics) {
         let stat = unsafe { Box::from_raw(self.state.load(Ordering::SeqCst)) };
 
         (stat.cpu.clone(), stat.mem.clone())
+    }
+    pub fn wait_exhausted(&mut self) -> Receiver<LimitReason> {
+        self.limit_oneshot
+            .take()
+            .expect("Limiter cannot be wait twice!")
     }
 }
