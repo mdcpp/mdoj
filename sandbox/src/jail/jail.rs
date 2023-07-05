@@ -101,7 +101,7 @@ impl<'a> Cell<'a> {
         log::debug!("preparing Cell");
         let config = CONFIG.get().unwrap();
 
-        let cgroup_name = format!("modj.{}", self.id);
+        let cgroup_name = format!("mdoj.{}", self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
@@ -117,7 +117,6 @@ impl<'a> Cell<'a> {
             rt_us: limit.rt_us,
             total_us: limit.total_us,
         };
-
 
         let mut cmd: Vec<&str> = Vec::new();
 
@@ -143,8 +142,11 @@ impl<'a> Cell<'a> {
         cmd.push("--use_cgroupv2");
         cmd.push("--disable_clone_newcgroup");
 
+        cmd.push("--cgroup_mem_swap_max");
+        cmd.push("0");
+
         cmd.push("--cgroupv2_mount");
-        let cgroup_mount=format!("/sys/fs/cgroup/{}",&cgroup_name);
+        let cgroup_mount = format!("/sys/fs/cgroup/{}", &cgroup_name);
         cmd.push(&cgroup_mount);
 
         cmd.push("-Me");
@@ -181,7 +183,7 @@ impl<'a> Cell<'a> {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let limiter = Limiter::from_limit(&cgroup_name, cpu_limit, mem_limit)?;
+        let limiter = Limiter::from_limit(&cgroup_name, cpu_limit, mem_limit, process.id())?;
 
         let process = Some(process);
 
@@ -227,6 +229,9 @@ impl<'a> Drop for Process<'a> {
 }
 
 impl<'a> Process<'a> {
+    pub async fn kill(&mut self) {
+        self.process.take().unwrap().kill().await.ok();
+    }
     pub fn stdin(&mut self) -> Option<ChildStdin> {
         self.process.as_mut().unwrap().stdin.take()
     }
@@ -296,9 +301,9 @@ mod test {
                 .execute(
                     &vec!["/usr/local/bin/lua", "/test.lua"],
                     Limit {
-                        cpu_us: 1000* 1000 * 1000,
-                        rt_us: 1000* 1000 * 1000,
-                        total_us: 30*1000 * 1000,
+                        cpu_us: 1000 * 1000 * 1000,
+                        rt_us: 1000 * 1000 * 1000,
+                        total_us: 30 * 1000,
                         swap_user: 0,
                         kernel_mem: 128 * 1024 * 1024,
                         user_mem: 512 * 1024 * 1024,

@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
@@ -73,6 +75,7 @@ impl Default for Plugin {
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
     pub temp: String,
+    pub temp2: PathBuf,
     pub bind: String,
     pub accuracy: u64,
 }
@@ -81,6 +84,7 @@ impl Default for Runtime {
     fn default() -> Self {
         Self {
             temp: "temp".to_owned(),
+            temp2: PathBuf::from_str("temp").unwrap(),
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
         }

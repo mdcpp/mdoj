@@ -137,7 +137,7 @@ pub struct Limiter {
     cgroup: Cgroup,
     handle: Option<JoinHandle<()>>,
     status: Arc<Mutex<Status>>,
-    jails_pids: Vec<i32>
+    jails_pids: Vec<i32>,
 }
 
 impl Drop for Limiter {
@@ -149,10 +149,19 @@ impl Drop for Limiter {
 }
 
 impl Limiter {
+    pub fn kill(&self) -> Result<(), Error> {
+        self.cgroup.kill()?;
+        Ok(())
+    }
     pub fn cpu_usage(&self) -> CpuLimit {
         self.status.as_ref().lock().unwrap().cpu_usage.clone()
     }
-    pub fn from_limit(cgroup_name: &str, cpu: CpuLimit, memory: MemLimit) -> Result<Self, Error> {
+    pub fn from_limit(
+        cgroup_name: &str,
+        cpu: CpuLimit,
+        memory: MemLimit,
+        pid: Option<u32>,
+    ) -> Result<Self, Error> {
         let config = CONFIG.get().unwrap();
 
         log::debug!("Starting a new limiter");
@@ -180,14 +189,20 @@ impl Limiter {
             log::trace!("Killing process inside cgroup");
             state.cgroup.kill().unwrap();
             log::trace!("Killing nsjail");
-            todo!();
+            if let Some(pid) = pid {
+                let pid = pid.try_into().expect("!e");
+                log::trace!("killing {}", pid);
+                unsafe {
+                    libc::kill(pid, libc::SIGKILL);
+                }
+            }
         });
 
         Ok(Limiter {
             cgroup,
             handle: Some(handle),
             status,
-            jails_pids:Vec::new()
+            jails_pids: Vec::new(),
         })
     }
     pub fn add_child(&self, child: &Child) -> Result<(), Error> {

@@ -5,6 +5,7 @@ use crate::plugin::proto::prelude::judge_service_server::JudgeServiceServer;
 
 pub mod init;
 pub mod jail;
+pub mod limit;
 pub mod plugin;
 
 #[tokio::main]
