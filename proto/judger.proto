@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package oj.judger;
+
+import "google/protobuf/empty.proto";
+
+message JudgeRequest {
+  uint32 lang_id = 0;
+  bytes code = 1;
+  // memory limit in byte
+  int32 memory = 2;
+  // time limit in ms
+  int32 time = 3;
+  // len must > 0
+  repeated TestCase tests = 4;
+}
+
+message TestCase {
+  bytes input = 2;
+  bytes output = 3;
+}
+
+message JudgeResponse {
+  oneof state {
+    // percentage 0 to 100
+    int32 testing = 0;
+    JudgeResult result = 1;
+  }
+}
+
+message JudgeResult {
+  JudgeResultState state = 0;
+  // the longest time the code need to run the input
+  float max_time = 1;
+  bytes stderr = 2;
+}
+
+enum JudgeResultState {
+  AC = 0;
+  NA = 1;
+  WA = 2;
+  CE = 3;
+  RE = 4;
+  RF = 5;
+  TLE = 6;
+  MLE = 7;
+  OLE = 8;
+}
+
+message Langs { repeated LangInfo list = 0; }
+
+message LangInfo {
+  uint32 lang_id = 0;
+  string lang_name = 1;
+  // compiler info or runtime info
+  string info = 2;
+  string lang_ext = 3;
+}
+
+message JudgerInfo {
+  // memory limit of judger in Gb
+  float memory = 0;
+  Langs langs = 1;
+  float cpu_factor = 2;
+}
+
+service Judger {
+  // judge code
+  rpc Judge(JudgeRequest) returns (stream JudgeResponse);
+
+  rpc JudgerInfo(google.protobuf.Empty) returns (JudgerInfo);
+}

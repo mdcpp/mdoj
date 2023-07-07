@@ -1,18 +1,110 @@
 syntax = "proto3";
 
-package backend;
+package oj.backend;
 
-message Token { uint64 content = 1; }
+import "google/protobuf/timestamp.proto";
 
-message GroupPerm {
-  bool create_problem = 1;
-  bool edit_problem = 2;
-  bool delete_problem = 3;
-  bool create_edu = 4;
-  bool edit_edu = 5;
-  bool delete_edu = 6;
-  bool add_user = 7;
+// Search
+message Sort {
+  SortBy sort_by = 0;
+  bool reverse = 1;
 }
 
+enum SortBy {
+  UploadDate = 0;
+  ACRate = 1;
+  SubmitCount = 2;
+}
 
+message Page {
+  uint32 offset = 0;
+  uint32 amount = 1;
+}
 
+message ListRequest {
+  Sort sort = 0;
+  Page page = 1;
+}
+
+message SearchByTextRequest {
+  Sort sort = 0;
+  Page page = 1;
+  string text = 2;
+}
+
+message SearchByTagRequest {
+  SortBy sort_by = 0;
+  Page page = 1;
+  string tag = 2;
+}
+
+// Problems
+message Problems { repeated ProblemInfo list = 0; }
+
+message ProblemInfo {
+  ProblemId id = 0;
+  string name = 1;
+  uint32 submit_count = 2;
+  float ac_rate = 3;
+}
+
+message ProblemId { uint32 id = 0; }
+
+message ProblemFullInfo {
+  ProblemInfo info = 0;
+  string description = 1;
+  repeated TestCase tests = 2;
+}
+
+message TestCase {
+  string input = 0;
+  string output = 1;
+}
+
+service ProblemSet {
+  rpc List(ListRequest) returns (Problems);
+
+  rpc SearchByText(SearchByTextRequest) returns (Problems);
+
+  rpc SearchByTag(SearchByTagRequest) returns (Problems);
+
+  rpc FullInfo(ProblemId) returns (ProblemFullInfo);
+}
+
+// Contest
+message Contests { repeated ContestInfo list = 0; }
+
+message ContestInfo {
+  ContestId id = 0;
+  string name = 1;
+  uint32 participant_count = 2;
+  google.protobuf.timestamp begin = 3;
+  google.protobuf.timestamp end = 4;
+}
+
+message ContestFullInfo {
+  ContestInfo info = 0;
+  string description = 1;
+  UserId hoster = 2;
+  repeated ProblemId problems = 3;
+}
+
+message ContestId { uint32 id = 0; }
+
+service ContestSet {
+  rpc List(ListRequest) returns (Contests);
+
+  rpc SearchByText(SearchByTextRequest) returns (Contests);
+
+  rpc SearchByTag(SearchByTagRequest) returns (Contests);
+
+  rpc FullInfo(ContestId) returns (ContestFullInfo);
+
+  // todo join contest
+}
+
+message UserId { uint32 id = 0; }
+
+// todo user api
+
+// todo admin api
