@@ -26,7 +26,7 @@ impl<'a> Unit<'a> {
     pub async fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         log::debug!("preparing Cell");
 
-        let cg_name = format!("mdoj.{}", self.id);
+        let cg_name = format!("mdoj/{}", self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 

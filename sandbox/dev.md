@@ -8,3 +8,8 @@ To make request "quasi equal", use cpu_time_multiplier
 
 ## Language difference
 
+
+
+## Known Issue
+
+the cgroup won't be automatic delete if application running correctly(did not killed by ``Limiter``)

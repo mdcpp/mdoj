@@ -44,7 +44,7 @@ impl NaJailBuilder {
         let config = CONFIG.get().unwrap();
         let presist_vol = config
             .runtime
-            .temp2
+            .temp
             .as_path()
             .join(id)
             .canonicalize()
