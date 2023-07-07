@@ -1,12 +1,7 @@
 use std::path::Path;
 
 use crate::{
-    init::config::CONFIG,
-    jail::{
-        jail::{Cell, Prison},
-        limit::CpuLimit,
-        resource::ResourceUsage,
-    },
+    init::config::CONFIG, limit::{prison::Prison, unit::Unit, utils::limiter::cpu::CpuStatistics},
 };
 
 use super::{spec::LangSpec, JudgeStatus};
@@ -41,9 +36,9 @@ impl Judger {
         let cell = report!(self.prison.create(spec.root()).await, Panic);
         Ok(Task { limit, spec, cell })
     }
-    pub fn usage(&self) -> ResourceUsage {
-        self.prison.usage()
-    }
+    // pub fn usage(&self) -> ResourceUsage {
+    //     self.prison.usage()
+    // }
 }
 
 pub struct Limit {
@@ -54,7 +49,7 @@ pub struct Limit {
 pub struct Task<'a> {
     limit: Limit,
     spec: &'a LangSpec,
-    cell: Cell<'a>,
+    cell: Unit<'a>,
 }
 
 impl<'a> Task<'a> {
@@ -68,9 +63,11 @@ impl<'a> Task<'a> {
 
         report!(proc.write_all(source_code).await, CompileError);
 
-        let status = proc.wait().await.succeed();
+        let proc = report!(proc.wait().await,CompileError);
 
-        let stdout = report!(proc.read_all().await, CompileError);
+        let succeed=proc.succeed();
+
+        let stdout = proc.stdout;
 
         let stdout = String::from_utf8_lossy(&stdout);
 
@@ -87,7 +84,7 @@ impl<'a> Task<'a> {
             }
         });
 
-        Err(match status {
+        Err(match succeed {
             true => JudgeStatus::CompileError,
             false => JudgeStatus::Compiling,
         })
@@ -106,14 +103,16 @@ impl<'a> Task<'a> {
 
         report!(proc.write_all(input).await, RuntimeError);
 
-        let status = proc.wait().await;
+        let proc = report!(proc.wait().await,RuntimeError);
 
-        let cpu_usage = proc.cpu_usage();
+        let succeed=proc.succeed();
 
-        match status.succeed() {
+        let cpu_usage = proc.cpu;
+
+        match succeed {
             true => Ok(TaskResult {
                 cpu_usage,
-                output: report!(proc.read_all().await, RuntimeError),
+                output: proc.stdout,
             }),
             false => Err(JudgeStatus::WrongAnswer),
         }
@@ -121,7 +120,7 @@ impl<'a> Task<'a> {
 }
 
 pub struct TaskResult {
-    pub cpu_usage: CpuLimit,
+    pub cpu_usage: CpuStatistics,
     output: Vec<u8>,
 }
 

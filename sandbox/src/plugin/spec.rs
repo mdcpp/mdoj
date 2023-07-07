@@ -4,7 +4,7 @@ use super::Error;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
-use crate::{init::config::CONFIG, jail::jail::Limit};
+use crate::{init::config::CONFIG, limit::Limit};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]

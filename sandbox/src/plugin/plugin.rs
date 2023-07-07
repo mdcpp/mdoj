@@ -189,13 +189,14 @@ impl JudgeService for LangJudger {
         let mut sys = System::new();
         sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
-        let judger = self.0.judger.usage();
-        Ok(Response::new(JudgerUsage {
-            all_available_mem: judger.all_available_mem,
-            available_mem: judger.available_mem,
-            running_task: judger.tasks,
-            all_available_cpu_usage: sys.cpus().len() as f32,
-            cpu_usage: sys.global_cpu_info().cpu_usage(),
-        }))
+        // let judger = self.0.judger.usage();
+        todo!()
+        // Ok(Response::new(JudgerUsage {
+        //     all_available_mem: judger.all_available_mem,
+        //     available_mem: judger.available_mem,
+        //     running_task: judger.tasks,
+        //     all_available_cpu_usage: sys.cpus().len() as f32,
+        //     cpu_usage: sys.global_cpu_info().cpu_usage(),
+        // }))
     }
 }
