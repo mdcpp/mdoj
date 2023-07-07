@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use crate::{
-    init::config::CONFIG, limit::{prison::Prison, unit::Unit, utils::limiter::cpu::CpuStatistics},
+    init::config::CONFIG,
+    limit::{prison::Prison, unit::Unit, utils::limiter::cpu::CpuStatistics},
 };
 
 use super::{spec::LangSpec, JudgeStatus};
@@ -63,9 +64,9 @@ impl<'a> Task<'a> {
 
         report!(proc.write_all(source_code).await, CompileError);
 
-        let proc = report!(proc.wait().await,CompileError);
+        let proc = report!(proc.wait().await, CompileError);
 
-        let succeed=proc.succeed();
+        let succeed = proc.succeed();
 
         let stdout = proc.stdout;
 
@@ -103,9 +104,9 @@ impl<'a> Task<'a> {
 
         report!(proc.write_all(input).await, RuntimeError);
 
-        let proc = report!(proc.wait().await,RuntimeError);
+        let proc = report!(proc.wait().await, RuntimeError);
 
-        let succeed=proc.succeed();
+        let succeed = proc.succeed();
 
         let cpu_usage = proc.cpu;
 

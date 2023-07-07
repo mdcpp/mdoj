@@ -96,7 +96,7 @@ impl CommonBuilder {
         self.cmds.push(config.nsjail.log.to_owned());
 
         self.cmds.push("-Me".to_owned());
-        
+
         self.cmds.push("--".to_owned());
 
         CmdBuilder { cmds: self.cmds }
@@ -108,23 +108,27 @@ pub struct CmdBuilder {
 }
 
 impl CmdBuilder {
-    pub fn cmds(mut self, cmd: &Vec<&str>)->NsJailBuilder {
-        for &arg in cmd{
-        self.cmds.push(arg.to_owned());
+    pub fn cmds(mut self, cmd: &Vec<&str>) -> NsJailBuilder {
+        for &arg in cmd {
+            self.cmds.push(arg.to_owned());
         }
         NsJailBuilder { cmds: self.cmds }
     }
 }
 
-pub struct NsJailBuilder{
-    cmds: Vec<String>
+pub struct NsJailBuilder {
+    cmds: Vec<String>,
 }
 
 impl NsJailBuilder {
     pub fn build(self) -> Result<NsJail, Error> {
         let config = CONFIG.get().unwrap();
 
-        log::trace!("Running subprocess {} {}",&config.nsjail.runtime,self.cmds.join(" "));
+        log::trace!(
+            "Running subprocess {} {}",
+            &config.nsjail.runtime,
+            self.cmds.join(" ")
+        );
 
         let mut cmd: Command = Command::new(&config.nsjail.runtime);
         cmd.args(self.cmds);

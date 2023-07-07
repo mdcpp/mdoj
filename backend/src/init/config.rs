@@ -12,15 +12,15 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub log_level: usize,
     #[serde(default)]
-    pub sandbox:Vec<Sandbox>
+    pub sandbox: Vec<Sandbox>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Sandbox{
+pub struct Sandbox {
     address: String,
-    port:u16,
+    port: u16,
     memory: i64,
-    cpu_weight: usize
+    cpu_weight: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,7 +54,6 @@ pub async fn init() {
 
     CONFIG.set(config).ok();
 }
-
 
 #[cfg(test)]
 mod test {

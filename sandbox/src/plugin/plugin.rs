@@ -55,9 +55,7 @@ macro_rules! report_status {
                     ImpossibleResource => {
                         Err(Status::resource_exhausted("Cannot preserve enough memory"))
                     }
-                    Panic =>{
-                        Err(Status::data_loss(""))
-                    }
+                    Panic => Err(Status::data_loss("")),
                     _ => Ok(JudgeResponse {
                         status: x as i32,
                         time: None,

@@ -75,16 +75,16 @@ pub struct ExitProc {
 }
 
 impl ExitProc {
-    pub fn succeed(&self)->bool{
+    pub fn succeed(&self) -> bool {
         match self.status {
-            ExitStatus::Code(x) => x==0,
+            ExitStatus::Code(x) => x == 0,
             _ => false,
         }
     }
 }
 
 pub enum ExitStatus {
-    SigExit,// RuntimeError
+    SigExit, // RuntimeError
     Code(i32),
     MemExhausted,
     CpuExhausted,
@@ -92,11 +92,11 @@ pub enum ExitStatus {
 
 impl Display for ExitStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self{
-            ExitStatus::SigExit => write!(f,"Killed by signal"),
-            ExitStatus::Code(x) => write!(f,"Exit with code {}",x),
-            ExitStatus::MemExhausted => write!(f,"Reach memory limit"),
-            ExitStatus::CpuExhausted => write!(f,"Reach cpu quota"),
+        match self {
+            ExitStatus::SigExit => write!(f, "Killed by signal"),
+            ExitStatus::Code(x) => write!(f, "Exit with code {}", x),
+            ExitStatus::MemExhausted => write!(f, "Reach memory limit"),
+            ExitStatus::CpuExhausted => write!(f, "Reach cpu quota"),
         }
     }
 }

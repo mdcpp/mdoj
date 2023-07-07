@@ -5,8 +5,6 @@ pub mod utils;
 
 use thiserror::Error;
 
-
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: `{0}`")]
@@ -71,11 +69,11 @@ mod test {
 
             let process = process.wait().await.unwrap();
 
-            println!("{}",process.status);
+            println!("{}", process.status);
 
             assert!(process.succeed());
 
-            let out=process.stdout;
+            let out = process.stdout;
             assert_eq!(out, b"hello world\n");
         }
 

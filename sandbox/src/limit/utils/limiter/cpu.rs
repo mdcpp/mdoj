@@ -1,6 +1,6 @@
 use cgroups_rs::{cpu::CpuController, Cgroup};
 
-#[derive(Default, Clone,Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct CpuStatistics {
     pub rt_us: i64,
     pub cpu_us: u64,

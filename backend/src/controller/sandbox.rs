@@ -1,7 +1,1 @@
-
-
-pub struct Router{
-    
-}
-
-
+pub struct Router {}
