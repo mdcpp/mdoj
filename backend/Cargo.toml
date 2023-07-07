@@ -16,11 +16,10 @@ paste = "1.0.12"
 prost = "0.11.9"
 toml = "0.7.4"
 tokio-stream = "0.1.14"
-once_cell = "1.17.2"
 
 [dependencies.tokio]
 version = "1.28.0"
-features = ["rt-multi-thread", "process", "macros", "fs", "io-util"]
+features = ["rt-multi-thread", "process", "macros", "fs", "io-util", "sync", "parking_lot"]
 
 [dependencies.sea-orm]
 version = "0.11.3"

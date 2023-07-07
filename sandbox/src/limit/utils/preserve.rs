@@ -43,7 +43,7 @@ impl MemoryCounter {
         let config = CONFIG.get().unwrap();
 
         if memory > config.platform.available_memory {
-            return Err(Error::InsufficientResource);
+            return Err(Error::ImpossibleResource);
         }
 
         let rx: oneshot::Receiver<()> = {

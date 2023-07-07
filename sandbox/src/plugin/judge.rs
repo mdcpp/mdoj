@@ -33,7 +33,7 @@ impl Judger {
         spec: &'a LangSpec,
         limit: Limit,
     ) -> Result<Task<'a>, JudgeStatus> {
-        let cell = report!(self.prison.create(spec.root()).await, Panic);
+        let cell = report!(self.prison.create(spec.root()).await, Unrecoverable);
         Ok(Task { limit, spec, cell })
     }
     // pub fn usage(&self) -> ResourceUsage {

@@ -1,8 +1,7 @@
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncReadExt};
+use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
-pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::new();
+pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
 const CONFIG_PATH: &'static str = "config.toml";
 

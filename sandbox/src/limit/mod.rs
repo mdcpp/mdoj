@@ -22,7 +22,7 @@ pub enum Error {
     #[error("Fail calling cgroup, check subsystem and hier support")]
     CGroup,
     #[error("Impossible to run the task given the provided resource preservation policy")]
-    InsufficientResource,
+    ImpossibleResource,
 }
 
 // const NICE: i32 = 18;

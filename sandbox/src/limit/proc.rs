@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    select,
+    select, time,
 };
 
 use crate::limit::utils::limiter::LimitReason;
@@ -44,6 +44,9 @@ impl RunningProc {
                     Some(x)=>ExitStatus::Code(x),
                     None=>ExitStatus::SigExit
                 }
+            }
+            _ = time::sleep(time::Duration::from_secs(3600))=>{
+                return Err(Error::Stall);
             }
         };
 

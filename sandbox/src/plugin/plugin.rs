@@ -52,9 +52,11 @@ macro_rules! report_status {
             Ok(x) => x,
             Err(x) => {
                 let res = match x {
-                    Panic => Err(Status::internal("Error running language plugin")),
-                    InsufficientResource => {
+                    ImpossibleResource => {
                         Err(Status::resource_exhausted("Cannot preserve enough memory"))
+                    }
+                    Panic =>{
+                        Err(Status::data_loss(""))
                     }
                     _ => Ok(JudgeResponse {
                         status: x as i32,

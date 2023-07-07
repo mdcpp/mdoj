@@ -23,8 +23,8 @@ pub enum JudgeStatus {
     RuntimeError = 2,
     #[error("This error should be never printed")]
     CompileError = 3,
-    #[error("This error should be never printed")]
-    Panic = 4,
+    #[error("Unrecoverable, check other log")]
+    Unrecoverable = 4,
     #[error("Panic when loading plugin")]
     NotFound = 5,
     #[error("This error should be never printed")]
@@ -35,6 +35,4 @@ pub enum JudgeStatus {
     Compiling = 8,
     #[error("This error should be never printed")]
     Running = 9,
-    #[error("This error should be never printed")]
-    InsufficientResource = 10,
 }
