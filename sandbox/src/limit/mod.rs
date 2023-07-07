@@ -5,19 +5,7 @@ pub mod utils;
 
 use thiserror::Error;
 
-use std::{
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicI64, AtomicPtr, Ordering},
-        Arc,
-    },
-};
 
-use tokio::fs;
-
-use crate::{init::config::CONFIG, jail::resource::ResourceCounter};
-
-// use self::{nsjail::NsJail, preserve::MemoryHolder};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -39,6 +27,7 @@ pub enum Error {
 
 // const NICE: i32 = 18;
 
+#[derive(Debug)]
 pub struct Limit {
     pub lockdown: bool,
     pub cpu_us: u64,
@@ -49,106 +38,48 @@ pub struct Limit {
     pub swap_user: i64,
 }
 
-// impl Limit {
-//     pub fn max() -> Self {
-//         Self {
-//             lockdown: true,
-//             cpu_us: u64::MAX / 2 - 1,
-//             rt_us: i64::MAX / 2 - 1,
-//             total_us: u64::MAX / 2 - 1,
-//             user_mem: i64::MAX / 2 - 1,
-//             kernel_mem: i64::MAX / 2 - 1,
-//             swap_user: 0,
-//         }
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::limit::prison::Prison;
+    use tokio::time;
 
-// // pub struct Process<'a> {
-// //     process: Option<Child>,
-// //     // limiter: Limiter,
-// //     resource_guard: MemoryHolder<'a>,
-// // }
+    use super::*;
 
-// // #[derive(PartialEq, Eq, Debug)]
-// // pub enum ProcessStatus {
-// //     Exit(i32),
-// //     Exhaust(LimitReason),
-// //     SigExit,
-// //     Stall,
-// // }
+    #[tokio::test]
+    async fn exec() {
+        crate::init::new().await;
 
-// // impl ProcessStatus {
-// //     pub fn succeed(&self) -> bool {
-// //         match self {
-// //             ProcessStatus::Exit(x) => *x == 0,
-// //             _ => false,
-// //         }
-// //     }
-// // }
+        {
+            let prison = Prison::new(".temp");
+            let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
 
-// // impl<'a> Drop for Process<'a> {
-// //     fn drop(&mut self) {
-// //         let mut process = self.process.take().unwrap();
-// //         tokio::spawn(async move {
-// //             process.kill().await.unwrap();
-// //             process.wait().await.unwrap();
-// //         });
-// //     }
-// // }
+            let process = cell
+                .execute(
+                    &vec!["/usr/local/bin/lua", "/test.lua"],
+                    Limit {
+                        cpu_us: 1000 * 1000 * 1000,
+                        rt_us: 1000 * 1000 * 1000,
+                        total_us: 20 * 1000,
+                        swap_user: 0,
+                        kernel_mem: 128 * 1024 * 1024,
+                        user_mem: 512 * 1024 * 1024,
+                        lockdown: false,
+                    },
+                )
+                .await
+                .unwrap();
 
-// // impl<'a> Process<'a> {
-// //     pub async fn kill(&mut self) {
-// //         self.process.take().unwrap().kill().await.ok();
-// //     }
-// //     pub fn stdin(&mut self) -> Option<ChildStdin> {
-// //         self.process.as_mut().unwrap().stdin.take()
-// //     }
-// //     pub fn stdout(&mut self) -> Option<ChildStdout> {
-// //         self.process.as_mut().unwrap().stdout.take()
-// //     }
-// //     pub fn stderr(&mut self) -> Option<ChildStderr> {
-// //         self.process.as_mut().unwrap().stderr.take()
-// //     }
-// //     pub async fn wait(&mut self) -> ProcessStatus {
-// //         select! {
-// //             x = self.process.as_mut().unwrap().wait() => {
-// //                 match x.unwrap().code() {
-// //                     Some(x) => ProcessStatus::Exit(x),
-// //                     None => ProcessStatus::SigExit
-// //                 }
-// //             }
-// //             _ = self.limiter.wait() => {
-// //                 ProcessStatus::Exhaust(self.limiter.status().unwrap())
-// //             }
-// //             _ = time::sleep(time::Duration::from_secs(3600)) => {
-// //                 ProcessStatus::Stall
-// //             }
-// //         }
-// //     }
-// //     pub async fn write_all(&mut self, buf: Vec<u8>) -> Result<(), Error> {
-// //         self.process
-// //             .as_mut()
-// //             .unwrap()
-// //             .stdin
-// //             .as_mut()
-// //             .ok_or(Error::CapturedPiped)?
-// //             .write_all(&buf)
-// //             .await?;
-// //         Ok(())
-// //     }
-// //     pub async fn read_all(&mut self) -> Result<Vec<u8>, Error> {
-// //         let mut buf = Vec::new();
-// //         self.process
-// //             .as_mut()
-// //             .unwrap()
-// //             .stdout
-// //             .as_mut()
-// //             .ok_or(Error::CapturedPiped)?
-// //             .read_to_end(&mut buf)
-// //             .await?;
-// //         Ok(buf)
-// //     }
-// //     pub fn cpu_usage(&mut self) -> CpuLimit {
-// //         self.limiter.cpu_usage()
-// //     }
-// // }
+            let process = process.wait().await.unwrap();
+
+            println!("{}",process.status);
+
+            assert!(process.succeed());
+
+            let out=process.stdout;
+            assert_eq!(out, b"hello world\n");
+        }
+
+        // unlike async-std, tokio won't wait for all background task to finish before exit
+        time::sleep(time::Duration::from_millis(12)).await;
+    }
+}

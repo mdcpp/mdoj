@@ -1,7 +1,6 @@
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
 };
 
 use tokio::{
@@ -28,10 +27,9 @@ impl LimitBuilder {
         self
     }
     pub fn done(mut self) -> NaJailBuilder {
-        self.cmds.push("--disable_clone_newcgroup".to_owned());
+        self.cmds.push("--disable_clone_newuser".to_owned());
         self.cmds.push("--cgroup_mem_swap_max".to_owned());
         self.cmds.push("0".to_owned());
-        self.cmds.push("--disable_clone_newcgroup".to_owned());
         self.cmds.push("--disable_clone_newcgroup".to_owned());
         NaJailBuilder { cmds: self.cmds }
     }
@@ -80,8 +78,7 @@ impl MountBuilder {
 
         self
     }
-    pub fn done(mut self) -> CommonBuilder {
-        self.cmds.push("--".to_owned());
+    pub fn done(self) -> CommonBuilder {
         CommonBuilder { cmds: self.cmds }
     }
 }
@@ -94,11 +91,12 @@ impl CommonBuilder {
     pub fn common(mut self) -> CmdBuilder {
         let config = CONFIG.get().unwrap();
 
-        self.cmds.push("-Me".to_owned());
         self.cmds.push("-l".to_owned());
 
         self.cmds.push(config.nsjail.log.to_owned());
 
+        self.cmds.push("-Me".to_owned());
+        
         self.cmds.push("--".to_owned());
 
         CmdBuilder { cmds: self.cmds }
@@ -110,13 +108,25 @@ pub struct CmdBuilder {
 }
 
 impl CmdBuilder {
-    pub fn cmds(&mut self, cmd: String) {
-        self.cmds.push(cmd);
+    pub fn cmds(mut self, cmd: &Vec<&str>)->NsJailBuilder {
+        for &arg in cmd{
+        self.cmds.push(arg.to_owned());
+        }
+        NsJailBuilder { cmds: self.cmds }
     }
+}
+
+pub struct NsJailBuilder{
+    cmds: Vec<String>
+}
+
+impl NsJailBuilder {
     pub fn build(self) -> Result<NsJail, Error> {
         let config = CONFIG.get().unwrap();
-        let mut cmd: Command = Command::new(&config.nsjail.runtime);
 
+        log::trace!("Running subprocess {} {}",&config.nsjail.runtime,self.cmds.join(" "));
+
+        let mut cmd: Command = Command::new(&config.nsjail.runtime);
         cmd.args(self.cmds);
 
         let process = cmd

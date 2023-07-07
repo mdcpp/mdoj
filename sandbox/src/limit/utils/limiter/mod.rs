@@ -10,9 +10,9 @@ use tokio::sync::oneshot::Receiver;
 use tokio::task::JoinHandle;
 use tokio::time;
 
+use crate::init::config::CONFIG;
 use crate::limit::utils::limiter::cpu::CpuStatistics;
 use crate::limit::utils::limiter::mem::MemStatistics;
-use crate::{init::config::CONFIG, limit::proc::ProcState};
 
 pub mod cpu;
 pub mod mem;
@@ -78,12 +78,16 @@ impl Limiter {
                 let mut reason = LimitReason::Mem;
 
                 if mem.oom {
+                    log::trace!("Stopping process because it reach its memory limit");
                     reason = LimitReason::Mem;
                     end = true;
                 } else if cpu.rt_us > limit.rt_us
                     || cpu.cpu_us > limit.cpu_us
                     || cpu.total_us > limit.total_us
                 {
+                    log::trace!("Killing process because it reach its cpu quota");
+                    dbg!(&cpu);
+                    dbg!(&limit);
                     reason = LimitReason::Cpu;
                     end = true;
                 }
@@ -97,6 +101,7 @@ impl Limiter {
                 if end {
                     tx.send(reason).ok();
                     cg.kill().unwrap();
+                    log::trace!("Process was killed");
                     break;
                 }
             }

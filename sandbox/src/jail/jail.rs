@@ -285,43 +285,43 @@ impl<'a> Process<'a> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[tokio::test]
-    async fn exec() {
-        crate::init::new().await;
+//     #[tokio::test]
+//     async fn exec() {
+//         crate::init::new().await;
 
-        {
-            let prison = Prison::new(".temp");
-            let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
+//         {
+//             let prison = Prison::new(".temp");
+//             let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
 
-            let mut process = cell
-                .execute(
-                    &vec!["/usr/local/bin/lua", "/test.lua"],
-                    Limit {
-                        cpu_us: 1000 * 1000 * 1000,
-                        rt_us: 1000 * 1000 * 1000,
-                        total_us: 30 * 1000,
-                        swap_user: 0,
-                        kernel_mem: 128 * 1024 * 1024,
-                        user_mem: 512 * 1024 * 1024,
-                        lockdown: false,
-                    },
-                )
-                .await
-                .unwrap();
+//             let mut process = cell
+//                 .execute(
+//                     &vec!["/usr/local/bin/lua", "/test.lua"],
+//                     Limit {
+//                         cpu_us: 1000 * 1000 * 1000,
+//                         rt_us: 1000 * 1000 * 1000,
+//                         total_us: 30 * 1000,
+//                         swap_user: 0,
+//                         kernel_mem: 128 * 1024 * 1024,
+//                         user_mem: 512 * 1024 * 1024,
+//                         lockdown: false,
+//                     },
+//                 )
+//                 .await
+//                 .unwrap();
 
-            let status = process.wait().await;
+//             let status = process.wait().await;
 
-            assert!(status.succeed());
+//             assert!(status.succeed());
 
-            let out = process.read_all().await.unwrap();
-            assert_eq!(out, b"hello world\n");
-        }
+//             let out = process.read_all().await.unwrap();
+//             assert_eq!(out, b"hello world\n");
+//         }
 
-        // unlike async-std, tokio won't wait for all background task to finish before exit
-        time::sleep(time::Duration::from_millis(12)).await;
-    }
-}
+//         // unlike async-std, tokio won't wait for all background task to finish before exit
+//         time::sleep(time::Duration::from_millis(12)).await;
+//     }
+// }

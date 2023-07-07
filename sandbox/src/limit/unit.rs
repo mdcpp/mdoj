@@ -2,10 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use tokio::fs;
 
-use crate::limit::{
-    proc::ProcState,
-    utils::{limiter::Limiter, nsjail::NsJail},
-};
+use crate::limit::utils::{limiter::Limiter, nsjail::NsJail};
 
 use super::{prison::Prison, proc::RunningProc, Error, Limit};
 
@@ -29,7 +26,7 @@ impl<'a> Unit<'a> {
     pub async fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         log::debug!("preparing Cell");
 
-        let cg_name = format!("mdoj/{}", self.id);
+        let cg_name = format!("mdoj.{}", self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
@@ -45,7 +42,7 @@ impl<'a> Unit<'a> {
             .presist_vol(&self.id)
             .mount("src", limit.lockdown)
             .done()
-            .common()
+            .common().cmds(args)
             .build()?;
 
         let limiter = Limiter::new(&cg_name, limit)?;
@@ -53,7 +50,7 @@ impl<'a> Unit<'a> {
         Ok(RunningProc {
             limiter,
             nsjail,
-            memory_holder,
+            _memory_holder: memory_holder,
         })
     }
 }
