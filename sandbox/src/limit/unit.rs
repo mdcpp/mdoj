@@ -2,7 +2,10 @@ use std::{path::PathBuf, sync::Arc};
 
 use tokio::fs;
 
-use crate::limit::utils::{limiter::Limiter, nsjail::NsJail};
+use crate::{
+    init::config::CONFIG,
+    limit::utils::{limiter::Limiter, nsjail::NsJail},
+};
 
 use super::{prison::Prison, proc::RunningProc, Error, Limit};
 
@@ -24,9 +27,11 @@ impl<'a> Drop for Unit<'a> {
 
 impl<'a> Unit<'a> {
     pub async fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
+        let config = CONFIG.get().unwrap();
+
         log::debug!("preparing Cell");
 
-        let cg_name = format!("mdoj/{}", self.id);
+        let cg_name = format!("{}/{}", config.runtime.root_cgroup, self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 

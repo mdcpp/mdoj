@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use cgroups_rs::{cpu::CpuController, Cgroup};
 
 #[derive(Default, Clone, Debug)]
@@ -5,6 +7,12 @@ pub struct CpuStatistics {
     pub rt_us: i64,
     pub cpu_us: u64,
     pub total_us: u64,
+}
+
+impl Display for CpuStatistics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"realtime:{} ,user: {} , total: {}",self.rt_us,self.cpu_us,self.total_us)
+    }
 }
 
 impl CpuStatistics {

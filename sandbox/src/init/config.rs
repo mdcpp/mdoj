@@ -20,6 +20,8 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub plugin: Plugin,
     #[serde(default)]
+    pub kernel: Kernel,
+    #[serde(default)]
     pub log_level: usize,
 }
 
@@ -77,6 +79,7 @@ pub struct Runtime {
     pub temp: PathBuf,
     pub bind: String,
     pub accuracy: u64,
+    pub root_cgroup: String,
 }
 
 impl Default for Runtime {
@@ -85,7 +88,21 @@ impl Default for Runtime {
             temp: PathBuf::from_str("temp").unwrap(),
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
+            root_cgroup: "mdoj".to_owned(),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Kernel{
+    pub USER_HZ:i32,
+    pub tickless: bool,
+}
+
+impl Default for Kernel {
+    fn default() -> Self {
+        Self { USER_HZ: 100, tickless: false }
     }
 }
 

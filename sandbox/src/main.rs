@@ -23,3 +23,8 @@ async fn main() {
         .await
         .unwrap();
 }
+
+// TODO: rewrite plugin
+// TODO: use adapter for grpc
+// TODO: use new proto
+// TODO: rename to judger

@@ -50,6 +50,8 @@ impl RunningProc {
             }
         };
 
+        
+
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let stdout = child.stdout.as_mut().ok_or(Error::CapturedPiped)?;
 
@@ -57,6 +59,8 @@ impl RunningProc {
         stdout.read_to_end(&mut buf).await?;
 
         let (cpu, mem) = self.limiter.status().await;
+
+        log::trace!("process exit with cpu: {}",cpu);
 
         Ok(ExitProc {
             status,

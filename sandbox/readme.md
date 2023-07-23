@@ -28,3 +28,18 @@ Follow guide in ``/plugins/readme.md``
 ### Docker
 
 config.toml need to specify the host path instead of the container path.
+
+## Improve reported accuracy
+
+### Write your kernel infomation in the config
+
+### Use tickless kernel
+
+Due to the natural of Cgroup V2, we cannot use ``cpuacct.usage`` instead of ``cpu.stat``.
+
+In ``cpu.stat`` provide the total cpu resource comsume since the creation, which was collected when cfs rescheduling process(it make a window span for accounting).
+
+As the result, if we use tickless kernel, we can eliminate the window span.
+
+### Config cpu to always work on base-clock
+

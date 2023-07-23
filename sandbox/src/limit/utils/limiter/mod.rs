@@ -114,6 +114,13 @@ impl Limiter {
         })
     }
     pub async fn status(self) -> (CpuStatistics, MemStatistics) {
+        let config=CONFIG.get().unwrap();
+
+        if !config.kernel.tickless{
+            time::sleep(time::Duration::from_nanos((1000*1000/config.kernel.USER_HZ) as u64)).await;
+        }
+        time::sleep(time::Duration::from_nanos(config.runtime.accuracy)).await;
+
         let stat = unsafe { Box::from_raw(self.state.load(Ordering::SeqCst)) };
 
         (stat.cpu.clone(), stat.mem.clone())
