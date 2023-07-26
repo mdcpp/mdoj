@@ -8,8 +8,8 @@ message JudgeRequest {
   uint32 lang_id = 1;
   bytes code = 2;
   // memory limit in byte
-  int32 memory = 3;
-  // time limit in ms
+  uint64 memory = 3;
+  // time limit in nanosecond
   int32 time = 4;
   // len must > 0
   repeated TestCase tests = 5;
@@ -22,8 +22,8 @@ message TestCase {
 
 message JudgeResponse {
   oneof state {
-    // percentage 0 to 100
-    int32 testing = 1;
+    // number of test case running(or finished)
+    int32 case = 1;
     JudgeResult result = 2;
   }
 }
@@ -58,10 +58,12 @@ message LangInfo {
 }
 
 message JudgeInfo {
-  // memory limit of judger in Gb
-  float memory = 1;
-  Langs langs = 2;
-  float cpu_factor = 3;
+  // memory limit of judger in byte
+  uint64 memory = 1;
+  // max possible deviation in nanosecond
+  int64 accuracy = 2;
+  Langs langs = 3;
+  float cpu_factor = 4;
 }
 
 service Judger {
