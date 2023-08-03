@@ -1,5 +1,5 @@
-use crate::limit::Error;
-use crate::limit::Limit;
+use crate::jail::Error;
+use crate::jail::Limit;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -11,8 +11,8 @@ use tokio::task::JoinHandle;
 use tokio::time;
 
 use crate::init::config::CONFIG;
-use crate::limit::utils::limiter::cpu::CpuStatistics;
-use crate::limit::utils::limiter::mem::MemStatistics;
+use crate::jail::utils::limiter::cpu::CpuStatistics;
+use crate::jail::utils::limiter::mem::MemStatistics;
 
 pub mod cpu;
 pub mod mem;
@@ -114,10 +114,13 @@ impl Limiter {
         })
     }
     pub async fn status(self) -> (CpuStatistics, MemStatistics) {
-        let config=CONFIG.get().unwrap();
+        let config = CONFIG.get().unwrap();
 
-        if !config.kernel.tickless{
-            time::sleep(time::Duration::from_nanos((1000*1000/config.kernel.USER_HZ) as u64)).await;
+        if !config.kernel.tickless {
+            time::sleep(time::Duration::from_nanos(
+                (1000 * 1000 / config.kernel.USER_HZ) as u64,
+            ))
+            .await;
         }
         time::sleep(time::Duration::from_nanos(config.runtime.accuracy)).await;
 

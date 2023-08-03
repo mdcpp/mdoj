@@ -965,6 +965,7 @@ dependencies = [
  "nsjail-sys",
  "once_cell",
  "prost",
+ "prost-types",
  "serde",
  "sysinfo",
  "thiserror",

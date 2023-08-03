@@ -14,7 +14,7 @@ pub fn init() {
             if let Ok(sub_cgroup) = sub_cgroup {
                 if let Ok(meta) = sub_cgroup.metadata() {
                     if meta.is_dir() {
-                        let mut path=sub_cgroup.path();
+                        let mut path = sub_cgroup.path();
                         remove_nsjail(&mut path);
                         fs::remove_dir(path).unwrap();
                     }

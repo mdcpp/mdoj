@@ -108,9 +108,9 @@ pub struct CmdBuilder {
 }
 
 impl CmdBuilder {
-    pub fn cmds(mut self, cmd: &Vec<&str>) -> NsJailBuilder {
-        for &arg in cmd {
-            self.cmds.push(arg.to_owned());
+    pub fn cmds(mut self, cmd: &Vec<String>) -> NsJailBuilder {
+        for arg in cmd.clone() {
+            self.cmds.push(arg);
         }
         NsJailBuilder { cmds: self.cmds }
     }

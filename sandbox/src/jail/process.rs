@@ -5,7 +5,7 @@ use tokio::{
     select, time,
 };
 
-use crate::limit::utils::limiter::LimitReason;
+use crate::jail::utils::limiter::LimitReason;
 
 use super::{
     utils::{
@@ -16,6 +16,8 @@ use super::{
     Error,
 };
 
+const BUFFER_LIMIT: usize = 16 * 1024 * 1024 - 1;
+
 pub struct RunningProc {
     pub(super) limiter: Limiter,
     pub(super) nsjail: NsJail,
@@ -25,7 +27,7 @@ pub struct RunningProc {
 impl RunningProc {
     pub async fn write_all(&mut self, buf: Vec<u8>) -> Result<(), Error> {
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
-        let stdin = child.stdin.as_mut().ok_or(Error::CapturedPiped)?;
+        let stdin = child.stdin.as_mut().ok_or(Error::CapturedPipe)?;
 
         stdin.write_all(&buf).await?;
 
@@ -50,21 +52,22 @@ impl RunningProc {
             }
         };
 
-        
-
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
-        let stdout = child.stdout.as_mut().ok_or(Error::CapturedPiped)?;
+        let stdout = child.stdout.as_mut().ok_or(Error::CapturedPipe)?;
 
-        let mut buf = Vec::new();
-        stdout.read_to_end(&mut buf).await?;
+        let buf = &[0_u8; BUFFER_LIMIT + 1];
+        let buffer_size = stdout.read_to_end(&mut buf.to_vec()).await?;
+        if buffer_size == BUFFER_LIMIT + 1 {
+            return Err(Error::BufferFull);
+        }
 
         let (cpu, mem) = self.limiter.status().await;
 
-        log::trace!("process exit with cpu: {}",cpu);
+        log::trace!("process exit with cpu: {}", cpu);
 
         Ok(ExitProc {
             status,
-            stdout: buf,
+            stdout: buf.to_vec(),
             cpu,
             mem,
         })

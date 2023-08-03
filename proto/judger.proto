@@ -5,7 +5,7 @@ package oj.judger;
 import "google/protobuf/empty.proto";
 
 message JudgeRequest {
-  uint32 lang_id = 1;
+  string lang_uid = 1;
   bytes code = 2;
   // memory limit in byte
   uint64 memory = 3;
@@ -50,7 +50,7 @@ enum JudgeResultState {
 message Langs { repeated LangInfo list = 1; }
 
 message LangInfo {
-  uint32 lang_id = 1;
+  string lang_uid = 1;
   string lang_name = 2;
   // compiler info or runtime info
   string info = 3;
@@ -59,7 +59,7 @@ message LangInfo {
 
 message JudgeInfo {
   // memory limit of judger in byte
-  uint64 memory = 1;
+  int64 memory = 1;
   // max possible deviation in nanosecond
   int64 accuracy = 2;
   Langs langs = 3;

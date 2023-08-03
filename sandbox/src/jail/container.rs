@@ -1,21 +1,21 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use tokio::fs;
 
 use crate::{
     init::config::CONFIG,
-    limit::utils::{limiter::Limiter, nsjail::NsJail},
+    jail::utils::{limiter::Limiter, nsjail::NsJail},
 };
 
-use super::{prison::Prison, proc::RunningProc, Error, Limit};
+use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};
 
-pub struct Unit<'a> {
+pub struct Container<'a> {
     pub(super) id: String,
-    pub(super) controller: &'a Prison,
+    pub(super) controller: &'a ContainerDaemon,
     pub(super) root: PathBuf,
 }
 
-impl<'a> Drop for Unit<'a> {
+impl<'a> Drop for Container<'a> {
     fn drop(&mut self) {
         let tmp_path = self.controller.tmp.as_path().clone().join(self.id.clone());
         tokio::spawn(async {
@@ -25,8 +25,8 @@ impl<'a> Drop for Unit<'a> {
     }
 }
 
-impl<'a> Unit<'a> {
-    pub async fn execute(&self, args: &Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
+impl<'a> Container<'a> {
+    pub async fn execute(&self, args: &Vec<String>, limit: &Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
         log::debug!("preparing Cell");
@@ -51,7 +51,7 @@ impl<'a> Unit<'a> {
             .cmds(args)
             .build()?;
 
-        let limiter = Limiter::new(&cg_name, limit)?;
+        let limiter = Limiter::new(&cg_name, limit.clone())?;
 
         Ok(RunningProc {
             limiter,

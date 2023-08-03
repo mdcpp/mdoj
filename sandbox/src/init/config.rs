@@ -28,14 +28,14 @@ pub struct GlobalConfig {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Platform {
-    pub cpu_time_multiplier: u64,
+    pub cpu_time_multiplier: f32,
     pub available_memory: i64,
 }
 
 impl Default for Platform {
     fn default() -> Self {
         Self {
-            cpu_time_multiplier: 1,
+            cpu_time_multiplier: 1.0,
             available_memory: 1073741824,
         }
     }
@@ -95,14 +95,17 @@ impl Default for Runtime {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct Kernel{
-    pub USER_HZ:i32,
+pub struct Kernel {
+    pub USER_HZ: i32,
     pub tickless: bool,
 }
 
 impl Default for Kernel {
     fn default() -> Self {
-        Self { USER_HZ: 100, tickless: false }
+        Self {
+            USER_HZ: 100,
+            tickless: false,
+        }
     }
 }
 

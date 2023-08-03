@@ -292,6 +292,7 @@ dependencies = [
  "moka",
  "paste",
  "prost",
+ "prost-types",
  "sea-orm",
  "serde",
  "tokio",

@@ -11,7 +11,11 @@ pub struct CpuStatistics {
 
 impl Display for CpuStatistics {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"realtime:{} ,user: {} , total: {}",self.rt_us,self.cpu_us,self.total_us)
+        write!(
+            f,
+            "realtime:{} ,user: {} , total: {}",
+            self.rt_us, self.cpu_us, self.total_us
+        )
     }
 }
 
