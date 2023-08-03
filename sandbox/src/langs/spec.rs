@@ -8,14 +8,14 @@ use crate::{grpc::proto, init::config::CONFIG, jail::Limit};
 use super::InternalError;
 
 pub struct LangSpec {
-    pub description: String,
+    pub info: String,
     pub extension: String,
-    pub uuid: String, // TODO
+    pub uid: String, // TODO
     pub name: String,
     pub compile_args: Vec<String>,
     pub compile_limit: Limit,
-    pub execute_args: Vec<String>,
-    pub execute_limit: Limit,
+    pub judge_args: Vec<String>,
+    pub judge_limit: Limit,
     pub path: PathBuf,
 }
 
@@ -27,10 +27,10 @@ impl Into<proto::prelude::LangInfo> for LangSpec {
 
 impl LangSpec {
     pub async fn from_file(path: impl AsRef<Path>) -> Result<Self, InternalError> {
-        log::debug!("Loading Plugin from {}", path.as_ref().to_string_lossy());
+        log::trace!("Loading module from {}", path.as_ref().to_string_lossy());
 
         let mut buf = Vec::new();
-        let mut spec = fs::File::open(path.as_ref())
+        let mut spec = fs::File::open(path.as_ref().join("spec.toml"))
             .await
             .map_err(|_| InternalError::FileNotExist)?;
         spec.read_to_end(&mut buf).await.unwrap();
@@ -49,26 +49,29 @@ impl LangSpec {
             swap_user: 0,
         };
 
-        let execute_limit = Limit {
+        let judge_limit = Limit {
             lockdown: true,
-            cpu_us: spec.execute.multiplier_cpu,
-            rt_us: spec.execute.rt_time,
+            cpu_us: spec.judge.multiplier_cpu,
+            rt_us: spec.judge.rt_time,
             total_us: 3600 * 1000 * 1000 * 1000,
-            user_mem: spec.execute.multiplier_memory,
-            kernel_mem: spec.execute.kernel_mem,
+            user_mem: spec.judge.multiplier_memory,
+            kernel_mem: spec.judge.kernel_mem,
             swap_user: 0,
         };
 
+        log::info!("Module with uid:{} loaded", spec.uid);
+
+
         Ok(Self {
-            path: path.as_ref().parent().unwrap().join("rootfs").clone(),
-            description: spec.description,
+            path: path.as_ref().join("rootfs").clone(),
+            info: spec.info,
             extension: spec.extension,
-            uuid: spec.uuid,
+            uid: spec.uid,
             name: spec.name,
             compile_args: spec.compile.command,
             compile_limit,
-            execute_args: spec.execute.command,
-            execute_limit,
+            judge_args: spec.judge.command,
+            judge_limit,
         })
     }
 }
@@ -76,34 +79,12 @@ impl LangSpec {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct RawLangSpec {
-    description: String,
+    info: String,
     extension: String,
-    uuid: String,
+    uid: String,
     name: String,
     compile: Compile,
-    execute: Execute,
-}
-
-impl RawLangSpec {
-    // todo!(): perform spec check
-    // pub async fn from_file(path: impl AsRef<Path>) -> Result<RawLangSpec, Error> {
-    //     let mut buf = Vec::new();
-
-    //     log::debug!("Loading Plugin from {}", path.as_ref().to_string_lossy());
-
-    //     let mut spec = fs::File::open(path.as_ref().join("spec.toml"))
-    //         .await
-    //         .map_err(|_| Error::FileNotExist)?;
-    //     spec.read_to_end(&mut buf).await.unwrap();
-
-    //     let spec = std::str::from_utf8(&buf).expect("invaild spec");
-
-    //     let spec: RawLangSpec = toml::from_str(spec)?;
-
-    //     log::info!("Plugin {} loaded", spec.name);
-
-    //     Ok(spec)
-    // }
+    judge: Judge,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -118,7 +99,7 @@ struct Compile {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Execute {
+pub struct Judge {
     pub command: Vec<String>,
     pub kernel_mem: i64,
     pub multiplier_memory: i64,

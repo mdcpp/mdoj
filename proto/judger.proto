@@ -8,11 +8,12 @@ message JudgeRequest {
   string lang_uid = 1;
   bytes code = 2;
   // memory limit in byte
-  uint64 memory = 3;
+  int64 memory = 3;
   // time limit in nanosecond
-  int32 time = 4;
+  uint64 time = 4;
+  JudgeMatchRule rule = 5;
   // len must > 0
-  repeated TestCase tests = 5;
+  repeated TestCase tests = 6;
 }
 
 message TestCase {
@@ -21,7 +22,7 @@ message TestCase {
 }
 
 message JudgeResponse {
-  oneof state {
+  oneof task {
     // number of test case running(or finished)
     int32 case = 1;
     JudgeResult result = 2;
@@ -29,10 +30,9 @@ message JudgeResponse {
 }
 
 message JudgeResult {
-  JudgeResultState state = 1;
+  JudgeResultState status = 1;
   // the longest time the code need to run the input
   float max_time = 2;
-  bytes stderr = 3;
 }
 
 enum JudgeResultState {
@@ -45,6 +45,12 @@ enum JudgeResultState {
   TLE = 6;
   MLE = 7;
   OLE = 8;
+}
+
+enum JudgeMatchRule {
+  ExactSame = 0;
+  IgnoreSpace = 1;
+  SkipSNL = 2;
 }
 
 message Langs { repeated LangInfo list = 1; }

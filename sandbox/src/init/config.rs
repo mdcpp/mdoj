@@ -28,7 +28,7 @@ pub struct GlobalConfig {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Platform {
-    pub cpu_time_multiplier: f32,
+    pub cpu_time_multiplier: f64,
     pub available_memory: i64,
 }
 

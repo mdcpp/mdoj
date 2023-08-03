@@ -26,7 +26,7 @@ impl<'a> Drop for Container<'a> {
 }
 
 impl<'a> Container<'a> {
-    pub async fn execute(&self, args: &Vec<String>, limit: &Limit) -> Result<RunningProc, Error> {
+    pub async fn execute(&self, args: &Vec<String>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
         log::debug!("preparing Cell");
@@ -51,7 +51,7 @@ impl<'a> Container<'a> {
             .cmds(args)
             .build()?;
 
-        let limiter = Limiter::new(&cg_name, limit.clone())?;
+        let limiter = Limiter::new(&cg_name, limit)?;
 
         Ok(RunningProc {
             limiter,

@@ -67,7 +67,7 @@ mod test {
             let process = cell
                 .execute(
                     &vec!["/usr/local/bin/lua".to_string(), "/test.lua".to_string()],
-                    &Limit {
+                    Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
                         total_us: 20 * 1000,

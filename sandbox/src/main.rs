@@ -1,3 +1,5 @@
+use crate::grpc::server::GRpcServer;
+use grpc::proto::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;
 use tonic::transport::Server;
 
@@ -13,19 +15,15 @@ async fn main() {
     init::new().await;
 
     let config = CONFIG.get().unwrap();
-    // let addr = config.runtime.bind.parse().unwrap();
+    let addr = config.runtime.bind.parse().unwrap();
 
-    // let plugin_provider = plugin::plugin::LangJudger::new().await;
+    log::info!("Server started");
 
-    // log::info!("Server started");
-    // Server::builder()
-    //     .add_service(JudgeServiceServer::new(plugin_provider))
-    //     .serve(addr)
-    //     .await
-    //     .unwrap();
+    let server = GRpcServer::new().await;
+
+    Server::builder()
+        .add_service(JudgerServer::new(server))
+        .serve(addr)
+        .await
+        .unwrap();
 }
-
-// TODO: rewrite plugin
-// TODO: use adapter for grpc
-// TODO: use new proto
-// TODO: rename to judger

@@ -8,6 +8,11 @@ use crate::{
 pub mod artifact;
 pub mod spec;
 
+pub mod prelude {
+    pub use super::artifact::*;
+    pub use super::{Error, InternalError, RequestError};
+}
+
 #[derive(Error, Debug)]
 pub enum InternalError {
     #[error("`{0}`")]
