@@ -11,7 +11,7 @@ use super::{spec::LangSpec, Error, InternalError};
 
 pub type UID = String;
 
-const TRACING_ID:AtomicUsize=AtomicUsize::new(0);
+const TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct ArtifactFactory {
     runtime: ContainerDaemon,
@@ -35,8 +35,8 @@ impl ArtifactFactory {
                 };
             }
         }
-        for (uid,module) in self.langs.iter(){
-            log::info!("Module {} for {}(*.{})", uid,module.name,module.extension);
+        for (uid, module) in self.langs.iter() {
+            log::info!("Module {} for {}(*.{})", uid, module.name, module.extension);
         }
     }
     // spec would like plugins/lua-5.2/spec.toml
@@ -62,8 +62,12 @@ impl ArtifactFactory {
     }
 
     pub async fn compile(&self, uid: &UID, code: &Vec<u8>) -> Result<CompiledArtifact, Error> {
-        let tracing_id=TRACING_ID.fetch_add(1, Ordering::Relaxed);
-        log::trace!("Compiling program with module {} -trace:{}",uid,tracing_id);
+        let tracing_id = TRACING_ID.fetch_add(1, Ordering::Relaxed);
+        log::trace!(
+            "Compiling program with module {} -trace:{}",
+            uid,
+            tracing_id
+        );
 
         let spec = self.langs.get(uid).ok_or(RequestError::LangNotFound)?;
 
@@ -84,7 +88,11 @@ impl ArtifactFactory {
             return Err(Error::Report(JudgeResultState::Ce));
         }
 
-        Ok(CompiledArtifact { container, spec,tracing_id })
+        Ok(CompiledArtifact {
+            container,
+            spec,
+            tracing_id,
+        })
     }
 }
 
@@ -101,7 +109,7 @@ impl Default for ArtifactFactory {
 pub struct CompiledArtifact<'a> {
     container: Container<'a>,
     spec: &'a LangSpec,
-    tracing_id:usize
+    tracing_id: usize,
 }
 
 impl<'a> CompiledArtifact<'a> {
@@ -111,7 +119,7 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: i64,
     ) -> Result<TaskResult, Error> {
-        log::trace!("Running program -trace:{}",self.tracing_id);
+        log::trace!("Running program -trace:{}", self.tracing_id);
         let mut limit = self.spec.judge_limit.clone().apply_platform();
 
         limit.cpu_us *= time;
@@ -127,18 +135,21 @@ impl<'a> CompiledArtifact<'a> {
             return Err(Error::Report(JudgeResultState::Re));
         }
 
-        Ok(TaskResult { process,tracing_id:self.tracing_id })
+        Ok(TaskResult {
+            process,
+            tracing_id: self.tracing_id,
+        })
     }
 }
 
 pub struct TaskResult {
     process: ExitProc,
-    tracing_id:usize
+    tracing_id: usize,
 }
 
 impl TaskResult {
     pub fn assert(&self, input: &Vec<u8>, mode: JudgeMatchRule) -> bool {
-        log::trace!("Ssserting program -trace:{}",self.tracing_id);
+        log::trace!("Ssserting program -trace:{}", self.tracing_id);
         let stdout = &self.process.stdout;
         // match mode{
         //     JudgeMatchRule::IgnoreSpace=>{

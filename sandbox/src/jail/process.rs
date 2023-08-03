@@ -16,7 +16,7 @@ use super::{
     Error,
 };
 
-const BUFFER_LIMIT: usize = 16 * 1024 * 1024 - 1;
+const BUFFER_LIMIT: usize = 32 * 1024 * 1024 - 1;
 
 pub struct RunningProc {
     pub(super) limiter: Limiter,
@@ -55,8 +55,13 @@ impl RunningProc {
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let stdout = child.stdout.as_mut().ok_or(Error::CapturedPipe)?;
 
-        let buf = &[0_u8; BUFFER_LIMIT + 1];
-        let buffer_size = stdout.read_to_end(&mut buf.to_vec()).await?;
+        let mut buf = Vec::with_capacity(BUFFER_LIMIT + 1);
+
+        let buffer_size = stdout
+            .take((BUFFER_LIMIT + 1) as u64)
+            .read_to_end(&mut buf)
+            .await?;
+
         if buffer_size == BUFFER_LIMIT + 1 {
             return Err(Error::BufferFull);
         }
