@@ -1,14 +1,13 @@
 use std::{pin::Pin, sync::Arc};
 
-use futures::Stream;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Response, Status};
 
 use crate::{
-    grpc::proto::prelude::judge_response::Task,
+    grpc::proto::prelude::judge_response,
     init::config::CONFIG,
-    langs::{self, prelude::ArtifactFactory},
+    langs::{prelude::Error as LangError, prelude::*},
 };
 
 use super::proto::prelude::{judger_server::Judger, *};
@@ -37,19 +36,21 @@ macro_rules! report {
         match $result {
             Ok(x) => x,
             Err(err) => match err {
-                langs::Error::Internal(x) => {
-                    log::warn!("{}", x);
-                    $tx.send(Err(Status::internal("See Log"))).await.ok();
+                LangError::Internal(err) => {
+                    log::warn!("{}", err);
+                    $tx.send(Err(Status::internal("See log"))).await.ok();
                     return ();
                 }
-                langs::Error::BadRequest(_) => {
-                    $tx.send(Err(Status::internal("Bad Request"))).await.ok();
+                LangError::BadRequest(err) => {
+                    match err{
+                        RequestError::LangNotFound=>$tx.send(Err(Status::not_found(""))).await.ok()
+                    };
                     return ();
                 }
-                langs::Error::Report(x) => {
+                LangError::Report(res) => {
                     $tx.send(Ok(JudgeResponse {
-                        task: Some(Task::Result(JudgeResult {
-                            status: x as i32,
+                        task: Some(judge_response::Task::Result(JudgeResult {
+                            status: res as i32,
                             max_time: 0.0,
                         })),
                     }))
@@ -64,7 +65,7 @@ macro_rules! report {
 
 #[async_trait::async_trait]
 impl Judger for GRpcServer {
-    type JudgeStream = Pin<Box<dyn Stream<Item = Result<JudgeResponse, Status>> + Send>>;
+    type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
     async fn judge<'a>(
         &'a self,
@@ -91,7 +92,7 @@ impl Judger for GRpcServer {
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
                 tx.send(Ok(JudgeResponse {
-                    task: Some(Task::Result(JudgeResult {
+                    task: Some(judge_response::Task::Result(JudgeResult {
                         status: match result.assert(&task.output, mode) {
                             true => JudgeResultState::Ac,
                             false => JudgeResultState::Wa,
@@ -111,6 +112,7 @@ impl Judger for GRpcServer {
         &'a self,
         _: tonic::Request<()>,
     ) -> Result<Response<JudgeInfo>, Status> {
+        log::trace!("Query judger info");
         let config = CONFIG.get().unwrap();
 
         let modules = self.factory.list_module();

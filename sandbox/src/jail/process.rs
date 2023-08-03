@@ -63,8 +63,6 @@ impl RunningProc {
 
         let (cpu, mem) = self.limiter.status().await;
 
-        log::trace!("process exit with cpu: {}", cpu);
-
         Ok(ExitProc {
             status,
             stdout: buf.to_vec(),

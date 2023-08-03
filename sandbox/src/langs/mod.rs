@@ -1,9 +1,6 @@
 use thiserror::Error;
 
-use crate::{
-    grpc::proto::{self, prelude::JudgeResultState},
-    jail,
-};
+use crate::{grpc::proto::prelude::JudgeResultState, jail};
 
 pub mod artifact;
 pub mod spec;

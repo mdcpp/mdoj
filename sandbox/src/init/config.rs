@@ -1,10 +1,9 @@
 use std::{path::PathBuf, str::FromStr};
 
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncReadExt};
+use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
-pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::new();
+pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
 const CONFIG_PATH: &'static str = "config.toml";
 
@@ -96,6 +95,7 @@ impl Default for Runtime {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Kernel {
+    #[allow(non_snake_case)]
     pub USER_HZ: i32,
     pub tickless: bool,
 }

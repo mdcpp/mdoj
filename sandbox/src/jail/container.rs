@@ -18,8 +18,8 @@ pub struct Container<'a> {
 impl<'a> Drop for Container<'a> {
     fn drop(&mut self) {
         let tmp_path = self.controller.tmp.as_path().clone().join(self.id.clone());
+        log::trace!("Cleaning up container with id :{}",self.id);
         tokio::spawn(async {
-            log::trace!("removing Cell's presistent storage");
             fs::remove_dir_all(tmp_path).await
         });
     }
@@ -29,7 +29,7 @@ impl<'a> Container<'a> {
     pub async fn execute(&self, args: &Vec<String>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
-        log::debug!("preparing Cell");
+        log::trace!("Preparing container with id :{} for new process",self.id);
 
         let cg_name = format!("{}/{}", config.runtime.root_cgroup, self.id);
 

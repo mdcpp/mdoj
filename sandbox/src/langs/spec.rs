@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
-use crate::{grpc::proto, init::config::CONFIG, jail::Limit};
+use crate::{grpc::proto, jail::Limit};
 
 use super::InternalError;
 
@@ -58,9 +58,6 @@ impl LangSpec {
             kernel_mem: spec.judge.kernel_mem,
             swap_user: 0,
         };
-
-        log::info!("Module with uid:{} loaded", spec.uid);
-
 
         Ok(Self {
             path: path.as_ref().join("rootfs").clone(),

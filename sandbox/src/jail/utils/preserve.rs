@@ -3,7 +3,6 @@
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
-    thread::JoinHandle,
 };
 
 use tokio::sync::oneshot;
