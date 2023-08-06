@@ -1,6 +1,6 @@
-# MdOJ sandbox
+# MdOJ judger
 
-A sandbox for cms.
+A judger for cms.
 
 ## How to integrate it to web backend?
 

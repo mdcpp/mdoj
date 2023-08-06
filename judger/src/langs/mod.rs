@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{grpc::proto::prelude::JudgeResultState, jail};
+use crate::{grpc::proto::prelude::JudgeResultState, sandbox};
 
 pub mod artifact;
 pub mod spec;
@@ -19,7 +19,7 @@ pub enum InternalError {
     #[error("Language \"spec.toml\" does not exist")]
     FileNotExist,
     #[error("`{0}`")]
-    JailError(jail::Error),
+    JailError(sandbox::Error),
 }
 
 #[derive(Error, Debug)]
@@ -38,17 +38,17 @@ pub enum Error {
     Report(JudgeResultState),
 }
 
-impl From<jail::Error> for Error {
-    fn from(value: jail::Error) -> Self {
+impl From<sandbox::Error> for Error {
+    fn from(value: sandbox::Error) -> Self {
         match value {
-            jail::Error::ImpossibleResource | jail::Error::Stall | jail::Error::CapturedPipe => {
+            sandbox::Error::ImpossibleResource | sandbox::Error::Stall | sandbox::Error::CapturedPipe => {
                 Error::Report(JudgeResultState::Re)
             }
-            jail::Error::IO(_)
-            | jail::Error::ControlGroup(_)
-            | jail::Error::Libc(_)
-            | jail::Error::CGroup => Error::Internal(InternalError::JailError(value)),
-            jail::Error::BufferFull => Error::Report(JudgeResultState::Ole),
+            sandbox::Error::IO(_)
+            | sandbox::Error::ControlGroup(_)
+            | sandbox::Error::Libc(_)
+            | sandbox::Error::CGroup => Error::Internal(InternalError::JailError(value)),
+            sandbox::Error::BufferFull => Error::Report(JudgeResultState::Ole),
         }
     }
 }

@@ -12,7 +12,7 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub log_level: usize,
     #[serde(default)]
-    pub sandbox: Vec<Sandbox>,
+    pub judger: Vec<Sandbox>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

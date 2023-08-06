@@ -5,7 +5,7 @@ use tokio::{
     select, time,
 };
 
-use crate::jail::utils::limiter::LimitReason;
+use crate::sandbox::utils::limiter::LimitReason;
 
 use super::{
     utils::{

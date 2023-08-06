@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, path::Path};
 use tokio::fs;
 
 use crate::grpc::proto::prelude::*;
-use crate::jail::prelude::*;
+use crate::sandbox::prelude::*;
 use crate::{init::config::CONFIG, langs::RequestError};
 
 use super::{spec::LangSpec, Error, InternalError};

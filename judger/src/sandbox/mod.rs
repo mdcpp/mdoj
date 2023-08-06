@@ -1,7 +1,7 @@
 pub(super) mod container;
 pub(super) mod daemon;
 pub(super) mod process;
-pub(super) mod utils;
+pub(super) mod utils; 
 
 use thiserror::Error;
 
@@ -51,20 +51,20 @@ pub struct Limit {
 
 #[cfg(test)]
 mod test {
-    use crate::jail::daemon::ContainerDaemon;
+    use crate::sandbox::daemon::ContainerDaemon;
     use tokio::time;
 
     use super::*;
 
     #[tokio::test]
     async fn exec() {
-        crate::init::new().await;
+        crate::init::new().await; 
 
         {
-            let prison = ContainerDaemon::new(".temp");
-            let cell = prison.create("plugins/lua-5.2/rootfs").await.unwrap();
+            let daemon = ContainerDaemon::new(".temp");
+            let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
-            let process = cell
+            let process = container
                 .execute(
                     &vec!["/usr/local/bin/lua".to_string(), "/test.lua".to_string()],
                     Limit {

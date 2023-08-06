@@ -17,6 +17,6 @@ pub fn init() {
 
     println!("Set up logger with {}", level);
 
-    logger.filter_module("sandbox", level);
+    logger.filter_module("backend", level);
     logger.try_init().unwrap();
 }

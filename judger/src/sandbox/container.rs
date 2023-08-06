@@ -4,7 +4,7 @@ use tokio::fs;
 
 use crate::{
     init::config::CONFIG,
-    jail::utils::{limiter::Limiter, nsjail::NsJail},
+    sandbox::utils::{limiter::Limiter, nsjail::NsJail},
 };
 
 use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};

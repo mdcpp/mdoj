@@ -3,7 +3,7 @@ log_level = 1
 [database]
 uri = "sqlite://test.sqlite"
 
-[[sandbox]]
+[[judger]]
 address = "127.0.0.1"
 port = 8080
 memory = 1073741824

@@ -1,5 +1,5 @@
-use crate::jail::Error;
-use crate::jail::Limit;
+use crate::sandbox::Error;
+use crate::sandbox::Limit;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -11,8 +11,8 @@ use tokio::task::JoinHandle;
 use tokio::time;
 
 use crate::init::config::CONFIG;
-use crate::jail::utils::limiter::cpu::CpuStatistics;
-use crate::jail::utils::limiter::mem::MemStatistics;
+use crate::sandbox::utils::limiter::cpu::CpuStatistics;
+use crate::sandbox::utils::limiter::mem::MemStatistics;
 
 pub mod cpu;
 pub mod mem;

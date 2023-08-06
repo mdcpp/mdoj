@@ -7,7 +7,7 @@ use tonic::transport::Server;
 
 pub mod grpc;
 pub mod init;
-pub mod jail;
+pub mod sandbox;
 pub mod langs;
 
 #[tokio::main]
