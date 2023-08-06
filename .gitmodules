@@ -1,3 +1,0 @@
-[submodule "sandbox/nsjail-sys/nsjail"]
-	path = sandbox/nsjail-sys/nsjail
-	url = https://github.com/google/nsjail.git
