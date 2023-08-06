@@ -5,15 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspaces]
-members = ["nsjail-sys"]
-
 [dependencies.tokio]
 version = "1.28.0"
 features = ["rt-multi-thread", "process", "macros", "fs", "io-util","parking_lot"]
-
-[dependencies.nsjail-sys]
-path = "./nsjail-sys"
 
 [dependencies.tonic]
 version = "0.9.2"

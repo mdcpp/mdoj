@@ -569,7 +569,6 @@ dependencies = [
  "futures",
  "libc",
  "log",
- "nsjail-sys",
  "prost",
  "prost-types",
  "serde",
@@ -675,10 +674,6 @@ dependencies = [
  "cfg-if",
  "libc",
 ]
-
-[[package]]
-name = "nsjail-sys"
-version = "0.1.0"
 
 [[package]]
 name = "ntapi"
