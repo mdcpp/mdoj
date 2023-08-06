@@ -51,7 +51,7 @@ pub struct Nsjail {
 impl Default for Nsjail {
     fn default() -> Self {
         Self {
-            runtime: "nsjail-sys/nsjail/nsjail".to_owned(),
+            runtime: "nsjail/nsjail".to_owned(),
             rootless: false,
             log: "/dev/null".to_owned(),
         }

@@ -2,14 +2,14 @@ build-plugin:
     cd plugins && sh build-all.sh
 
 build-nsjail:
-    cd nsjail-sys/nsjail && make
+    cd nsjail && make
 
 prepare:
     mkdir -p .temp
     mkdir -p log
 
 feodra-deps:
-    sudo dnf install autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
+    sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
 
 clean:
     sudo rm -rf .temp/* 
