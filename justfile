@@ -7,8 +7,8 @@ dev-frontend:
 dev-backend:
     cd backend && just run
 
-dev-sandbox:
-    cd sandbox && sudo just run
+dev-judger:
+    cd judger && sudo just run
 
 clean:
     cd ./frontend && yarn cache clean

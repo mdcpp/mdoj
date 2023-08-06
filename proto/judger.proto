@@ -5,14 +5,15 @@ package oj.judger;
 import "google/protobuf/empty.proto";
 
 message JudgeRequest {
-  uint32 lang_id = 1;
+  string lang_uid = 1;
   bytes code = 2;
   // memory limit in byte
-  int32 memory = 3;
-  // time limit in ms
-  int32 time = 4;
+  int64 memory = 3;
+  // time limit in nanosecond
+  uint64 time = 4;
+  JudgeMatchRule rule = 5;
   // len must > 0
-  repeated TestCase tests = 5;
+  repeated TestCase tests = 6;
 }
 
 message TestCase {
@@ -21,18 +22,17 @@ message TestCase {
 }
 
 message JudgeResponse {
-  oneof state {
-    // percentage 0 to 100
-    int32 testing = 1;
+  oneof task {
+    // number of test case running(or finished)
+    int32 case = 1;
     JudgeResult result = 2;
   }
 }
 
 message JudgeResult {
-  JudgeResultState state = 1;
+  JudgeResultState status = 1;
   // the longest time the code need to run the input
   float max_time = 2;
-  bytes stderr = 3;
 }
 
 enum JudgeResultState {
@@ -47,10 +47,16 @@ enum JudgeResultState {
   OLE = 8;
 }
 
+enum JudgeMatchRule {
+  ExactSame = 0;
+  IgnoreSpace = 1;
+  SkipSNL = 2;
+}
+
 message Langs { repeated LangInfo list = 1; }
 
 message LangInfo {
-  uint32 lang_id = 1;
+  string lang_uid = 1;
   string lang_name = 2;
   // compiler info or runtime info
   string info = 3;
@@ -58,10 +64,12 @@ message LangInfo {
 }
 
 message JudgeInfo {
-  // memory limit of judger in Gb
-  float memory = 1;
-  Langs langs = 2;
-  float cpu_factor = 3;
+  // memory limit of judger in byte
+  int64 memory = 1;
+  // max possible deviation in nanosecond
+  int64 accuracy = 2;
+  Langs langs = 3;
+  float cpu_factor = 4;
 }
 
 service Judger {
