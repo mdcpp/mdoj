@@ -11,9 +11,9 @@ message Sort {
 }
 
 enum SortBy {
-  UploadDate = 1;
-  ACRate = 2;
-  SubmitCount = 3;
+  UploadDate = 0;
+  ACRate = 1;
+  SubmitCount = 2;
 }
 
 message Page {
@@ -78,8 +78,8 @@ message ContestInfo {
   ContestId id = 1;
   string name = 2;
   uint32 participant_count = 3;
-  google.protobuf.timestamp begin = 4;
-  google.protobuf.timestamp end = 5;
+  google.protobuf.Timestamp begin = 4;
+  google.protobuf.Timestamp end = 5;
 }
 
 message ContestFullInfo {
