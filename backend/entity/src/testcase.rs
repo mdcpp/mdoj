@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::problem;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "submits")]
+#[sea_orm(table_name = "testcases")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     #[serde(skip_deserializing)]
@@ -13,13 +13,9 @@ pub struct Model {
     pub user_id: i32,
     #[serde(skip_deserializing)]
     pub problem_id: i32,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub begin: String,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub end: String,
-    pub memory: i64,
-    pub pass_case: i32,
-    pub report: i32,
+    pub sequence: i32,
+    pub stdin:Vec<u8>,
+    pub stdout:Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

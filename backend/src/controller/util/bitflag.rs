@@ -1,4 +1,3 @@
-
 macro_rules! set_bit_value {
     ($item:ident,$name:ident,$pos:expr) => {
         paste::paste! {

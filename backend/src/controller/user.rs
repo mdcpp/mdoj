@@ -6,7 +6,7 @@ use crate::init::db::DB;
 pub struct UserController {}
 
 impl UserController {
-    pub async fn add(username:String,hashed_pwd:Vec<u8>) {
+    pub async fn add(username: String, hashed_pwd: Vec<u8>) {
         let db = DB.get().unwrap();
         let user = user::ActiveModel {
             permission: ActiveValue::Set(i64::MIN),
