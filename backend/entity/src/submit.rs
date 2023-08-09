@@ -9,7 +9,10 @@ pub struct Model {
     pub id: i32,
     #[serde(skip_deserializing)]
     pub user_id: i32,
-    pub time: i64,
+    #[sea_orm(ColumnType = "Timestamp")]
+    pub begin: String,
+    #[sea_orm(ColumnType = "Timestamp")]
+    pub end: String,
     pub memory: i64,
 }
 

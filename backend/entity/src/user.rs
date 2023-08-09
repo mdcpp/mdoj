@@ -11,7 +11,7 @@ pub struct Model {
     pub submit_id: i32,
     pub permission: i64,
     pub username: String,
-    pub password: String,
+    pub hashed_pwd: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

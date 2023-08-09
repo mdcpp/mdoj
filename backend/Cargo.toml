@@ -19,6 +19,7 @@ tokio-stream = "0.1.14"
 prost-types = "0.11.9"
 entity = { path = "./entity" }
 migration = { path = "./migration" }
+chrono = "0.4.26"
 
 [dependencies.tokio]
 version = "1.28.0"
