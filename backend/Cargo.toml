@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["migration"]
+members = ["entity", "migration"]
 
 [dependencies]
 env_logger = "0.10.0"
@@ -17,15 +17,16 @@ prost = "0.11.9"
 toml = "0.7.4"
 tokio-stream = "0.1.14"
 prost-types = "0.11.9"
+entity = { path = "./entity" }
+migration = { path = "./migration" }
 
 [dependencies.tokio]
 version = "1.28.0"
-features = ["rt-multi-thread", "process", "macros", "fs", "io-util", "sync", "parking_lot"]
+features =["macros", "rt-multi-thread", "full"]
 
 [dependencies.sea-orm]
-version = "0.11.3"
+version = "0.12.2"
 features = [
-    "sqlx-postgres",
     "runtime-actix-rustls",
     "macros",
     "mock",

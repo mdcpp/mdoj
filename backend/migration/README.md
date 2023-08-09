@@ -1,9 +1,5 @@
 # Running Migrator CLI
 
-- Generate a new migration file
-    ```sh
-    cargo run -- migrate generate MIGRATION_NAME
-    ```
 - Apply all pending migrations
     ```sh
     cargo run
@@ -39,5 +35,3 @@
     ```sh
     cargo run -- status
     ```
-
-<!-- https://www.sea-ql.org/SeaORM/docs/generate-entity/entity-structure/#column-type -->

@@ -1,7 +1,8 @@
 pub mod controller;
-pub mod entities;
 pub mod init;
-pub mod proto;
-pub mod service;
+pub mod util;
+pub mod grpc;
 
-fn main() {}
+fn main() {
+}
+ 

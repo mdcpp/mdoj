@@ -1,8 +1,8 @@
-test-gen:
-    rm -rf test.sqlite
-    touch test.sqlite
-    DATABASE_URL=sqlite://test.sqlite sea-orm-cli migrate refresh
-    sea-orm-cli generate entity -u sqlite://test.sqlite -o src/entities
+# dev-migrate:
+#     rm -rf test.sqlite
+#     touch test.sqlite
+#     DATABASE_URL=sqlite://test.sqlite sea-orm-cli migrate refresh
+#     sea-orm-cli generate entity -u sqlite://test.sqlite -o entities
 
-run:
-    cargo run
+# run:
+#     cargo run
