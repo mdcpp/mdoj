@@ -3,6 +3,7 @@ syntax = "proto3";
 package oj.backend;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 // Search
 message Sort {
@@ -103,8 +104,41 @@ service ContestSet {
   // todo join contest
 }
 
+// message Token{
+//   bytes signature = 1;
+//   bytes permission = 2;
+//   google.protobuf.Timestamp expiry = 3;
+// }
+
+// User
 message UserId { uint32 id = 1; }
 
-// todo user api
+message UserInfo{
+  string username = 1;
+  optional bytes raw_pwd = 2;
+  UserId id = 3;
+}
+
+message UserFullInfo {
+  UserInfo info = 1;
+  string description = 2;
+  int32 score = 4;
+}
+
+message Users { repeated UserInfo list = 1; }
+
+service UserSet{
+  rpc List(ListRequest) returns (Users);
+
+  rpc SearchByText(SearchByTextRequest) returns (Users);
+
+  rpc FullInfo(UserId) returns (UserFullInfo);
+}
+
+service AuthSet{
+  rpc AddUser(UserFullInfo) returns (google.protobuf.Empty);
+
+  rpc RemoveUser(UserId) returns (google.protobuf.Empty);
+}
 
 // todo admin api
