@@ -1,3 +1,7 @@
+release-docker:
+    just build-plugin
+    docker build . -t mdoj-judger
+
 build-plugin:
     cd plugins && sh build-all.sh
 
@@ -7,6 +11,9 @@ build-nsjail:
 prepare:
     mkdir -p .temp
     mkdir -p log
+
+debian-deps:
+    echo todo!()
 
 feodra-deps:
     sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
