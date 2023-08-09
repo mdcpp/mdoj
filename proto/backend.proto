@@ -15,6 +15,8 @@ enum SortBy {
   UploadDate = 0;
   ACRate = 1;
   SubmitCount = 2;
+  Score = 3;
+  Difficulty = 4;
 }
 
 message Page {
@@ -55,6 +57,7 @@ message ProblemFullInfo {
   ProblemInfo info = 1;
   string description = 2;
   repeated TestCase tests = 3;
+  optional bool visible = 4;
 }
 
 message TestCase {
@@ -70,6 +73,12 @@ service ProblemSet {
   rpc SearchByTag(SearchByTagRequest) returns (Problems);
 
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
+
+  rpc Create(ProblemFullInfo) returns (google.protobuf.Empty);
+
+  rpc Update(ProblemFullInfo) returns (google.protobuf.Empty);
+
+  rpc Close(ProblemId) returns (google.protobuf.Empty);
 }
 
 // Contest
@@ -101,7 +110,15 @@ service ContestSet {
 
   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
-  // todo join contest
+  rpc Join(ContestId) returns (google.protobuf.Empty);
+
+  rpc Exit(ContestId) returns (google.protobuf.Empty);
+
+  rpc Create(ContestFullInfo) returns (google.protobuf.Empty);
+
+  rpc Update(ContestFullInfo) returns (google.protobuf.Empty);
+
+  rpc Close(ContestId) returns (google.protobuf.Empty);
 }
 
 // message Token{
