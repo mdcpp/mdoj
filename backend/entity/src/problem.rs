@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{contest, user, submit, testcase};
+use crate::{contest, submit, testcase, user};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "problem")]
@@ -13,8 +13,8 @@ pub struct Model {
     pub user_id: i32,
     #[serde(skip_deserializing)]
     pub contest_id: i32,
-    pub success:i32,
-    pub submits:i32,
+    pub success: i32,
+    pub submits: i32,
     pub description: String,
 }
 
@@ -23,7 +23,7 @@ pub enum Relation {
     User,
     Contest,
     Submit,
-    TestCase
+    TestCase,
 }
 
 impl RelationTrait for Relation {
@@ -37,8 +37,8 @@ impl RelationTrait for Relation {
                 .from(Column::UserId)
                 .to(contest::Column::Id)
                 .into(),
-            Self::Submit =>Entity::has_many(submit::Entity).into(),
-            Self::TestCase =>Entity::has_many(testcase::Entity).into()
+            Self::Submit => Entity::has_many(submit::Entity).into(),
+            Self::TestCase => Entity::has_many(testcase::Entity).into(),
         }
     }
 }

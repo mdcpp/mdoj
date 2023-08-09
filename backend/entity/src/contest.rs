@@ -42,7 +42,6 @@ impl Related<user::Entity> for Entity {
     }
 }
 
-
 impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Problem.def()

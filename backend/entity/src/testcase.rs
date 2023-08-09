@@ -14,15 +14,14 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub problem_id: i32,
     pub sequence: i32,
-    pub stdin:Vec<u8>,
-    pub stdout:Vec<u8>,
+    pub stdin: Vec<u8>,
+    pub stdout: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    Problem
+    Problem,
 }
-
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {

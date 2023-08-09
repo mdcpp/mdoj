@@ -24,9 +24,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    Problem
+    Problem,
 }
-
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
