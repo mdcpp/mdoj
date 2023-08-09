@@ -13,10 +13,10 @@ message JudgeRequest {
   uint64 time = 4;
   JudgeMatchRule rule = 5;
   // len must > 0
-  repeated TestCase tests = 6;
+  repeated TestIO tests = 6;
 }
 
-message TestCase {
+message TestIO {
   bytes input = 1;
   bytes output = 2;
 }
