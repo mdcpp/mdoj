@@ -5,4 +5,5 @@ pub mod logger;
 pub async fn new() {
     config::init().await;
     logger::init();
+    db::init().await;
 }

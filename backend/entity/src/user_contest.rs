@@ -1,6 +1,6 @@
 use sea_orm::prelude::*;
 
-use crate::{user, contest};
+use crate::{contest, user};
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
@@ -17,22 +17,22 @@ impl RelationTrait for Relation {
     }
 }
 
-// impl Related<contest::Entity> for user::Entity {
-//     fn to() -> RelationDef {
-//         Relation::Contest.def()
-//     }
+impl Related<contest::Entity> for user::Entity {
+    fn to() -> RelationDef {
+        Relation::Contest.def()
+    }
 
-//     fn via() -> Option<RelationDef> {
-//         Some(Relation::User.def().rev())
-//     }
-// }
+    fn via() -> Option<RelationDef> {
+        Some(Relation::User.def().rev())
+    }
+}
 
-// impl Related<user::Entity> for contest::Entity {
-//     fn to() -> RelationDef {
-//         Relation::User.def()
-//     }
+impl Related<user::Entity> for contest::Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
+    }
 
-//     fn via() -> Option<RelationDef> {
-//         Some(Relation::Contest.def().rev())
-//     }
-// }
+    fn via() -> Option<RelationDef> {
+        Some(Relation::Contest.def().rev())
+    }
+}
