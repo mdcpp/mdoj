@@ -1,13 +1,13 @@
-FROM rust:1.69.0-buster AS builder
+FROM rust:1.71.1-buster AS builder
 WORKDIR /complier
 
-# install musl-gcc for ring
 RUN USER=root apt update -y
-RUN USER=root apt install musl-tools -y
+RUN USER=root apt install musl-tools musl-gcc -y
 
 RUN cargo install just
 
-RUN just install-deps-debian
+RUN just debian-deps
+
 RUN just build-nsjail
 
 RUN rustup target add ${targets}
@@ -19,12 +19,13 @@ COPY . .
 RUN cargo install --target ${targets} --path .
 
 FROM scratch
-WORKDIR /app
-COPY --from=builder /usr/local/cargo/bin/judger .
-COPY ./config.toml ./config.toml
-
+WORKDIR /
+RUN mkdir -p .temp
+RUN mkdir -p log
 RUN mkdir -p nsjail-sys/nsjail/nsjail
-COPY --from=builder nsjail-sys/nsjail/nsjail nsjail-sys/nsjail/nsjail
+COPY plugins /
+COPY --from=builder /usr/local/cargo/bin/judger /
+COPY --from=builder nsjail/nsjail /nsjail/
 
 RUN mkdir temp
-CMD ["./judger"]
+CMD ["/judger"]
