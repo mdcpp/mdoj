@@ -18,5 +18,8 @@ pub fn init() {
     println!("Set up logger with {}", level);
 
     logger.filter_module("judger", level);
+    #[cfg(not(test))]
     logger.try_init().unwrap();
+    #[cfg(test)]
+    logger.try_init().ok();
 }
