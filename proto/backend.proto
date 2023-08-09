@@ -56,8 +56,9 @@ message ProblemId { uint32 id = 1; }
 message ProblemFullInfo {
   ProblemInfo info = 1;
   string description = 2;
-  repeated TestCase tests = 3;
-  optional bool visible = 4;
+  optional string edu = 3;
+  repeated TestCase tests = 4;
+  optional bool visible = 5;
 }
 
 message TestCase {
