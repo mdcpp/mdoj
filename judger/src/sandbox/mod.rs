@@ -1,7 +1,7 @@
 pub(super) mod container;
 pub(super) mod daemon;
 pub(super) mod process;
-pub(super) mod utils; 
+pub(super) mod utils;
 
 use thiserror::Error;
 
@@ -58,7 +58,7 @@ mod test {
 
     #[tokio::test]
     async fn exec() {
-        crate::init::new().await; 
+        crate::init::new().await;
 
         {
             let daemon = ContainerDaemon::new(".temp");

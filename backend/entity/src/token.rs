@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{user};
+use crate::user;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "tokens")]
@@ -12,6 +12,9 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub user_id: i32,
     pub rand: Vec<u8>,
+    pub permission: i64,
+    #[sea_orm(column_type = "Timestamp")]
+    pub expiry: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

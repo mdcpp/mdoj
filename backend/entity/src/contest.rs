@@ -11,10 +11,10 @@ pub struct Model {
     pub id: i32,
     #[serde(skip_deserializing)]
     pub owner_id: i32,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub begin: String,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub end: String,
+    #[sea_orm(column_type = "Timestamp")]
+    pub begin: DateTime,
+    #[sea_orm(column_type = "Timestamp")]
+    pub end: DateTime,
     pub description: String,
 }
 

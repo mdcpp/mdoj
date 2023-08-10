@@ -20,7 +20,7 @@ macro_rules! report {
             Some(x) => x,
             None => {
                 return Ok(None);
-            }x
+            }
         }
     };
 }

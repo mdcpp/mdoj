@@ -20,9 +20,11 @@ prost-types = "0.11.9"
 entity = { path = "./entity" }
 migration = { path = "./migration" }
 chrono = "0.4.26"
-cached = "0.44.0"
 sha256 = "1.3.0"
 rand = "0.8.5"
+hex = "0.4.3"
+lru = "0.11.0"
+thiserror = "1.0.44"
 
 [dependencies.tokio]
 version = "1.28.0"
@@ -35,6 +37,7 @@ features = [
     "macros",
     "mock",
     "sqlx-sqlite",
+    "with-chrono"
 ]
 
 [dependencies.serde]

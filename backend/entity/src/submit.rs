@@ -13,10 +13,10 @@ pub struct Model {
     pub user_id: i32,
     #[serde(skip_deserializing)]
     pub problem_id: i32,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub begin: String,
-    #[sea_orm(ColumnType = "Timestamp")]
-    pub end: String,
+    #[sea_orm(column_type = "Timestamp")]
+    pub begin: DateTime,
+    #[sea_orm(column_type = "Timestamp")]
+    pub end: DateTime,
     pub memory: i64,
     pub pass_case: i32,
     pub report: i32,

@@ -20,7 +20,7 @@ pub struct Model {
 pub enum Relation {
     // Contest,
     Problem,
-    Token
+    Token,
 }
 
 impl RelationTrait for Relation {
@@ -28,7 +28,7 @@ impl RelationTrait for Relation {
         match self {
             // Self::Contest => Entity::has_one(contest::Entity).into(),
             Self::Problem => Entity::has_many(problem::Entity).into(),
-            Self::Token=>Entity::has_many(token::Entity).into()
+            Self::Token => Entity::has_many(token::Entity).into(),
         }
     }
 }
