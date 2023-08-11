@@ -133,4 +133,19 @@ impl TokenController {
 
         Ok(Some((token.user_id, UserPermBytes(token.permission))))
     }
+    pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
+        let db = DB.get().unwrap();
+
+        let rand = report!(hex::decode(token).ok());
+        let rand: [u8; 16] = report!(rand.try_into().ok());
+
+        token::Entity::delete_many()
+            .filter(token::Column::Rand.eq(rand.to_vec()))
+            .exec(db)
+            .await?;
+
+        self.cache.lock().unwrap().pop(&rand);
+
+        Ok(Some(()))
+    }
 }

@@ -15,6 +15,7 @@ pub struct Model {
     pub contest_id: i32,
     pub success: i32,
     pub submits: i32,
+    pub title: String,
     pub description: String,
 }
 

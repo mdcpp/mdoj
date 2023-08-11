@@ -18,7 +18,9 @@ pub struct Model {
     #[sea_orm(column_type = "Timestamp")]
     pub end: DateTime,
     pub memory: i64,
+    #[sea_orm(default_value = 1)]
     pub pass_case: i32,
+    #[sea_orm(default_value = 1)]
     pub report: i32,
 }
 
