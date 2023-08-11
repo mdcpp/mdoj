@@ -11,13 +11,13 @@ use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};
 
 pub struct Container<'a> {
     pub(super) id: String,
-    pub(super) controller: &'a ContainerDaemon,
+    pub(super) daemon: &'a ContainerDaemon,
     pub(super) root: PathBuf,
 }
 
 impl<'a> Drop for Container<'a> {
     fn drop(&mut self) {
-        let tmp_path = self.controller.tmp.as_path().clone().join(self.id.clone());
+        let tmp_path = self.daemon.tmp.as_path().clone().join(self.id.clone());
         log::trace!("Cleaning up container with id :{}", self.id);
         tokio::spawn(async { fs::remove_dir_all(tmp_path).await });
     }
@@ -34,7 +34,7 @@ impl<'a> Container<'a> {
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
         let memory_holder = self
-            .controller
+            .daemon
             .memory_counter
             .allocate(reversed_memory)
             .await?;

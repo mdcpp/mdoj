@@ -34,7 +34,7 @@ impl ContainerDaemon {
 
         Ok(Container {
             id,
-            controller: self,
+            daemon: self,
             root: root.as_ref().to_path_buf(),
         })
     }
