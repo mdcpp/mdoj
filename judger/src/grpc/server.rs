@@ -44,7 +44,7 @@ macro_rules! report {
                 LangError::BadRequest(err) => {
                     match err {
                         RequestError::LangNotFound => {
-                            $tx.send(Err(Status::not_found(""))).await.ok()
+                            $tx.send(Err(Status::not_found("Language Not Found"))).await.ok()
                         }
                     };
                     return ();
