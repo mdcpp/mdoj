@@ -15,6 +15,9 @@ pub struct Model {
     pub contest_id: i32,
     pub success: i32,
     pub submits: i32,
+    pub memory: i64,
+    pub time: u64,
+    pub tests: Vec<u8>,
     pub title: String,
     pub description: String,
 }
@@ -24,7 +27,7 @@ pub enum Relation {
     User,
     Contest,
     Submit,
-    TestCase,
+    // TestCase,
 }
 
 impl RelationTrait for Relation {
@@ -39,7 +42,7 @@ impl RelationTrait for Relation {
                 .to(contest::Column::Id)
                 .into(),
             Self::Submit => Entity::has_many(submit::Entity).into(),
-            Self::TestCase => Entity::has_many(testcase::Entity).into(),
+            // Self::TestCase => Entity::has_many(testcase::Entity).into(),
         }
     }
 }
@@ -62,10 +65,23 @@ impl Related<submit::Entity> for Entity {
     }
 }
 
-impl Related<testcase::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TestCase.def()
-    }
-}
+// impl Related<testcase::Entity> for Entity {
+//     fn to() -> RelationDef {
+//         Relation::TestCase.def()
+//     }
+// }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Tests(pub (Vec<(Vec<u8>, Vec<u8>)>));
+
+impl Tests {
+    pub fn from_raw(raw: Vec<u8>) -> Self {
+        let tests: Self = bincode::deserialize(&raw).unwrap();
+        tests
+    }
+    pub fn into_raw(&self) -> Vec<u8> {
+        bincode::serialize(self).unwrap()
+    }
+}

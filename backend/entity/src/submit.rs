@@ -14,9 +14,10 @@ pub struct Model {
     #[serde(skip_deserializing)]
     pub problem_id: i32,
     #[sea_orm(column_type = "Timestamp")]
-    pub begin: DateTime,
-    #[sea_orm(column_type = "Timestamp")]
-    pub end: DateTime,
+    pub upload: DateTime,
+    pub time: u64,
+    pub committed: bool,
+    pub code: Vec<u8>,
     pub memory: i64,
     #[sea_orm(default_value = 1)]
     pub pass_case: i32,

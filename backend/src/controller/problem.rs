@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use entity::problem;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use tokio::sync::watch;
 
 use crate::init::db::DB;
 
-use super::Error;
+use super::{util::router, Error};
 
 pub struct ProblemBase {
     pub title: String,
@@ -15,7 +18,10 @@ pub struct ProblemBase {
 //     description:Option<String>,
 // }
 
-pub struct ProblemController {}
+pub struct ProblemController {
+    judgers: router::JudgeRouter,
+    running_submits: HashMap<i32, watch::Receiver<i32>>,
+}
 
 impl ProblemController {
     pub async fn add(&self, base: ProblemBase) -> Result<problem::Model, Error> {
@@ -45,7 +51,7 @@ impl ProblemController {
         })
     }
     // pub async fn submit(&self){
-        
+
     // }
     // pub async fn update()->
 }
