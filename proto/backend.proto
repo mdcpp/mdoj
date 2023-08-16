@@ -83,6 +83,8 @@ service ProblemSet {
 }
 
 // Contest
+message ContestId { uint32 id = 1; }
+
 message Contests { repeated ContestInfo list = 1; }
 
 message ContestInfo {
@@ -99,8 +101,6 @@ message ContestFullInfo {
   UserId hoster = 3;
   repeated ProblemId problems = 4;
 }
-
-message ContestId { uint32 id = 1; }
 
 service ContestSet {
   rpc List(ListRequest) returns (Contests);
@@ -120,6 +120,25 @@ service ContestSet {
   rpc Update(ContestFullInfo) returns (google.protobuf.Empty);
 
   rpc Close(ContestId) returns (google.protobuf.Empty);
+
+  // rpc Submit(SubmitFullInfo)
+}
+
+// Submit
+
+message SubmitId { uint32 id = 1; }
+
+message Submits { repeated SubmitInfo list = 1; }
+
+message SubmitInfo {
+  SubmitId id = 1;
+  optional ContestId contest_id = 2;
+  optional bytes code =3; 
+}
+
+message SubmitFullInfo {
+  SubmitInfo into = 1;
+  
 }
 
 service SubmitSet {
@@ -128,7 +147,7 @@ service SubmitSet {
   // rpc Submit(SubmitFullInfo)
 
   // rpc Follow(SubmitId) returns (stream SubmitStatus);
-  
+
   // rpc FullInfo(SubmitId) returns (SubmitFullInfo);
 }
 
@@ -141,7 +160,7 @@ service SubmitSet {
 // User
 message UserId { uint32 id = 1; }
 
-message UserInfo{
+message UserInfo {
   string username = 1;
   optional bytes raw_pwd = 2;
   UserId id = 3;
@@ -155,7 +174,7 @@ message UserFullInfo {
 
 message Users { repeated UserInfo list = 1; }
 
-service UserSet{
+service UserSet {
   rpc List(ListRequest) returns (Users);
 
   rpc SearchByText(SearchByTextRequest) returns (Users);
@@ -163,7 +182,7 @@ service UserSet{
   rpc FullInfo(UserId) returns (UserFullInfo);
 }
 
-service AuthSet{
+service AuthSet {
   rpc AddUser(UserFullInfo) returns (google.protobuf.Empty);
 
   rpc RemoveUser(UserId) returns (google.protobuf.Empty);

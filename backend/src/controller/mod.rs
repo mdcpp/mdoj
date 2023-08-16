@@ -13,9 +13,11 @@ pub enum Error {
     #[error("`{0}`")]
     Transaction(#[from] sea_orm::TransactionError<sea_orm::error::DbErr>),
     #[error("`{0}`")]
-    Tomic(#[from] tonic::transport::Error),
+    tonic(#[from] tonic::transport::Error),
     #[error("The upstream server has error that can possibly be solved by retry")]
     ShouldRetry,
+    #[error("All `{0}` service was unavailable")]
+    Unavailable(String),
     #[error("primary key not found for `{0}`")]
     NotFound(String),
 }

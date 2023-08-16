@@ -1,12 +1,17 @@
 use super::super::Error;
 use entity::problem;
+use futures::future::join_all;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::time;
-use tonic::transport::{Channel, Uri};
+use tonic::transport::{self, Channel, Uri};
 use tonic::Streaming;
 
 use crate::grpc::proto::prelude::{judger_client::JudgerClient, *};
+
+type BoxFut<T> = Pin<Box<dyn Future<Output = T>>>;
 
 pub struct JudgeRouter {
     servers: Vec<JudgerServer>,
@@ -14,12 +19,47 @@ pub struct JudgeRouter {
 }
 
 #[derive(Clone)]
-struct JudgerServer {
+pub struct JudgerServer {
     uri: Arc<Uri>,
     connection: JudgerClient<Channel>,
 }
 
 impl JudgeRouter {
+    pub async fn new(server: Vec<Uri>) -> Result<Self, Error> {
+        fn connect(uri: Uri) -> BoxFut<Result<JudgerServer, transport::Error>> {
+            Box::pin(async move {
+                JudgerClient::connect(uri.clone())
+                    .await
+                    .map(|connection| JudgerServer {
+                        uri: Arc::new(uri.clone()),
+                        connection,
+                    })
+            })
+        }
+
+        let futures_: Vec<BoxFut<Result<JudgerServer, transport::Error>>> =
+            server.into_iter().map(connect).collect();
+
+        let results = join_all(futures_).await;
+        let servers: Vec<JudgerServer> = results
+            .into_iter()
+            .filter_map(|err| {
+                err.map_err(|err| {
+                    log::error!("unable connecting judger: {}", err);
+                })
+                .ok()
+            })
+            .collect();
+
+        if servers.is_empty() {
+            return Err(Error::Unavailable("Judger".to_string()));
+        }
+
+        Ok(Self {
+            servers,
+            secquence: Default::default(),
+        })
+    }
     pub async fn route(
         &self,
         problem: problem::Model,
