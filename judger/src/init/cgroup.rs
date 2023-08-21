@@ -25,6 +25,7 @@ pub fn init() {
 }
 
 pub fn remove_nsjail(path: &mut PathBuf) {
+    log::debug!("Cleaning up cgroup in {}", path.to_string_lossy());
     if let Ok(rd) = path.read_dir() {
         for sub_nsjail in rd {
             if let Ok(nsjail) = sub_nsjail {

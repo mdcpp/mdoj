@@ -1,7 +1,7 @@
 pub(super) mod container;
 pub(super) mod daemon;
 pub(super) mod process;
-pub(super) mod utils; 
+pub(super) mod utils;
 
 use thiserror::Error;
 
@@ -57,8 +57,8 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn exec() {
-        crate::init::new().await; 
+    async fn file_permission() {
+        crate::init::new().await;
 
         {
             let daemon = ContainerDaemon::new(".temp");
@@ -66,7 +66,10 @@ mod test {
 
             let process = container
                 .execute(
-                    &vec!["/usr/local/bin/lua".to_string(), "/test.lua".to_string()],
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test1.lua".to_string(),
+                    ],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
@@ -82,12 +85,80 @@ mod test {
 
             let process = process.wait().await.unwrap();
 
-            println!("{}", process.status);
-
             assert!(process.succeed());
 
             let out = process.stdout;
             assert_eq!(out, b"hello world\n");
+        }
+
+        // unlike async-std, tokio won't wait for all background task to finish before exit
+        time::sleep(time::Duration::from_millis(12)).await;
+    }
+    #[tokio::test]
+    async fn cgroup_cpu() {
+        crate::init::new().await;
+
+        {
+            let daemon = ContainerDaemon::new(".temp");
+            let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
+
+            let process = container
+                .execute(
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test2.lua".to_string(),
+                    ],
+                    Limit {
+                        cpu_us: 1000 * 1000 * 1000,
+                        rt_us: 1000 * 1000 * 1000,
+                        total_us: 20 * 1000,
+                        swap_user: 0,
+                        kernel_mem: 128 * 1024 * 1024,
+                        user_mem: 512 * 1024 * 1024,
+                        lockdown: false,
+                    },
+                )
+                .await
+                .unwrap();
+
+            let process = process.wait().await.unwrap();
+
+            assert!(!process.succeed());
+        }
+
+        // unlike async-std, tokio won't wait for all background task to finish before exit
+        time::sleep(time::Duration::from_millis(12)).await;
+    }
+    #[tokio::test]
+    async fn network() {
+        crate::init::new().await;
+
+        {
+            let daemon = ContainerDaemon::new(".temp");
+            let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
+
+            let process = container
+                .execute(
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test3.lua".to_string(),
+                    ],
+                    Limit {
+                        cpu_us: 1000 * 1000 * 1000,
+                        rt_us: 1000 * 1000 * 1000,
+                        total_us: 20 * 1000,
+                        swap_user: 0,
+                        kernel_mem: 128 * 1024 * 1024,
+                        user_mem: 512 * 1024 * 1024,
+                        lockdown: false,
+                    },
+                )
+                .await
+                .unwrap();
+
+            let process = process.wait().await.unwrap();
+
+            assert!(!process.succeed());
         }
 
         // unlike async-std, tokio won't wait for all background task to finish before exit
