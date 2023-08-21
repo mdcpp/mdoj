@@ -53,7 +53,8 @@ macro_rules! report {
                     $tx.send(Ok(JudgeResponse {
                         task: Some(judge_response::Task::Result(JudgeResult {
                             status: res as i32,
-                            max_time: 0.0,
+                            max_time: None,
+                            max_mem:None,
                         })),
                     }))
                     .await
@@ -98,7 +99,8 @@ impl Judger for GRpcServer {
                             true => JudgeResultState::Ac,
                             false => JudgeResultState::Wa,
                         } as i32,
-                        max_time: 0.0,
+                        max_time: Some(result.time().total_us),
+                        max_mem:Some(result.mem().peak),
                     })),
                 }))
                 .await
