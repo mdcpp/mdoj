@@ -43,9 +43,10 @@ macro_rules! report {
                 }
                 LangError::BadRequest(err) => {
                     match err {
-                        RequestError::LangNotFound => {
-                            $tx.send(Err(Status::not_found("Language Not Found"))).await.ok()
-                        }
+                        RequestError::LangNotFound => $tx
+                            .send(Err(Status::not_found("Language Not Found")))
+                            .await
+                            .ok(),
                     };
                     return ();
                 }
@@ -90,7 +91,17 @@ impl Judger for GRpcServer {
 
             let mut compiled = report!(factory.compile(&request.lang_uid, &request.code).await, tx);
 
+            let mut running_task = 1;
+
             for task in request.tests {
+                tx.send(Ok(JudgeResponse {
+                    task: Some(judge_response::Task::Case(running_task)),
+                }))
+                .await
+                .ok();
+
+                running_task += 1;
+
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
                 tx.send(Ok(JudgeResponse {

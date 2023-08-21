@@ -1,7 +1,7 @@
 pub(super) mod container;
 pub(super) mod daemon;
 pub(super) mod process;
-pub(super) mod utils; 
+pub(super) mod utils;
 
 use thiserror::Error;
 
@@ -58,7 +58,7 @@ mod test {
 
     #[tokio::test]
     async fn file_permission() {
-        crate::init::new().await; 
+        crate::init::new().await;
 
         {
             let daemon = ContainerDaemon::new(".temp");
@@ -66,7 +66,10 @@ mod test {
 
             let process = container
                 .execute(
-                    &vec!["/usr/local/bin/lua".to_string(), "/test/test1.lua".to_string()],
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test1.lua".to_string(),
+                    ],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
@@ -92,8 +95,8 @@ mod test {
         time::sleep(time::Duration::from_millis(12)).await;
     }
     #[tokio::test]
-    async fn cgroup_cpu(){
-        crate::init::new().await; 
+    async fn cgroup_cpu() {
+        crate::init::new().await;
 
         {
             let daemon = ContainerDaemon::new(".temp");
@@ -101,7 +104,10 @@ mod test {
 
             let process = container
                 .execute(
-                    &vec!["/usr/local/bin/lua".to_string(), "/test/test2.lua".to_string()],
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test2.lua".to_string(),
+                    ],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
@@ -124,8 +130,8 @@ mod test {
         time::sleep(time::Duration::from_millis(12)).await;
     }
     #[tokio::test]
-    async fn network(){
-        crate::init::new().await; 
+    async fn network() {
+        crate::init::new().await;
 
         {
             let daemon = ContainerDaemon::new(".temp");
@@ -133,7 +139,10 @@ mod test {
 
             let process = container
                 .execute(
-                    &vec!["/usr/local/bin/lua".to_string(), "/test/test3.lua".to_string()],
+                    &vec![
+                        "/usr/local/bin/lua".to_string(),
+                        "/test/test3.lua".to_string(),
+                    ],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,

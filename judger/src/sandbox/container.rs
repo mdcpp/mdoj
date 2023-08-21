@@ -33,11 +33,7 @@ impl<'a> Container<'a> {
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
-        let memory_holder = self
-            .daemon
-            .memory_counter
-            .allocate(reversed_memory)
-            .await?;
+        let memory_holder = self.daemon.memory_counter.allocate(reversed_memory).await?;
 
         let nsjail = NsJail::new(&self.root)
             .cgroup(&cg_name)

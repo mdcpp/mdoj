@@ -41,9 +41,9 @@ pub enum Error {
 impl From<sandbox::Error> for Error {
     fn from(value: sandbox::Error) -> Self {
         match value {
-            sandbox::Error::ImpossibleResource | sandbox::Error::Stall | sandbox::Error::CapturedPipe => {
-                Error::Report(JudgeResultState::Re)
-            }
+            sandbox::Error::ImpossibleResource
+            | sandbox::Error::Stall
+            | sandbox::Error::CapturedPipe => Error::Report(JudgeResultState::Re),
             sandbox::Error::IO(_)
             | sandbox::Error::ControlGroup(_)
             | sandbox::Error::Libc(_)
