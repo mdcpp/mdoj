@@ -13,7 +13,7 @@ pub enum Error {
     #[error("`{0}`")]
     Transaction(#[from] sea_orm::TransactionError<sea_orm::error::DbErr>),
     #[error("`{0}`")]
-    tonic(#[from] tonic::transport::Error),
+    Tonic(#[from] tonic::transport::Error),
     #[error("The upstream server has error that can possibly be solved by retry")]
     ShouldRetry,
     #[error("All `{0}` service was unavailable")]

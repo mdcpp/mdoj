@@ -89,7 +89,6 @@ impl Judger for GRpcServer {
             };
 
             let mut compiled = report!(factory.compile(&request.lang_uid, &request.code).await, tx);
-
             for task in request.tests {
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 

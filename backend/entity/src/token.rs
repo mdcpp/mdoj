@@ -7,9 +7,7 @@ use crate::user;
 #[sea_orm(table_name = "tokens")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
-    #[serde(skip_deserializing)]
     pub id: i32,
-    #[serde(skip_deserializing)]
     pub user_id: i32,
     pub rand: Vec<u8>,
     pub permission: i64,

@@ -1,8 +1,13 @@
-use std::collections::HashMap;
-
-use entity::problem;
+use crate::{
+    common::JudgeStatus,
+    grpc::proto::prelude::{judge_response, JudgeResult},
+};
+use chrono::{NaiveDateTime, Utc};
+use entity::{problem, submit};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use std::{collections::HashMap, sync::RwLock};
 use tokio::sync::watch;
+use tokio_stream::StreamExt;
 
 use crate::init::db::DB;
 
@@ -17,10 +22,14 @@ pub struct ProblemBase {
 //     title:Option<String>,
 //     description:Option<String>,
 // }
+pub enum Status {
+    Running(i32),
+    End(JudgeStatus),
+}
 
 pub struct ProblemController {
     judgers: router::JudgeRouter,
-    running_submits: HashMap<i32, watch::Receiver<i32>>,
+    running_submits: RwLock<HashMap<i32, watch::Receiver<Status>>>,
 }
 
 impl ProblemController {
@@ -50,10 +59,68 @@ impl ProblemController {
             false => None,
         })
     }
-    // pub async fn submit(&self,problem: problem::Model,
-    //     code: Vec<u8>,
-    //     lang: String,){
+    pub async fn submit(
+        &self,
+        problem: problem::Model,
+        code: Vec<u8>,
+        user_id: i32,
+        lang: String,
+    ) -> Result<i32, Error> {
+        let db = DB.get().unwrap();
+        let now = Utc::now().naive_utc();
 
-    // }
+        let submit = submit::ActiveModel {
+            user_id: ActiveValue::Set(user_id),
+            problem_id: ActiveValue::Set(problem.id),
+            upload: ActiveValue::Set(now),
+            code: ActiveValue::Set(code),
+            lang: ActiveValue::Set(lang),
+            ..Default::default()
+        }
+        .save(db)
+        .await?;
+
+        let mut stream = self
+            .judgers
+            .route(
+                problem,
+                submit.code.as_ref().clone(),
+                submit.lang.as_ref().clone(),
+            )
+            .await?;
+
+        let (tx, rx) = watch::channel(Status::Running(1));
+        self.running_submits
+            .write()
+            .unwrap()
+            .insert(*submit.id.as_ref(), rx);
+
+        tokio::spawn(async move {
+            while let Some(res) = stream.next().await {
+                if let Err(err) = res {
+                    log::error!("Error from judger: {}", err);
+                    break;
+                } else if res.as_ref().unwrap().task.is_none() {
+                    break;
+                }
+                // JudgeResult{ status: todo!(), max_time: todo!() };
+                match res.unwrap().task.unwrap() {
+                    judge_response::Task::Case(case) => {
+                        tx.send(Status::Running(case)).ok();
+                    }
+                    judge_response::Task::Result(x) => {
+                        let exit = JudgeStatus::from_i32(x.status);
+                        if !exit.success() {
+                            tx.send(Status::End(exit)).ok();
+                        }
+                        // todo: acculamte max_time
+                    }
+                };
+            }
+        });
+
+        Ok(*submit.id.as_ref())
+    }
+    pub async fn trace_submit(&self, submit_id: i32) {}
     // pub async fn update()->
 }

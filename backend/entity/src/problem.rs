@@ -7,11 +7,8 @@ use crate::{contest, submit, testcase, user};
 #[sea_orm(table_name = "problem")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
-    #[serde(skip_deserializing)]
     pub id: i32,
-    #[serde(skip_deserializing)]
     pub user_id: i32,
-    #[serde(skip_deserializing)]
     pub contest_id: i32,
     pub success: i32,
     pub submits: i32,

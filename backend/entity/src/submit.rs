@@ -7,21 +7,22 @@ use crate::problem;
 #[sea_orm(table_name = "submits")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
-    #[serde(skip_deserializing)]
     pub id: i32,
-    #[serde(skip_deserializing)]
     pub user_id: i32,
-    #[serde(skip_deserializing)]
     pub problem_id: i32,
     #[sea_orm(column_type = "Timestamp")]
     pub upload: DateTime,
-    pub time: u64,
+    #[sea_orm(nullable)]
+    pub time: Option<u64>,
+    #[sea_orm(default_value = "false")]
     pub committed: bool,
+    pub lang: String,
     pub code: Vec<u8>,
-    pub memory: i64,
-    #[sea_orm(default_value = 1)]
+    #[sea_orm(nullable)]
+    pub memory: Option<i64>,
+    #[sea_orm(default_value = 0)]
     pub pass_case: i32,
-    #[sea_orm(default_value = 1)]
+    #[sea_orm(default_value = 0)]
     pub report: i32,
 }
 

@@ -7,9 +7,7 @@ use crate::problem;
 #[sea_orm(table_name = "contests")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
-    #[serde(skip_deserializing)]
     pub id: i32,
-    #[serde(skip_deserializing)]
     pub owner_id: i32,
     #[sea_orm(column_type = "Timestamp")]
     pub begin: DateTime,
