@@ -95,7 +95,10 @@ impl ProblemController {
             .unwrap()
             .insert(*submit.id.as_ref(), rx);
 
+        let submit_id=*submit.id.as_ref();
+
         tokio::spawn(async move {
+            let mut max_time=0;
             while let Some(res) = stream.next().await {
                 if let Err(err) = res {
                     log::error!("Error from judger: {}", err);
@@ -103,23 +106,22 @@ impl ProblemController {
                 } else if res.as_ref().unwrap().task.is_none() {
                     break;
                 }
-                // JudgeResult{ status: todo!(), max_time: todo!() };
                 match res.unwrap().task.unwrap() {
                     judge_response::Task::Case(case) => {
                         tx.send(Status::Running(case)).ok();
                     }
                     judge_response::Task::Result(x) => {
+                        max_time+=x.max_time;
                         let exit = JudgeStatus::from_i32(x.status);
                         if !exit.success() {
                             tx.send(Status::End(exit)).ok();
                         }
-                        // todo: acculamte max_time
                     }
                 };
             }
         });
 
-        Ok(*submit.id.as_ref())
+        Ok(submit_id)
     }
     pub async fn trace_submit(&self, submit_id: i32) {}
     // pub async fn update()->
