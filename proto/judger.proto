@@ -30,9 +30,11 @@ message JudgeResponse {
 }
 
 message JudgeResult {
+  // assertion code
   JudgeResultState status = 1;
-  // the longest time the code need to run the input
+  // the time in nanosecond
   optional uint64 max_time = 2;
+  // the peak memory usage
   optional uint64 max_mem = 3;
 }
 
@@ -48,14 +50,19 @@ enum JudgeResultState {
   OLE = 8;
 }
 
+// How judge assert input
 enum JudgeMatchRule {
+  // exactly same
   ExactSame = 0;
+  // assert segment between space or newline, empty segments are also compare
   IgnoreSpace = 1;
+  // assert segment between space or newline, empty segments are ignored
   SkipSNL = 2;
 }
 
 message Langs { repeated LangInfo list = 1; }
 
+// assertion code
 message LangInfo {
   string lang_uid = 1;
   string lang_name = 2;
