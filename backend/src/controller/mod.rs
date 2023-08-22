@@ -2,6 +2,7 @@ pub mod problem;
 pub mod token;
 pub mod user;
 pub mod util;
+pub mod contest;
 use thiserror::Error;
 
 pub struct ControllerCluster {}

@@ -1,11 +1,8 @@
-use crate::{
-    common::JudgeStatus,
-    grpc::proto::prelude::{judge_response, JudgeResult},
-};
-use chrono::{NaiveDateTime, Utc};
+use crate::{common::JudgeStatus, grpc::proto::prelude::judge_response};
+use chrono::Utc;
 use entity::{problem, submit};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use std::{collections::HashMap, sync::RwLock};
+use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::watch;
 use tokio_stream::StreamExt;
 
@@ -29,7 +26,10 @@ pub enum Status {
 
 pub struct ProblemController {
     judgers: router::JudgeRouter,
-    running_submits: RwLock<HashMap<i32, watch::Receiver<Status>>>,
+    // TODO: if watch is not Send, how can you watch the channel(future)?
+    // use Arc
+    running_submits: Mutex<HashMap<i32, watch::Receiver<Status>>>,
+    // running_submits: RwLock<HashMap<i32, watch::Receiver<Status>>>,
 }
 
 impl ProblemController {
@@ -43,6 +43,8 @@ impl ProblemController {
         }
         .insert(db)
         .await?;
+
+        // where is Tasks::from_raw()
 
         Ok(problem)
     }
@@ -90,15 +92,17 @@ impl ProblemController {
             .await?;
 
         let (tx, rx) = watch::channel(Status::Running(1));
-        self.running_submits
-            .write()
-            .unwrap()
-            .insert(*submit.id.as_ref(), rx);
+        {
+            self.running_submits
+                .lock()
+                .unwrap()
+                .insert(*submit.id.as_ref(), rx);
+        }
 
-        let submit_id=*submit.id.as_ref();
+        let submit_id = *submit.id.as_ref();
 
         tokio::spawn(async move {
-            let mut max_time=0;
+            let mut max_time = 0;
             while let Some(res) = stream.next().await {
                 if let Err(err) = res {
                     log::error!("Error from judger: {}", err);
@@ -111,18 +115,27 @@ impl ProblemController {
                         tx.send(Status::Running(case)).ok();
                     }
                     judge_response::Task::Result(x) => {
-                        max_time+=x.max_time;
                         let exit = JudgeStatus::from_i32(x.status);
                         if !exit.success() {
+                            max_time += x.max_time.expect(
+                                "incorrect proto impl, expecting max_time persented when AC",
+                            );
                             tx.send(Status::End(exit)).ok();
                         }
                     }
                 };
             }
         });
+        self.running_submits.lock().unwrap().remove(&submit_id);
 
         Ok(submit_id)
     }
-    pub async fn trace_submit(&self, submit_id: i32) {}
+    pub async fn trace_submit(&self, submit_id: i32) -> Option<watch::Receiver<Status>> {
+        self.running_submits
+            .lock()
+            .unwrap()
+            .get(&submit_id)
+            .map(|x| x.clone())
+    }
     // pub async fn update()->
 }
