@@ -26,14 +26,24 @@ pub enum Status {
 
 pub struct ProblemController {
     judgers: router::JudgeRouter,
-    // TODO: if watch is not Send, how can you watch the channel(future)?
-    // use Arc
     running_submits: Mutex<HashMap<i32, watch::Receiver<Status>>>,
-    // running_submits: RwLock<HashMap<i32, watch::Receiver<Status>>>,
+}
+
+macro_rules! report {
+    ($issue:expr) => {
+        match $issue {
+            Ok(x) => x,
+            Err(err) => {
+                log::error!("{}", err);
+                return;
+            }
+        }
+    };
 }
 
 impl ProblemController {
-    pub async fn add(&self, base: ProblemBase) -> Result<problem::Model, Error> {
+    // "add" essentially means "create", right? 
+    pub async fn add(&self, base: ProblemBase) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
         let problem = problem::ActiveModel {
@@ -46,7 +56,14 @@ impl ProblemController {
 
         // where is Tasks::from_raw()
 
-        Ok(problem)
+        Ok(problem.id)
+    }
+    // where is the input(args)?
+    pub async fn update(&self,problem_id:i32) -> Result<(), Error>{
+        
+
+
+        todo!()
     }
     pub async fn remove(&self, problem_id: i32) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
@@ -125,6 +142,10 @@ impl ProblemController {
                     }
                 };
             }
+
+            todo!("use transcation to commit the submit");
+            let model = report!(submit::Entity::find_by_id(submit_id).one(db).await);
+            let model = report!(model.ok_or(Error::NotFound("Uncommited submit")));
         });
         self.running_submits.lock().unwrap().remove(&submit_id);
 
