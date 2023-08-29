@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::problem;
+use crate::{problem, user};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "contests")]
@@ -19,7 +19,8 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     // User,
-    Problem,
+    Users,
+    Problems,
 }
 
 impl RelationTrait for Relation {
@@ -29,20 +30,24 @@ impl RelationTrait for Relation {
             //     .from(Column::UserId)
             //     .to(user::Column::Id)
             //     .into(),
-            Self::Problem => Entity::has_many(problem::Entity).into(),
+            Self::Users => Entity::has_many(user::Entity).into(),
+            Self::Problems => Entity::has_many(problem::Entity).into(),
         }
     }
 }
 
-// impl Related<user::Entity> for Entity {
-//     fn to() -> RelationDef {
-//         Relation::User.def()
-//     }
-// }
-
 impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Problem.def()
+        Relation::Problems.def()
+    }
+}
+
+impl Related<user::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_contest::Relation::User.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_contest::Relation::Contest.def().rev())
     }
 }
 

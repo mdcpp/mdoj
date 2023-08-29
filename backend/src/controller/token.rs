@@ -6,9 +6,9 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilt
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{num::NonZeroUsize, sync::Mutex};
 
+use crate::common::prelude::UserPermBytes;
 use crate::init::db::DB;
 
-use super::util::bitflag::UserPermBytes;
 use super::Error;
 
 const EXPIRY_FRQU: usize = 10;

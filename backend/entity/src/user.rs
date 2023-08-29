@@ -17,16 +17,18 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
     // Contest,
-    Problem,
-    Token,
+    Contests,
+    Problems,
+    Tokens,
 }
 
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            // Self::Contest => Entity::has_one(contest::Entity).into(),
-            Self::Problem => Entity::has_many(problem::Entity).into(),
-            Self::Token => Entity::has_many(token::Entity).into(),
+            // Self::Contest => Entity::has_many(contest::Entity).into(),
+            Self::Contests => Entity::has_many(contest::Entity).into(),
+            Self::Problems => Entity::has_many(problem::Entity).into(),
+            Self::Tokens => Entity::has_many(token::Entity).into(),
         }
     }
 }
@@ -39,13 +41,22 @@ impl RelationTrait for Relation {
 
 impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Problem.def()
+        Relation::Problems.def()
     }
 }
 
 impl Related<token::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Token.def()
+        Relation::Tokens.def()
+    }
+}
+
+impl Related<contest::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_contest::Relation::Contest.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::user_contest::Relation::User.def().rev())
     }
 }
 

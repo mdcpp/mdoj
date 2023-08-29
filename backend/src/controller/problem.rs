@@ -1,4 +1,4 @@
-use crate::{common::JudgeStatus, grpc::proto::prelude::judge_response};
+use crate::{common::status::JudgeStatus, grpc::proto::prelude::judge_response};
 use chrono::Utc;
 use entity::{problem, submit};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
@@ -15,10 +15,6 @@ pub struct ProblemBase {
     pub owner: i32,
 }
 
-// pub struct ProblemUpdate{
-//     title:Option<String>,
-//     description:Option<String>,
-// }
 pub enum Status {
     Running(i32),
     End(JudgeStatus),
@@ -42,7 +38,7 @@ macro_rules! report {
 }
 
 impl ProblemController {
-    // "add" essentially means "create", right? 
+    // "add" essentially means "create", right?
     pub async fn add(&self, base: ProblemBase) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
@@ -59,10 +55,7 @@ impl ProblemController {
         Ok(problem.id)
     }
     // where is the input(args)?
-    pub async fn update(&self,problem_id:i32) -> Result<(), Error>{
-        
-
-
+    pub async fn update(&self, problem_id: i32) -> Result<(), Error> {
         todo!()
     }
     pub async fn remove(&self, problem_id: i32) -> Result<Option<()>, Error> {
