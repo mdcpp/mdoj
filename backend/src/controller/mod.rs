@@ -34,4 +34,4 @@ impl Error {
     }
 }
 
-pub struct Controllers{}
+pub struct Controllers {}
