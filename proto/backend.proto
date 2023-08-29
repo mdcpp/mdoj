@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package oj.backend;
 
-import "google/protobuf/timestamp.proto";
+// import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 // Search
@@ -58,7 +58,7 @@ message ProblemFullInfo {
   string description = 2;
   optional string edu = 3;
   repeated TestCase tests = 4;
-  optional bool visible = 5;
+  optional bool public = 5;
 }
 
 message TestCase {
@@ -67,125 +67,122 @@ message TestCase {
 }
 
 service ProblemSet {
+  // Queryable
   rpc List(ListRequest) returns (Problems);
-
   rpc SearchByText(SearchByTextRequest) returns (Problems);
-
   rpc SearchByTag(SearchByTagRequest) returns (Problems);
-
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
-
+  
+  // Editable
   rpc Create(ProblemFullInfo) returns (google.protobuf.Empty);
-
   rpc Update(ProblemFullInfo) returns (google.protobuf.Empty);
-
-  rpc Close(ProblemId) returns (google.protobuf.Empty);
+  rpc Remove(ProblemId) returns (google.protobuf.Empty);
 }
 
 // Contest
-message ContestId { uint32 id = 1; }
+// message ContestId { uint32 id = 1; }
 
-message Contests { repeated ContestInfo list = 1; }
+// message Contests { repeated ContestInfo list = 1; }
 
-message ContestInfo {
-  ContestId id = 1;
-  string name = 2;
-  uint32 participant_count = 3;
-  google.protobuf.Timestamp begin = 4;
-  google.protobuf.Timestamp end = 5;
-}
-
-message ContestFullInfo {
-  ContestInfo info = 1;
-  string description = 2;
-  UserId hoster = 3;
-  repeated ProblemId problems = 4;
-}
-
-service ContestSet {
-  rpc List(ListRequest) returns (Contests);
-
-  rpc SearchByText(SearchByTextRequest) returns (Contests);
-
-  rpc SearchByTag(SearchByTagRequest) returns (Contests);
-
-  rpc FullInfo(ContestId) returns (ContestFullInfo);
-
-  rpc Join(ContestId) returns (google.protobuf.Empty);
-
-  rpc Exit(ContestId) returns (google.protobuf.Empty);
-
-  rpc Create(ContestFullInfo) returns (google.protobuf.Empty);
-
-  rpc Update(ContestFullInfo) returns (google.protobuf.Empty);
-
-  rpc Close(ContestId) returns (google.protobuf.Empty);
-
-  // rpc Submit(SubmitFullInfo)
-}
-
-// Submit
-
-message SubmitId { uint32 id = 1; }
-
-message Submits { repeated SubmitInfo list = 1; }
-
-message SubmitInfo {
-  SubmitId id = 1;
-  optional ContestId contest_id = 2;
-  optional bytes code =3; 
-}
-
-message SubmitFullInfo {
-  SubmitInfo into = 1;
-  
-}
-
-service SubmitSet {
-  // rpc List(ListRequest)
-
-  // rpc Submit(SubmitFullInfo)
-
-  // rpc Follow(SubmitId) returns (stream SubmitStatus);
-
-  // rpc FullInfo(SubmitId) returns (SubmitFullInfo);
-}
-
-// message Token{
-//   bytes signature = 1;
-//   bytes permission = 2;
-//   google.protobuf.Timestamp expiry = 3;
+// message ContestInfo {
+//   ContestId id = 1;
+//   string name = 2;
+//   uint32 participant_count = 3;
+//   google.protobuf.Timestamp begin = 4;
+//   google.protobuf.Timestamp end = 5;
 // }
 
-// User
-message UserId { uint32 id = 1; }
+// message ContestFullInfo {
+//   ContestInfo info = 1;
+//   string description = 2;
+//   UserId hoster = 3;
+//   repeated ProblemId problems = 4;
+// }
 
-message UserInfo {
-  string username = 1;
-  optional bytes raw_pwd = 2;
-  UserId id = 3;
-}
+// service ContestSet {
+//   rpc List(ListRequest) returns (Contests);
 
-message UserFullInfo {
-  UserInfo info = 1;
-  string description = 2;
-  int32 score = 4;
-}
+//   rpc SearchByText(SearchByTextRequest) returns (Contests);
 
-message Users { repeated UserInfo list = 1; }
+//   rpc SearchByTag(SearchByTagRequest) returns (Contests);
 
-service UserSet {
-  rpc List(ListRequest) returns (Users);
+//   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
-  rpc SearchByText(SearchByTextRequest) returns (Users);
+//   rpc Join(ContestId) returns (google.protobuf.Empty);
 
-  rpc FullInfo(UserId) returns (UserFullInfo);
-}
+//   rpc Exit(ContestId) returns (google.protobuf.Empty);
 
-service AuthSet {
-  rpc AddUser(UserFullInfo) returns (google.protobuf.Empty);
+//   rpc Create(ContestFullInfo) returns (google.protobuf.Empty);
 
-  rpc RemoveUser(UserId) returns (google.protobuf.Empty);
-}
+//   rpc Update(ContestFullInfo) returns (google.protobuf.Empty);
 
-// todo admin api
+//   rpc Close(ContestId) returns (google.protobuf.Empty);
+
+//   // rpc Submit(SubmitFullInfo)
+// }
+
+// // Submit
+
+// message SubmitId { uint32 id = 1; }
+
+// message Submits { repeated SubmitInfo list = 1; }
+
+// message SubmitInfo {
+//   SubmitId id = 1;
+//   optional ContestId contest_id = 2;
+//   optional bytes code =3; 
+// }
+
+// message SubmitFullInfo {
+//   SubmitInfo into = 1;
+  
+// }
+
+// service SubmitSet {
+//   // rpc List(ListRequest)
+
+//   // rpc Submit(SubmitFullInfo)
+
+//   // rpc Follow(SubmitId) returns (stream SubmitStatus);
+
+//   // rpc FullInfo(SubmitId) returns (SubmitFullInfo);
+// }
+
+// // message Token{
+// //   bytes signature = 1;
+// //   bytes permission = 2;
+// //   google.protobuf.Timestamp expiry = 3;
+// // }
+
+// // User
+// message UserId { uint32 id = 1; }
+
+// message UserInfo {
+//   string username = 1;
+//   optional bytes raw_pwd = 2;
+//   UserId id = 3;
+// }
+
+// message UserFullInfo {
+//   UserInfo info = 1;
+//   string description = 2;
+//   int32 score = 4;
+// }
+
+// message Users { repeated UserInfo list = 1; }
+
+// service UserSet {
+//   rpc List(ListRequest) returns (Users);
+
+//   rpc SearchByText(SearchByTextRequest) returns (Users);
+
+//   rpc FullInfo(UserId) returns (UserFullInfo);
+// }
+
+// service AuthSet {
+//   rpc AddUser(UserFullInfo) returns (google.protobuf.Empty);
+
+//   rpc RemoveUser(UserId) returns (google.protobuf.Empty);
+// }
+
+// // todo admin api

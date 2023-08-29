@@ -15,6 +15,7 @@ pub struct Model {
     pub memory: i64,
     pub time: u64,
     pub tests: Vec<u8>,
+    pub tags:String,
     pub title: String,
     pub description: String,
 }
