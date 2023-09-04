@@ -2,11 +2,11 @@ macro_rules! set_bit_value {
     ($item:ident,$name:ident,$pos:expr) => {
         paste::paste! {
             impl $item{
-                pub fn [<get_ $name>](&self)->bool{
+                pub fn [<can_ $name>](&self)->bool{
                     let filter = 1_i64<<($pos);
                     (self.0&filter) == filter
                 }
-                pub fn [<set_ $name>](&mut self,value:bool){
+                pub fn [<grant_ $name>](&mut self,value:bool){
                     let filter = 1_i64<<($pos);
                     if (self.0&filter == filter) ^ value{
                         self.0 = self.0 ^ filter;
@@ -25,15 +25,15 @@ impl UserPermBytes {
     }
 }
 
+// add user, change user's permission, and all
 set_bit_value!(UserPermBytes, root, 0);
-
-set_bit_value!(UserPermBytes, create_problem, 1);
-set_bit_value!(UserPermBytes, edit_problem, 2);
-set_bit_value!(UserPermBytes, delete_problem, 3);
-set_bit_value!(UserPermBytes, create_edu, 4);
-set_bit_value!(UserPermBytes, edit_edu, 5);
-set_bit_value!(UserPermBytes, delete_edu, 6);
-set_bit_value!(UserPermBytes, manage_user, 7);
+// just CRUD his own problem, cannot link/publish problem to his own contest
+set_bit_value!(UserPermBytes, manage_problem, 1);
+// just CRUD his own education, only link/publish education to his own problem
+set_bit_value!(UserPermBytes, manage_edu, 2);
+// cannot add user, only link/publish education to his own problem
+set_bit_value!(UserPermBytes, publish, 3);
+set_bit_value!(UserPermBytes, manage_announcement, 4);
 
 // #[cfg(test)]
 // mod test {

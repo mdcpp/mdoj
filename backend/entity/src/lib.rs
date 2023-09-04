@@ -1,3 +1,4 @@
+pub mod announcement;
 pub mod contest;
 pub mod education;
 pub mod problem;

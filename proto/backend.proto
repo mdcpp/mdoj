@@ -66,6 +66,11 @@ message TestCase {
   string output = 2;
 }
 
+message LinkRequest{
+  ContestId contest_id = 1;
+  ProblemId problem_id = 2;
+}
+
 service ProblemSet {
   // Queryable
   rpc List(ListRequest) returns (Problems);
@@ -77,10 +82,13 @@ service ProblemSet {
   rpc Create(ProblemFullInfo) returns (google.protobuf.Empty);
   rpc Update(ProblemFullInfo) returns (google.protobuf.Empty);
   rpc Remove(ProblemId) returns (google.protobuf.Empty);
+
+  // special
+  rpc Link(LinkRequest) returns (google.protobuf.Empty);
 }
 
 // Contest
-// message ContestId { uint32 id = 1; }
+message ContestId { uint32 id = 1; }
 
 // message Contests { repeated ContestInfo list = 1; }
 

@@ -7,4 +7,6 @@ pub mod problem;
 pub enum Error {
     #[error("`{0}`")]
     Upstream(#[from] crate::controller::Error),
+    #[error("Premission Deny")]
+    PremissionDeny,
 }

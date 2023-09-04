@@ -8,11 +8,26 @@ use tokio_stream::StreamExt;
 
 use crate::init::db::DB;
 
-use super::{util::router, Error};
+use super::{to_active_value, util::router, Error};
 
-pub struct ProblemBase {
+pub struct Base {
     pub title: String,
     pub owner: i32,
+}
+
+pub struct Update {
+    title: Option<String>,
+    description: Option<String>,
+}
+
+impl Update {
+    fn to_active(self) -> problem::ActiveModel {
+        problem::ActiveModel {
+            title: to_active_value(self.title),
+            description: to_active_value(self.description),
+            ..Default::default()
+        }
+    }
 }
 
 pub enum Status {
@@ -39,7 +54,7 @@ macro_rules! report {
 
 impl ProblemController {
     // "add" essentially means "create", right?
-    pub async fn add(&self, base: ProblemBase) -> Result<i32, Error> {
+    pub async fn create(&self, base: Base) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
         let problem = problem::ActiveModel {
@@ -55,8 +70,15 @@ impl ProblemController {
         Ok(problem.id)
     }
     // where is the input(args)?
-    pub async fn update(&self, problem_id: i32) -> Result<(), Error> {
-        todo!()
+    pub async fn update(&self, update: Update, problem_id: i32) -> Result<(), Error> {
+        let db = DB.get().unwrap();
+
+        let mut update: problem::ActiveModel = update.to_active();
+
+        update.id=ActiveValue::Set(problem_id);
+        update.update(db).await?;
+
+        Ok(())
     }
     pub async fn remove(&self, problem_id: i32) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();

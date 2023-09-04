@@ -11,7 +11,7 @@ use super::Error;
 pub struct UserController {}
 
 impl UserController {
-    pub async fn add(username: String, pwd: Vec<u8>) -> Result<(), Error> {
+    pub async fn add(&self, username: String, pwd: Vec<u8>) -> Result<(), Error> {
         let hashed_pwd = sha256::digest(pwd);
         let db = DB.get().unwrap();
         let user = user::ActiveModel {
@@ -25,7 +25,7 @@ impl UserController {
 
         Ok(())
     }
-    pub async fn delete(user_id: i32) -> Result<Option<user::Model>, Error> {
+    pub async fn delete(&self, user_id: i32) -> Result<Option<user::Model>, Error> {
         let db = DB.get().unwrap();
 
         Ok(db

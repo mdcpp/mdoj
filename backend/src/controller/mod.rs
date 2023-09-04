@@ -3,9 +3,11 @@ pub mod problem;
 pub mod token;
 pub mod user;
 pub mod util;
+use migration::Token;
+use sea_orm::ActiveValue;
 use thiserror::Error;
 
-pub struct ControllerCluster {}
+use self::{problem::ProblemController, token::TokenController, user::UserController};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -34,4 +36,18 @@ impl Error {
     }
 }
 
-pub struct Controllers {}
+pub struct Controllers {
+    pub problem: ProblemController,
+    pub token: TokenController,
+    pub user: UserController,
+}
+
+pub fn to_active_value<C>(option: Option<C>) -> ActiveValue<C>
+where
+    C: Into<sea_orm::Value>,
+{
+    match option {
+        Some(x) => ActiveValue::Set(x),
+        None => ActiveValue::default(),
+    }
+}

@@ -8,7 +8,7 @@ use crate::{problem, user};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
-    pub owner_id: i32,
+    // pub owner_id: i32,
     #[sea_orm(column_type = "Timestamp")]
     pub begin: DateTime,
     #[sea_orm(column_type = "Timestamp")]

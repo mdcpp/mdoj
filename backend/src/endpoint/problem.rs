@@ -1,38 +1,41 @@
-use tonic::async_trait;
-
-use crate::{common::problem::*, controller::ControllerCluster};
+use crate::controller::{problem, Controllers};
 
 use super::define::*;
 
-pub struct ProblemEditor;
+pub struct ProblemEndpoint<'a>(pub &'a Controllers);
 
-impl Editer for ProblemEditor {
-    type Require = Require;
-
-    type Update = Update;
+pub struct Base {
+    title: String,
 }
 
-#[async_trait]
-impl Editable<ProblemEditor> for ControllerCluster {
-    type Error = super::Error;
+impl problem::Base {
+    fn from_request(require: Base, owner: i32) -> problem::Base {
+        problem::Base {
+            title: require.title,
+            owner,
+        }
+    }
+}
 
-    async fn create(
-        &self,
-        request: <ProblemEditor as Editer>::Require,
-        user: UserInfo,
-    ) -> Result<i32, Self::Error> {
+impl<'a> ProblemEndpoint<'a> {
+    async fn create(&self, request: Base, user: UserInfo) -> Result<i32, super::Error> {
+        if user.perm.can_manage_problem() {
+            let problem = self
+                .0
+                .problem
+                .create(problem::Base::from_request(request, user.user_id))
+                .await?;
+            Ok(problem)
+        } else {
+            Err(super::Error::PremissionDeny)
+        }
+    }
+
+    async fn update(&self, request: problem::Update, user: UserInfo) -> Result<i32, super::Error> {
         todo!()
     }
 
-    async fn update(
-        &self,
-        request: <ProblemEditor as Editer>::Update,
-        user: UserInfo,
-    ) -> Result<i32, Self::Error> {
-        todo!()
-    }
-
-    async fn remove(&self, request: i32, user: UserInfo) -> Result<i32, Self::Error> {
+    async fn remove(&self, request: i32, user: UserInfo) -> Result<i32, super::Error> {
         todo!()
     }
 }
