@@ -52,19 +52,17 @@ impl ProblemSet for Server {
 
         let mut filtered = match auth {
             Auth::Guest => {
-                // published problems for guest
                 entity::problem::Entity::find().filter(entity::problem::Column::Visible.eq(true))
             }
             Auth::User((user_id, perm)) => {
                 if perm.can_root() {
-                    // all problems for root
                     entity::problem::Entity::find()
-                    // .order_by_asc(column::id)
-                    // .all(db)
                 } else {
-                    // published problems for user
-                    // user editing problems
-                    todo!()
+                    entity::problem::Entity::find().filter(
+                        entity::problem::Column::Visible
+                            .eq(true)
+                            .or(entity::problem::Column::UserId.eq(user_id)),
+                    )
                 }
             }
         };
@@ -88,7 +86,7 @@ impl ProblemSet for Server {
             filtered = filtered.order_by_asc(sort_col);
         }
 
-        let filtered= filtered.offset(offset as u64).limit(limit as u64);
+        let filtered = filtered.offset(offset as u64).limit(limit as u64);
 
         let list = result_into(filtered.all(db).await)?
             .into_iter()
