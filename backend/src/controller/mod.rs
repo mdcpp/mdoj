@@ -33,11 +33,6 @@ impl Error {
     }
 }
 
-#[derive(Default)]
-pub struct AppState {
-    pub controller: TokenController,
-}
-
 pub fn to_active_value<C>(option: Option<C>) -> ActiveValue<C>
 where
     C: Into<sea_orm::Value>,
