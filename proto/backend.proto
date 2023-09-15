@@ -57,7 +57,7 @@ message AnnouncementFullInfo {
   optional bool public = 4;
 }
 
-message AnnouncementId { uint32 id = 1; }
+message AnnouncementId { int32 id = 1; }
 
 message AnnouncementLink {
   AnnouncementId announcement_id = 1;
@@ -94,7 +94,7 @@ message EducationFullInfo {
   repeated ProblemId problems = 3;
 }
 
-message EducationId { uint32 id = 1; }
+message EducationId { int32 id = 1; }
 
 message EducationLink {
   EducationId education_id = 1;
@@ -120,17 +120,18 @@ message Problems { repeated ProblemInfo list = 1; }
 
 message ProblemInfo {
   ProblemId id = 1;
-  string name = 2;
+  string title = 2;
   uint32 submit_count = 3;
   float ac_rate = 4;
 }
 
-message ProblemId { uint32 id = 1; }
+message ProblemId { int32 id = 1; }
 
 message ProblemFullInfo {
   ProblemInfo info = 1;
-  string description = 2;
+  string content = 2;
   // optional string edu = 3;
+  uint32 difficulty = 4;
   optional bool public = 5;
 }
 
@@ -139,7 +140,7 @@ message ProblemLink {
   ProblemId problem_id = 2;
 }
 
-message TestcaseId { uint32 id = 1; }
+message TestcaseId { int32 id = 1; }
 
 message Case {
   repeated string inputs = 1;
@@ -169,13 +170,13 @@ service ProblemSet {
 }
 
 // Contest
-message ContestId { uint32 id = 1; }
+message ContestId { int32 id = 1; }
 
 message Contests { repeated ContestInfo list = 1; }
 
 message ContestInfo {
   ContestId id = 1;
-  string name = 2;
+  string title = 2;
   uint32 participant_count = 3;
   google.protobuf.Timestamp begin = 4;
   google.protobuf.Timestamp end = 5;
@@ -183,7 +184,7 @@ message ContestInfo {
 
 message ContestFullInfo {
   ContestInfo info = 1;
-  string description = 2;
+  string content = 2;
   UserId hoster = 3;
   repeated ProblemId problems = 4;
 }
@@ -225,7 +226,7 @@ enum JudgeState {
   OLE = 8;
 }
 
-message SubmitId { uint32 id = 1; }
+message SubmitId { int32 id = 1; }
 
 message Submits { repeated SubmitInfo list = 1; }
 
@@ -261,17 +262,17 @@ service SubmitSet {
 }
 
 // User
-message UserId { uint32 id = 1; }
+message UserId { int32 id = 1; }
 
 message UserInfo {
-  string username = 1;
+  string usertitle = 1;
   optional bytes raw_pwd = 2;
   UserId id = 3;
 }
 
 message UserFullInfo {
   UserInfo info = 1;
-  string description = 2;
+  string content = 2;
   int32 score = 4;
 }
 
@@ -305,7 +306,7 @@ message TokenInfo {
 message Token { bytes signature = 1; }
 
 message LoginRequest {
-  string username = 1;
+  string usertitle = 1;
   bytes raw_pwd = 2;
 }
 

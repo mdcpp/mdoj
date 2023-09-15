@@ -1,9 +1,9 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{contest, education, submit, user, testcase};
+use crate::{contest, education, submit, testcase, user};
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "problem")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
@@ -11,7 +11,8 @@ pub struct Model {
     pub user_id: i32,
     pub contest_id: i32,
     pub success: i32,
-    pub submits: i32,
+    pub submits: u32,
+    pub ac_rate: f32,
     pub memory: i64,
     pub time: u64,
     pub tests: Vec<u8>,
@@ -19,6 +20,7 @@ pub struct Model {
     pub title: String,
     pub content: String,
     pub visible: bool,
+    pub difficulty: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
@@ -38,7 +40,7 @@ impl RelationTrait for Relation {
                 .to(user::Column::Id)
                 .into(),
             Self::Contest => Entity::belongs_to(contest::Entity)
-                .from(Column::UserId)
+                .from(Column::ContestId)
                 .to(contest::Column::Id)
                 .into(),
             Self::Submit => Entity::has_many(submit::Entity).into(),
@@ -78,4 +80,3 @@ impl Related<testcase::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
-

@@ -80,7 +80,7 @@ impl TokenController {
 
         Ok(hex::encode(rand))
     }
-    pub async fn verify(&self, token: String) -> Result<Option<(i32, UserPermBytes)>, Error> {
+    pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
@@ -97,7 +97,7 @@ impl TokenController {
 
         let token: CachedToken;
 
-        match {
+        let cache_result = {
             let mut cache = self.cache.lock().unwrap();
             match cache.get(&rand) {
                 Some(cc) => {
@@ -110,7 +110,9 @@ impl TokenController {
                 }
                 None => None,
             }
-        } {
+        };
+
+        match cache_result {
             Some(token_) => {
                 token = token_;
             }

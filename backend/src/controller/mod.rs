@@ -1,10 +1,9 @@
 pub mod token;
-pub mod util;
 use migration::Token;
 use sea_orm::ActiveValue;
 use thiserror::Error;
 
-use self::{ token::TokenController};
+use self::token::TokenController;
 
 #[derive(Debug, Error)]
 pub enum Error {

@@ -1,10 +1,45 @@
 // use crate::grpc::proto::*;
 
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
 use tonic::{async_trait, Request, Response};
 
+use crate::common::error::*;
+
 use crate::{
-    grpc::proto::prelude::problem_set_server::ProblemSet, grpc::proto::prelude::*, Server,
+    endpoint::util::permission::Auth, grpc::proto::prelude::problem_set_server::ProblemSet,
+    grpc::proto::prelude::*, init::db::DB, Server,
 };
+
+// pub enum ProblemSort {
+//     ACRate,
+//     UploadDate,
+//     SubmitCount,
+//     Score,
+//     Difficulty,
+// }
+
+impl Into<entity::problem::Column> for SortBy {
+    fn into(self) -> entity::problem::Column {
+        match self {
+            Self::AcRate => entity::problem::Column::AcRate,
+            Self::UploadDate => entity::problem::Column::Id,
+            Self::SubmitCount => entity::problem::Column::Submits,
+            Self::Score => entity::problem::Column::Id,
+            Self::Difficulty => entity::problem::Column::Difficulty,
+        }
+    }
+}
+
+impl Into<ProblemInfo> for entity::problem::Model {
+    fn into(self) -> ProblemInfo {
+        ProblemInfo {
+            id: Some(ProblemId { id: self.id }),
+            title: self.title,
+            ac_rate: (self.success as f32) / (self.submits as f32),
+            submit_count: self.submits,
+        }
+    }
+}
 
 #[async_trait]
 impl ProblemSet for Server {
@@ -12,7 +47,54 @@ impl ProblemSet for Server {
         &self,
         request: Request<ListRequest>,
     ) -> Result<Response<Problems>, tonic::Status> {
-        todo!()
+        let db = DB.get().unwrap();
+        let (auth, request) = self.parse_request(request).await?;
+
+        let mut filtered = match auth {
+            Auth::Guest => {
+                // published problems for guest
+                entity::problem::Entity::find().filter(entity::problem::Column::Visible.eq(true))
+            }
+            Auth::User((user_id, perm)) => {
+                if perm.can_root() {
+                    // all problems for root
+                    entity::problem::Entity::find()
+                    // .order_by_asc(column::id)
+                    // .all(db)
+                } else {
+                    // published problems for user
+                    // user editing problems
+                    todo!()
+                }
+            }
+        };
+
+        let offset = request.page.as_ref().map(|x| x.offset).unwrap_or(0);
+        let limit = request.page.map(|x| x.amount).unwrap_or(10);
+        let reversed = request.sort.as_ref().map(|x| x.reverse).unwrap_or(false);
+
+        let sort_col = match request.sort {
+            Some(x) => SortBy::from_i32(x.sort_by)
+                .ok_or(tonic::Status::invalid_argument(
+                    "SortBy is not a vaild emun",
+                ))?
+                .into(),
+            None => entity::problem::Column::Id,
+        };
+
+        if reversed {
+            filtered = filtered.order_by_desc(sort_col);
+        } else {
+            filtered = filtered.order_by_asc(sort_col);
+        }
+
+        let filtered= filtered.offset(offset as u64).limit(limit as u64);
+
+        let list = result_into(filtered.all(db).await)?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+        Ok(Response::new(Problems { list }))
     }
 
     async fn search_by_text(
@@ -50,31 +132,19 @@ impl ProblemSet for Server {
         todo!()
     }
 
-    async fn remove(
-        &self,
-        request: Request<ProblemId>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn remove(&self, request: Request<ProblemId>) -> Result<Response<()>, tonic::Status> {
         todo!()
     }
 
-    async fn link(
-        &self,
-        request: Request<ProblemLink>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn link(&self, request: Request<ProblemLink>) -> Result<Response<()>, tonic::Status> {
         todo!()
     }
 
-    async fn unlink(
-        &self,
-        request: Request<ProblemLink>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn unlink(&self, request: Request<ProblemLink>) -> Result<Response<()>, tonic::Status> {
         todo!()
     }
 
-    async fn add_test(
-        &self,
-        request: Request<Testcase>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn add_test(&self, request: Request<Testcase>) -> Result<Response<()>, tonic::Status> {
         todo!()
     }
 
