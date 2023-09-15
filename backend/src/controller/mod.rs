@@ -1,13 +1,10 @@
-pub mod contest;
-pub mod problem;
 pub mod token;
-pub mod user;
 pub mod util;
 use migration::Token;
 use sea_orm::ActiveValue;
 use thiserror::Error;
 
-use self::{problem::ProblemController, token::TokenController, user::UserController};
+use self::{ token::TokenController};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -36,10 +33,9 @@ impl Error {
     }
 }
 
-pub struct Controllers {
-    pub problem: ProblemController,
-    pub token: TokenController,
-    pub user: UserController,
+#[derive(Default)]
+pub struct AppState {
+    pub controller: TokenController,
 }
 
 pub fn to_active_value<C>(option: Option<C>) -> ActiveValue<C>

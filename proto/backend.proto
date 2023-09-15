@@ -213,6 +213,17 @@ service ContestSet {
 }
 
 // Submit
+enum JudgeState {
+  AC = 0;
+  NA = 1;
+  WA = 2;
+  CE = 3;
+  RE = 4;
+  RF = 5;
+  TLE = 6;
+  MLE = 7;
+  OLE = 8;
+}
 
 message SubmitId { uint32 id = 1; }
 
@@ -231,6 +242,13 @@ message SubmitInfo {
   uint64 time = 4;
   uint64 peak_mem = 5;
   uint64 score = 6;
+  JudgeState state = 7;
+}
+
+message SubmitStatus {
+  JudgeState state = 1;
+  uint64 time = 2;
+  uint64 peak_mem = 3;
 }
 
 service SubmitSet {
@@ -238,6 +256,8 @@ service SubmitSet {
   rpc SearchByText(SearchByTextRequest) returns (Submits);
   rpc SearchByTag(SearchByTagRequest) returns (Submits);
   rpc Info(SubmitId) returns (SubmitInfo);
+
+  rpc Follow(SubmitId) returns (stream SubmitStatus);
 }
 
 // User
