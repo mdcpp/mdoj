@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{contest, education, submit, user};
+use crate::{contest, education, submit, user, testcase};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "problem")]
@@ -27,7 +27,7 @@ pub enum Relation {
     Contest,
     Submit,
     Education,
-    // TestCase,
+    TestCase,
 }
 
 impl RelationTrait for Relation {
@@ -43,7 +43,7 @@ impl RelationTrait for Relation {
                 .into(),
             Self::Submit => Entity::has_many(submit::Entity).into(),
             Self::Education => Entity::has_many(education::Entity).into(),
-            // Self::TestCase => Entity::has_many(testcase::Entity).into(),
+            Self::TestCase => Entity::has_many(testcase::Entity).into(),
         }
     }
 }
@@ -71,11 +71,11 @@ impl Related<education::Entity> for Entity {
     }
 }
 
-// impl Related<testcase::Entity> for Entity {
-//     fn to() -> RelationDef {
-//         Relation::TestCase.def()
-//     }
-// }
+impl Related<testcase::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TestCase.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}
 
