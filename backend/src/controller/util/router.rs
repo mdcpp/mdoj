@@ -84,30 +84,31 @@ impl JudgeRouter {
         code: &Vec<u8>,
         lang: &String,
     ) -> Result<Streaming<JudgeResponse>, Error> {
-        let secquence = self.secquence.fetch_add(1, Ordering::Relaxed);
-        let tests = problem::Tests::from_raw(problem.tests.clone());
+        // let secquence = self.secquence.fetch_add(1, Ordering::Relaxed);
+        // let tests = problem::Tests::from_raw(problem.tests.clone());
 
-        let request = JudgeRequest {
-            lang_uid: lang.clone(),
-            code: code.clone(),
-            memory: problem.memory,
-            time: problem.time,
-            rule: JudgeMatchRule::SkipSnl as i32,
-            tests: tests
-                .0
-                .into_iter()
-                .map(|(input, output)| TestIo { input, output })
-                .collect(),
-        };
-        let mut server = self.servers[secquence % self.servers.len()].clone();
+        // let request = JudgeRequest {
+        //     lang_uid: lang.clone(),
+        //     code: code.clone(),
+        //     memory: problem.memory,
+        //     time: problem.time,
+        //     rule: JudgeMatchRule::SkipSnl as i32,
+        //     tests: tests
+        //         .0
+        //         .into_iter()
+        //         .map(|(input, output)| TestIo { input, output })
+        //         .collect(),
+        // };
+        // let mut server = self.servers[secquence % self.servers.len()].clone();
 
-        let res = server.connection.judge(request).await.map_err(|err| {
-            log::warn!("Error {} when connection to judge-{}", err, server.uri);
-            Error::ShouldRetry
-        })?;
+        // let res = server.connection.judge(request).await.map_err(|err| {
+        //     log::warn!("Error {} when connection to judge-{}", err, server.uri);
+        //     Error::ShouldRetry
+        // })?;
 
-        let (_, stream, _) = res.into_parts();
+        // let (_, stream, _) = res.into_parts();
 
-        Ok(stream)
+        // Ok(stream)
+        todo!()
     }
 }

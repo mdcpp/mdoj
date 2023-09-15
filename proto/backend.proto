@@ -142,8 +142,8 @@ message ProblemLink {
 message TestcaseId { uint32 id = 1; }
 
 message Case {
-  string input = 1;
-  string output = 2;
+  repeated string inputs = 1;
+  repeated string outputs = 2;
 }
 
 message Testcase {

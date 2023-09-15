@@ -17,14 +17,14 @@ pub struct Base {
 
 pub struct Update {
     title: Option<String>,
-    description: Option<String>,
+    content: Option<String>,
 }
 
 impl Update {
     fn to_active(self) -> problem::ActiveModel {
         problem::ActiveModel {
             title: to_active_value(self.title),
-            description: to_active_value(self.description),
+            content: to_active_value(self.content),
             ..Default::default()
         }
     }

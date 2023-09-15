@@ -1,7 +1,5 @@
 use crate::controller::{problem, Controllers};
 
-use super::define::*;
-
 pub struct ProblemEndpoint<'a>(pub &'a Controllers);
 
 pub struct Base {

@@ -1,6 +1,5 @@
 use thiserror::Error;
 
-pub mod define;
 pub mod problem;
 
 #[derive(Debug, Error)]

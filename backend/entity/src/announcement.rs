@@ -7,7 +7,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
     pub title: String,
-    pub description: String,
+    pub content: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

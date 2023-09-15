@@ -12,7 +12,7 @@ pub struct Model {
     pub id: i32,
     pub problem_id: i32,
     pub user_id: i32,
-    pub description: String,
+    pub content: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

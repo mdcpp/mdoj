@@ -17,7 +17,7 @@ pub struct Model {
     pub tests: Vec<u8>,
     pub tags: String,
     pub title: String,
-    pub description: String,
+    pub content: String,
     pub visible: bool,
 }
 
@@ -79,15 +79,3 @@ impl Related<testcase::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct Tests(pub (Vec<(Vec<u8>, Vec<u8>)>));
-
-impl Tests {
-    pub fn from_raw(raw: Vec<u8>) -> Self {
-        let tests: Self = bincode::deserialize(&raw).unwrap();
-        tests
-    }
-    pub fn into_raw(&self) -> Vec<u8> {
-        bincode::serialize(self).unwrap()
-    }
-}

@@ -13,7 +13,7 @@ pub struct Model {
     pub begin: DateTime,
     #[sea_orm(column_type = "Timestamp")]
     pub end: DateTime,
-    pub description: String,
+    pub content: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
