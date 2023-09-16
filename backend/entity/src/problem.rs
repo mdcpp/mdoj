@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, FromQueryResult,DerivePartialModel};
+use sea_orm::{entity::prelude::*, DerivePartialModel, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::{contest, education, submit, testcase, user};
@@ -80,7 +80,7 @@ impl Related<testcase::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-type Problem=Entity;
+type Problem = Entity;
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Problem")]
 pub struct PartialProblem {

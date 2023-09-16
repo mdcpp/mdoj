@@ -4,8 +4,8 @@ use super::util::intel::*;
 use tonic::{Request, Response};
 
 use entity::problem::*;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Select, FromQueryResult, PartialModelTrait};
-struct ProblemIntel;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Select};
+pub struct ProblemIntel;
 
 impl IntelTrait for ProblemIntel {
     type Entity = Entity;
@@ -18,11 +18,9 @@ impl IntelTrait for ProblemIntel {
 
     type Info = ProblemInfo;
 
-    type PrimaryKey = PrimaryKey;
-
-    const INFO_INTERESTS:
-        &'static [<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::Column] =
-        &[Column::Title, Column::Id, Column::Submits, Column::AcRate];
+    // const INFO_INTERESTS:
+    //     &'static [<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::Column] =
+    //     &[Column::Title, Column::Id, Column::Submits, Column::AcRate];
 }
 
 impl Intel<ProblemIntel> for Server {
@@ -42,25 +40,19 @@ impl Intel<ProblemIntel> for Server {
 
 impl Endpoint<ProblemIntel> for Server {}
 
-impl Transform<i32> for entity::problem::PrimaryKey {
-    fn into(self) -> i32 {
-        todo!()
-    }
-}
-
-impl Transform<<Entity as EntityTrait>::Column> for SortBy{
+impl Transform<<Entity as EntityTrait>::Column> for SortBy {
     fn into(self) -> <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Column {
         todo!()
     }
 }
 
-impl Transform<Problems> for Vec<ProblemInfo>{
+impl Transform<Problems> for Vec<ProblemInfo> {
     fn into(self) -> Problems {
         todo!()
     }
 }
 
-impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem{
+impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem {
     fn into(self) -> <ProblemIntel as IntelTrait>::Info {
         todo!()
     }
@@ -75,19 +67,19 @@ impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem{
 //         Endpoint::list(self, request).await
 //     }
 
-//     // async fn search_by_text(
-//     //     &self,
-//     //     request: Request<SearchByTextRequest>,
-//     // ) -> Result<Response<Problems>, tonic::Status> {
-//     //     self.search_by_text(request,&[Column::Title,Column::Content]).await
-//     // }
+//     async fn search_by_text(
+//         &self,
+//         request: Request<SearchByTextRequest>,
+//     ) -> Result<Response<Problems>, tonic::Status> {
+//         Endpoint::search_by_text(self, request, &[Column::Title,Column::Content]).await
+//     }
 
-//     // async fn search_by_tag(
-//     //     &self,
-//     //     request: Request<SearchByTagRequest>,
-//     // ) -> Result<Response<Problems>, tonic::Status> {
-//     //     self.search_by_tag(request,&[Column::Tags]).await
-//     // }
+//     async fn search_by_tag(
+//         &self,
+//         request: Request<SearchByTagRequest>,
+//     ) -> Result<Response<Problems>, tonic::Status> {
+//         Endpoint::search_by_text(self, request, &[Column::Tags]).await
+//     }
 
 //     // async fn full_info(
 //     //     &self,

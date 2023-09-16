@@ -15,9 +15,6 @@ pub trait Endpoint<I>
 where
     I: IntelTrait,
     Self: Intel<I> + ControllerTrait,
-    <I as IntelTrait>::PrimaryKey: Transform<
-            <<<I as IntelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType,
-        > + Send,
 {
     async fn list(
         &self,
@@ -26,15 +23,13 @@ where
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
         Vec<<I as IntelTrait>::Info>: Transform<<I as IntelTrait>::InfoArray>,
-        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info>+ Send,
+        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
     {
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let query = I::Entity::find()
-            .select_only()
-            .columns(I::INFO_INTERESTS.iter().cloned());
+        let query = I::Entity::find();
         let query = Self::ro_filter(query, auth)?;
 
         let sort_by = SortBy::from_i32(request.sort_by)
@@ -46,8 +41,10 @@ where
 
         let query = Self::sort_filter(query, sort_by, page, reverse);
 
-        let list: Vec<<I as IntelTrait>::PartialModel> = result_into(query.into_partial_model().all(db).await)?;
-        let list: Vec<<I as IntelTrait>::Info> = list.into_iter().map(|x| Transform::into(x)).collect();
+        let list: Vec<<I as IntelTrait>::PartialModel> =
+            result_into(query.into_partial_model().all(db).await)?;
+        let list: Vec<<I as IntelTrait>::Info> =
+            list.into_iter().map(|x| Transform::into(x)).collect();
         Ok(Response::new(Transform::into(list)))
     }
     async fn search_by_text(
@@ -57,17 +54,15 @@ where
     ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
-        <I as IntelTrait>::InfoArray: From<Vec<<I as IntelTrait>::Info>>,
-        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info>+ Send,
+        Vec<<I as IntelTrait>::Info>: Transform<<I as IntelTrait>::InfoArray>,
+        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
     {
         debug_assert!(text.len() > 0);
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let query = I::Entity::find()
-            .select_only()
-            .columns(I::INFO_INTERESTS.iter().cloned());
+        let query = I::Entity::find();
         let query = Self::ro_filter(query, auth)?;
 
         let sort_by = SortBy::from_i32(request.sort_by)
@@ -86,11 +81,12 @@ where
 
         let query = query.filter(condition);
 
-        
-        let list: Vec<<I as IntelTrait>::PartialModel> = result_into(query.into_partial_model().all(db).await)?;
-        let list: Vec<<I as IntelTrait>::Info> = list.into_iter().map(|x| Transform::into(x)).collect();
+        let list: Vec<<I as IntelTrait>::PartialModel> =
+            result_into(query.into_partial_model().all(db).await)?;
+        let list: Vec<<I as IntelTrait>::Info> =
+            list.into_iter().map(|x| Transform::into(x)).collect();
 
-        Ok(Response::new(list.into()))
+        Ok(Response::new(Transform::into(list)))
     }
     async fn full_info<Id>(
         &self,
@@ -98,14 +94,13 @@ where
     ) -> Result<Response<<I as IntelTrait>::FullInfo>, tonic::Status>
     where
         <<I as IntelTrait>::Entity as EntityTrait>::Model: Transform<<I as IntelTrait>::FullInfo>,
-        Id: Transform<<I as IntelTrait>::PrimaryKey> + Send,
-        <<<I as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType: From<<I as IntelTrait>::PrimaryKey>
+        Id: Transform<<<<I as IntelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send,
     {
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let pk:<I as IntelTrait>::PrimaryKey = Transform::into(request);
+        let pk:<<<I as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType = Transform::into(request);
         let query = I::Entity::find_by_id(pk);
         let query = Self::ro_filter(query, auth)?;
 
@@ -124,8 +119,7 @@ pub trait IntelTrait {
     type InfoArray;
     type FullInfo;
     type Info;
-    type PrimaryKey;
-    const INFO_INTERESTS: &'static [<<Self as IntelTrait>::Entity as EntityTrait>::Column];
+    // const INFO_INTERESTS: &'static [<<Self as IntelTrait>::Entity as EntityTrait>::Column];
 }
 
 pub trait Intel<T>
