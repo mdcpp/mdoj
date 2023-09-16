@@ -163,6 +163,7 @@ service ProblemSet {
   rpc Unlink(ProblemLink) returns (google.protobuf.Empty);
   rpc AddTest(Testcase) returns (google.protobuf.Empty);
   rpc RemoveTest(TestcaseId) returns (google.protobuf.Empty);
+  rpc Rejudge(ProblemId) returns (stream google.protobuf.Empty);
 }
 
 // Contest
@@ -253,6 +254,10 @@ service SubmitSet {
   rpc SearchByText(SearchByTextRequest) returns (Submits);
   rpc SearchByTag(SearchByTagRequest) returns (Submits);
   rpc Info(SubmitId) returns (SubmitInfo);
+
+  rpc Create(SubmitInfo) returns (google.protobuf.Empty);
+  rpc Update(SubmitInfo) returns (google.protobuf.Empty);
+  rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
   rpc Follow(SubmitId) returns (stream SubmitStatus);
 }
