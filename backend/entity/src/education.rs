@@ -12,6 +12,9 @@ pub struct Model {
     pub id: i32,
     pub problem_id: i32,
     pub user_id: i32,
+    pub public: String,
+    pub tags: String,
+    pub title: String,
     pub content: String,
 }
 

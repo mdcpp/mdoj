@@ -6,11 +6,6 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
 // Search
-message Sort {
-  SortBy sort_by = 1;
-  bool reverse = 2;
-}
-
 enum SortBy {
   UploadDate = 0;
   ACRate = 1;
@@ -25,12 +20,13 @@ message Page {
 }
 
 message ListRequest {
-  Sort sort = 1;
-  Page page = 2;
+  SortBy sort_by = 1;
+  bool reverse = 2;
+  Page page = 3;
 }
 
 message SearchByTextRequest {
-  Sort sort = 1;
+  SortBy sort_by = 1;
   Page page = 2;
   string text = 3;
 }

@@ -15,12 +15,11 @@ pub struct Model {
     pub ac_rate: f32,
     pub memory: i64,
     pub time: u64,
-    pub tests: Vec<u8>,
+    pub difficulty: u32,
+    pub public: bool,
     pub tags: String,
     pub title: String,
     pub content: String,
-    pub visible: bool,
-    pub difficulty: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
