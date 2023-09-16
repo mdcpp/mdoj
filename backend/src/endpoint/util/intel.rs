@@ -1,4 +1,4 @@
-use sea_orm::{ColumnTrait, PrimaryKeyTrait, QueryOrder, QuerySelect};
+use sea_orm::{ColumnTrait, FromQueryResult, PrimaryKeyTrait, QueryOrder, QuerySelect};
 use sea_orm::{EntityTrait, PaginatorTrait, QueryFilter, Select};
 use tonic::{async_trait, Request, Response};
 // use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
@@ -11,22 +11,28 @@ use crate::init::db::DB;
 #[async_trait]
 pub trait Endpoint<I>
 where
-    I: IntellisenseTrait,
-    Self: Intellisense<I> + ControllerTrait,
-    SortBy: Into<<<I as IntellisenseTrait>::Entity as EntityTrait>::Column>,
-    <I as IntellisenseTrait>::InfoArray: From<Vec<<I as IntellisenseTrait>::Info>>,
-    <I as IntellisenseTrait>::Info: From<<<I as IntellisenseTrait>::Entity as EntityTrait>::Model>,
-    <I as IntellisenseTrait>::PrimaryKey: Into<<<<I as IntellisenseTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType>+Send,
+    I: IntelTrait,
+    Self: Intel<I> + ControllerTrait,
+    <I as IntelTrait>::PrimaryKey: Into<<<<I as IntelTrait>::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType>
+        + Send,
 {
     async fn list(
         &self,
         request: Request<ListRequest>,
-    ) -> Result<Response<<I as IntellisenseTrait>::InfoArray>, tonic::Status> {
+        select_only: &'static [<<I as IntelTrait>::Entity as EntityTrait>::Column],
+    ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
+    where
+        SortBy: Into<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
+        <I as IntelTrait>::InfoArray: From<Vec<<I as IntelTrait>::Info>>,
+        <I as IntelTrait>::Info: FromQueryResult + Send,
+    {
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let mut query = I::Entity::find();
+        let mut query = I::Entity::find()
+            .select_only()
+            .columns(I::INFO_INTERESTS.iter().cloned());
         Self::ro_filter(&mut query, auth)?;
 
         let sort_by = SortBy::from_i32(request.sort_by)
@@ -38,23 +44,30 @@ where
 
         Self::sort_filter(&mut query, sort_by, page, reverse);
 
-        let list: Vec<<I as IntellisenseTrait>::Info> = result_into(query.all(db).await)?
+        let list: Vec<<I as IntelTrait>::Info> = result_into(query.into_model().all(db).await)?
             .into_iter()
-            .map(|x| x.into())
+            .map(|x: <I as IntelTrait>::Info| x.into())
             .collect();
         Ok(Response::new(list.into()))
     }
     async fn search_by_text(
         &self,
         request: Request<SearchByTextRequest>,
-        text: &'static [<<I as IntellisenseTrait>::Entity as EntityTrait>::Column],
-    ) -> Result<Response<<I as IntellisenseTrait>::InfoArray>, tonic::Status> {
+        text: &'static [<<I as IntelTrait>::Entity as EntityTrait>::Column],
+    ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
+    where
+        SortBy: Into<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
+        <I as IntelTrait>::InfoArray: From<Vec<<I as IntelTrait>::Info>>,
+        <I as IntelTrait>::Info: FromQueryResult + Send,
+    {
         debug_assert!(text.len() > 0);
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let mut query = I::Entity::find();
+        let mut query = I::Entity::find()
+            .select_only()
+            .columns(I::INFO_INTERESTS.iter().cloned());
         Self::ro_filter(&mut query, auth)?;
 
         let sort_by = SortBy::from_i32(request.sort_by)
@@ -73,17 +86,18 @@ where
 
         query = query.filter(condition);
 
-        let list: Vec<<I as IntellisenseTrait>::Info> = result_into(query.all(db).await)?
+        let list: Vec<<I as IntelTrait>::Info> = result_into(query.into_model().all(db).await)?
             .into_iter()
-            .map(|x| x.into())
+            .map(|x: <I as IntelTrait>::Info| x.into())
             .collect();
         Ok(Response::new(list.into()))
     }
     async fn full_info(
         &self,
-        request: Request<<I as IntellisenseTrait>::PrimaryKey>,
-    ) -> Result<Response<<I as IntellisenseTrait>::FullInfo>, tonic::Status> where 
-    <I as IntellisenseTrait>::FullInfo: From<<<I as IntellisenseTrait>::Entity as EntityTrait>::Model>,
+        request: Request<<I as IntelTrait>::PrimaryKey>,
+    ) -> Result<Response<<I as IntelTrait>::FullInfo>, tonic::Status>
+    where
+        <I as IntelTrait>::FullInfo: From<<<I as IntelTrait>::Entity as EntityTrait>::Model>,
     {
         let db = DB.get().unwrap();
 
@@ -92,14 +106,14 @@ where
         let mut query = I::Entity::find_by_id(request.into());
         Self::ro_filter(&mut query, auth)?;
 
-        let info: <I as IntellisenseTrait>::FullInfo = result_into(query.one(db).await)?
+        let info: <I as IntelTrait>::FullInfo = result_into(query.one(db).await)?
             .ok_or(tonic::Status::not_found("Not found"))?
             .into();
         Ok(Response::new(info))
     }
 }
 
-pub trait IntellisenseTrait
+pub trait IntelTrait
 where
     Self: EntityTrait,
 {
@@ -109,17 +123,18 @@ where
     type FullInfo;
     type Info;
     type PrimaryKey;
+    const INFO_INTERESTS: &'static [<<Self as IntelTrait>::Entity as EntityTrait>::Column];
 }
 
-pub trait Intellisense<T>
+pub trait Intel<T>
 where
-    T: IntellisenseTrait,
+    T: IntelTrait,
 {
     fn ro_filter(self_: &mut Select<T::Entity>, auth: Auth) -> Result<(), tonic::Status>;
     fn rw_filter(self_: &mut Select<T::Entity>, auth: Auth) -> Result<(), tonic::Status>;
     fn sort_filter(self_: &mut Select<T::Entity>, sort_by: SortBy, page: Page, reverse: bool)
     where
-        SortBy: Into<<<T as IntellisenseTrait>::Entity as EntityTrait>::Column>,
+        SortBy: Into<<<T as IntelTrait>::Entity as EntityTrait>::Column>,
     {
         let col = sort_by.into();
 
