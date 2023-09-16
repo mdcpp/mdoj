@@ -26,15 +26,13 @@ impl UserPermBytes {
     }
 }
 
-// add user, change user's permission, and all
 set_bit_value!(UserPermBytes, root, 0);
-// just CRUD his own problem, cannot link/publish problem to his own contest
 set_bit_value!(UserPermBytes, manage_problem, 1);
-// just CRUD his own education, only link/publish education to his own problem
-set_bit_value!(UserPermBytes, manage_edu, 2);
-// cannot add user, only link/publish education to his own problem
-set_bit_value!(UserPermBytes, publish, 3);
-set_bit_value!(UserPermBytes, manage_announcement, 4);
+set_bit_value!(UserPermBytes, manage_education, 2);
+set_bit_value!(UserPermBytes, manage_announcement, 3);
+set_bit_value!(UserPermBytes, manage_submit, 4);
+set_bit_value!(UserPermBytes, publish, 5);
+set_bit_value!(UserPermBytes, link, 6);
 
 // #[cfg(test)]
 // mod test {

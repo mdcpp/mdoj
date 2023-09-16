@@ -50,7 +50,7 @@ message AnnouncementFullInfo {
   AnnouncementInfo info = 1;
   UserId author = 2;
   string content = 3;
-  optional bool public = 4;
+  bool public = 4;
 }
 
 message AnnouncementId { int32 id = 1; }
@@ -117,7 +117,7 @@ message Problems { repeated ProblemInfo list = 1; }
 message ProblemInfo {
   ProblemId id = 1;
   string title = 2;
-  uint32 submit_count = 3;
+  uint32 submits = 3;
   float ac_rate = 4;
 }
 
@@ -126,9 +126,9 @@ message ProblemId { int32 id = 1; }
 message ProblemFullInfo {
   ProblemInfo info = 1;
   string content = 2;
-  // optional string edu = 3;
+  optional EducationId education_id = 3;
   uint32 difficulty = 4;
-  optional bool public = 5;
+  bool public = 5;
 }
 
 message ProblemLink {
@@ -229,18 +229,18 @@ message Submits { repeated SubmitInfo list = 1; }
 
 message SubmitUpload {
   SubmitId id = 1;
-  optional ContestId contest_id = 2;
-  optional bytes code = 3;
+  bytes code = 2;
+  // ContestId contest_id = 3;
 }
 
 message SubmitInfo {
   SubmitId id = 1;
-  optional ContestId contest_id = 2;
   google.protobuf.Timestamp upload_time = 3;
   uint64 time = 4;
   uint64 peak_mem = 5;
   uint64 score = 6;
   JudgeState state = 7;
+  // optional ContestId contest_id = 2;
 }
 
 message SubmitStatus {
@@ -266,15 +266,14 @@ service SubmitSet {
 message UserId { int32 id = 1; }
 
 message UserInfo {
-  string usertitle = 1;
-  optional bytes raw_pwd = 2;
+  string username = 1;
+  int32 score = 2;
   UserId id = 3;
 }
 
 message UserFullInfo {
   UserInfo info = 1;
-  string content = 2;
-  int32 score = 4;
+  bytes raw_pwd = 2;
 }
 
 message Users { repeated UserInfo list = 1; }
@@ -305,6 +304,7 @@ message TokenInfo {
 }
 
 message Token { bytes signature = 1; }
+message Tokens { repeated Token list = 1; }
 
 message LoginRequest {
   string usertitle = 1;
@@ -312,11 +312,11 @@ message LoginRequest {
 }
 
 service TokenSet {
-  rpc Create(LoginRequest) returns (TokenInfo);
+  rpc List(ListRequest) returns (Tokens);
 
+  rpc Create(LoginRequest) returns (TokenInfo);
   rpc Refresh(Token) returns (TokenInfo);
 
-  rpc Delete(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc Logout(Token) returns (google.protobuf.Empty);
 }
 
