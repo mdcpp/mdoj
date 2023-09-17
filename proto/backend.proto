@@ -74,8 +74,6 @@ message Educations { repeated EducationInfo list = 1; }
 message EducationInfo {
   EducationId id = 1;
   string title = 2;
-  google.protobuf.Timestamp begin = 3;
-  google.protobuf.Timestamp end = 4;
 }
 
 message EducationFullInfo {
@@ -111,7 +109,7 @@ message Problems { repeated ProblemInfo list = 1; }
 message ProblemInfo {
   ProblemId id = 1;
   string title = 2;
-  uint32 submits = 3;
+  uint32 submit_count = 3;
   float ac_rate = 4;
 }
 
@@ -133,6 +131,35 @@ message ProblemLink {
   ProblemId problem_id = 2;
 }
 
+message CreateProblemRequest {
+  message Info {
+    string title = 1;
+    uint32 difficulty = 2;
+    uint64 time = 4;
+    int64 memory = 5;
+    string tags = 6;
+    string content = 7;
+    Testcases tests = 8;
+  };
+  Info info = 1;
+}
+
+message UpdateProblemRequest {
+  message Info {
+    optional string title = 1;
+    optional uint32 difficulty = 2;
+    optional uint64 time = 4;
+    optional int64 memory = 5;
+    optional string tags = 6;
+    optional string content = 7;
+    optional uint32 submit_count = 3;
+    optional float ac_rate = 8;
+    optional Testcases tests = 9;
+  };
+  Info info = 1;
+  ProblemId id = 3;
+}
+
 message TestcaseId { int32 id = 1; }
 
 message Case {
@@ -146,14 +173,18 @@ message Testcase {
   repeated Case cases = 3;
 }
 
+message Testcases{
+  repeated TestcaseId list=1;
+}
+
 service ProblemSet {
   rpc List(ListRequest) returns (Problems);
   rpc SearchByText(TextSearchRequest) returns (Problems);
   rpc SearchByTag(TextSearchRequest) returns (Problems);
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
 
-  rpc Create(ProblemFullInfo) returns (google.protobuf.Empty);
-  rpc Update(ProblemFullInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateProblemRequest) returns (ProblemId);
+  rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
   rpc Remove(ProblemId) returns (google.protobuf.Empty);
 
   rpc Link(ProblemLink) returns (google.protobuf.Empty);

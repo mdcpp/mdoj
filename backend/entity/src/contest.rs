@@ -16,6 +16,10 @@ pub struct Model {
     pub title: String,
     pub content: String,
     pub tags: String,
+    #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
+    pub create_at: DateTime,
+    #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
+    pub update_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

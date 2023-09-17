@@ -23,7 +23,7 @@
 //         match self {
 //             Self::AcRate => entity::problem::Column::AcRate,
 //             Self::UploadDate => entity::problem::Column::Id,
-//             Self::SubmitCount => entity::problem::Column::Submits,
+//             Self::SubmitCount => entity::problem::Column::SubmitCount,
 //             Self::Score => entity::problem::Column::Id,
 //             Self::Difficulty => entity::problem::Column::Difficulty,
 //         }

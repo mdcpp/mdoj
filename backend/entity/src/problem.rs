@@ -11,7 +11,7 @@ pub struct Model {
     pub user_id: i32,
     pub contest_id: i32,
     pub success: i32,
-    pub submits: u32,
+    pub submit_count: u32,
     pub ac_rate: f32,
     pub memory: i64,
     pub time: u64,
@@ -20,6 +20,10 @@ pub struct Model {
     pub tags: String,
     pub title: String,
     pub content: String,
+    #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
+    pub create_at: DateTime,
+    #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
+    pub update_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
@@ -87,6 +91,6 @@ pub struct PartialProblem {
     #[sea_orm(from_col = "id")]
     pub id: i32,
     pub title: String,
-    pub submits: u32,
+    pub submit_count: u32,
     pub ac_rate: f32,
 }

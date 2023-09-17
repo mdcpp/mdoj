@@ -12,6 +12,8 @@ pub struct Model {
     pub permission: i64,
     pub username: String,
     pub hashed_pwd: Vec<u8>,
+    #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
+    pub create_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

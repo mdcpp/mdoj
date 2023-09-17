@@ -10,7 +10,7 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub problem_id: i32,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
     pub upload: DateTime,
     #[sea_orm(nullable)]
     pub time: Option<u64>,

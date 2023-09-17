@@ -6,12 +6,9 @@ use crate::endpoint::*;
 use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 use crate::init::db::DB;
 
-pub trait Transform<I> {
-    fn into(self) -> I;
-}
-
+use super::transform::Transform;
 #[async_trait]
-pub trait Endpoint<I>
+pub trait IntelEndpoint<I>
 where
     I: IntelTrait,
     Self: Intel<I> + ControllerTrait,
