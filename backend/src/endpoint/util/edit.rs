@@ -32,7 +32,9 @@ where
 
         let query = Self::rw_filter(I::Entity::find_by_id(pk), auth)?;
 
-        result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
+        let model=result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
+
+        result_into(Self::update_model(model, info).await)?;
 
         Ok(Response::new(()))
     }
@@ -44,7 +46,6 @@ where
         R: TryTransform<T,tonic::Status>+Send,
         T:Send,
     {
-        let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
 
         let info = request.try_into()?;
