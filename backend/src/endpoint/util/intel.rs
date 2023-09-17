@@ -19,46 +19,51 @@ pub trait IntelTrait {
     type InfoArray;
     type FullInfo;
     type Info;
+
+    type UpdateInfo: Send;
+    type CreateInfo: Send;
 }
 
 #[async_trait]
-pub trait Intel<T>
+pub trait Intel<I>
 where
-    T: IntelTrait,
+    I: IntelTrait,
 {
-    fn ro_filter(self_: Select<T::Entity>, auth: Auth) -> Result<Select<T::Entity>, tonic::Status>;
+    fn ro_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
+    where
+        S: QueryFilter;
     fn sort_filter(
-        self_: Select<T::Entity>,
+        query: Select<I::Entity>,
         sort_by: SortBy,
         page: Page,
         reverse: bool,
-    ) -> Select<T::Entity>
+    ) -> Select<I::Entity>
     where
-        SortBy: Transform<<<T as IntelTrait>::Entity as EntityTrait>::Column>,
+        SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
     {
         let col = Transform::into(sort_by);
 
-        let self_ = if reverse {
-            self_.order_by_asc(col)
+        let query = if reverse {
+            query.order_by_asc(col)
         } else {
-            self_.order_by_desc(col)
+            query.order_by_desc(col)
         };
 
         let offset = page.offset as u64;
         let limit = page.amount as u64;
-        self_.clone().offset(offset).limit(limit)
+        query.clone().offset(offset).limit(limit)
     }
-    fn rw_filter<S>(self_: S, auth: Auth) -> Result<S, tonic::Status>;
-    fn can_create(auth: Auth) -> bool;
-    async fn update_model<R>(
-        model: <<T as IntelTrait>::Entity as EntityTrait>::Model,
-        info: R,
-    ) -> Result<<T as IntelTrait>::PrimaryKey, sea_orm::DbErr>
+    fn rw_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
     where
-        R: Send;
-    async fn create_model<R>(model: R) -> Result<<T as IntelTrait>::PrimaryKey, sea_orm::DbErr>
-    where
-        R: Send;
+        S: QueryFilter;
+    fn can_create(auth: Auth) -> Result<(), tonic::Status>;
+    async fn update_model(
+        model: <<I as IntelTrait>::Entity as EntityTrait>::Model,
+        info: <I as IntelTrait>::UpdateInfo,
+    ) -> Result<<I as IntelTrait>::PrimaryKey, tonic::Status>;
+    async fn create_model(
+        model: <I as IntelTrait>::CreateInfo,
+    ) -> Result<<I as IntelTrait>::PrimaryKey, tonic::Status>;
 }
 
 #[async_trait]
@@ -161,52 +166,45 @@ where
         );
         Ok(Response::new(info))
     }
-    async fn update<R,T>( 
+    async fn update<R>(
         &self,
         request: tonic::Request<R>,
     ) -> Result<Response<()>, tonic::Status>
     where
-        R: TryTransform<(T,<I as IntelTrait>::PrimaryKey),tonic::Status>+Send,
-        T:Send,
+        R: TryTransform<(<I as IntelTrait>::UpdateInfo,<I as IntelTrait>::PrimaryKey),tonic::Status>+Send,
     {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
 
-        let (info, pk) = request.try_into()?;
+        let (info, pk) = TryTransform::try_into(request)?;
 
         let query = Self::rw_filter(I::Entity::find_by_id(pk), auth)?;
 
         let model=result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
 
-        result_into(Self::update_model(model, info).await)?;
+        Self::update_model(model, info).await?;
 
         Ok(Response::new(()))
     }
-    async fn create<R,T>(
+    async fn create<R>(
         &self,
         request: tonic::Request<R>,
     ) -> Result<Response<<I as IntelTrait>::Id>, tonic::Status>
     where
-        R: TryTransform<T,tonic::Status>+Send,
-        T:Send,
+        R: TryTransform<<I as IntelTrait>::CreateInfo,tonic::Status>+Send,
     {
         let (auth, request) = self.parse_request(request).await?;
-
         let info = request.try_into()?;
 
-        if Self::can_create(auth){
-            let a=result_into(Self::create_model(info).await)?;
-            Ok(Response::new(Transform::into(a)))
-        }else{
-            Err(tonic::Status::permission_denied("message"))
-        }
+        Self::can_create(auth)?;
+
+        let pk=Self::create_model(info).await?;
+        Ok(Response::new(Transform::into(pk)))
     }
-    async fn remove<T>( 
+    async fn remove(
         &self,
         request: tonic::Request<<I as IntelTrait>::Id>,
     ) -> Result<Response<()>, tonic::Status>
-    where
-        T:Send,
     {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;

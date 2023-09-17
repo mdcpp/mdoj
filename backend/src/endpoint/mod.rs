@@ -39,6 +39,15 @@ impl Auth {
             _ => None,
         }
     }
+    pub fn ok_or(&self, err: tonic::Status) -> Result<(i32, UserPermBytes), tonic::Status> {
+        match self {
+            Auth::User(x) => Ok(*x),
+            _ => Err(err),
+        }
+    }
+    pub fn ok_or_default(&self) -> Result<(i32, UserPermBytes), tonic::Status> {
+        self.ok_or(tonic::Status::unauthenticated("Permission Deny"))
+    }
 }
 
 #[async_trait]

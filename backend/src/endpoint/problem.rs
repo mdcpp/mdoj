@@ -5,12 +5,33 @@ use crate::{
 };
 
 use super::util::{intel::*, transform::Transform};
+use futures::Future;
 use tonic::{Request, Response};
 
 use entity::problem::*;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter, Select,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter, Select, QuerySelect, PaginatorTrait,
 };
+
+macro_rules! insert_if_exists {
+    ($target:expr,$src:expr , $field:ident) => {
+        if let Some(x) = $src.$field {
+            $target.$field = ActiveValue::Set(x);
+        }
+    };
+    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
+        insert_if_exists!($target,$src, $field);
+        insert_if_exists!($target,$src, $($ext),+);
+    };
+}
+
+fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
+    v.into_iter().collect()
+}
+fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
+    v.into_iter().collect()
+}
+
 pub struct ProblemIntel;
 
 impl IntelTrait for ProblemIntel {
@@ -27,54 +48,96 @@ impl IntelTrait for ProblemIntel {
     type PrimaryKey = i32;
 
     type Id = ProblemId;
+
+    type UpdateInfo = update_problem_request::Info;
+
+    type CreateInfo = create_problem_request::Info;
 }
 
 #[async_trait]
 impl Intel<ProblemIntel> for Server {
-    fn ro_filter(
-        self_: Select<<ProblemIntel as IntelTrait>::Entity>,
-        auth: super::Auth,
-    ) -> Result<Select<<ProblemIntel as IntelTrait>::Entity>, tonic::Status> {
+    fn ro_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
+    where
+        S: QueryFilter,
+    {
         Ok(match auth {
-            Auth::Guest => self_.filter(Column::Public.eq(true)),
+            Auth::Guest => query.filter(Column::Public.eq(true)),
             Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
-                true => self_,
-                false => self_.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
+                true => query,
+                false => query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
             },
         })
     }
 
-    fn rw_filter<S>(self_: S, auth: Auth) -> Result<S, tonic::Status> {
-        todo!()
-    }
-
-    fn can_create(auth: Auth) -> bool {
-        todo!()
-    }
-
-    async fn update_model<R>(
-        model: <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Model,
-        info: R,
-    ) -> Result<<ProblemIntel as IntelTrait>::PrimaryKey, sea_orm::DbErr>
+    fn rw_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
     where
-        R: Send,
+        S: QueryFilter,
     {
-        todo!()
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() {
+            Ok(query)
+        } else if perm.can_manage_problem() {
+            Ok(query.filter(Column::UserId.eq(user_id)))
+        } else {
+            Err(tonic::Status::permission_denied("User cannot write"))
+        }
     }
 
-    async fn create_model<R>(
-        model: R,
-    ) -> Result<<ProblemIntel as IntelTrait>::PrimaryKey, sea_orm::DbErr>
-    where
-        R: Send,
-    {
+    fn can_create(auth: Auth) -> Result<(), tonic::Status> {
+        let (_, perm) = auth.ok_or_default()?;
+        match perm.can_root() || perm.can_manage_problem() {
+            true => Ok(()),
+            false => Err(tonic::Status::unauthenticated("Permission Deny")),
+        }
+    }
+
+    async fn update_model(
+        model: Model,
+        info: update_problem_request::Info,
+    ) -> Result<i32, tonic::Status> {
+        let db = DB.get().unwrap();
+        let user_id = model.user_id;
+
+        let mut target = model.into_active_model();
+        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags);
+
+        if let Some(tests) = info.tests {
+            let list = tests.list.clone();
+
+            let futs: Vec<_> = list
+                .into_iter()
+                .map(|testcase_id| {
+                    entity::testcase::Entity::find_by_id(testcase_id.id)
+                        .filter(entity::testcase::Column::UserId.eq(user_id))
+                        .count(db)
+                })
+                .into_iter()
+                .collect();
+
+            let list = result_into(vr_to_rv(futures::future::join_all(futs).await))?;
+
+            let vaild=list.into_iter().map(|x| x==0).reduce(|x,y|x||y).unwrap_or(true);
+            
+            if vaild{
+                todo!("Update testcases's problem_id")
+            }else{
+                return Err(tonic::Status::permission_denied(
+                    "adding unowned testcase, consider take ownership of the testcases",
+                ));
+            };
+        };
+
+        todo!("commit changes(active model)")
+    }
+
+    async fn create_model(model: create_problem_request::Info) -> Result<i32, tonic::Status> {
         todo!()
     }
 }
 
 // impl IntelEndpoint<ProblemIntel> for Server {}
 
-impl Transform<ProblemId> for i32{
+impl Transform<ProblemId> for i32 {
     fn into(self) -> ProblemId {
         todo!()
     }
