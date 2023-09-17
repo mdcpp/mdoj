@@ -24,11 +24,12 @@ impl IntelTrait for ProblemIntel {
 
     type Info = ProblemInfo;
 
-    // const INFO_INTERESTS:
-    //     &'static [<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::Column] =
-    //     &[Column::Title, Column::Id, Column::SubmitCount, Column::AcRate];
+    type PrimaryKey = i32;
+
+    type Id = ProblemId;
 }
 
+#[async_trait]
 impl Intel<ProblemIntel> for Server {
     fn ro_filter(
         self_: Select<<ProblemIntel as IntelTrait>::Entity>,
@@ -42,9 +43,42 @@ impl Intel<ProblemIntel> for Server {
             },
         })
     }
+
+    fn rw_filter<S>(self_: S, auth: Auth) -> Result<S, tonic::Status> {
+        todo!()
+    }
+
+    fn can_create(auth: Auth) -> bool {
+        todo!()
+    }
+
+    async fn update_model<R>(
+        model: <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Model,
+        info: R,
+    ) -> Result<<ProblemIntel as IntelTrait>::PrimaryKey, sea_orm::DbErr>
+    where
+        R: Send,
+    {
+        todo!()
+    }
+
+    async fn create_model<R>(
+        model: R,
+    ) -> Result<<ProblemIntel as IntelTrait>::PrimaryKey, sea_orm::DbErr>
+    where
+        R: Send,
+    {
+        todo!()
+    }
 }
 
-impl IntelEndpoint<ProblemIntel> for Server {}
+// impl IntelEndpoint<ProblemIntel> for Server {}
+
+impl Transform<ProblemId> for i32{
+    fn into(self) -> ProblemId {
+        todo!()
+    }
+}
 
 impl Transform<<Entity as EntityTrait>::Column> for SortBy {
     fn into(self) -> <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Column {
@@ -103,34 +137,36 @@ macro_rules! insert_if_exists {
     };
 }
 
+impl BaseEndpoint<ProblemIntel> for Server {}
+
 #[async_trait]
 impl problem_set_server::ProblemSet for Server {
     async fn list(
         &self,
         request: Request<ListRequest>,
     ) -> Result<Response<Problems>, tonic::Status> {
-        IntelEndpoint::list(self, request).await
+        BaseEndpoint::list(self, request).await
     }
 
     async fn search_by_text(
         &self,
         request: Request<TextSearchRequest>,
     ) -> Result<Response<Problems>, tonic::Status> {
-        IntelEndpoint::search_by_text(self, request, &[Column::Title, Column::Content]).await
+        BaseEndpoint::search_by_text(self, request, &[Column::Title, Column::Content]).await
     }
 
     async fn search_by_tag(
         &self,
         request: Request<TextSearchRequest>,
     ) -> Result<Response<Problems>, tonic::Status> {
-        IntelEndpoint::search_by_text(self, request, &[Column::Tags]).await
+        BaseEndpoint::search_by_text(self, request, &[Column::Tags]).await
     }
 
     async fn full_info(
         &self,
         request: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, tonic::Status> {
-        IntelEndpoint::full_info(self, request).await
+        BaseEndpoint::full_info(self, request).await
     }
 
     async fn create(
