@@ -25,16 +25,10 @@ message ListRequest {
   Page page = 3;
 }
 
-message SearchByTextRequest {
+message TextSearchRequest {
   SortBy sort_by = 1;
   Page page = 2;
   string text = 3;
-}
-
-message SearchByTagRequest {
-  SortBy sort_by = 1;
-  Page page = 2;
-  string tag = 3;
 }
 
 // Announcements
@@ -62,8 +56,8 @@ message AnnouncementLink {
 
 service AnnouncementSet {
   rpc List(ListRequest) returns (Announcements);
-  rpc SearchByText(SearchByTextRequest) returns (Announcements);
-  rpc SearchByTag(SearchByTagRequest) returns (Announcements);
+  rpc SearchByText(TextSearchRequest) returns (Announcements);
+  rpc SearchByTag(TextSearchRequest) returns (Announcements);
   rpc FullInfo(AnnouncementId) returns (AnnouncementFullInfo);
 
   rpc Create(AnnouncementFullInfo) returns (google.protobuf.Empty);
@@ -99,8 +93,8 @@ message EducationLink {
 
 service EducationSet {
   rpc List(ListRequest) returns (Educations);
-  rpc SearchByText(SearchByTextRequest) returns (Educations);
-  rpc SearchByTag(SearchByTagRequest) returns (Educations);
+  rpc SearchByText(TextSearchRequest) returns (Educations);
+  rpc SearchByTag(TextSearchRequest) returns (Educations);
   rpc FullInfo(EducationId) returns (EducationFullInfo);
 
   rpc Create(EducationFullInfo) returns (google.protobuf.Empty);
@@ -126,9 +120,12 @@ message ProblemId { int32 id = 1; }
 message ProblemFullInfo {
   ProblemInfo info = 1;
   string content = 2;
+  string tags = 8;
   optional EducationId education_id = 3;
   uint32 difficulty = 4;
   bool public = 5;
+  uint64 time = 6;
+  uint64 memory = 7;
 }
 
 message ProblemLink {
@@ -151,8 +148,8 @@ message Testcase {
 
 service ProblemSet {
   rpc List(ListRequest) returns (Problems);
-  rpc SearchByText(SearchByTextRequest) returns (Problems);
-  rpc SearchByTag(SearchByTagRequest) returns (Problems);
+  rpc SearchByText(TextSearchRequest) returns (Problems);
+  rpc SearchByTag(TextSearchRequest) returns (Problems);
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
 
   rpc Create(ProblemFullInfo) returns (google.protobuf.Empty);
@@ -196,8 +193,8 @@ message UserRanks { repeated UserRank list = 1; }
 
 service ContestSet {
   rpc List(ListRequest) returns (Contests);
-  rpc SearchByText(SearchByTextRequest) returns (Contests);
-  rpc SearchByTag(SearchByTagRequest) returns (Contests);
+  rpc SearchByText(TextSearchRequest) returns (Contests);
+  rpc SearchByTag(TextSearchRequest) returns (Contests);
   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
   rpc Create(ContestFullInfo) returns (google.protobuf.Empty);
@@ -251,8 +248,8 @@ message SubmitStatus {
 
 service SubmitSet {
   rpc List(ListRequest) returns (Submits);
-  rpc SearchByText(SearchByTextRequest) returns (Submits);
-  rpc SearchByTag(SearchByTagRequest) returns (Submits);
+  rpc SearchByText(TextSearchRequest) returns (Submits);
+  rpc SearchByTag(TextSearchRequest) returns (Submits);
   rpc Info(SubmitId) returns (SubmitInfo);
 
   rpc Create(SubmitInfo) returns (google.protobuf.Empty);
@@ -285,8 +282,8 @@ message UserLink {
 
 service UserSet {
   rpc List(ListRequest) returns (Users);
-  rpc SearchByText(SearchByTextRequest) returns (Users);
-  rpc SearchByTag(SearchByTagRequest) returns (Users);
+  rpc SearchByText(TextSearchRequest) returns (Users);
+  rpc SearchByTag(TextSearchRequest) returns (Users);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
   rpc Create(UserFullInfo) returns (google.protobuf.Empty);

@@ -3,7 +3,7 @@ use tonic::{async_trait, Request, Response};
 
 use crate::common::error::result_into;
 use crate::endpoint::*;
-use crate::grpc::proto::prelude::{ListRequest, Page, SearchByTextRequest, SortBy};
+use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 use crate::init::db::DB;
 
 pub trait Transform<I> {
@@ -49,7 +49,7 @@ where
     }
     async fn search_by_text(
         &self,
-        request: Request<SearchByTextRequest>,
+        request: Request<TextSearchRequest>,
         text: &'static [<<I as IntelTrait>::Entity as EntityTrait>::Column],
     ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
     where
