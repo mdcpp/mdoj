@@ -1,7 +1,10 @@
+use tonic::async_trait;
+
 pub trait TryTransform<I, E> {
     fn try_into(self) -> Result<I, E>;
 }
 
+/// not only into
 pub trait Transform<I> {
     fn into(self) -> I;
 }
@@ -17,6 +20,11 @@ macro_rules! impl_id {
             }
         }
     };
+}
+
+#[async_trait]
+pub trait AsyncTransform<T> {
+    async fn into(self) -> T;
 }
 
 // macro_rules! match_col {

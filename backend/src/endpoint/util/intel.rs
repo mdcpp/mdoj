@@ -7,7 +7,7 @@ use crate::endpoint::*;
 use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 use crate::init::db::DB;
 
-use super::transform::{Transform, TryTransform};
+use super::transform::{AsyncTransform, Transform, TryTransform};
 
 pub trait IntelTrait {
     type Entity: EntityTrait;
@@ -151,7 +151,7 @@ where
         request: Request<<I as IntelTrait>::Id>,
     ) -> Result<Response<<I as IntelTrait>::FullInfo>, tonic::Status>
     where
-        <<I as IntelTrait>::Entity as EntityTrait>::Model: Transform<<I as IntelTrait>::FullInfo>,
+        <<I as IntelTrait>::Entity as EntityTrait>::Model: AsyncTransform<Result<<I as IntelTrait>::FullInfo,tonic::Status>>,
     {
         let db = DB.get().unwrap();
 
@@ -160,10 +160,8 @@ where
         let pk = Transform::into(request);
         let query = I::Entity::find_by_id(pk);
         let query = Self::ro_filter(query, auth)?;
-
-        let info: <I as IntelTrait>::FullInfo = Transform::into(
-            result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("Not found"))?,
-        );
+        let model =result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("Not found"))?;
+        let info: <I as IntelTrait>::FullInfo = AsyncTransform::into(model).await?;
         Ok(Response::new(info))
     }
     async fn update<R>(

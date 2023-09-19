@@ -38,7 +38,7 @@ pub enum Relation {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Self::User => Entity::belongs_to(user::Entity)
+            Self::User => Entity::has_one(user::Entity)
                 .from(Column::UserId)
                 .to(user::Column::Id)
                 .into(),
@@ -47,7 +47,7 @@ impl RelationTrait for Relation {
                 .to(contest::Column::Id)
                 .into(),
             Self::Submit => Entity::has_many(submit::Entity).into(),
-            Self::Education => Entity::has_many(education::Entity).into(),
+            Self::Education => Entity::has_one(education::Entity).into(),
             Self::TestCase => Entity::has_many(testcase::Entity).into(),
         }
     }
