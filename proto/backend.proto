@@ -54,18 +54,39 @@ message AnnouncementLink {
   ContestId contest_id = 2;
 }
 
+message CreateAnnouncementRequest{
+  message Info{
+    string title = 1;
+    string content = 2;
+  }
+  Info info = 1;
+  ContestId id = 2;
+}
+
+message UpdateAnnouncementRequest{
+  message Info{
+    optional string title = 1;
+    optional string content = 2;
+  }
+  Info info = 1;
+  ContestId id = 2;
+}
+
 service AnnouncementSet {
-  rpc List(ListRequest) returns (Announcements);
-  rpc SearchByText(TextSearchRequest) returns (Announcements);
-  rpc SearchByTag(TextSearchRequest) returns (Announcements);
+  rpc List(ListRequest) returns (stream AnnouncementInfo);
+  rpc SearchByText(TextSearchRequest) returns (stream AnnouncementInfo);
+  rpc SearchByTag(TextSearchRequest) returns (stream AnnouncementInfo);
   rpc FullInfo(AnnouncementId) returns (AnnouncementFullInfo);
 
-  rpc Create(AnnouncementFullInfo) returns (google.protobuf.Empty);
-  rpc Update(AnnouncementFullInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateAnnouncementRequest) returns (AnnouncementId);
+  rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
   rpc Remove(AnnouncementId) returns (google.protobuf.Empty);
 
   rpc Link(AnnouncementLink) returns (google.protobuf.Empty);
   rpc Unlink(AnnouncementLink) returns (google.protobuf.Empty);
+
+  rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
+  rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
 }
 
 // Educations
@@ -89,14 +110,32 @@ message EducationLink {
   ProblemId problem_id = 2;
 }
 
+message CreateEducationRequest{
+  message Info{
+    string title = 1;
+    string content = 2;
+  }
+  Info info = 1;
+  EducationId id =2;
+}
+
+message UpdateEducationRequest{
+  message Info{
+    optional string title = 1;
+    optional string content = 2;
+  }
+  Info info = 1;
+  EducationId id =2;
+}
+
 service EducationSet {
-  rpc List(ListRequest) returns (Educations);
-  rpc SearchByText(TextSearchRequest) returns (Educations);
-  rpc SearchByTag(TextSearchRequest) returns (Educations);
+  rpc List(ListRequest) returns (stream EducationInfo);
+  rpc SearchByText(TextSearchRequest) returns (stream EducationInfo);
+  rpc SearchByTag(TextSearchRequest) returns (stream EducationInfo);
   rpc FullInfo(EducationId) returns (EducationFullInfo);
 
-  rpc Create(EducationFullInfo) returns (google.protobuf.Empty);
-  rpc Update(EducationFullInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateEducationRequest) returns (google.protobuf.Empty);
+  rpc Update(UpdateEducationRequest) returns (google.protobuf.Empty);
   rpc Remove(EducationId) returns (google.protobuf.Empty);
 
   rpc Link(EducationLink) returns (google.protobuf.Empty);
@@ -124,6 +163,23 @@ message ProblemFullInfo {
   bool public = 5;
   uint64 time = 6;
   int64 memory = 7;
+}
+
+message TestcaseId { int32 id = 1; }
+
+message Case {
+  repeated string inputs = 1;
+  repeated string outputs = 2;
+}
+
+message Testcase {
+  TestcaseId id = 1;
+  uint32 score = 2;
+  repeated Case cases = 3;
+}
+
+message Testcases{
+  repeated TestcaseId list=1;
 }
 
 message ProblemLink {
@@ -160,27 +216,10 @@ message UpdateProblemRequest {
   ProblemId id = 3;
 }
 
-message TestcaseId { int32 id = 1; }
-
-message Case {
-  repeated string inputs = 1;
-  repeated string outputs = 2;
-}
-
-message Testcase {
-  TestcaseId id = 1;
-  uint32 score = 2;
-  repeated Case cases = 3;
-}
-
-message Testcases{
-  repeated TestcaseId list=1;
-}
-
 service ProblemSet {
-  rpc List(ListRequest) returns (Problems);
-  rpc SearchByText(TextSearchRequest) returns (Problems);
-  rpc SearchByTag(TextSearchRequest) returns (Problems);
+  rpc List(ListRequest) returns (stream ProblemInfo);
+  rpc SearchByText(TextSearchRequest) returns (stream ProblemInfo);
+  rpc SearchByTag(TextSearchRequest) returns (stream ProblemInfo);
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
 
   rpc Create(CreateProblemRequest) returns (ProblemId);
@@ -189,6 +228,10 @@ service ProblemSet {
 
   rpc Link(ProblemLink) returns (google.protobuf.Empty);
   rpc Unlink(ProblemLink) returns (google.protobuf.Empty);
+
+  rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
+  rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
+
   rpc AddTest(Testcase) returns (google.protobuf.Empty);
   rpc RemoveTest(TestcaseId) returns (google.protobuf.Empty);
   rpc Rejudge(ProblemId) returns (stream google.protobuf.Empty);
@@ -205,6 +248,7 @@ message ContestInfo {
   uint32 participant_count = 3;
   google.protobuf.Timestamp begin = 4;
   google.protobuf.Timestamp end = 5;
+  bool need_password = 6;
 }
 
 message ContestFullInfo {
@@ -222,19 +266,43 @@ message UserRank {
 
 message UserRanks { repeated UserRank list = 1; }
 
+message CreateContestRequest {
+  message Info {
+    string title = 1;
+    google.protobuf.Timestamp begin = 2;
+    google.protobuf.Timestamp end = 3;
+    string content = 4;
+    optional string password =5;
+  }
+  Info info = 1;
+  ContestId id = 2;
+}
+
+message UpdateContestRequest {
+  message Info {
+    optional string title = 1;
+    optional google.protobuf.Timestamp begin = 2;
+    optional google.protobuf.Timestamp end = 3;
+    optional string content = 4;
+    optional string password =5;
+  }
+  Info info = 1;
+  ContestId id = 2;
+}
+
 service ContestSet {
-  rpc List(ListRequest) returns (Contests);
-  rpc SearchByText(TextSearchRequest) returns (Contests);
-  rpc SearchByTag(TextSearchRequest) returns (Contests);
+  rpc List(ListRequest) returns (stream ContestInfo);
+  rpc SearchByText(TextSearchRequest) returns (stream ContestInfo);
+  rpc SearchByTag(TextSearchRequest) returns (stream ContestInfo);
   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
-  rpc Create(ContestFullInfo) returns (google.protobuf.Empty);
-  rpc Update(ContestFullInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateContestRequest) returns (google.protobuf.Empty);
+  rpc Update(UpdateContestRequest) returns (google.protobuf.Empty);
   rpc Remove(ContestId) returns (google.protobuf.Empty);
 
   rpc Join(ContestId) returns (google.protobuf.Empty);
   rpc Exit(ContestId) returns (google.protobuf.Empty);
-  rpc AddSubmit(SubmitUpload) returns (SubmitId);
+
   rpc Rank(ListRequest) returns (UserRanks);
 }
 
@@ -258,7 +326,6 @@ message Submits { repeated SubmitInfo list = 1; }
 message SubmitUpload {
   SubmitId id = 1;
   bytes code = 2;
-  // ContestId contest_id = 3;
 }
 
 message SubmitInfo {
@@ -268,7 +335,6 @@ message SubmitInfo {
   uint64 peak_mem = 5;
   uint64 score = 6;
   JudgeState state = 7;
-  // optional ContestId contest_id = 2;
 }
 
 message SubmitStatus {
@@ -277,14 +343,21 @@ message SubmitStatus {
   uint64 peak_mem = 3;
 }
 
+message CreateSubmitRequest {
+  message Info {
+    bytes code = 1;
+  }
+  Info info = 1;
+  SubmitId id = 2;
+}
+
 service SubmitSet {
   rpc List(ListRequest) returns (Submits);
   rpc SearchByText(TextSearchRequest) returns (Submits);
   rpc SearchByTag(TextSearchRequest) returns (Submits);
   rpc Info(SubmitId) returns (SubmitInfo);
 
-  rpc Create(SubmitInfo) returns (google.protobuf.Empty);
-  rpc Update(SubmitInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateSubmitRequest) returns (google.protobuf.Empty);
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
   rpc Follow(SubmitId) returns (stream SubmitStatus);
@@ -306,9 +379,22 @@ message UserFullInfo {
 
 message Users { repeated UserInfo list = 1; }
 
-message UserLink {
-  EducationId education_id = 1;
-  ProblemId problem_id = 2;
+message CreateUserRequest {
+  message Info {
+    string username = 1;
+    bytes raw_pwd = 2;
+  }
+  Info info = 1;
+  UserId id = 2;
+}
+
+message UpdateUserRequest {
+  message Info {
+    optional string username = 1;
+    optional bytes raw_pwd = 2;
+  }
+  Info info = 1;
+  UserId id = 2;
 }
 
 service UserSet {
@@ -317,12 +403,9 @@ service UserSet {
   rpc SearchByTag(TextSearchRequest) returns (Users);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
-  rpc Create(UserFullInfo) returns (google.protobuf.Empty);
-  rpc Update(UserFullInfo) returns (google.protobuf.Empty);
+  rpc Create(CreateUserRequest) returns (google.protobuf.Empty);
+  rpc Update(UpdateUserRequest) returns (google.protobuf.Empty);
   rpc Remove(UserId) returns (google.protobuf.Empty);
-
-  rpc Link(UserLink) returns (google.protobuf.Empty);
-  rpc Unlink(UserLink) returns (google.protobuf.Empty);
 }
 
 message TokenInfo {
@@ -348,4 +431,3 @@ service TokenSet {
   rpc Logout(Token) returns (google.protobuf.Empty);
 }
 
-// todo admin api

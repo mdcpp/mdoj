@@ -1,3 +1,4 @@
+pub mod submit;
 pub mod token;
 use migration::Token;
 use sea_orm::ActiveValue;
