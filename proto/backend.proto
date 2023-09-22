@@ -374,7 +374,7 @@ message UserInfo {
 
 message UserFullInfo {
   UserInfo info = 1;
-  bytes raw_pwd = 2;
+  bytes hashed_pwd = 2;
 }
 
 message Users { repeated UserInfo list = 1; }
@@ -398,9 +398,9 @@ message UpdateUserRequest {
 }
 
 service UserSet {
-  rpc List(ListRequest) returns (Users);
-  rpc SearchByText(TextSearchRequest) returns (Users);
-  rpc SearchByTag(TextSearchRequest) returns (Users);
+  rpc List(ListRequest) returns (stream UserInfo);
+  rpc SearchByText(TextSearchRequest) returns (stream UserInfo);
+  rpc SearchByTag(TextSearchRequest) returns (stream UserInfo);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
   rpc Create(CreateUserRequest) returns (google.protobuf.Empty);
@@ -423,7 +423,7 @@ message LoginRequest {
 }
 
 service TokenSet {
-  rpc List(ListRequest) returns (Tokens);
+  rpc List(ListRequest) returns (stream Token);
 
   rpc Create(LoginRequest) returns (TokenInfo);
   rpc Refresh(Token) returns (TokenInfo);
