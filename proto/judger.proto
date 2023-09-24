@@ -81,8 +81,8 @@ message JudgeInfo {
 }
 
 service Judger {
-  // judge code
+  // Send Code for judge
   rpc Judge(JudgeRequest) returns (stream JudgeResponse);
-
+  // Get judger info, useful for getting supported language and load balancing
   rpc JudgerInfo(google.protobuf.Empty) returns (JudgeInfo);
 }
