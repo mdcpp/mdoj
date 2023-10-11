@@ -38,14 +38,17 @@ macro_rules! report {
             Err(err) => match err {
                 LangError::Internal(err) => {
                     log::warn!("{}", err);
-                    $tx.send(Err(Status::internal("See log"))).await.ok();
+                    $tx.send(Err(Status::internal("Internal Error: see log.")))
+                        .await
+                        .ok();
                     return ();
                 }
                 LangError::BadRequest(err) => {
                     match err {
-                        RequestError::LangNotFound => {
-                            $tx.send(Err(Status::not_found(""))).await.ok()
-                        }
+                        RequestError::LangNotFound => $tx
+                            .send(Err(Status::invalid_argument("language uuid not found.")))
+                            .await
+                            .ok(),
                     };
                     return ();
                 }
@@ -54,7 +57,7 @@ macro_rules! report {
                         task: Some(judge_response::Task::Result(JudgeResult {
                             status: res as i32,
                             max_time: None,
-                            max_mem:None,
+                            max_mem: None,
                         })),
                     }))
                     .await
@@ -80,14 +83,13 @@ impl Judger for GRpcServer {
 
         let factory = self.factory.clone();
 
+        // precondidtion
+        let mode = JudgeMatchRule::from_i32(request.rule)
+            .ok_or(Status::invalid_argument("Invaild judge matching rule"))?;
+
         tokio::spawn(async move {
             let time = request.time;
             let memory = request.memory;
-            let mode = match request.rule {
-                0 => JudgeMatchRule::ExactSame,
-                1 => JudgeMatchRule::IgnoreSpace,
-                _ => JudgeMatchRule::SkipSnl,
-            };
 
             let mut compiled = report!(factory.compile(&request.lang_uid, &request.code).await, tx);
             for task in request.tests {
@@ -100,7 +102,7 @@ impl Judger for GRpcServer {
                             false => JudgeResultState::Wa,
                         } as i32,
                         max_time: Some(result.time().total_us),
-                        max_mem:Some(result.mem().peak),
+                        max_mem: Some(result.mem().peak),
                     })),
                 }))
                 .await

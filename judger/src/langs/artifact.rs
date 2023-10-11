@@ -149,18 +149,30 @@ pub struct TaskResult {
 
 impl TaskResult {
     pub fn assert(&self, input: &Vec<u8>, mode: JudgeMatchRule) -> bool {
+        let newline = '\n' as u8;
+        let space = ' ' as u8;
         log::trace!("Ssserting program -trace:{}", self.tracing_id);
         let stdout = &self.process.stdout;
-        // match mode{
-        //     JudgeMatchRule::IgnoreSpace=>{
 
-        //     },
-        //     JudgeMatchRule::SkipSnl=>{
+        match mode {
+            JudgeMatchRule::ExactSame => stdout.iter().zip(input.iter()).all(|(f, s)| f == s),
+            JudgeMatchRule::IgnoreSpace => {
+                let stdout_split = stdout.split(|x| *x == newline || *x == space);
+                let input_split = input.split(|x| *x == newline || *x == space);
+                for (f, s) in stdout_split.zip(input_split) {
+                    if f.iter().zip(s.iter()).any(|(f, s)| f != s) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            JudgeMatchRule::SkipSnl => {
+                let stdout_filtered = stdout.iter().filter(|x| **x != newline || **x != space);
+                let input_filtered = input.iter().filter(|x| **x != newline || **x != space);
 
-        //     },
-        //     JudgeMatchRule::ExactSame=>{}
-        // };
-        todo!()
+                stdout_filtered.zip(input_filtered).all(|(f, s)| f == s)
+            }
+        }
     }
     pub fn time(&self) -> &CpuStatistics {
         &self.process.cpu

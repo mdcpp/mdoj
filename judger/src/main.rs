@@ -9,6 +9,7 @@ pub mod grpc;
 pub mod init;
 pub mod langs;
 pub mod sandbox;
+pub mod test;
 
 #[tokio::main]
 async fn main() {
