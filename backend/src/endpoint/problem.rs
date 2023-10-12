@@ -1,445 +1,463 @@
-// use std::pin::Pin;
+use std::pin::Pin;
 
-// use crate::{
-//     common::error::result_into,
-//     endpoint::*,
-//     grpc::proto::prelude::*,
-//     impl_id,
-//     init::db::{self, DB},
-//     Server,
-// };
+use crate::{
+    common::error::result_into,
+    endpoint::*,
+    grpc::proto::prelude::*,
+    impl_id,
+    init::db::{self, DB},
+    Server,
+};
 
-// use super::util::{
-//     intel::*,
-//     transform::{AsyncTransform, Transform, TryTransform},
-// };
-// use tonic::{Request, Response};
+use super::util::{
+    intel::*,
+    transform::{AsyncTransform, Transform, TryTransform},
+};
+use tonic::{Request, Response};
 
-// use entity::{education, problem::*};
-// use sea_orm::{
-//     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-//     PaginatorTrait, QueryFilter, QuerySelect,
-// };
+use entity::{education, problem::*};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    PaginatorTrait, QueryFilter, QuerySelect,
+};
 
-// macro_rules! insert_if_exists {
-//     ($target:expr,$src:expr , $field:ident) => {
-//         if let Some(x) = $src.$field {
-//             $target.$field = ActiveValue::Set(x);
-//         }
-//     };
-//     ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
-//         insert_if_exists!($target,$src, $field);
-//         insert_if_exists!($target,$src, $($ext),+);
-//     };
-// }
+type TonicStream<T> = Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
 
-// fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
-//     v.into_iter().collect()
-// }
-// fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
-//     v.into_iter().collect()
-// }
+macro_rules! insert_if_exists {
+    ($target:expr,$src:expr , $field:ident) => {
+        if let Some(x) = $src.$field {
+            $target.$field = ActiveValue::Set(x);
+        }
+    };
+    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
+        insert_if_exists!($target,$src, $field);
+        insert_if_exists!($target,$src, $($ext),+);
+    };
+}
 
-// pub struct ProblemIntel;
+fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
+    v.into_iter().collect()
+}
+fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
+    v.into_iter().collect()
+}
 
-// impl IntelTrait for ProblemIntel {
-//     type Entity = Entity;
+pub struct ProblemIntel;
 
-//     type PartialModel = PartialProblem;
+impl IntelTrait for ProblemIntel {
+    type Entity = Entity;
 
-//     type InfoArray = Problems;
+    type PartialModel = PartialProblem;
 
-//     type FullInfo = ProblemFullInfo;
+    type InfoArray = Problems;
 
-//     type Info = ProblemInfo;
+    type FullInfo = ProblemFullInfo;
 
-//     type PrimaryKey = i32;
+    type Info = ProblemInfo;
 
-//     type Id = ProblemId;
+    type PrimaryKey = i32;
 
-//     type UpdateInfo = update_problem_request::Info;
+    type Id = ProblemId;
 
-//     type CreateInfo = create_problem_request::Info;
-// }
+    type UpdateInfo = update_problem_request::Info;
 
-// #[async_trait]
-// impl Intel<ProblemIntel> for Server {
-//     fn ro_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
-//     where
-//         S: QueryFilter,
-//     {
-//         Ok(match auth {
-//             Auth::Guest => query.filter(Column::Public.eq(true)),
-//             Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
-//                 true => query,
-//                 false => query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
-//             },
-//         })
-//     }
+    type CreateInfo = create_problem_request::Info;
+}
 
-//     fn rw_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
-//     where
-//         S: QueryFilter,
-//     {
-//         let (user_id, perm) = auth.ok_or_default()?;
-//         if perm.can_root() {
-//             Ok(query)
-//         } else if perm.can_manage_problem() {
-//             Ok(query.filter(Column::UserId.eq(user_id)))
-//         } else {
-//             Err(tonic::Status::permission_denied("User cannot write"))
-//         }
-//     }
+#[async_trait]
+impl Intel<ProblemIntel> for Server {
+    fn ro_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
+    where
+        S: QueryFilter,
+    {
+        Ok(match auth {
+            Auth::Guest => query.filter(Column::Public.eq(true)),
+            Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
+                true => query,
+                false => query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
+            },
+        })
+    }
 
-//     fn can_create(auth: Auth) -> Result<(), tonic::Status> {
-//         let (_, perm) = auth.ok_or_default()?;
-//         match perm.can_root() || perm.can_manage_problem() {
-//             true => Ok(()),
-//             false => Err(tonic::Status::unauthenticated("Permission Deny")),
-//         }
-//     }
+    fn rw_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
+    where
+        S: QueryFilter,
+    {
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() {
+            Ok(query)
+        } else if perm.can_manage_problem() {
+            Ok(query.filter(Column::UserId.eq(user_id)))
+        } else {
+            Err(tonic::Status::permission_denied("User cannot write"))
+        }
+    }
 
-//     async fn update_model(
-//         model: Model,
-//         info: update_problem_request::Info,
-//     ) -> Result<i32, tonic::Status> {
-//         let db = DB.get().unwrap();
-//         let user_id = model.user_id;
+    fn can_create(auth: Auth) -> Result<(), tonic::Status> {
+        let (_, perm) = auth.ok_or_default()?;
+        match perm.can_root() || perm.can_manage_problem() {
+            true => Ok(()),
+            false => Err(tonic::Status::unauthenticated("Permission Deny")),
+        }
+    }
 
-//         let mut target = model.into_active_model();
-//         insert_if_exists!(target, info, title, content, memory, time, difficulty, tags);
+    async fn update_model(
+        model: Model,
+        info: update_problem_request::Info,
+    ) -> Result<i32, tonic::Status> {
+        let db = DB.get().unwrap();
+        let user_id = model.user_id;
 
-//         if let Some(tests) = info.tests {
-//             let list = tests.list.clone();
+        let mut target = model.into_active_model();
+        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags);
 
-//             let futs: Vec<_> = list
-//                 .into_iter()
-//                 .map(|testcase_id| {
-//                     entity::testcase::Entity::find_by_id(testcase_id.id)
-//                         .filter(entity::testcase::Column::UserId.eq(user_id))
-//                         .count(db)
-//                 })
-//                 .into_iter()
-//                 .collect();
+        if let Some(tests) = info.tests {
+            let list = tests.list.clone();
 
-//             let list = result_into(vr_to_rv(futures::future::join_all(futs).await))?;
+            let futs: Vec<_> = list
+                .into_iter()
+                .map(|testcase_id| {
+                    entity::testcase::Entity::find_by_id(testcase_id.id)
+                        .filter(entity::testcase::Column::UserId.eq(user_id))
+                        .count(db)
+                })
+                .into_iter()
+                .collect();
 
-//             let vaild = list
-//                 .into_iter()
-//                 .map(|x| x == 0)
-//                 .reduce(|x, y| x || y)
-//                 .unwrap_or(true);
+            let list = result_into(vr_to_rv(futures::future::join_all(futs).await))?;
 
-//             if vaild {
-//                 todo!("Update testcases's problem_id")
-//             } else {
-//                 return Err(tonic::Status::permission_denied(
-//                     "adding unowned testcase, consider take ownership of the testcases",
-//                 ));
-//             };
-//         };
+            let vaild = list
+                .into_iter()
+                .map(|x| x == 0)
+                .reduce(|x, y| x || y)
+                .unwrap_or(true);
 
-//         todo!("commit changes(active model)")
-//     }
+            if vaild {
+                todo!("Update testcases's problem_id")
+            } else {
+                return Err(tonic::Status::permission_denied(
+                    "adding unowned testcase, consider take ownership of the testcases",
+                ));
+            };
+        };
 
-//     async fn create_model(model: create_problem_request::Info) -> Result<i32, tonic::Status> {
-//         todo!()
-//     }
-// }
+        todo!("commit changes(active model)")
+    }
 
-// // impl IntelEndpoint<ProblemIntel> for Server {}
+    async fn create_model(model: create_problem_request::Info) -> Result<i32, tonic::Status> {
+        todo!()
+    }
+}
 
-// impl Transform<ProblemId> for i32 {
-//     fn into(self) -> ProblemId {
-//         ProblemId { id: self }
-//     }
-// }
+// impl IntelEndpoint<ProblemIntel> for Server {}
 
-// impl Transform<<Entity as EntityTrait>::Column> for SortBy {
-//     fn into(self) -> <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Column {
-//         match self {
-//             SortBy::SubmitCount => Column::SubmitCount,
-//             SortBy::AcRate => Column::AcRate,
-//             SortBy::Difficulty => Column::Difficulty,
-//             _ => Column::Id,
-//         }
-//     }
-// }
+impl Transform<ProblemId> for i32 {
+    fn into(self) -> ProblemId {
+        ProblemId { id: self }
+    }
+}
 
-// impl Transform<Problems> for Vec<ProblemInfo> {
-//     fn into(self) -> Problems {
-//         let list = self
-//             .into_iter()
-//             .map(|x| ProblemInfo {
-//                 id: x.id,
-//                 title: x.title,
-//                 submit_count: x.submit_count,
-//                 ac_rate: x.ac_rate,
-//             })
-//             .collect();
-//         Problems { list }
-//     }
-// }
+impl Transform<<Entity as EntityTrait>::Column> for SortBy {
+    fn into(self) -> <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Column {
+        match self {
+            SortBy::SubmitCount => Column::SubmitCount,
+            SortBy::AcRate => Column::AcRate,
+            SortBy::Difficulty => Column::Difficulty,
+            _ => Column::Id,
+        }
+    }
+}
 
-// impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem {
-//     fn into(self) -> <ProblemIntel as IntelTrait>::Info {
-//         ProblemInfo {
-//             id: Some(ProblemId { id: self.id }),
-//             title: self.title,
-//             submit_count: self.submit_count,
-//             ac_rate: self.ac_rate,
-//         }
-//     }
-// }
+impl Transform<Problems> for Vec<ProblemInfo> {
+    fn into(self) -> Problems {
+        let list = self
+            .into_iter()
+            .map(|x| ProblemInfo {
+                id: x.id,
+                title: x.title,
+                submit_count: x.submit_count,
+                ac_rate: x.ac_rate,
+            })
+            .collect();
+        Problems { list }
+    }
+}
 
-// // TODO, use specialized impl under ``Intel`` for such (operation?)
-// #[async_trait]
-// impl AsyncTransform<Result<ProblemFullInfo, tonic::Status>> for Model {
-//     async fn into(self) -> Result<ProblemFullInfo, tonic::Status> {
-//         let db = DB.get().unwrap();
+impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem {
+    fn into(self) -> <ProblemIntel as IntelTrait>::Info {
+        ProblemInfo {
+            id: Some(ProblemId { id: self.id }),
+            title: self.title,
+            submit_count: self.submit_count,
+            ac_rate: self.ac_rate,
+        }
+    }
+}
 
-//         let edu = result_into(
-//             self.find_related(education::Entity)
-//                 .select_only()
-//                 .columns([education::Column::Id])
-//                 .one(db)
-//                 .await,
-//         )?;
-//         let education_id = edu.map(|x| EducationId { id: x.id });
+// TODO, use specialized impl under ``Intel`` for such (operation?)
+#[async_trait]
+impl AsyncTransform<Result<ProblemFullInfo, tonic::Status>> for Model {
+    async fn into(self) -> Result<ProblemFullInfo, tonic::Status> {
+        let db = DB.get().unwrap();
 
-//         Ok(ProblemFullInfo {
-//             content: self.content,
-//             memory: self.memory,
-//             time: self.time,
-//             difficulty: self.difficulty,
-//             tags: self.tags,
-//             public: self.public,
-//             info: Some(ProblemInfo {
-//                 id: Some(ProblemId { id: self.id }),
-//                 title: self.title,
-//                 submit_count: self.submit_count,
-//                 ac_rate: self.ac_rate,
-//             }),
-//             education_id,
-//         })
-//     }
-// }
+        let edu = result_into(
+            self.find_related(education::Entity)
+                .select_only()
+                .columns([education::Column::Id])
+                .one(db)
+                .await,
+        )?;
+        let education_id = edu.map(|x| EducationId { id: x.id });
 
-// impl_id!(Problem);
+        Ok(ProblemFullInfo {
+            content: self.content,
+            memory: self.memory,
+            time: self.time,
+            difficulty: self.difficulty,
+            tags: self.tags,
+            public: self.public,
+            info: Some(ProblemInfo {
+                id: Some(ProblemId { id: self.id }),
+                title: self.title,
+                submit_count: self.submit_count,
+                ac_rate: self.ac_rate,
+            }),
+            education_id,
+        })
+    }
+}
 
-// macro_rules! insert_if_exists {
-//     ($model:ident, $value:expr, $field:ident) => {
-//         if let Some(x) = $value.$field {
-//             $model.$field = ActiveValue::Set(x);
-//         }
-//     };
-//     ($model:ident, $value:expr, $field:ident, $($ext:ident),+) => {
-//         insert_if_exists!($model, $value, $field);
-//         insert_if_exists!($model, $value, $($ext),+);
-//     };
-// }
+impl_id!(Problem);
 
-// impl TryTransform<create_problem_request::Info, tonic::Status> for CreateProblemRequest {
-//     fn try_into(self) -> Result<create_problem_request::Info, tonic::Status> {
-//         let info = self
-//             .info
-//             .ok_or(tonic::Status::invalid_argument("info not found"))?;
-//         Ok(info)
-//     }
-// }
+macro_rules! insert_if_exists {
+    ($model:ident, $value:expr, $field:ident) => {
+        if let Some(x) = $value.$field {
+            $model.$field = ActiveValue::Set(x);
+        }
+    };
+    ($model:ident, $value:expr, $field:ident, $($ext:ident),+) => {
+        insert_if_exists!($model, $value, $field);
+        insert_if_exists!($model, $value, $($ext),+);
+    };
+}
 
-// impl TryTransform<(update_problem_request::Info, i32), tonic::Status> for UpdateProblemRequest {
-//     fn try_into(self) -> Result<(update_problem_request::Info, i32), tonic::Status> {
-//         let info = self
-//             .info
-//             .ok_or(tonic::Status::invalid_argument("info not found"))?;
-//         let id = self
-//             .id
-//             .map(|x| x.id)
-//             .ok_or(tonic::Status::invalid_argument("id not found"))?;
-//         Ok((info, id))
-//     }
-// }
+impl TryTransform<create_problem_request::Info, tonic::Status> for CreateProblemRequest {
+    fn try_into(self) -> Result<create_problem_request::Info, tonic::Status> {
+        let info = self
+            .info
+            .ok_or(tonic::Status::invalid_argument("info not found"))?;
+        Ok(info)
+    }
+}
 
-// impl BaseEndpoint<ProblemIntel> for Server {}
+impl TryTransform<(update_problem_request::Info, i32), tonic::Status> for UpdateProblemRequest {
+    fn try_into(self) -> Result<(update_problem_request::Info, i32), tonic::Status> {
+        let info = self
+            .info
+            .ok_or(tonic::Status::invalid_argument("info not found"))?;
+        let id = self
+            .id
+            .map(|x| x.id)
+            .ok_or(tonic::Status::invalid_argument("id not found"))?;
+        Ok((info, id))
+    }
+}
 
-// #[async_trait]
-// impl problem_set_server::ProblemSet for Server {
-//     async fn list(
-//         &self,
-//         request: Request<ListRequest>,
-//     ) -> Result<Response<Problems>, tonic::Status> {
-//         BaseEndpoint::list(self, request).await
-//     }
+impl BaseEndpoint<ProblemIntel> for Server {}
 
-//     async fn search_by_text(
-//         &self,
-//         request: Request<TextSearchRequest>,
-//     ) -> Result<Response<Problems>, tonic::Status> {
-//         BaseEndpoint::search_by_text(self, request, &[Column::Title, Column::Content]).await
-//     }
+#[async_trait]
+impl problem_set_server::ProblemSet for Server {
+    async fn full_info(
+        &self,
+        request: Request<ProblemId>,
+    ) -> Result<Response<ProblemFullInfo>, tonic::Status> {
+        BaseEndpoint::full_info(self, request).await
+    }
 
-//     async fn search_by_tag(
-//         &self,
-//         request: Request<TextSearchRequest>,
-//     ) -> Result<Response<Problems>, tonic::Status> {
-//         BaseEndpoint::search_by_text(self, request, &[Column::Tags]).await
-//     }
+    async fn create(
+        &self,
+        request: tonic::Request<CreateProblemRequest>,
+    ) -> Result<Response<ProblemId>, tonic::Status> {
+        BaseEndpoint::create(self, request).await
+        // let db = DB.get().unwrap();
+        // let (auth, request) = self.parse_request(request).await?;
 
-//     async fn full_info(
-//         &self,
-//         request: Request<ProblemId>,
-//     ) -> Result<Response<ProblemFullInfo>, tonic::Status> {
-//         BaseEndpoint::full_info(self, request).await
-//     }
+        // let info = request
+        //     .info
+        //     .ok_or(tonic::Status::invalid_argument("No info"))?;
 
-//     async fn create(
-//         &self,
-//         request: tonic::Request<CreateProblemRequest>,
-//     ) -> Result<Response<ProblemId>, tonic::Status> {
-//         BaseEndpoint::create(self, request).await
-//         // let db = DB.get().unwrap();
-//         // let (auth, request) = self.parse_request(request).await?;
+        // match auth {
+        //     Auth::Guest => Err(tonic::Status::permission_denied("Guest cannot create")),
+        //     Auth::User((user_id, perm)) => {
+        //         if perm.can_root() || perm.can_manage_problem() {
+        //             let db_result = ActiveModel {
+        //                 user_id: ActiveValue::Set(user_id),
+        //                 success: ActiveValue::Set(0),
+        //                 submit_count: ActiveValue::Set(0),
+        //                 ac_rate: ActiveValue::Set(1.0),
+        //                 memory: ActiveValue::Set(info.memory),
+        //                 time: ActiveValue::Set(info.time),
+        //                 difficulty: ActiveValue::Set(info.difficulty),
+        //                 public: ActiveValue::Set(false),
+        //                 tags: ActiveValue::Set("".to_string()),
+        //                 title: ActiveValue::Set(info.title),
+        //                 content: ActiveValue::Set(info.content),
+        //                 ..Default::default()
+        //             }
+        //             .insert(db)
+        //             .await; // TODO: testcase
+        //             let id = result_into(db_result)?.id;
+        //             Ok(Response::new(ProblemId { id }))
+        //         } else {
+        //             Err(tonic::Status::permission_denied("User cannot create"))
+        //         }
+        //     }
+        // }
+    }
 
-//         // let info = request
-//         //     .info
-//         //     .ok_or(tonic::Status::invalid_argument("No info"))?;
+    async fn update(
+        &self,
+        request: tonic::Request<UpdateProblemRequest>,
+    ) -> Result<Response<()>, tonic::Status> {
+        BaseEndpoint::update(self, request).await
+        // let db = DB.get().unwrap();
+        // let (auth, request) = self.parse_request(request).await?;
 
-//         // match auth {
-//         //     Auth::Guest => Err(tonic::Status::permission_denied("Guest cannot create")),
-//         //     Auth::User((user_id, perm)) => {
-//         //         if perm.can_root() || perm.can_manage_problem() {
-//         //             let db_result = ActiveModel {
-//         //                 user_id: ActiveValue::Set(user_id),
-//         //                 success: ActiveValue::Set(0),
-//         //                 submit_count: ActiveValue::Set(0),
-//         //                 ac_rate: ActiveValue::Set(1.0),
-//         //                 memory: ActiveValue::Set(info.memory),
-//         //                 time: ActiveValue::Set(info.time),
-//         //                 difficulty: ActiveValue::Set(info.difficulty),
-//         //                 public: ActiveValue::Set(false),
-//         //                 tags: ActiveValue::Set("".to_string()),
-//         //                 title: ActiveValue::Set(info.title),
-//         //                 content: ActiveValue::Set(info.content),
-//         //                 ..Default::default()
-//         //             }
-//         //             .insert(db)
-//         //             .await; // TODO: testcase
-//         //             let id = result_into(db_result)?.id;
-//         //             Ok(Response::new(ProblemId { id }))
-//         //         } else {
-//         //             Err(tonic::Status::permission_denied("User cannot create"))
-//         //         }
-//         //     }
-//         // }
-//     }
+        // let info = request
+        //     .info
+        //     .ok_or(tonic::Status::invalid_argument("No info"))?;
 
-//     async fn update(
-//         &self,
-//         request: tonic::Request<UpdateProblemRequest>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         BaseEndpoint::update(self, request).await
-//         // let db = DB.get().unwrap();
-//         // let (auth, request) = self.parse_request(request).await?;
+        // let pk = request
+        //     .id
+        //     .ok_or(tonic::Status::invalid_argument("No id"))?
+        //     .id;
 
-//         // let info = request
-//         //     .info
-//         //     .ok_or(tonic::Status::invalid_argument("No info"))?;
+        // match auth {
+        //     Auth::Guest => Err(tonic::Status::permission_denied("Guest cannot create")),
+        //     Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
+        //         true => {
+        //             let mut tar = result_into(Entity::find_by_id(pk).one(db).await)?
+        //                 .ok_or(tonic::Status::not_found("message"))?
+        //                 .into_active_model();
+        //             insert_if_exists!(tar, info, title, content, memory, time, difficulty, tags);
+        //             // TODO: only root can manage other's problem
+        //             Ok(Response::new(()))
+        //         }
+        //         false => Err(tonic::Status::permission_denied("User cannot create")),
+        //     },
+        // }
+    }
 
-//         // let pk = request
-//         //     .id
-//         //     .ok_or(tonic::Status::invalid_argument("No id"))?
-//         //     .id;
+    async fn remove(
+        &self,
+        request: tonic::Request<ProblemId>,
+    ) -> Result<Response<()>, tonic::Status> {
+        BaseEndpoint::remove(self, request).await
+    }
 
-//         // match auth {
-//         //     Auth::Guest => Err(tonic::Status::permission_denied("Guest cannot create")),
-//         //     Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
-//         //         true => {
-//         //             let mut tar = result_into(Entity::find_by_id(pk).one(db).await)?
-//         //                 .ok_or(tonic::Status::not_found("message"))?
-//         //                 .into_active_model();
-//         //             insert_if_exists!(tar, info, title, content, memory, time, difficulty, tags);
-//         //             // TODO: only root can manage other's problem
-//         //             Ok(Response::new(()))
-//         //         }
-//         //         false => Err(tonic::Status::permission_denied("User cannot create")),
-//         //     },
-//         // }
-//     }
+    async fn link(
+        &self,
+        request: tonic::Request<ProblemLink>,
+    ) -> Result<Response<()>, tonic::Status> {
+        let db = DB.get().unwrap();
 
-//     async fn remove(
-//         &self,
-//         request: tonic::Request<ProblemId>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         BaseEndpoint::remove(self, request).await
-//     }
+        let (auth, payload) = self.parse_request(request).await?;
 
-//     async fn link(
-//         &self,
-//         request: tonic::Request<ProblemLink>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         let db = DB.get().unwrap();
+        let contest_id = payload
+            .contest_id
+            .ok_or(tonic::Status::not_found("problem id not found"))?
+            .id;
+        let problem_id = payload
+            .problem_id
+            .ok_or(tonic::Status::not_found("problem id not found"))?
+            .id;
 
-//         let (auth, payload) = self.parse_request(request).await?;
+        let (_, perm) = auth.ok_or_default()?;
 
-//         let contest_id = payload
-//             .contest_id
-//             .ok_or(tonic::Status::not_found("problem id not found"))?
-//             .id;
-//         let problem_id = payload
-//             .problem_id
-//             .ok_or(tonic::Status::not_found("problem id not found"))?
-//             .id;
+        if perm.can_link() {
+            let mut problem = result_into(
+                Entity::find_by_id(problem_id)
+                    .select_only()
+                    .columns([Column::ContestId])
+                    .one(db)
+                    .await,
+            )?
+            .ok_or(tonic::Status::not_found("problem not found"))?
+            .into_active_model();
+            problem.contest_id = ActiveValue::Set(contest_id);
+            result_into(problem.update(db).await).map(|_| Response::new(()))
+        } else {
+            Err(tonic::Status::permission_denied("User cannot link"))
+        }
+    }
 
-//         let (_, perm) = auth.ok_or_default()?;
+    async fn unlink(
+        &self,
+        request: tonic::Request<ProblemLink>,
+    ) -> Result<Response<()>, tonic::Status> {
+        todo!()
+    }
 
-//         if perm.can_link() {
-//             let mut problem = result_into(
-//                 Entity::find_by_id(problem_id)
-//                     .select_only()
-//                     .columns([Column::ContestId])
-//                     .one(db)
-//                     .await,
-//             )?
-//             .ok_or(tonic::Status::not_found("problem not found"))?
-//             .into_active_model();
-//             problem.contest_id = ActiveValue::Set(contest_id);
-//             result_into(problem.update(db).await).map(|_| Response::new(()))
-//         } else {
-//             Err(tonic::Status::permission_denied("User cannot link"))
-//         }
-//     }
+    async fn add_test(
+        &self,
+        request: tonic::Request<Testcase>,
+    ) -> Result<Response<()>, tonic::Status> {
+        todo!()
+    }
 
-//     async fn unlink(
-//         &self,
-//         request: tonic::Request<ProblemLink>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         todo!()
-//     }
+    async fn remove_test(
+        &self,
+        request: tonic::Request<TestcaseId>,
+    ) -> Result<Response<()>, tonic::Status> {
+        todo!()
+    }
 
-//     async fn add_test(
-//         &self,
-//         request: tonic::Request<Testcase>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         todo!()
-//     }
+    #[doc = " Server streaming response type for the Rejudge method."]
+    type RejudgeStream = TonicStream<()>;
 
-//     async fn remove_test(
-//         &self,
-//         request: tonic::Request<TestcaseId>,
-//     ) -> Result<Response<()>, tonic::Status> {
-//         todo!()
-//     }
+    async fn rejudge(
+        &self,
+        request: tonic::Request<ProblemId>,
+    ) -> Result<Response<Self::RejudgeStream>, tonic::Status> {
+        // let (tx,rx)=tokio_stream::;
+        todo!()
+    }
 
-//     #[doc = " Server streaming response type for the Rejudge method."]
-//     type RejudgeStream =
-//         Pin<Box<dyn tokio_stream::Stream<Item = Result<(), tonic::Status>> + Send>>;
+    async fn publish(
+        &self,
+        request: tonic::Request<AnnouncementId>,
+    ) -> Result<tonic::Response<()>, tonic::Status> {
+        todo!()
+    }
 
-//     async fn rejudge(
-//         &self,
-//         request: tonic::Request<ProblemId>,
-//     ) -> Result<Response<Self::RejudgeStream>, tonic::Status> {
-//         // let (tx,rx)=tokio_stream::;
-//         todo!()
-//     }
-// }
+    async fn unpublish(
+        &self,
+        request: tonic::Request<AnnouncementId>,
+    ) -> Result<tonic::Response<()>, tonic::Status> {
+        todo!()
+    }
+    type ListStream = TonicStream<ProblemInfo>;
+
+    async fn list(
+        &self,
+        request: tonic::Request<ListRequest>,
+    ) -> Result<tonic::Response<Self::ListStream>, tonic::Status> {
+        todo!()
+    }
+
+    type SearchByTextStream = TonicStream<ProblemInfo>;
+    async fn search_by_text(
+        &self,
+        request: tonic::Request<TextSearchRequest>,
+    ) -> Result<tonic::Response<Self::SearchByTextStream>, tonic::Status> {
+        todo!()
+    }
+    type SearchByTagStream = TonicStream<ProblemInfo>;
+
+    async fn search_by_tag(
+        &self,
+        request: tonic::Request<TextSearchRequest>,
+    ) -> Result<tonic::Response<Self::SearchByTagStream>, tonic::Status> {
+        todo!()
+    }
+}
