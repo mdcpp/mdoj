@@ -420,6 +420,8 @@ impl problem_set_server::ProblemSet for Server {
         request: tonic::Request<ProblemId>,
     ) -> Result<Response<Self::RejudgeStream>, tonic::Status> {
         // let (tx,rx)=tokio_stream::;
+        // Self::rw_filter(query, auth);
+        
         todo!()
     }
 

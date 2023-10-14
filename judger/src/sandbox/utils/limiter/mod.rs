@@ -46,8 +46,6 @@ impl Limiter {
 
         let config = CONFIG.get().unwrap();
 
-        let hier = Box::new(hierarchies::V2::new());
-
         let cg = CgroupBuilder::new(&cg_name)
             .memory()
             .kernel_memory_limit(limit.kernel_mem)
@@ -59,8 +57,12 @@ impl Limiter {
             .quota(config.runtime.accuracy as i64)
             .realtime_period(config.runtime.accuracy)
             .realtime_runtime(config.runtime.accuracy as i64)
-            .done()
-            .build(hier)?;
+            .done();
+
+        let cg = match config.nsjail.cgroup_version {
+            1 => cg.build(Box::new(hierarchies::V1::new())),
+            _ => cg.build(Box::new(hierarchies::V2::new())),
+        }?;
 
         let state_taken = state.clone();
         let task = tokio::spawn(async move {

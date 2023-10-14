@@ -18,11 +18,8 @@ pub struct LimitBuilder {
 
 impl LimitBuilder {
     pub fn cgroup(mut self, cgroup_name: &str) -> LimitBuilder {
-        self.cmds.push("--use_cgroupv2".to_owned());
-
-        let cgroup_mount = format!("/sys/fs/cgroup/{}", &cgroup_name);
-        self.cmds.push("--cgroupv2_mount".to_owned());
-        self.cmds.push(cgroup_mount);
+        self.cmds.push("--cgroup_cpu_parent".to_owned());
+        self.cmds.push(cgroup_name.to_owned());
 
         self
     }

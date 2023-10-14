@@ -46,6 +46,7 @@ pub struct Nsjail {
     pub runtime: String,
     pub rootless: bool,
     pub log: String,
+    pub cgroup_version: i8,
 }
 
 impl Default for Nsjail {
@@ -54,6 +55,7 @@ impl Default for Nsjail {
             runtime: "nsjail/nsjail".to_owned(),
             rootless: false,
             log: "/dev/null".to_owned(),
+            cgroup_version: 2,
         }
     }
 }
