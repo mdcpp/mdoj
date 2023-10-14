@@ -49,6 +49,12 @@ pub struct Nsjail {
     pub cgroup_version: i8,
 }
 
+impl Nsjail {
+    pub fn is_cgv1(&self) -> bool {
+        self.cgroup_version == 1
+    }
+}
+
 impl Default for Nsjail {
     fn default() -> Self {
         Self {

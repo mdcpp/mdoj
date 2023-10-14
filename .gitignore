@@ -2,3 +2,7 @@
 /.devcontainer
 /.vscode
 /tonic_example
+
+# Added by cargo
+
+/target

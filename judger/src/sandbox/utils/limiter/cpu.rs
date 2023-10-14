@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use cgroups_rs::{cpu::CpuController, Cgroup};
+use cgroups_rs::{cpu::CpuController, cpuacct::CpuAcctController, Cgroup};
 
 use crate::init::config::CONFIG;
 
@@ -23,40 +23,47 @@ impl Display for CpuStatistics {
 
 impl CpuStatistics {
     pub fn from_cgroup(cgroup: &Cgroup) -> Self {
-        let ctrl = cgroup.controller_of().unwrap();
-
-        Self::from_controller(ctrl)
-    }
-    pub fn from_controller(cpu: &CpuController) -> Self {
         let config = CONFIG.get().unwrap();
+        if config.nsjail.is_cgv1() {
+            let ctrl = cgroup.controller_of().unwrap();
+            Self::from_cpuacct_controller(ctrl)
+        } else {
+            let ctrl = cgroup.controller_of().unwrap();
+            Self::from_cpu_controller(ctrl)
+        }
+    }
+    pub fn from_cpuacct_controller(cpuacct: &CpuAcctController) -> Self {
+        let acct = cpuacct.cpuacct();
 
-        match config.nsjail.cgroup_version {
-            1 => todo!(),
-            _ => {
-                let raw: &str = &cpu.cpu().stat;
-                let mut rt_us = i64::MAX;
-                let mut cpu_us = u64::MAX;
-                let mut total_us = u64::MAX;
-                for (key, value) in raw
-                    .split("\n")
-                    .filter_map(|stmt| match stmt.split_once(" ") {
-                        Some(a) => Some(a),
-                        None => None,
-                    })
-                {
-                    match key {
-                        "usage_usec" => total_us = value.parse().unwrap(),
-                        "user_usec" => cpu_us = value.parse().unwrap(),
-                        "system_usec" => rt_us = value.parse().unwrap(),
-                        _ => {}
-                    };
-                }
-                Self {
-                    rt_us,
-                    cpu_us,
-                    total_us,
-                }
-            }
+        Self {
+            rt_us: acct.usage_sys as i64,
+            cpu_us: acct.usage_user,
+            total_us: acct.usage,
+        }
+    }
+    pub fn from_cpu_controller(cpu: &CpuController) -> Self {
+        let raw: &str = &cpu.cpu().stat;
+        let mut rt_us = i64::MAX;
+        let mut cpu_us = u64::MAX;
+        let mut total_us = u64::MAX;
+        for (key, value) in raw
+            .split("\n")
+            .filter_map(|stmt| match stmt.split_once(" ") {
+                Some(a) => Some(a),
+                None => None,
+            })
+        {
+            match key {
+                "usage_usec" => total_us = value.parse().unwrap(),
+                "user_usec" => cpu_us = value.parse().unwrap(),
+                "system_usec" => rt_us = value.parse().unwrap(),
+                _ => {}
+            };
+        }
+        Self {
+            rt_us,
+            cpu_us,
+            total_us,
         }
     }
 }

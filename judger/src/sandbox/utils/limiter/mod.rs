@@ -1,9 +1,11 @@
 use crate::sandbox::prelude::*;
+use std::path::Path;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use cgroups_rs::{cgroup_builder::CgroupBuilder, hierarchies};
+use tokio::fs;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;
 use tokio::task::JoinHandle;
@@ -23,6 +25,7 @@ pub struct Limiter {
     task: JoinHandle<()>,
     state: Arc<AtomicPtr<LimiterState>>,
     limit_oneshot: Option<Receiver<LimitReason>>,
+    cg_name: String,
 }
 
 #[derive(Default)]
@@ -34,6 +37,9 @@ struct LimiterState {
 impl Drop for Limiter {
     fn drop(&mut self) {
         self.task.abort();
+        tokio::spawn(fs::remove_dir(
+            Path::new("/sys/fs/cgroup/").join(&self.cg_name),
+        ));
     }
 }
 
@@ -59,9 +65,10 @@ impl Limiter {
             .realtime_runtime(config.runtime.accuracy as i64)
             .done();
 
-        let cg = match config.nsjail.cgroup_version {
-            1 => cg.build(Box::new(hierarchies::V1::new())),
-            _ => cg.build(Box::new(hierarchies::V2::new())),
+        let cg = if config.nsjail.is_cgv1() {
+            cg.build(Box::new(hierarchies::V1::new()))
+        } else {
+            cg.build(Box::new(hierarchies::V2::new()))
         }?;
 
         let state_taken = state.clone();
@@ -110,6 +117,7 @@ impl Limiter {
             task,
             state,
             limit_oneshot: Some(rx),
+            cg_name: cg_name.to_owned(),
         })
     }
     pub async fn status(self) -> (CpuStatistics, MemStatistics) {
