@@ -29,6 +29,7 @@ pub struct GlobalConfig {
 pub struct Platform {
     pub cpu_time_multiplier: f64,
     pub available_memory: i64,
+    pub output_limit: usize,
 }
 
 impl Default for Platform {
@@ -36,6 +37,7 @@ impl Default for Platform {
         Self {
             cpu_time_multiplier: 1.0,
             available_memory: 1073741824,
+            output_limit: 32 * 1024 * 1024,
         }
     }
 }
@@ -46,12 +48,12 @@ pub struct Nsjail {
     pub runtime: String,
     pub rootless: bool,
     pub log: String,
-    pub cgroup_version: i8,
+    pub cgroup_version: CgVersion,
 }
 
 impl Nsjail {
     pub fn is_cgv1(&self) -> bool {
-        self.cgroup_version == 1
+        self.cgroup_version == CgVersion::V1
     }
 }
 
@@ -61,9 +63,16 @@ impl Default for Nsjail {
             runtime: "nsjail/nsjail".to_owned(),
             rootless: false,
             log: "/dev/null".to_owned(),
-            cgroup_version: 2,
+            cgroup_version: CgVersion::V2,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum CgVersion {
+    V1,
+    V2,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

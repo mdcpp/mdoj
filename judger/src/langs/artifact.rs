@@ -156,7 +156,7 @@ impl TaskResult {
 
         match mode {
             JudgeMatchRule::ExactSame => stdout.iter().zip(input.iter()).all(|(f, s)| f == s),
-            JudgeMatchRule::IgnoreSpace => {
+            JudgeMatchRule::IgnoreSnl => {
                 let stdout_split = stdout.split(|x| *x == newline || *x == space);
                 let input_split = input.split(|x| *x == newline || *x == space);
                 for (f, s) in stdout_split.zip(input_split) {

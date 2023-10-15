@@ -39,14 +39,23 @@ message JudgeResult {
 }
 
 enum JudgeResultState {
+  // Accepted
   AC = 0;
+  // Unknown
   NA = 1;
+  // Wrong Answer
   WA = 2;
+  // Compile Error
   CE = 3;
+  // Runtime Error
   RE = 4;
+  // Restricted Function
   RF = 5;
+  // Time Limit Exceeded
   TLE = 6;
+  // Memory Limit Exceeded
   MLE = 7;
+  // Output Limit Exceeded
   OLE = 8;
 }
 
@@ -55,19 +64,22 @@ enum JudgeMatchRule {
   // exactly same
   ExactSame = 0;
   // assert segment between space or newline, empty segments are also compare
-  IgnoreSpace = 1;
+  IgnoreSNL = 1;
   // assert segment between space or newline, empty segments are ignored
   SkipSNL = 2;
 }
 
 message Langs { repeated LangInfo list = 1; }
 
-// assertion code
+// info of a language(extension)
 message LangInfo {
+  // unique id
   string lang_uid = 1;
+  // human readable name
   string lang_name = 2;
-  // compiler info or runtime info
+  // human readable description
   string info = 3;
+  // file extension of the language
   string lang_ext = 4;
 }
 
@@ -76,7 +88,9 @@ message JudgeInfo {
   int64 memory = 1;
   // max possible deviation in nanosecond
   int64 accuracy = 2;
+  // list of supported languages(extension)
   Langs langs = 3;
+  // cpu factor, the total time limit is calculated by time * cpu_factor
   float cpu_factor = 4;
 }
 
