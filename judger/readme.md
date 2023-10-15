@@ -38,9 +38,9 @@ platform.available_memory: amount of memory that user submitted request and outp
 
 ### Docker
 
-Run with default(no config file) config, judger would generate config automatically.
+Run with default config in privileged container, judger would generate config automatically.
 
-### Kubernetes
+### Podman & Kubernetes
 
 both user namespace and user cgroup is available to K8s, consider using it.
 
@@ -54,6 +54,12 @@ nsjail.rootless: use user namespace if user namespace is available;
 ~~I don't use K8s, don't ask me how to write config.~~
 
 ## Improve reported accuracy
+
+### Use cgroup v1
+
+Cgroup v1 provide a subsystem called cpuacct(cpu accounting), it is more accurate than cpu subsystem(We use it in cgroup v2).
+
+Change ``nsjail.cgroup_version`` to "v1" in the config file to switch to cgroup v1.
 
 ### Write your kernel infomation in the config
 
