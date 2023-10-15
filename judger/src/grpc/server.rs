@@ -69,7 +69,7 @@ macro_rules! report {
     };
 }
 
-#[async_trait::async_trait]
+#[tonic::async_trait]
 impl Judger for GRpcServer {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 

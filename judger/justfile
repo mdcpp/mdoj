@@ -29,3 +29,10 @@ test:
 run:
     sudo rm -rf .temp/* 
     cargo run
+
+podman-run:
+    # recreate cgroup of mdoj for normal user
+    sudo rm -rf /sys/fs/cgroup/mdoj
+    sudo cgcreate -a $USER -t $USER -g memory,cpu,cpuset:mdoj
+    # run podman
+    podman-compose up

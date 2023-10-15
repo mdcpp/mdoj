@@ -1,0 +1,7 @@
+services:
+  judger:
+    build: .
+    ports:
+      - "8000:80"
+    volumes:
+      - ./sys/fs/cgroup:/sys/fs/cgroup/mdoj:rw

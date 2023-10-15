@@ -8,7 +8,7 @@ dev-backend:
     cd backend && just run
 
 dev-judger:
-    cd judger && sudo just run
+    cd judger && sudo just podman-run
 
 clean:
     cd ./frontend && yarn cache clean

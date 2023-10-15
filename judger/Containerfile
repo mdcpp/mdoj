@@ -1,4 +1,4 @@
-FROM rust:1.71.1-buster AS builder
+FROM docker.io/libray/rust:1.71.1-buster AS builder
 WORKDIR /complier
 
 RUN USER=root apt update -y
