@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     path::{Path, PathBuf},
     process::Stdio,
 };
@@ -13,27 +14,27 @@ use crate::init::config::CONFIG;
 use super::super::Error;
 
 pub struct LimitBuilder {
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl LimitBuilder {
     pub fn cgroup(mut self, cgroup_name: &str) -> LimitBuilder {
-        self.cmds.push("--cgroup_cpu_parent".to_owned());
-        self.cmds.push(cgroup_name.to_owned());
+        self.cmds.push(Cow::Borrowed("--cgroup_cpu_parent"));
+        self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
 
         self
     }
     pub fn done(mut self) -> NaJailBuilder {
-        self.cmds.push("--disable_clone_newuser".to_owned());
-        self.cmds.push("--cgroup_mem_swap_max".to_owned());
-        self.cmds.push("0".to_owned());
-        self.cmds.push("--disable_clone_newcgroup".to_owned());
+        self.cmds.push(Cow::Borrowed("--disable_clone_newuser"));
+        self.cmds.push(Cow::Borrowed("--cgroup_mem_swap_max"));
+        self.cmds.push(Cow::Borrowed("0"));
+        self.cmds.push(Cow::Borrowed("--disable_clone_newcgroup"));
         NaJailBuilder { cmds: self.cmds }
     }
 }
 
 pub struct NaJailBuilder {
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl NaJailBuilder {
@@ -56,22 +57,22 @@ impl NaJailBuilder {
 
 pub struct MountBuilder {
     presist_vol: PathBuf,
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl MountBuilder {
-    pub fn mount(mut self, vol: &str, lockdown: bool) -> MountBuilder {
+    pub fn mount(mut self, vol: impl AsRef<str>, lockdown: bool) -> MountBuilder {
         if lockdown {
-            self.cmds.push("--bindmount_ro".to_owned());
+            self.cmds.push(Cow::Borrowed("--bindmount_ro"));
         } else {
-            self.cmds.push("--bindmount".to_owned());
+            self.cmds.push(Cow::Borrowed("--bindmount"));
         }
 
-        let source = self.presist_vol.join(vol);
+        let source = self.presist_vol.join(vol.as_ref());
         let source = source.to_str().unwrap();
-        let dist = vol;
+        let dist = vol.as_ref();
 
-        self.cmds.push(format!("{}:{}", source, dist));
+        self.cmds.push(Cow::Owned(format!("{}:{}", source, dist)));
 
         self
     }
@@ -81,40 +82,40 @@ impl MountBuilder {
 }
 
 pub struct CommonBuilder {
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl CommonBuilder {
     pub fn common(mut self) -> CmdBuilder {
         let config = CONFIG.get().unwrap();
 
-        self.cmds.push("-l".to_owned());
+        self.cmds.push(Cow::Borrowed("-l"));
 
-        self.cmds.push(config.nsjail.log.to_owned());
+        self.cmds.push(Cow::Borrowed(&config.nsjail.log));
 
-        self.cmds.push("-Me".to_owned());
+        self.cmds.push(Cow::Borrowed("-Me"));
 
-        self.cmds.push("--".to_owned());
+        self.cmds.push(Cow::Borrowed("--"));
 
         CmdBuilder { cmds: self.cmds }
     }
 }
 
 pub struct CmdBuilder {
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl CmdBuilder {
-    pub fn cmds(mut self, cmd: &Vec<String>) -> NsJailBuilder {
+    pub fn cmds(mut self, cmd: Vec<&str>) -> NsJailBuilder {
         for arg in cmd.clone() {
-            self.cmds.push(arg);
+            self.cmds.push(Cow::Owned(arg.to_owned()));
         }
         NsJailBuilder { cmds: self.cmds }
     }
 }
 
 pub struct NsJailBuilder {
-    cmds: Vec<String>,
+    cmds: Vec<Cow<'static, str>>,
 }
 
 impl NsJailBuilder {
@@ -128,7 +129,7 @@ impl NsJailBuilder {
         );
 
         let mut cmd: Command = Command::new(&config.nsjail.runtime);
-        cmd.args(self.cmds);
+        cmd.args(self.cmds.iter().map(|a| a.as_ref()).collect::<Vec<&str>>());
 
         let process = cmd
             .stdout(Stdio::piped())
@@ -157,7 +158,9 @@ impl NsJail {
     pub fn new(root: impl AsRef<Path>) -> LimitBuilder {
         let root = root.as_ref().canonicalize().unwrap();
         let root = root.to_str().unwrap();
-        let cmds: Vec<String> = vec!["--chroot".to_owned(), root.to_owned()];
+        let mut cmds: Vec<Cow<'static, str>> = Vec::new();
+        cmds.push(Cow::Borrowed("--chroot"));
+        cmds.push(Cow::Owned(root.to_owned()));
         LimitBuilder { cmds }
     }
     pub async fn wait(&self) -> Option<i32> {

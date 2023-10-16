@@ -104,7 +104,7 @@ impl Default for Runtime {
             temp: PathBuf::from_str("temp").unwrap(),
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
-            root_cgroup: "mdoj".to_owned(),
+            root_cgroup: "mdoj/c.".to_owned(),
         }
     }
 }

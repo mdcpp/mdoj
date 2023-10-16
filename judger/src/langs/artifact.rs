@@ -75,7 +75,10 @@ impl ArtifactFactory {
 
         let mut process = container
             .execute(
-                &spec.compile_args,
+                spec.compile_args
+                    .iter()
+                    .map(|x| x.as_str())
+                    .collect::<Vec<&str>>(),
                 spec.compile_limit.clone().apply_platform(),
             )
             .await?;
@@ -125,7 +128,17 @@ impl<'a> CompiledArtifact<'a> {
         limit.cpu_us *= time;
         limit.user_mem *= memory;
 
-        let mut process = self.container.execute(&self.spec.judge_args, limit).await?;
+        let mut process = self
+            .container
+            .execute(
+                self.spec
+                    .judge_args
+                    .iter()
+                    .map(|x| x.as_str())
+                    .collect::<Vec<&str>>(),
+                limit,
+            )
+            .await?;
 
         process.write_all(&input).await?;
 

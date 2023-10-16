@@ -24,7 +24,7 @@ impl<'a> Drop for Container<'a> {
 }
 
 impl<'a> Container<'a> {
-    pub async fn execute(&self, args: &Vec<String>, limit: Limit) -> Result<RunningProc, Error> {
+    pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
         log::trace!("Preparing container with id :{} for new process", self.id);
