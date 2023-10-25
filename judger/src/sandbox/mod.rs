@@ -61,7 +61,7 @@ mod test {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new(".temp");
+            let daemon = ContainerDaemon::new_with_id(".temp",2);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
@@ -96,7 +96,7 @@ mod test {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new(".temp");
+            let daemon = ContainerDaemon::new_with_id(".temp",3);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
@@ -131,7 +131,7 @@ mod test {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new(".temp");
+            let daemon = ContainerDaemon::new_with_id(".temp",4);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
