@@ -91,7 +91,7 @@ mod test {
         // unlike async-std, tokio won't wait for all background task to finish before exit
         time::sleep(time::Duration::from_millis(12)).await;
     }
-    #[tokio::test]
+    #[tokio::test] 
     async fn cgroup_cpu() {
         crate::init::new().await;
 

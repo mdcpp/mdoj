@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
-    process::Stdio,
+    process::Stdio, fmt::format,
 };
 
 use tokio::{
@@ -19,8 +19,25 @@ pub struct LimitBuilder {
 
 impl LimitBuilder {
     pub fn cgroup(mut self, cgroup_name: &str) -> LimitBuilder {
-        self.cmds.push(Cow::Borrowed("--cgroup_cpu_parent"));
-        self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
+        let config=CONFIG.get().unwrap();
+        match config.nsjail.is_cgv1(){
+            true => {
+                self.cmds.push(Cow::Borrowed("--cgroup_mem_parent"));
+                self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
+                self.cmds.push(Cow::Borrowed("--cgroup_cpu_parent"));
+                self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
+                self.cmds.push(Cow::Borrowed("--cgroup_cpu_ms_per_sec"));
+                self.cmds.push(Cow::Borrowed("1000000000000"));
+            },
+            false => {
+                self.cmds.push(Cow::Borrowed("--use_cgroupv2"));
+                self.cmds.push(Cow::Borrowed("--cgroup_cpu_parent"));
+                self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
+            },
+        }
+        // self.cmds.push(Cow::Borrowed("--cgroup_cpu_ms_per_sec"));
+        // self.cmds.push(Cow::Borrowed("1"));
+
 
         self
     }
