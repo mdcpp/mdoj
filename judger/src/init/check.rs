@@ -8,8 +8,15 @@ pub fn init() {
     let config = CONFIG.get().unwrap();
 
     if config.nsjail.is_cgv1() {
-        let hier = hierarchies::V2::new();
+        let hier = hierarchies::V1::new();
         let subsystems = hier.subsystems();
+        if let None = subsystems.iter().find(|sub| match sub {
+            cgroups_rs::Subsystem::CpuAcct(_) => true,
+            _ => false,
+        }) {
+            log::warn!("Subsystem CpuAcct(Cpu Accounting) is unavailable.");
+        };
+
         if let None = subsystems.iter().find(|sub| match sub {
             cgroups_rs::Subsystem::CpuSet(_) => true,
             _ => false,
@@ -31,7 +38,7 @@ pub fn init() {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
     } else {
-        let hier = hierarchies::V1::new();
+        let hier = hierarchies::V2::new();
         let subsystems = hier.subsystems();
         if let None = subsystems.iter().find(|sub| match sub {
             cgroups_rs::Subsystem::CpuSet(_) => true,
