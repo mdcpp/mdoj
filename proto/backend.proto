@@ -165,17 +165,9 @@ message ProblemFullInfo {
   int64 memory = 7;
 }
 
-message TestcaseId { int32 id = 1; }
-
 message Case {
-  repeated string inputs = 1;
-  repeated string outputs = 2;
-}
-
-message Testcase {
-  TestcaseId id = 1;
-  uint32 score = 2;
-  repeated Case cases = 3;
+  repeated bytes inputs = 1;
+  repeated bytes outputs = 2;
 }
 
 message Testcases{
@@ -232,10 +224,38 @@ service ProblemSet {
   rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
   rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
 
-  rpc AddTest(Testcase) returns (google.protobuf.Empty);
-  rpc RemoveTest(TestcaseId) returns (google.protobuf.Empty);
-  rpc Rejudge(ProblemId) returns (stream google.protobuf.Empty);
+  rpc FullInfoByContest(ProblemLink) returns (ProblemFullInfo);
 }
+
+message TestcaseId { int32 id = 1; }
+
+message Testcase {
+  TestcaseId id = 1;
+  uint32 score = 2;
+  repeated Case cases = 3;
+}
+
+message TestcaseFullInfo {
+  TestcaseId id = 1;
+  uint32 score = 2;
+  repeated bytes inputs = 3;
+  repeated bytes outputs = 4;
+}
+
+message TestcaseLink{
+  TestcaseId testcase_id = 1;
+  ProblemId problem_id = 2;
+}
+// Testcase
+service TestcaseSet {
+  rpc Create(CreateProblemRequest) returns (ProblemId);
+  rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
+  rpc Remove(ProblemId) returns (google.protobuf.Empty);
+
+  rpc Link(TestcaseLink) returns (google.protobuf.Empty);
+  rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
+}
+
 
 // Contest
 message ContestId { int32 id = 1; }
@@ -346,6 +366,7 @@ message SubmitStatus {
 message CreateSubmitRequest {
   message Info {
     bytes code = 1;
+    ProblemId problem_id = 2;
   }
   Info info = 1;
   SubmitId id = 2;
@@ -361,6 +382,7 @@ service SubmitSet {
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
   rpc Follow(SubmitId) returns (stream SubmitStatus);
+  rpc Rejudge(SubmitId) returns (google.protobuf.Empty);
 }
 
 // User

@@ -27,6 +27,17 @@ pub trait AsyncTransform<T> {
     async fn into(self) -> T;
 }
 
+#[macro_export]
+macro_rules! parse_option {
+    ($payload:expr,$field:ident) => {
+        paste::paste! {
+            $payload
+            .$field
+            .ok_or(tonic::Status::invalid_argument(format!("{} is required",stringify!($ident))))?
+        }
+    };
+}
+
 // macro_rules! match_col {
 //     ($target:expr, $field:ident) => {
 //         SortBy::$field => Column::$field

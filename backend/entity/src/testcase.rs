@@ -13,7 +13,6 @@ pub struct Model {
     pub user_id: i32,
     #[serde(skip_deserializing)]
     pub problem_id: i32,
-    pub sequence: i32,
     pub stdin: Vec<u8>,
     pub stdout: Vec<u8>,
 }
@@ -43,9 +42,12 @@ impl Related<problem::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct Tests(pub (Vec<(Vec<u8>, Vec<u8>)>));
+pub struct Tests(Vec<Vec<u8>>);
 
 impl Tests {
+    pub fn new(i: Vec<Vec<u8>>) -> Self {
+        Self(i)
+    }
     pub fn from_raw(raw: Vec<u8>) -> Self {
         let tests: Self = bincode::deserialize(&raw).unwrap();
         tests

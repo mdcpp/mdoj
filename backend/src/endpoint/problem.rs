@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
 use crate::{
-    common::error::result_into,
+    common::error::handle_dberr,
     endpoint::*,
     grpc::proto::prelude::*,
     impl_id,
     init::db::{self, DB},
-    Server,
+    parse_option, Server,
 };
 
 use super::util::{
@@ -15,7 +15,7 @@ use super::util::{
 };
 use tonic::{Request, Response};
 
-use entity::{education, problem::*};
+use entity::{education, problem::*, testcase::Tests};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     PaginatorTrait, QueryFilter, QuerySelect,
@@ -124,7 +124,7 @@ impl Intel<ProblemIntel> for Server {
                 .into_iter()
                 .collect();
 
-            let list = result_into(vr_to_rv(futures::future::join_all(futs).await))?;
+            let list = handle_dberr(vr_to_rv(futures::future::join_all(futs).await))?;
 
             let vaild = list
                 .into_iter()
@@ -200,7 +200,7 @@ impl AsyncTransform<Result<ProblemFullInfo, tonic::Status>> for Model {
     async fn into(self) -> Result<ProblemFullInfo, tonic::Status> {
         let db = DB.get().unwrap();
 
-        let edu = result_into(
+        let edu = handle_dberr(
             self.find_related(education::Entity)
                 .select_only()
                 .columns([education::Column::Id])
@@ -363,19 +363,13 @@ impl problem_set_server::ProblemSet for Server {
 
         let (auth, payload) = self.parse_request(request).await?;
 
-        let contest_id = payload
-            .contest_id
-            .ok_or(tonic::Status::not_found("problem id not found"))?
-            .id;
-        let problem_id = payload
-            .problem_id
-            .ok_or(tonic::Status::not_found("problem id not found"))?
-            .id;
+        let contest_id = parse_option!(payload, contest_id).id;
+        let problem_id = parse_option!(payload, problem_id).id;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if perm.can_link() {
-            let mut problem = result_into(
+            let mut problem = handle_dberr(
                 Entity::find_by_id(problem_id)
                     .select_only()
                     .columns([Column::ContestId])
@@ -385,7 +379,7 @@ impl problem_set_server::ProblemSet for Server {
             .ok_or(tonic::Status::not_found("problem not found"))?
             .into_active_model();
             problem.contest_id = ActiveValue::Set(contest_id);
-            result_into(problem.update(db).await).map(|_| Response::new(()))
+            handle_dberr(problem.update(db).await).map(|_| Response::new(()))
         } else {
             Err(tonic::Status::permission_denied("User cannot link"))
         }
@@ -395,34 +389,34 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<ProblemLink>,
     ) -> Result<Response<()>, tonic::Status> {
-        todo!()
-    }
+        let (auth, payload) = self.parse_request(request).await?;
 
-    async fn add_test(
-        &self,
-        request: tonic::Request<Testcase>,
-    ) -> Result<Response<()>, tonic::Status> {
-        todo!()
-    }
+        let (_, perm) = auth.ok_or_default()?;
 
-    async fn remove_test(
-        &self,
-        request: tonic::Request<TestcaseId>,
-    ) -> Result<Response<()>, tonic::Status> {
-        todo!()
-    }
-
-    #[doc = " Server streaming response type for the Rejudge method."]
-    type RejudgeStream = TonicStream<()>;
-
-    async fn rejudge(
-        &self,
-        request: tonic::Request<ProblemId>,
-    ) -> Result<Response<Self::RejudgeStream>, tonic::Status> {
-        // let (tx,rx)=tokio_stream::;
-        // Self::rw_filter(query, auth);
-        
-        todo!()
+        if perm.can_root() || perm.can_link() {
+            let db = DB.get().unwrap();
+            let contest_id = payload
+                .contest_id
+                .ok_or(tonic::Status::not_found("contest id not found"))?
+                .id;
+            let problem_id = payload
+                .problem_id
+                .ok_or(tonic::Status::not_found("problem id not found"))?
+                .id;
+            let mut problem = handle_dberr(
+                Entity::find_by_id(problem_id)
+                    .select_only()
+                    .columns([Column::ContestId])
+                    .one(db)
+                    .await,
+            )?
+            .ok_or(tonic::Status::not_found("problem not found"))?
+            .into_active_model();
+            problem.contest_id = ActiveValue::Set(contest_id);
+            handle_dberr(problem.update(db).await).map(|_| Response::new(()))
+        } else {
+            Err(tonic::Status::permission_denied(""))
+        }
     }
 
     async fn publish(
@@ -460,6 +454,13 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<TextSearchRequest>,
     ) -> Result<tonic::Response<Self::SearchByTagStream>, tonic::Status> {
+        todo!()
+    }
+
+    async fn full_info_by_contest(
+        &self,
+        request: tonic::Request<ProblemLink>,
+    ) -> Result<tonic::Response<ProblemFullInfo>, tonic::Status> {
         todo!()
     }
 }

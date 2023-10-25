@@ -2,7 +2,7 @@ use migration::ValueType;
 use sea_orm::*;
 use tonic::{async_trait, Request, Response};
 
-use crate::common::error::result_into;
+use crate::common::error::handle_dberr;
 use crate::endpoint::*;
 use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 use crate::init::db::DB;
@@ -13,7 +13,7 @@ pub trait IntelTrait {
     type Entity: EntityTrait;
 
     type PartialModel: PartialModelTrait;
-    type PrimaryKey: ValueType;
+    type PrimaryKey: ValueType + Transform<<Self as IntelTrait>::Id> + Send + 'static + Into<<<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType>;
     type Id: Transform<Self::PrimaryKey> + Send + 'static;
 
     type InfoArray;
@@ -71,8 +71,6 @@ pub trait BaseEndpoint<I>
 where
     I: IntelTrait,
     Self: Intel<I> + ControllerTrait,
-    <I as IntelTrait>::PrimaryKey :Transform<<I as IntelTrait>::Id>+Send,
-    <<<I as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType: From<<I as IntelTrait>::PrimaryKey>
 {
     async fn list(
         &self,
@@ -100,7 +98,7 @@ where
         let query = Self::sort_filter(query, sort_by, page, reverse);
 
         let list: Vec<<I as IntelTrait>::PartialModel> =
-            result_into(query.into_partial_model().all(db).await)?;
+            handle_dberr(query.into_partial_model().all(db).await)?;
         let list: Vec<<I as IntelTrait>::Info> =
             list.into_iter().map(|x| Transform::into(x)).collect();
         Ok(Response::new(Transform::into(list)))
@@ -140,7 +138,7 @@ where
         let query = query.filter(condition);
 
         let list: Vec<<I as IntelTrait>::PartialModel> =
-            result_into(query.into_partial_model().all(db).await)?;
+            handle_dberr(query.into_partial_model().all(db).await)?;
         let list: Vec<<I as IntelTrait>::Info> =
             list.into_iter().map(|x| Transform::into(x)).collect();
 
@@ -151,7 +149,8 @@ where
         request: Request<<I as IntelTrait>::Id>,
     ) -> Result<Response<<I as IntelTrait>::FullInfo>, tonic::Status>
     where
-        <<I as IntelTrait>::Entity as EntityTrait>::Model: AsyncTransform<Result<<I as IntelTrait>::FullInfo,tonic::Status>>,
+        <<I as IntelTrait>::Entity as EntityTrait>::Model:
+            AsyncTransform<Result<<I as IntelTrait>::FullInfo, tonic::Status>>,
     {
         let db = DB.get().unwrap();
 
@@ -160,16 +159,17 @@ where
         let pk = Transform::into(request);
         let query = I::Entity::find_by_id(pk);
         let query = Self::ro_filter(query, auth)?;
-        let model =result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("Not found"))?;
+        let model =
+            handle_dberr(query.one(db).await)?.ok_or(tonic::Status::not_found("Not found"))?;
         let info: <I as IntelTrait>::FullInfo = AsyncTransform::into(model).await?;
         Ok(Response::new(info))
     }
-    async fn update<R>(
-        &self,
-        request: tonic::Request<R>,
-    ) -> Result<Response<()>, tonic::Status>
+    async fn update<R>(&self, request: tonic::Request<R>) -> Result<Response<()>, tonic::Status>
     where
-        R: TryTransform<(<I as IntelTrait>::UpdateInfo,<I as IntelTrait>::PrimaryKey),tonic::Status>+Send,
+        R: TryTransform<
+                (<I as IntelTrait>::UpdateInfo, <I as IntelTrait>::PrimaryKey),
+                tonic::Status,
+            > + Send,
     {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
@@ -178,7 +178,8 @@ where
 
         let query = Self::rw_filter(I::Entity::find_by_id(pk), auth)?;
 
-        let model=result_into(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
+        let model =
+            handle_dberr(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
 
         Self::update_model(model, info).await?;
 
@@ -189,30 +190,29 @@ where
         request: tonic::Request<R>,
     ) -> Result<Response<<I as IntelTrait>::Id>, tonic::Status>
     where
-        R: TryTransform<<I as IntelTrait>::CreateInfo,tonic::Status>+Send,
+        R: TryTransform<<I as IntelTrait>::CreateInfo, tonic::Status> + Send,
     {
         let (auth, request) = self.parse_request(request).await?;
         let info = request.try_into()?;
 
         Self::can_create(auth)?;
 
-        let pk=Self::create_model(info).await?;
+        let pk = Self::create_model(info).await?;
         Ok(Response::new(Transform::into(pk)))
     }
     async fn remove(
         &self,
         request: tonic::Request<<I as IntelTrait>::Id>,
-    ) -> Result<Response<()>, tonic::Status>
-    {
+    ) -> Result<Response<()>, tonic::Status> {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
 
-        let pk= Transform::into(request);
+        let pk = Transform::into(request);
 
         let query = Self::rw_filter(I::Entity::delete_by_id(pk), auth)?;
 
-        match result_into(query.exec(db).await)?.rows_affected{
-            0 => Err(tonic::Status::not_found("message")),
+        match handle_dberr(query.exec(db).await)?.rows_affected {
+            0 => Err(tonic::Status::not_found("")),
             _ => Ok(Response::new(())),
         }
     }
