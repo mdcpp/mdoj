@@ -12,7 +12,7 @@ impl Display for prelude::JudgeResultState {
             prelude::JudgeResultState::Wa => "Wrong Answer",
             prelude::JudgeResultState::Ce => "Compile Error",
             prelude::JudgeResultState::Re => "Runtime Error",
-            prelude::JudgeResultState::Rf => "idk",
+            prelude::JudgeResultState::Rf => "Restricted Function",
             prelude::JudgeResultState::Tle => "Time Limit Excess",
             prelude::JudgeResultState::Mle => "Memory Limit Excess",
             prelude::JudgeResultState::Ole => "Output Limit Excess",

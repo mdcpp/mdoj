@@ -13,7 +13,7 @@ use super::super::Error;
 
 pub struct MemoryStatistic {
     pub available_mem: i64,
-    pub all_available_mem: i64,
+    pub max_mem: i64,
     pub tasks: u64,
 }
 
@@ -33,7 +33,7 @@ impl MemoryCounter {
         let self_lock = self.0.lock().unwrap();
         MemoryStatistic {
             available_mem: self_lock.memory,
-            all_available_mem: self_lock.all_mem,
+            max_mem: self_lock.all_mem,
             tasks: self_lock.tasks,
         }
     }

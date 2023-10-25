@@ -24,7 +24,7 @@ clean:
 
 test:
     sudo rm -rf .temp/* 
-    cargo test --jobs 1 --no-fail-fast
+    cargo test --no-fail-fast -- --test-threads 1 
 
 run:
     sudo rm -rf .temp/* 
