@@ -1,5 +1,9 @@
+use std::pin::Pin;
+
 use migration::ValueType;
 use sea_orm::*;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{async_trait, Request, Response};
 
 use crate::common::error::handle_dberr;
@@ -9,16 +13,35 @@ use crate::init::db::DB;
 
 use super::transform::{AsyncTransform, Transform, TryTransform};
 
+fn into_tokiostream<O: Send + 'static>(
+    mut iter: impl Iterator<Item = O> + Send + 'static,
+) -> TonicStream<O> {
+    let (tx, rx) = mpsc::channel(128);
+
+    tokio::spawn(async move {
+        while let Some(item) = iter.next() {
+            if tx.send(Result::<_, tonic::Status>::Ok(item)).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let output_stream = ReceiverStream::new(rx);
+    Box::pin(output_stream) as TonicStream<O>
+}
+
+type TonicStream<T> = Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
+
 pub trait IntelTrait {
     type Entity: EntityTrait;
 
-    type PartialModel: PartialModelTrait;
+    type PartialModel: PartialModelTrait + Send + 'static;
     type PrimaryKey: ValueType + Transform<<Self as IntelTrait>::Id> + Send + 'static + Into<<<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType>;
     type Id: Transform<Self::PrimaryKey> + Send + 'static;
 
     type InfoArray;
     type FullInfo;
-    type Info;
+    type Info: Send + 'static;
 
     type UpdateInfo: Send;
     type CreateInfo: Send;
@@ -56,13 +79,14 @@ where
     fn rw_filter<S>(query: S, auth: Auth) -> Result<S, tonic::Status>
     where
         S: QueryFilter;
-    fn can_create(auth: Auth) -> Result<(), tonic::Status>;
+    fn can_create(auth: Auth) -> Result<i32, tonic::Status>;
     async fn update_model(
         model: <<I as IntelTrait>::Entity as EntityTrait>::Model,
         info: <I as IntelTrait>::UpdateInfo,
     ) -> Result<<I as IntelTrait>::PrimaryKey, tonic::Status>;
     async fn create_model(
         model: <I as IntelTrait>::CreateInfo,
+        user_id: i32,
     ) -> Result<<I as IntelTrait>::PrimaryKey, tonic::Status>;
 }
 
@@ -75,10 +99,9 @@ where
     async fn list(
         &self,
         request: Request<ListRequest>,
-    ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
+    ) -> Result<Response<TonicStream<<I as IntelTrait>::Info>>, tonic::Status>
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
-        Vec<<I as IntelTrait>::Info>: Transform<<I as IntelTrait>::InfoArray>,
         <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
     {
         let db = DB.get().unwrap();
@@ -99,18 +122,17 @@ where
 
         let list: Vec<<I as IntelTrait>::PartialModel> =
             handle_dberr(query.into_partial_model().all(db).await)?;
-        let list: Vec<<I as IntelTrait>::Info> =
-            list.into_iter().map(|x| Transform::into(x)).collect();
-        Ok(Response::new(Transform::into(list)))
+
+        let output_stream = into_tokiostream(list.into_iter().map(|x| Transform::into(x)));
+        Ok(Response::new(Box::pin(output_stream)))
     }
     async fn search_by_text(
         &self,
         request: Request<TextSearchRequest>,
         text: &'static [<<I as IntelTrait>::Entity as EntityTrait>::Column],
-    ) -> Result<Response<<I as IntelTrait>::InfoArray>, tonic::Status>
+    ) -> Result<Response<TonicStream<<I as IntelTrait>::Info>>, tonic::Status>
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
-        Vec<<I as IntelTrait>::Info>: Transform<<I as IntelTrait>::InfoArray>,
         <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
     {
         debug_assert!(text.len() > 0);
@@ -139,10 +161,9 @@ where
 
         let list: Vec<<I as IntelTrait>::PartialModel> =
             handle_dberr(query.into_partial_model().all(db).await)?;
-        let list: Vec<<I as IntelTrait>::Info> =
-            list.into_iter().map(|x| Transform::into(x)).collect();
 
-        Ok(Response::new(Transform::into(list)))
+        let output_stream = into_tokiostream(list.into_iter().map(|x| Transform::into(x)));
+        Ok(Response::new(Box::pin(output_stream)))
     }
     async fn full_info(
         &self,
@@ -195,9 +216,9 @@ where
         let (auth, request) = self.parse_request(request).await?;
         let info = request.try_into()?;
 
-        Self::can_create(auth)?;
+        let user_id = Self::can_create(auth)?;
 
-        let pk = Self::create_model(info).await?;
+        let pk = Self::create_model(info, user_id).await?;
         Ok(Response::new(Transform::into(pk)))
     }
     async fn remove(

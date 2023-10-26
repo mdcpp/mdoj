@@ -9,6 +9,12 @@ pub trait Transform<I> {
     fn into(self) -> I;
 }
 
+// impl<I: Sized> Transform<I> for I {
+//     fn into(self) -> I {
+//         self
+//     }
+// }
+
 #[macro_export]
 macro_rules! impl_id {
     ($name:ident) => {
@@ -16,6 +22,11 @@ macro_rules! impl_id {
             impl Transform<i32> for [<$name Id>] {
                 fn into(self) -> i32 {
                     self.id
+                }
+            }
+            impl Transform<[<$name Id>]> for i32 {
+                fn into(self) -> [<$name Id>] {
+                    [<$name Id>] { id: self }
                 }
             }
         }

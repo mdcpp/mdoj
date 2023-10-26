@@ -1,7 +1,7 @@
 pub(super) mod container;
 pub(super) mod daemon;
 pub(super) mod process;
-pub(super) mod utils; 
+pub(super) mod utils;
 
 use thiserror::Error;
 
@@ -61,7 +61,7 @@ mod test {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new_with_id(".temp",2);
+            let daemon = ContainerDaemon::new_with_id(".temp", 2);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
@@ -91,20 +91,17 @@ mod test {
         // unlike async-std, tokio won't wait for all background task to finish before exit
         time::sleep(time::Duration::from_millis(12)).await;
     }
-    #[tokio::test] 
+    #[tokio::test]
     async fn cgroup_cpu() {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new_with_id(".temp",3);
+            let daemon = ContainerDaemon::new_with_id(".temp", 3);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
                 .execute(
-                    vec![
-                        "/usr/local/bin/lua",
-                        "/test/test2.lua",
-                    ],
+                    vec!["/usr/local/bin/lua", "/test/test2.lua"],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
@@ -131,15 +128,12 @@ mod test {
         crate::init::new().await;
 
         {
-            let daemon = ContainerDaemon::new_with_id(".temp",4);
+            let daemon = ContainerDaemon::new_with_id(".temp", 4);
             let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
             let process = container
                 .execute(
-                    vec![
-                        "/usr/local/bin/lua",
-                        "/test/test3.lua",
-                    ],
+                    vec!["/usr/local/bin/lua", "/test/test3.lua"],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,

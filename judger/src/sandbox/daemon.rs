@@ -25,7 +25,7 @@ impl ContainerDaemon {
         }
     }
     #[cfg(test)]
-    pub fn new_with_id(tmp: impl AsRef<Path>,id:i64) -> Self {
+    pub fn new_with_id(tmp: impl AsRef<Path>, id: i64) -> Self {
         let config = CONFIG.get().unwrap();
         Self {
             id_counter: AtomicI64::new(id),

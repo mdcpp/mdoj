@@ -221,8 +221,8 @@ service ProblemSet {
   rpc Link(ProblemLink) returns (google.protobuf.Empty);
   rpc Unlink(ProblemLink) returns (google.protobuf.Empty);
 
-  rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
-  rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
+  rpc Publish(ProblemId) returns (google.protobuf.Empty);
+  rpc Unpublish(ProblemId) returns (google.protobuf.Empty);
 
   rpc FullInfoByContest(ProblemLink) returns (ProblemFullInfo);
 }

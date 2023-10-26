@@ -23,10 +23,12 @@ where
     L: LinkTrait,
 {
     async fn link(
+        &self,
         model: <<L::Intel as IntelTrait>::Entity as EntityTrait>::Model,
         parent_pk: <L::ParentIntel as IntelTrait>::PrimaryKey,
     ) -> Result<(), tonic::Status>;
     async fn unlink(
+        &self,
         model: <<L::Intel as IntelTrait>::Entity as EntityTrait>::Model,
         parent_pk: <L::ParentIntel as IntelTrait>::PrimaryKey,
     ) -> Result<(), tonic::Status>;
@@ -61,7 +63,7 @@ where
         )?
         .ok_or(tonic::Status::not_found(""))?;
 
-        <Self as Linkable<I>>::link(entity, ppk).await?;
+        <Self as Linkable<I>>::link(&self, entity, ppk).await?;
 
         Ok(Response::new(()))
     }
@@ -88,8 +90,12 @@ where
         )?
         .ok_or(tonic::Status::not_found(""))?;
 
-        <Self as Linkable<I>>::unlink(entity, ppk).await?;
+        <Self as Linkable<I>>::unlink(&self, entity, ppk).await?;
 
         Ok(Response::new(()))
+    }
+    async fn full_info_by_parents(
+    ) -> Result<<<I as LinkTrait>::Intel as IntelTrait>::FullInfo, tonic::Status> {
+        todo!()
     }
 }
