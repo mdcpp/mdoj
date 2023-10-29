@@ -5,37 +5,30 @@ use crate::{common::error::handle_dberr, endpoint::ControllerTrait, init::db::DB
 
 use super::{intel::IntelTrait, transform::Transform};
 
-pub trait PublishTrait {
-    type Publisher: Send + 'static + Transform<<Self::Intel as IntelTrait>::PrimaryKey>;
-
-    type Intel: IntelTrait;
+pub trait PublishTrait<I: IntelTrait> {
+    type Publisher: Send + 'static + Transform<I::PrimaryKey>;
 }
 
 #[async_trait]
-pub trait Publishable<I>
+pub trait Publishable<I: IntelTrait>
 where
-    I: PublishTrait,
+    I: PublishTrait<I>,
+    Self: ControllerTrait,
 {
-    async fn publish(
-        &self,
-        entity: <<I::Intel as IntelTrait>::Entity as EntityTrait>::Model,
-    ) -> Result<(), tonic::Status>;
+    async fn publish(&self, entity: <I::Entity as EntityTrait>::Model)
+        -> Result<(), tonic::Status>;
     async fn unpublish(
         &self,
-        entity: <<I::Intel as IntelTrait>::Entity as EntityTrait>::Model,
+        entity: <I::Entity as EntityTrait>::Model,
     ) -> Result<(), tonic::Status>;
 }
 
 #[async_trait]
-pub trait PublishEndpoint<I>
+pub trait PublishEndpoint<I: PublishTrait<I> + IntelTrait>
 where
-    I: PublishTrait,
     Self: Publishable<I> + ControllerTrait,
 {
-    async fn publish(
-        &self,
-        request: Request<<I as PublishTrait>::Publisher>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn publish(&self, request: Request<I::Publisher>) -> Result<Response<()>, tonic::Status> {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
 
@@ -47,12 +40,8 @@ where
 
         let pk = Transform::into(request);
 
-        let entity = handle_dberr(
-            <<<I as PublishTrait>::Intel as IntelTrait>::Entity as EntityTrait>::find_by_id(pk)
-                .one(db)
-                .await,
-        )?
-        .ok_or(tonic::Status::not_found(""))?;
+        let entity = handle_dberr(I::Entity::find_by_id(pk).one(db).await)?
+            .ok_or(tonic::Status::not_found(""))?;
 
         <Self as Publishable<I>>::publish(&self, entity).await?;
 
@@ -60,7 +49,7 @@ where
     }
     async fn unpublish(
         &self,
-        request: Request<<I as PublishTrait>::Publisher>,
+        request: Request<I::Publisher>,
     ) -> Result<Response<()>, tonic::Status> {
         let db = DB.get().unwrap();
         let (auth, request) = self.parse_request(request).await?;
@@ -73,12 +62,8 @@ where
 
         let pk = Transform::into(request);
 
-        let entity = handle_dberr(
-            <<<I as PublishTrait>::Intel as IntelTrait>::Entity as EntityTrait>::find_by_id(pk)
-                .one(db)
-                .await,
-        )?
-        .ok_or(tonic::Status::not_found(""))?;
+        let entity = handle_dberr(I::Entity::find_by_id(pk).one(db).await)?
+            .ok_or(tonic::Status::not_found(""))?;
 
         <Self as Publishable<I>>::unpublish(&self, entity).await?;
 

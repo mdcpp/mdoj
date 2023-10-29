@@ -272,15 +272,12 @@ impl TryTransform<(update_problem_request::Info, i32), tonic::Status> for Update
 //     type ParentIntel;
 // }
 
-struct ProblemPublish;
-
-impl PublishTrait for ProblemPublish {
+impl PublishTrait<ProblemIntel> for ProblemIntel {
     type Publisher = ProblemId;
-    type Intel = ProblemIntel;
 }
 
 #[async_trait]
-impl Publishable<ProblemPublish> for Server {
+impl Publishable<ProblemIntel> for Server {
     async fn publish(&self, entity: Model) -> Result<(), tonic::Status> {
         let db = DB.get().unwrap();
 
@@ -306,7 +303,7 @@ impl Publishable<ProblemPublish> for Server {
 
 // impl Endpoints
 impl BaseEndpoint<ProblemIntel> for Server {}
-impl PublishEndpoint<ProblemPublish> for Server {}
+impl PublishEndpoint<ProblemIntel> for Server {}
 
 // Adapters
 #[async_trait]
