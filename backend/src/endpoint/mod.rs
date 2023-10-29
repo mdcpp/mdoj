@@ -5,6 +5,7 @@ use tonic::async_trait;
 use crate::{common::prelude::UserPermBytes, Server};
 
 pub mod problem;
+pub mod testcase;
 pub mod util;
 
 #[derive(Debug, Error)]

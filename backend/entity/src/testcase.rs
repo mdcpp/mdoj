@@ -1,10 +1,10 @@
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
 use crate::problem;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "testcases")]
+#[sea_orm(table_name = "testcase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     #[serde(skip_deserializing)]
@@ -55,4 +55,13 @@ impl Tests {
     pub fn into_raw(&self) -> Vec<u8> {
         bincode::serialize(self).unwrap()
     }
+}
+
+#[derive(DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "Entity")]
+pub struct PartialTestcase {
+    #[sea_orm(from_col = "id")]
+    pub id: i32,
+    pub user_id: i32,
+    pub problem_id: i32,
 }

@@ -3,7 +3,7 @@ use tonic::{async_trait, Request, Response};
 use crate::{common::error::handle_dberr, endpoint::ControllerTrait, init::db::DB};
 use sea_orm::*;
 
-use super::{intel::IntelTrait, transform::Transform};
+use super::{intel::IntelTrait, stream::TonicStream, transform::Transform};
 
 pub trait LinkTrait {
     type Linker: Send
@@ -94,8 +94,19 @@ where
 
         Ok(Response::new(()))
     }
-    async fn full_info_by_parents(
-    ) -> Result<<<I as LinkTrait>::Intel as IntelTrait>::FullInfo, tonic::Status> {
+    fn list_by_parents(
+        &self,
+        request: tonic::Request<<<I as LinkTrait>::ParentIntel as IntelTrait>::Id>,
+    ) -> Result<Response<TonicStream<<<I as LinkTrait>::Intel as IntelTrait>::Info>>, tonic::Status> {
         todo!()
     }
+
+
+    fn full_info_by_parents(
+        &self,
+        request: tonic::Request<I::Linker>,
+    ) -> Result<Response<<<I as LinkTrait>::Intel as IntelTrait>::FullInfo>, tonic::Status> {
+        todo!()
+    }
+
 }

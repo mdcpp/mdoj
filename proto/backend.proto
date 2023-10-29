@@ -225,6 +225,7 @@ service ProblemSet {
   rpc Unpublish(ProblemId) returns (google.protobuf.Empty);
 
   rpc FullInfoByContest(ProblemLink) returns (ProblemFullInfo);
+  rpc ListByContest(ProblemLink) returns (stream ProblemInfo);
 }
 
 message TestcaseId { int32 id = 1; }
@@ -246,14 +247,36 @@ message TestcaseLink{
   TestcaseId testcase_id = 1;
   ProblemId problem_id = 2;
 }
+
+message CreateTestcaseRequest {
+  message Info {
+    uint32 score = 2;
+    repeated bytes inputs = 3;
+    repeated bytes outputs = 4;
+  };
+  Info info = 1;
+}
+
+message UpdateTestcaseRequest {
+  message Info {
+    uint32 score = 2;
+    repeated bytes inputs = 3;
+    repeated bytes outputs = 4;
+  };
+  Info info = 1;
+  ProblemId id = 3;
+}
 // Testcase
 service TestcaseSet {
-  rpc Create(CreateProblemRequest) returns (ProblemId);
-  rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
+  rpc Create(CreateTestcaseRequest) returns (ProblemId);
+  rpc Update(UpdateTestcaseRequest) returns (google.protobuf.Empty);
   rpc Remove(ProblemId) returns (google.protobuf.Empty);
 
   rpc Link(TestcaseLink) returns (google.protobuf.Empty);
   rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
+
+  rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
+  rpc ListByProblem(TestcaseLink) returns (stream Testcase);
 }
 
 

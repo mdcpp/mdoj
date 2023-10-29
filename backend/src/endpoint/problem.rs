@@ -47,7 +47,7 @@ pub struct ProblemIntel;
 impl IntelTrait for ProblemIntel {
     type Entity = Entity;
 
-    type PartialModel = PartialProblem;
+    type PartialModel = PartialTestcase;
 
     type InfoArray = Problems;
 
@@ -195,7 +195,7 @@ impl Transform<Problems> for Vec<ProblemInfo> {
     }
 }
 
-impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem {
+impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialTestcase {
     fn into(self) -> <ProblemIntel as IntelTrait>::Info {
         ProblemInfo {
             id: Some(ProblemId { id: self.id }),
@@ -446,6 +446,16 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<ProblemLink>,
     ) -> Result<tonic::Response<ProblemFullInfo>, tonic::Status> {
+        todo!()
+    }
+
+    #[doc = " Server streaming response type for the ListByContest method."]
+    type ListByContestStream = TonicStream<ProblemInfo>;
+
+    async fn list_by_contest(
+        &self,
+        request: tonic::Request<ProblemLink>,
+    ) -> Result<tonic::Response<Self::ListByContestStream>, tonic::Status> {
         todo!()
     }
 }

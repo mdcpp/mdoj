@@ -11,31 +11,13 @@ use crate::endpoint::*;
 use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 use crate::init::db::DB;
 
+use super::stream::{into_tokiostream, TonicStream};
 use super::transform::{AsyncTransform, Transform, TryTransform};
-
-fn into_tokiostream<O: Send + 'static>(
-    mut iter: impl Iterator<Item = O> + Send + 'static,
-) -> TonicStream<O> {
-    let (tx, rx) = mpsc::channel(128);
-
-    tokio::spawn(async move {
-        while let Some(item) = iter.next() {
-            if tx.send(Result::<_, tonic::Status>::Ok(item)).await.is_err() {
-                break;
-            }
-        }
-    });
-
-    let output_stream = ReceiverStream::new(rx);
-    Box::pin(output_stream) as TonicStream<O>
-}
-
-type TonicStream<T> = Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
 
 pub trait IntelTrait {
     type Entity: EntityTrait;
 
-    type PartialModel: PartialModelTrait + Send + 'static;
+    type PartialModel: Send + 'static;
     type PrimaryKey: ValueType + Transform<<Self as IntelTrait>::Id> + Send + 'static + Into<<<<Self as IntelTrait>::Entity as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType>;
     type Id: Transform<Self::PrimaryKey> + Send + 'static;
 
@@ -102,7 +84,7 @@ where
     ) -> Result<Response<TonicStream<<I as IntelTrait>::Info>>, tonic::Status>
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
-        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
+        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + PartialModelTrait,
     {
         let db = DB.get().unwrap();
 
@@ -133,7 +115,7 @@ where
     ) -> Result<Response<TonicStream<<I as IntelTrait>::Info>>, tonic::Status>
     where
         SortBy: Transform<<<I as IntelTrait>::Entity as EntityTrait>::Column>,
-        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + Send,
+        <I as IntelTrait>::PartialModel: Transform<<I as IntelTrait>::Info> + PartialModelTrait,
     {
         debug_assert!(text.len() > 0);
         let db = DB.get().unwrap();
