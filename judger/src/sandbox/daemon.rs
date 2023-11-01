@@ -7,11 +7,11 @@ use tokio::fs;
 
 use crate::init::config::CONFIG;
 
-use super::{container::Container, utils::preserve::MemoryCounter, Error};
+use super::{container::Container, utils::preserve::MemorySemaphore, Error};
 
 pub struct ContainerDaemon {
     id_counter: AtomicI64,
-    pub(super) memory_counter: MemoryCounter,
+    pub(super) memory_counter: MemorySemaphore,
     pub(super) tmp: PathBuf,
 }
 
@@ -20,7 +20,7 @@ impl ContainerDaemon {
         let config = CONFIG.get().unwrap();
         Self {
             id_counter: Default::default(),
-            memory_counter: MemoryCounter::new(config.platform.available_memory),
+            memory_counter: MemorySemaphore::new(config.platform.available_memory),
             tmp: tmp.as_ref().to_path_buf(),
         }
     }
@@ -29,7 +29,7 @@ impl ContainerDaemon {
         let config = CONFIG.get().unwrap();
         Self {
             id_counter: AtomicI64::new(id),
-            memory_counter: MemoryCounter::new(config.platform.available_memory),
+            memory_counter: MemorySemaphore::new(config.platform.available_memory),
             tmp: tmp.as_ref().to_path_buf(),
         }
     }

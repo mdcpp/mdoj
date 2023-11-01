@@ -11,7 +11,7 @@ use super::{
     utils::{
         limiter::{cpu::CpuStatistics, mem::MemStatistics, Limiter},
         nsjail::NsJail,
-        preserve::MemoryHolder,
+        preserve::MemoryPermit,
     },
     Error,
 };
@@ -21,7 +21,7 @@ use super::{
 pub struct RunningProc {
     pub(super) limiter: Limiter,
     pub(super) nsjail: NsJail,
-    pub(super) _memory_holder: MemoryHolder,
+    pub(super) _memory_holder: MemoryPermit,
 }
 
 impl RunningProc {

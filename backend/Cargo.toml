@@ -49,5 +49,9 @@ features = ["derive"]
 version = "0.9.2"
 features = ["transport", "channel", "codegen", "tls", "prost"]
 
+[dependencies.spin]
+version = "0.9.8"
+features = ["mutex","spin_mutex"]
+
 [build-dependencies]
 tonic-build = "0.9.2"
