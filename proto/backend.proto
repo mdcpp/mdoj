@@ -225,7 +225,7 @@ service ProblemSet {
   rpc Unpublish(ProblemId) returns (google.protobuf.Empty);
 
   rpc FullInfoByContest(ProblemLink) returns (ProblemFullInfo);
-  rpc ListByContest(ProblemLink) returns (stream ProblemInfo);
+  rpc ListByContest(ContestId) returns (stream ProblemInfo);
 }
 
 message TestcaseId { int32 id = 1; }
