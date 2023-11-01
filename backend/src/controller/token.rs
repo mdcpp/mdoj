@@ -3,8 +3,9 @@ use entity::token;
 use lru::LruCache;
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use spin::mutex::spin::SpinMutex;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{num::NonZeroUsize, sync::Mutex};
 
 use crate::common::prelude::UserPermBytes;
 use crate::init::db::DB;
@@ -43,14 +44,14 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
-    cache: Mutex<LruCache<RAND, CachedToken>>,
+    cache: SpinMutex<LruCache<RAND, CachedToken>>,
     frqu: AtomicUsize,
 }
 
 impl Default for TokenController {
     fn default() -> Self {
         log::debug!("Setup TokenController");
-        let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
         Self {
             cache,
             frqu: Default::default(),
@@ -98,7 +99,7 @@ impl TokenController {
         let token: CachedToken;
 
         let cache_result = {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock();
             match cache.get(&rand) {
                 Some(cc) => {
                     if cc.expiry < now {
@@ -129,7 +130,7 @@ impl TokenController {
                     return Ok(None);
                 }
 
-                self.cache.lock().unwrap().put(rand, token.clone());
+                self.cache.lock().put(rand, token.clone());
             }
         }
 
@@ -146,7 +147,7 @@ impl TokenController {
             .exec(db)
             .await?;
 
-        self.cache.lock().unwrap().pop(&rand);
+        self.cache.lock().pop(&rand);
 
         Ok(Some(()))
     }

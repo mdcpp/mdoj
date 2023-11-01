@@ -192,8 +192,4 @@ impl NsJail {
             .unwrap();
         status.code()
     }
-    pub async fn kill(&self) -> Result<(), Error> {
-        self.process.as_ref().unwrap().lock().await.kill().await?;
-        Ok(())
-    }
 }

@@ -1,15 +1,18 @@
 // todo!(): add resource limit
 
 use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
+    collections::BTreeSet,
+    sync::{atomic, Arc},
 };
 
+use spin::mutex::SpinMutex;
 use tokio::sync::oneshot;
 
 use crate::init::config::CONFIG;
 
 use super::super::Error;
+
+const MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub struct MemoryStatistic {
     pub available_mem: i64,
@@ -17,27 +20,28 @@ pub struct MemoryStatistic {
     pub tasks: u64,
 }
 
+/// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
 #[derive(Clone)]
-pub struct MemoryCounter(Arc<Mutex<MemoryCounterInner>>);
+pub struct MemorySemaphore(Arc<SpinMutex<MemoryCounterInner>>);
 
-impl MemoryCounter {
+impl MemorySemaphore {
     pub fn new(memory: i64) -> Self {
-        Self(Arc::new(Mutex::new(MemoryCounterInner {
+        Self(Arc::new(SpinMutex::new(MemoryCounterInner {
             memory,
             all_mem: memory,
-            queue: VecDeque::new(),
+            queue: BTreeSet::new(),
             tasks: 0,
         })))
     }
     pub fn usage(&self) -> MemoryStatistic {
-        let self_lock = self.0.lock().unwrap();
+        let self_ = self.0.lock();
         MemoryStatistic {
-            available_mem: self_lock.memory,
-            max_mem: self_lock.all_mem,
-            tasks: self_lock.tasks,
+            available_mem: self_.memory,
+            max_mem: self_.all_mem,
+            tasks: self_.tasks,
         }
     }
-    pub async fn allocate(&self, memory: i64) -> Result<MemoryHolder, Error> {
+    pub async fn allocate(&self, memory: i64) -> Result<MemoryPermit, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
@@ -46,11 +50,15 @@ impl MemoryCounter {
         }
 
         let rx: oneshot::Receiver<()> = {
-            let mut self_lock = self.0.lock().unwrap();
+            let mut self_lock = self.0.lock();
 
             let (tx, rx) = oneshot::channel();
 
-            self_lock.queue.push_back((memory, tx));
+            self_lock.queue.insert(MemDemand {
+                memory,
+                tx,
+                id: MEMID.fetch_add(1, atomic::Ordering::SeqCst),
+            });
 
             drop(self_lock);
 
@@ -63,17 +71,21 @@ impl MemoryCounter {
 
         log::trace!("get {}B memory", memory);
 
-        Ok(MemoryHolder::new(self, memory))
+        Ok(MemoryPermit::new(self, memory))
     }
     fn deallocate(&self, de_memory: i64) {
-        let mut self_lock = &mut *self.0.lock().unwrap();
+        let self_ = &mut *self.0.lock();
 
-        self_lock.memory += de_memory;
-        if let Some((memory, _)) = self_lock.queue.front() {
-            if memory < &self_lock.memory {
-                self_lock.memory -= memory;
-                let (_, channel) = self_lock.queue.pop_front().unwrap();
-                channel.send(()).unwrap();
+        self_.memory += de_memory;
+        loop {
+            if let Some(demand) = self_.queue.last() {
+                if demand.memory < self_.memory {
+                    self_.memory -= demand.memory;
+                    let channel = self_.queue.pop_last().unwrap().tx;
+                    channel.send(()).unwrap();
+                } else {
+                    break;
+                }
             }
         }
     }
@@ -82,18 +94,43 @@ impl MemoryCounter {
 pub struct MemoryCounterInner {
     memory: i64,
     all_mem: i64,
-    queue: VecDeque<(i64, oneshot::Sender<()>)>,
+    queue: BTreeSet<MemDemand>,
     tasks: u64,
 }
 
-pub struct MemoryHolder {
-    mem: i64,
-    counter: MemoryCounter,
+struct MemDemand {
+    memory: i64,
+    tx: oneshot::Sender<()>,
+    id: usize,
 }
 
-impl MemoryHolder {
-    fn new(counter: &MemoryCounter, memory: i64) -> Self {
-        counter.0.lock().unwrap().tasks += 1;
+impl Ord for MemDemand {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.memory, &self.id).cmp(&(other.memory, &other.id))
+    }
+}
+
+impl PartialOrd for MemDemand {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.memory.partial_cmp(&other.memory)
+    }
+}
+
+impl Eq for MemDemand {}
+impl PartialEq for MemDemand {
+    fn eq(&self, other: &Self) -> bool {
+        self.memory == other.memory && self.id == other.id
+    }
+}
+
+pub struct MemoryPermit {
+    mem: i64,
+    counter: MemorySemaphore,
+}
+
+impl MemoryPermit {
+    fn new(counter: &MemorySemaphore, memory: i64) -> Self {
+        counter.0.lock().tasks += 1;
         Self {
             mem: memory,
             counter: counter.clone(),
@@ -101,10 +138,10 @@ impl MemoryHolder {
     }
 }
 
-impl Drop for MemoryHolder {
+impl Drop for MemoryPermit {
     fn drop(&mut self) {
         {
-            self.counter.0.lock().unwrap().tasks -= 1;
+            self.counter.0.lock().tasks -= 1;
         }
         self.counter.deallocate(self.mem);
     }
