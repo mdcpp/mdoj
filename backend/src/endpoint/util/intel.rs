@@ -206,7 +206,7 @@ where
         let (auth, request) = self.parse_request(request).await?;
         let info = request.try_into()?;
 
-        let user_id=match auth.is_root() {
+        let user_id = match auth.is_root() {
             true => auth.user_id().unwrap(),
             false => Self::can_create(auth)?,
         };

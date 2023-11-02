@@ -9,7 +9,12 @@ use super::{
     transform::Transform,
 };
 
-pub trait LinkTrait<I: IntelTrait> {
+pub trait LinkTrait<I: IntelTrait>
+where
+    <Self::ParentIntel as IntelTrait>::Entity: Related<I::Entity>,
+{
+    const ENTITY: I::Entity;
+
     type Linker: Send
         + 'static
         + Transform<(I::PrimaryKey, <Self::ParentIntel as IntelTrait>::PrimaryKey)>;
@@ -21,6 +26,7 @@ pub trait LinkTrait<I: IntelTrait> {
 pub trait Linkable<I: IntelTrait>
 where
     I: LinkTrait<I>,
+    <I::ParentIntel as IntelTrait>::Entity: Related<I::Entity>,
     Self: ControllerTrait,
 {
     async fn link(
@@ -39,6 +45,7 @@ where
 pub trait LinkQueryable<I: IntelTrait>
 where
     I: LinkTrait<I>,
+    <I::ParentIntel as IntelTrait>::Entity: Related<I::Entity>,
     Self: ControllerTrait,
 {
     async fn owner_filter(
@@ -51,6 +58,7 @@ where
 #[async_trait]
 pub trait LinkEndpoint<I: LinkTrait<I> + IntelTrait>
 where
+    <I::ParentIntel as IntelTrait>::Entity: Related<I::Entity>,
     Self: ControllerTrait,
 {
     async fn link(&self, request: Request<I::Linker>) -> Result<Response<()>, tonic::Status>
@@ -105,6 +113,7 @@ where
     ) -> Result<Response<TonicStream<I::Info>>, tonic::Status>
     where
         Self: LinkQueryable<I>,
+        <<I::ParentIntel as IntelTrait>::Entity as EntityTrait>::Model: Sync,
     {
         let db = DB.get().unwrap();
 
@@ -121,13 +130,9 @@ where
         )?
         .ok_or(tonic::Status::not_found(""))?;
 
-        // self.owner_filter(parents.find_related(I::Entity));
-
-        todo!();
-
-        if !perm.can_root() {
-            return Err(tonic::Status::permission_denied("Permission Deny"));
-        }
+        // TODO: admin bypass
+        // TODO: use union to expose owner's (private)
+        let a = handle_dberr(parents.find_related(I::ENTITY).all(db).await)?;
 
         todo!()
     }
