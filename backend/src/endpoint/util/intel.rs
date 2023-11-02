@@ -86,8 +86,11 @@ where
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let query = I::Entity::find();
-        let query = Self::ro_filter(query, auth)?;
+        let mut query = I::Entity::find();
+
+        if !auth.is_root() {
+            query = Self::ro_filter(query, auth)?;
+        }
 
         let sort_by = SortBy::from_i32(request.sort_by)
             .ok_or(tonic::Status::invalid_argument("Invalid sort_by"))?;
@@ -118,8 +121,11 @@ where
 
         let (auth, request) = self.parse_request(request).await?;
 
-        let query = I::Entity::find();
-        let query = Self::ro_filter(query, auth)?;
+        let mut query = I::Entity::find();
+
+        if !auth.is_root() {
+            query = Self::ro_filter(query, auth)?;
+        }
 
         let sort_by = SortBy::from_i32(request.sort_by)
             .ok_or(tonic::Status::invalid_argument("Invalid sort_by"))?;
@@ -156,8 +162,11 @@ where
         let (auth, request) = self.parse_request(request).await?;
 
         let pk = Transform::into(request);
-        let query = I::Entity::find_by_id(pk);
-        let query = Self::ro_filter(query, auth)?;
+        let mut query = I::Entity::find_by_id(pk);
+        if !auth.is_root() {
+            query = Self::ro_filter(query, auth)?;
+        }
+
         let model =
             handle_dberr(query.one(db).await)?.ok_or(tonic::Status::not_found("Not found"))?;
         let info: <I as IntelTrait>::FullInfo = AsyncTransform::into(model).await?;
@@ -175,7 +184,10 @@ where
 
         let (info, pk) = TryTransform::try_into(request)?;
 
-        let query = Self::rw_filter(I::Entity::find_by_id(pk), auth)?;
+        let query = match auth.is_root() {
+            true => I::Entity::find_by_id(pk),
+            false => Self::rw_filter(I::Entity::find_by_id(pk), auth)?,
+        };
 
         let model =
             handle_dberr(query.one(db).await)?.ok_or(tonic::Status::not_found("message"))?;
@@ -194,7 +206,10 @@ where
         let (auth, request) = self.parse_request(request).await?;
         let info = request.try_into()?;
 
-        let user_id = Self::can_create(auth)?;
+        let user_id=match auth.is_root() {
+            true => auth.user_id().unwrap(),
+            false => Self::can_create(auth)?,
+        };
 
         let pk = Self::create_model(info, user_id).await?;
         Ok(Response::new(Transform::into(pk)))
@@ -208,7 +223,10 @@ where
 
         let pk = Transform::into(request);
 
-        let query = Self::rw_filter(I::Entity::delete_by_id(pk), auth)?;
+        let query = match auth.is_root() {
+            true => I::Entity::delete_by_id(pk),
+            false => Self::rw_filter(I::Entity::delete_by_id(pk), auth)?,
+        };
 
         match handle_dberr(query.exec(db).await)?.rows_affected {
             0 => Err(tonic::Status::not_found("")),

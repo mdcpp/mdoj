@@ -46,6 +46,12 @@ impl Auth {
             _ => Err(err),
         }
     }
+    pub fn is_root(&self) -> bool {
+        match self {
+            Auth::User((uid, perm)) => perm.can_root(),
+            _ => false,
+        }
+    }
     pub fn ok_or_default(&self) -> Result<(i32, UserPermBytes), tonic::Status> {
         self.ok_or(tonic::Status::unauthenticated("Permission Deny"))
     }

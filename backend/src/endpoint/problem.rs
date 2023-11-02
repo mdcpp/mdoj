@@ -72,7 +72,7 @@ impl Intel<ProblemIntel> for Server {
     {
         Ok(match auth {
             Auth::Guest => query.filter(Column::Public.eq(true)),
-            Auth::User((user_id, perm)) => match perm.can_root() || perm.can_manage_problem() {
+            Auth::User((user_id, perm)) => match perm.can_manage_problem() {
                 true => query,
                 false => query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
             },
@@ -84,9 +84,7 @@ impl Intel<ProblemIntel> for Server {
         S: QueryFilter,
     {
         let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            Ok(query)
-        } else if perm.can_manage_problem() {
+        if perm.can_manage_problem() {
             Ok(query.filter(Column::UserId.eq(user_id)))
         } else {
             Err(tonic::Status::permission_denied("User cannot write"))
@@ -95,7 +93,7 @@ impl Intel<ProblemIntel> for Server {
 
     fn can_create(auth: Auth) -> Result<i32, tonic::Status> {
         let (user_id, perm) = auth.ok_or_default()?;
-        match perm.can_root() || perm.can_manage_problem() {
+        match perm.can_manage_problem() {
             true => Ok(user_id),
             false => Err(tonic::Status::unauthenticated("Permission Deny")),
         }
@@ -451,7 +449,7 @@ impl problem_set_server::ProblemSet for Server {
 
     async fn list_by_contest(
         &self,
-        request: tonic::Request<ProblemLink>,
+        request: tonic::Request<ContestId>,
     ) -> Result<tonic::Response<Self::ListByContestStream>, tonic::Status> {
         todo!()
     }

@@ -36,11 +36,27 @@ where
 }
 
 #[async_trait]
+pub trait LinkQueryable<I: IntelTrait>
+where
+    I: LinkTrait<I>,
+    Self: ControllerTrait,
+{
+    async fn owner_filter(
+        &self,
+        query: Select<<I as IntelTrait>::Entity>,
+        owner: <I::ParentIntel as IntelTrait>::PrimaryKey,
+    ) -> Result<Select<<I as IntelTrait>::Entity>, tonic::Status>;
+}
+
+#[async_trait]
 pub trait LinkEndpoint<I: LinkTrait<I> + IntelTrait>
 where
-    Self: ControllerTrait + Linkable<I>,
+    Self: ControllerTrait,
 {
-    async fn link(&self, request: Request<I::Linker>) -> Result<Response<()>, tonic::Status> {
+    async fn link(&self, request: Request<I::Linker>) -> Result<Response<()>, tonic::Status>
+    where
+        Self: Linkable<I>,
+    {
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
@@ -60,7 +76,10 @@ where
 
         Ok(Response::new(()))
     }
-    async fn unlink(&self, request: Request<I::Linker>) -> Result<Response<()>, tonic::Status> {
+    async fn unlink(&self, request: Request<I::Linker>) -> Result<Response<()>, tonic::Status>
+    where
+        Self: Linkable<I>,
+    {
         let db = DB.get().unwrap();
 
         let (auth, request) = self.parse_request(request).await?;
@@ -80,17 +99,43 @@ where
 
         Ok(Response::new(()))
     }
-    fn list_by_parents(
+    async fn list_by_parents(
         &self,
-        request: tonic::Request<I::Id>,
-    ) -> Result<Response<TonicStream<I::Info>>, tonic::Status> {
+        request: tonic::Request<<I::ParentIntel as IntelTrait>::Id>,
+    ) -> Result<Response<TonicStream<I::Info>>, tonic::Status>
+    where
+        Self: LinkQueryable<I>,
+    {
+        let db = DB.get().unwrap();
+
+        let (auth, request) = self.parse_request(request).await?;
+
+        let (_, perm) = auth.ok_or_default()?;
+
+        let ppk = Transform::into(request);
+
+        let parents = handle_dberr(
+            <<I::ParentIntel as IntelTrait>::Entity as EntityTrait>::find_by_id(ppk)
+                .one(db)
+                .await,
+        )?
+        .ok_or(tonic::Status::not_found(""))?;
+
+        // self.owner_filter(parents.find_related(I::Entity));
+
+        todo!();
+
+        if !perm.can_root() {
+            return Err(tonic::Status::permission_denied("Permission Deny"));
+        }
+
         todo!()
     }
 
-    fn full_info_by_parents(
-        &self,
-        request: tonic::Request<I::Linker>,
-    ) -> Result<Response<I::FullInfo>, tonic::Status> {
-        todo!()
-    }
+    // fn full_info_by_parents(
+    //     &self,
+    //     request: tonic::Request<I::Linker>,
+    // ) -> Result<Response<I::FullInfo>, tonic::Status> {
+    //     todo!()
+    // }
 }
