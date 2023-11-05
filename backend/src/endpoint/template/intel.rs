@@ -1,5 +1,5 @@
-use migration::ValueType;
 use sea_orm::*;
+use sea_orm::sea_query::ValueType;
 use tonic::{async_trait, Request, Response};
 
 use super::super::tools::*;
