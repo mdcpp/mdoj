@@ -1,18 +1,12 @@
-use std::pin::Pin;
-
 use super::tools::*;
-use crate::{endpoint::*, grpc::proto::prelude::*, impl_id, parse_option, Server};
-
 use super::endpoints::*;
-use tonic::{Request, Response};
 
-use entity::{education, problem::*};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    PaginatorTrait, QueryFilter, QuerySelect,
-};
+use crate::{endpoint::*, grpc::proto::prelude::*, impl_id, Server};
 
-type TonicStream<T> = Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
+use tonic::{*};
+use entity::{*, problem::*};
+
+type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
 
 macro_rules! insert_if_exists {
     ($target:expr,$src:expr , $field:ident) => {
@@ -289,7 +283,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn full_info(
         &self,
         request: Request<ProblemId>,
-    ) -> Result<Response<ProblemFullInfo>, tonic::Status> {
+    ) -> Result<Response<ProblemFullInfo>, Status> {
         BaseEndpoint::full_info(self, request)
             .await
             .map_err(|x| x.into())
@@ -298,7 +292,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn create(
         &self,
         request: tonic::Request<CreateProblemRequest>,
-    ) -> Result<Response<ProblemId>, tonic::Status> {
+    ) -> Result<Response<ProblemId>, Status> {
         BaseEndpoint::create(self, request)
             .await
             .map_err(|x| x.into())
@@ -307,7 +301,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn update(
         &self,
         request: tonic::Request<UpdateProblemRequest>,
-    ) -> Result<Response<()>, tonic::Status> {
+    ) -> Result<Response<()>, Status> {
         BaseEndpoint::update(self, request)
             .await
             .map_err(|x| x.into())
@@ -316,7 +310,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn remove(
         &self,
         request: tonic::Request<ProblemId>,
-    ) -> Result<Response<()>, tonic::Status> {
+    ) -> Result<Response<()>, Status> {
         BaseEndpoint::remove(self, request)
             .await
             .map_err(|x| x.into())
@@ -325,7 +319,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn link(
         &self,
         request: tonic::Request<ProblemLink>,
-    ) -> Result<Response<()>, tonic::Status> {
+    ) -> Result<Response<()>, Status> {
         // let db = DB.get().unwrap();
 
         // let (auth, payload) = self.parse_request(request).await?;
@@ -343,12 +337,12 @@ impl problem_set_server::ProblemSet for Server {
         //             .one(db)
         //             .await,
         //     )?
-        //     .ok_or(tonic::Status::not_found("problem not found"))?
+        //     .ok_or(Status::not_found("problem not found"))?
         //     .into_active_model();
         //     problem.contest_id = ActiveValue::Set(contest_id);
         //     handle_dberr(problem.update(db).await).map(|_| Response::new(()))
         // } else {
-        //     Err(tonic::Status::permission_denied("User cannot link"))
+        //     Err(Status::permission_denied("User cannot link"))
         // }
         todo!()
     }
@@ -356,7 +350,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn unlink(
         &self,
         request: tonic::Request<ProblemLink>,
-    ) -> Result<Response<()>, tonic::Status> {
+    ) -> Result<Response<()>, Status> {
         // let (auth, payload) = self.parse_request(request).await?;
 
         // let (_, perm) = auth.ok_or_default()?;
@@ -365,11 +359,11 @@ impl problem_set_server::ProblemSet for Server {
         //     let db = DB.get().unwrap();
         //     let contest_id = payload
         //         .contest_id
-        //         .ok_or(tonic::Status::not_found("contest id not found"))?
+        //         .ok_or(Status::not_found("contest id not found"))?
         //         .id;
         //     let problem_id = payload
         //         .problem_id
-        //         .ok_or(tonic::Status::not_found("problem id not found"))?
+        //         .ok_or(Status::not_found("problem id not found"))?
         //         .id;
         //     let mut problem = handle_dberr(
         //         Entity::find_by_id(problem_id)
@@ -378,12 +372,12 @@ impl problem_set_server::ProblemSet for Server {
         //             .one(db)
         //             .await,
         //     )?
-        //     .ok_or(tonic::Status::not_found("problem not found"))?
+        //     .ok_or(Status::not_found("problem not found"))?
         //     .into_active_model();
         //     problem.contest_id = ActiveValue::Set(contest_id);
         //     handle_dberr(problem.update(db).await).map(|_| Response::new(()))
         // } else {
-        //     Err(tonic::Status::permission_denied(""))
+        //     Err(Status::permission_denied(""))
         // }
         todo!()
     }
@@ -391,7 +385,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn publish(
         &self,
         request: tonic::Request<ProblemId>,
-    ) -> Result<tonic::Response<()>, tonic::Status> {
+    ) -> Result<tonic::Response<()>, Status> {
         PublishEndpoint::publish(self, request)
             .await
             .map_err(|x| x.into())
@@ -400,7 +394,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn unpublish(
         &self,
         request: tonic::Request<ProblemId>,
-    ) -> Result<tonic::Response<()>, tonic::Status> {
+    ) -> Result<tonic::Response<()>, Status> {
         PublishEndpoint::unpublish(self, request)
             .await
             .map_err(|x| x.into())
@@ -410,7 +404,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn list(
         &self,
         request: tonic::Request<ListRequest>,
-    ) -> Result<tonic::Response<Self::ListStream>, tonic::Status> {
+    ) -> Result<tonic::Response<Self::ListStream>, Status> {
         BaseEndpoint::list(self, request)
             .await
             .map_err(|x| x.into())
@@ -420,7 +414,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn search_by_text(
         &self,
         request: tonic::Request<TextSearchRequest>,
-    ) -> Result<tonic::Response<Self::SearchByTextStream>, tonic::Status> {
+    ) -> Result<tonic::Response<Self::SearchByTextStream>, Status> {
         BaseEndpoint::search_by_text(self, request, &[Column::Title, Column::Content])
             .await
             .map_err(|x| x.into())
@@ -430,7 +424,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn search_by_tag(
         &self,
         request: tonic::Request<TextSearchRequest>,
-    ) -> Result<tonic::Response<Self::SearchByTagStream>, tonic::Status> {
+    ) -> Result<tonic::Response<Self::SearchByTagStream>, Status> {
         BaseEndpoint::search_by_text(self, request, &[Column::Tags])
             .await
             .map_err(|x| x.into())
@@ -439,7 +433,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn full_info_by_contest(
         &self,
         request: tonic::Request<ProblemLink>,
-    ) -> Result<tonic::Response<ProblemFullInfo>, tonic::Status> {
+    ) -> Result<tonic::Response<ProblemFullInfo>, Status> {
         todo!()
     }
 
@@ -449,7 +443,7 @@ impl problem_set_server::ProblemSet for Server {
     async fn list_by_contest(
         &self,
         request: tonic::Request<ContestId>,
-    ) -> Result<tonic::Response<Self::ListByContestStream>, tonic::Status> {
+    ) -> Result<tonic::Response<Self::ListByContestStream>, Status> {
         todo!()
     }
 }
