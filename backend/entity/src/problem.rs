@@ -87,7 +87,7 @@ impl ActiveModelBehavior for ActiveModel {}
 type Problem = Entity;
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Problem")]
-pub struct PartialProblem {
+pub struct PartialTestcase {
     #[sea_orm(from_col = "id")]
     pub id: i32,
     pub title: String,

@@ -3,10 +3,11 @@ use entity::token;
 use lru::LruCache;
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use spin::mutex::spin::SpinMutex;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{num::NonZeroUsize, sync::Mutex};
+use tracing::instrument;
 
-use crate::common::prelude::UserPermBytes;
 use crate::init::db::DB;
 
 use super::Error;
@@ -43,14 +44,14 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
-    cache: Mutex<LruCache<RAND, CachedToken>>,
+    cache: SpinMutex<LruCache<RAND, CachedToken>>,
     frqu: AtomicUsize,
 }
 
 impl Default for TokenController {
     fn default() -> Self {
         log::debug!("Setup TokenController");
-        let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
         Self {
             cache,
             frqu: Default::default(),
@@ -59,6 +60,7 @@ impl Default for TokenController {
 }
 
 impl TokenController {
+    #[instrument(skip_all, name="token_create",fields(user = user.id))]
     pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
         let db = DB.get().unwrap();
 
@@ -80,6 +82,7 @@ impl TokenController {
 
         Ok(hex::encode(rand))
     }
+    #[instrument(skip_all, name = "token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
@@ -98,7 +101,7 @@ impl TokenController {
         let token: CachedToken;
 
         let cache_result = {
-            let mut cache = self.cache.lock().unwrap();
+            let mut cache = self.cache.lock();
             match cache.get(&rand) {
                 Some(cc) => {
                     if cc.expiry < now {
@@ -129,12 +132,13 @@ impl TokenController {
                     return Ok(None);
                 }
 
-                self.cache.lock().unwrap().put(rand, token.clone());
+                self.cache.lock().put(rand, token.clone());
             }
         }
 
         Ok(Some((token.user_id, UserPermBytes(token.permission))))
     }
+    #[instrument(skip_all, name="token_removal", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
 
@@ -146,8 +150,44 @@ impl TokenController {
             .exec(db)
             .await?;
 
-        self.cache.lock().unwrap().pop(&rand);
+        self.cache.lock().pop(&rand);
 
         Ok(Some(()))
     }
 }
+
+macro_rules! set_bit_value {
+    ($item:ident,$name:ident,$pos:expr) => {
+        paste::paste! {
+            impl $item{
+                pub fn [<can_ $name>](&self)->bool{
+                    let filter = 1_i64<<($pos);
+                    (self.0&filter) == filter
+                }
+                pub fn [<grant_ $name>](&mut self,value:bool){
+                    let filter = 1_i64<<($pos);
+                    if (self.0&filter == filter) ^ value{
+                        self.0 = self.0 ^ filter;
+                    }
+                }
+            }
+        }
+    };
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct UserPermBytes(pub i64);
+
+impl UserPermBytes {
+    pub fn strict_ge(&self, other: Self) -> bool {
+        (self.0 | other.0) == other.0
+    }
+}
+
+set_bit_value!(UserPermBytes, root, 0);
+set_bit_value!(UserPermBytes, manage_problem, 1);
+set_bit_value!(UserPermBytes, manage_education, 2);
+set_bit_value!(UserPermBytes, manage_announcement, 3);
+set_bit_value!(UserPermBytes, manage_submit, 4);
+set_bit_value!(UserPermBytes, publish, 5);
+set_bit_value!(UserPermBytes, link, 6);

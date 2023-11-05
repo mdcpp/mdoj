@@ -6,7 +6,7 @@ use tonic::transport::Server;
 // use crate::plugin::proto::prelude::judge_service_server::JudgeServiceServer;
 
 pub mod grpc;
-pub mod init; 
+pub mod init;
 pub mod langs;
 pub mod sandbox;
 pub mod test;

@@ -1,7 +1,8 @@
 use std::{
     borrow::Cow,
+    fmt::format,
     path::{Path, PathBuf},
-    process::Stdio, fmt::format,
+    process::Stdio,
 };
 
 use tokio::{
@@ -19,8 +20,8 @@ pub struct LimitBuilder {
 
 impl LimitBuilder {
     pub fn cgroup(mut self, cgroup_name: &str) -> LimitBuilder {
-        let config=CONFIG.get().unwrap();
-        match config.nsjail.is_cgv1(){
+        let config = CONFIG.get().unwrap();
+        match config.nsjail.is_cgv1() {
             true => {
                 self.cmds.push(Cow::Borrowed("--cgroup_mem_parent"));
                 self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
@@ -28,16 +29,15 @@ impl LimitBuilder {
                 self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
                 self.cmds.push(Cow::Borrowed("--cgroup_cpu_ms_per_sec"));
                 self.cmds.push(Cow::Borrowed("1000000000000"));
-            },
+            }
             false => {
                 self.cmds.push(Cow::Borrowed("--use_cgroupv2"));
                 self.cmds.push(Cow::Borrowed("--cgroup_cpu_parent"));
                 self.cmds.push(Cow::Owned(cgroup_name.to_owned()));
-            },
+            }
         }
         // self.cmds.push(Cow::Borrowed("--cgroup_cpu_ms_per_sec"));
         // self.cmds.push(Cow::Borrowed("1"));
-
 
         self
     }
@@ -191,9 +191,5 @@ impl NsJail {
             .await
             .unwrap();
         status.code()
-    }
-    pub async fn kill(&self) -> Result<(), Error> {
-        self.process.as_ref().unwrap().lock().await.kill().await?;
-        Ok(())
     }
 }
