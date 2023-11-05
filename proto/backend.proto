@@ -401,7 +401,7 @@ service SubmitSet {
   rpc SearchByTag(TextSearchRequest) returns (Submits);
   rpc Info(SubmitId) returns (SubmitInfo);
 
-  rpc Create(CreateSubmitRequest) returns (google.protobuf.Empty);
+  rpc Create(CreateSubmitRequest) returns (SubmitId);
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
   rpc Follow(SubmitId) returns (stream SubmitStatus);
