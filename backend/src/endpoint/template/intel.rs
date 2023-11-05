@@ -3,7 +3,7 @@ use sea_orm::*;
 use tonic::{async_trait, Request, Response};
 
 use super::super::tools::*;
-use crate::grpc::proto::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
+use crate::grpc::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 
 use super::stream::{into_tokiostream, TonicStream};
 use super::transform::*;
@@ -62,7 +62,7 @@ where
         model: <I::Entity as EntityTrait>::Model,
         info: I::UpdateInfo,
     ) -> Result<I::PrimaryKey, Error>;
-    async fn create_model(model: I::CreateInfo, user_id: i32) -> Result<I::PrimaryKey, Error>;
+    async fn create_model(info: I::CreateInfo, user_id: i32) -> Result<I::PrimaryKey, Error>;
 }
 
 #[async_trait]

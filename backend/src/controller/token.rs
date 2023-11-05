@@ -4,9 +4,9 @@ use lru::LruCache;
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::mutex::spin::SpinMutex;
-use tracing::instrument;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use tracing::instrument;
 
 use crate::init::db::DB;
 
@@ -82,7 +82,7 @@ impl TokenController {
 
         Ok(hex::encode(rand))
     }
-    #[instrument(skip_all, name="token_verify")]
+    #[instrument(skip_all, name = "token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();

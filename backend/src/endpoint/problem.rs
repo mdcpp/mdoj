@@ -1,10 +1,10 @@
-use super::tools::*;
 use super::endpoints::*;
+use super::tools::*;
 
-use crate::{endpoint::*, grpc::proto::prelude::*, impl_id, Server};
+use crate::{endpoint::*, grpc::prelude::*, impl_id, Server};
 
-use tonic::{*};
-use entity::{*, problem::*};
+use entity::{problem::*, *};
+use tonic::*;
 
 type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
 
@@ -284,7 +284,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        BaseEndpoint::full_info(self, request)
+        BaseEndpoint::<ProblemIntel>::full_info(self, request)
             .await
             .map_err(|x| x.into())
     }
@@ -293,7 +293,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<CreateProblemRequest>,
     ) -> Result<Response<ProblemId>, Status> {
-        BaseEndpoint::create(self, request)
+        BaseEndpoint::<ProblemIntel>::create(self, request)
             .await
             .map_err(|x| x.into())
     }
@@ -302,24 +302,18 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<UpdateProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        BaseEndpoint::update(self, request)
+        BaseEndpoint::<ProblemIntel>::update(self, request)
             .await
             .map_err(|x| x.into())
     }
 
-    async fn remove(
-        &self,
-        request: tonic::Request<ProblemId>,
-    ) -> Result<Response<()>, Status> {
-        BaseEndpoint::remove(self, request)
+    async fn remove(&self, request: tonic::Request<ProblemId>) -> Result<Response<()>, Status> {
+        BaseEndpoint::<ProblemIntel>::remove(self, request)
             .await
             .map_err(|x| x.into())
     }
 
-    async fn link(
-        &self,
-        request: tonic::Request<ProblemLink>,
-    ) -> Result<Response<()>, Status> {
+    async fn link(&self, request: tonic::Request<ProblemLink>) -> Result<Response<()>, Status> {
         // let db = DB.get().unwrap();
 
         // let (auth, payload) = self.parse_request(request).await?;
@@ -347,10 +341,7 @@ impl problem_set_server::ProblemSet for Server {
         todo!()
     }
 
-    async fn unlink(
-        &self,
-        request: tonic::Request<ProblemLink>,
-    ) -> Result<Response<()>, Status> {
+    async fn unlink(&self, request: tonic::Request<ProblemLink>) -> Result<Response<()>, Status> {
         // let (auth, payload) = self.parse_request(request).await?;
 
         // let (_, perm) = auth.ok_or_default()?;
@@ -386,7 +377,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<ProblemId>,
     ) -> Result<tonic::Response<()>, Status> {
-        PublishEndpoint::publish(self, request)
+        PublishEndpoint::<ProblemIntel>::publish(self, request)
             .await
             .map_err(|x| x.into())
     }
@@ -395,7 +386,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<ProblemId>,
     ) -> Result<tonic::Response<()>, Status> {
-        PublishEndpoint::unpublish(self, request)
+        PublishEndpoint::<ProblemIntel>::unpublish(self, request)
             .await
             .map_err(|x| x.into())
     }
@@ -405,7 +396,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<ListRequest>,
     ) -> Result<tonic::Response<Self::ListStream>, Status> {
-        BaseEndpoint::list(self, request)
+        BaseEndpoint::<ProblemIntel>::list(self, request)
             .await
             .map_err(|x| x.into())
     }
@@ -415,9 +406,13 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<TextSearchRequest>,
     ) -> Result<tonic::Response<Self::SearchByTextStream>, Status> {
-        BaseEndpoint::search_by_text(self, request, &[Column::Title, Column::Content])
-            .await
-            .map_err(|x| x.into())
+        BaseEndpoint::<ProblemIntel>::search_by_text(
+            self,
+            request,
+            &[Column::Title, Column::Content],
+        )
+        .await
+        .map_err(|x| x.into())
     }
     type SearchByTagStream = TonicStream<ProblemInfo>;
 
@@ -425,7 +420,7 @@ impl problem_set_server::ProblemSet for Server {
         &self,
         request: tonic::Request<TextSearchRequest>,
     ) -> Result<tonic::Response<Self::SearchByTagStream>, Status> {
-        BaseEndpoint::search_by_text(self, request, &[Column::Tags])
+        BaseEndpoint::<ProblemIntel>::search_by_text(self, request, &[Column::Tags])
             .await
             .map_err(|x| x.into())
     }

@@ -15,8 +15,8 @@ pub fn init() {
     };
 
     tracing_subscriber::fmt()
-    .json()
-    .with_max_level(level)
-    .with_current_span(false)
-    .init();
+        .json()
+        .with_max_level(level)
+        .with_current_span(false)
+        .init();
 }

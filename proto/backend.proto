@@ -230,7 +230,7 @@ service ProblemSet {
 
 message TestcaseId { int32 id = 1; }
 
-message Testcase {
+message TestcaseInfo {
   TestcaseId id = 1;
   uint32 score = 2;
   repeated Case cases = 3;
@@ -264,19 +264,19 @@ message UpdateTestcaseRequest {
     repeated bytes outputs = 4;
   };
   Info info = 1;
-  ProblemId id = 3;
+  TestcaseId id = 3;
 }
 // Testcase
 service TestcaseSet {
-  rpc Create(CreateTestcaseRequest) returns (ProblemId);
+  rpc Create(CreateTestcaseRequest) returns (TestcaseId);
   rpc Update(UpdateTestcaseRequest) returns (google.protobuf.Empty);
-  rpc Remove(ProblemId) returns (google.protobuf.Empty);
+  rpc Remove(TestcaseId) returns (google.protobuf.Empty);
 
   rpc Link(TestcaseLink) returns (google.protobuf.Empty);
   rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
 
   rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
-  rpc ListByProblem(TestcaseLink) returns (stream Testcase);
+  rpc ListByProblem(TestcaseLink) returns (stream TestcaseInfo);
 }
 
 
