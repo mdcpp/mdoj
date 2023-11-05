@@ -4,6 +4,7 @@ use lru::LruCache;
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::mutex::spin::SpinMutex;
+use tracing::instrument;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -59,6 +60,7 @@ impl Default for TokenController {
 }
 
 impl TokenController {
+    #[instrument(skip_all, name="token_create",fields(user = user.id))]
     pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
         let db = DB.get().unwrap();
 
@@ -80,6 +82,7 @@ impl TokenController {
 
         Ok(hex::encode(rand))
     }
+    #[instrument(skip_all, name="token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
@@ -135,6 +138,7 @@ impl TokenController {
 
         Ok(Some((token.user_id, UserPermBytes(token.permission))))
     }
+    #[instrument(skip_all, name="token_removal", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
 

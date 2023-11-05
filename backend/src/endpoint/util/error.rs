@@ -28,7 +28,7 @@ impl Into<tonic::Status> for Error {
                 tonic::Status::unavailable("")
             }
             Error::PremissionDeny(x) => {
-                log::info!("Client request inaccessible resource, hint: {}", x);
+                log::debug!("Client request inaccessible resource, hint: {}", x);
                 tonic::Status::permission_denied(x)
             }
             Error::DBErr(x) => {

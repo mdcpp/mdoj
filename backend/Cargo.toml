@@ -27,6 +27,14 @@ lru = "0.11.0"
 thiserror = "1.0.44"
 futures = "0.3.28"
 
+[dependencies.tracing-subscriber]
+version = "0.3.17"
+features =["json"]
+
+[dependencies.tracing]
+version = "0.1.40"
+features =["async-await", "log"]
+
 [dependencies.tokio]
 version = "1.28.0"
 features =["macros", "rt-multi-thread", "full"]
