@@ -5,7 +5,7 @@ use std::{
     sync::{atomic, Arc},
 };
 
-use spin::mutex::SpinMutex;
+use spin::mutex::Mutex;
 use tokio::sync::oneshot;
 
 use crate::init::config::CONFIG;
@@ -22,11 +22,11 @@ pub struct MemoryStatistic {
 
 /// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
 #[derive(Clone)]
-pub struct MemorySemaphore(Arc<SpinMutex<MemoryCounterInner>>);
+pub struct MemorySemaphore(Arc<Mutex<MemoryCounterInner>>);
 
 impl MemorySemaphore {
     pub fn new(memory: i64) -> Self {
-        Self(Arc::new(SpinMutex::new(MemoryCounterInner {
+        Self(Arc::new(Mutex::new(MemoryCounterInner {
             memory,
             all_mem: memory,
             queue: BTreeSet::new(),

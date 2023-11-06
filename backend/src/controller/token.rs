@@ -3,7 +3,7 @@ use entity::token;
 use lru::LruCache;
 use ring::rand::*;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use spin::mutex::spin::SpinMutex;
+use spin::mutex::Mutex;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::instrument;
@@ -45,7 +45,7 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
-    cache: SpinMutex<LruCache<RAND, CachedToken>>,
+    cache: Mutex<LruCache<RAND, CachedToken>>,
     frqu: AtomicUsize,
     rand: SystemRandom,
     // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
@@ -56,7 +56,7 @@ impl Default for TokenController {
         // let config=CONFIG.get().unwrap();
 
         log::debug!("Setup TokenController");
-        let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
 
         // let reverse_proxy=config.reverse_proxy.iter().map(|x|{
         //     x.address.parse().unwrap()
