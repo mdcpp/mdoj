@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    fmt::format,
     path::{Path, PathBuf},
     process::Stdio,
 };

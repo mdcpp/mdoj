@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
-use crate::{grpc::proto, sandbox::Limit};
+use crate::sandbox::Limit;
 
 use super::InternalError;
 

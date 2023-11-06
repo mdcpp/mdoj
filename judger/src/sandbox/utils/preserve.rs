@@ -25,6 +25,7 @@ pub struct MemoryStatistic {
 pub struct MemorySemaphore(Arc<Mutex<MemoryCounterInner>>);
 
 impl MemorySemaphore {
+    #[tracing::instrument]
     pub fn new(memory: i64) -> Self {
         Self(Arc::new(Mutex::new(MemoryCounterInner {
             memory,
@@ -41,6 +42,7 @@ impl MemorySemaphore {
             tasks: self_.tasks,
         }
     }
+    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
     pub async fn allocate(&self, memory: i64) -> Result<MemoryPermit, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
@@ -72,10 +74,11 @@ impl MemorySemaphore {
 
         Ok(MemoryPermit::new(self, memory))
     }
-    fn deallocate(&self, de_memory: i64) {
+    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
+    fn deallocate(&self, released_memory: i64) {
         let self_ = &mut *self.0.lock();
 
-        self_.memory += de_memory;
+        self_.memory += released_memory;
         while let Some(demand) = self_.queue.last() {
             if demand.memory < self_.memory {
                 self_.memory -= demand.memory;

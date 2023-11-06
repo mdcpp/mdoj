@@ -17,13 +17,14 @@ pub struct Container<'a> {
 
 impl<'a> Drop for Container<'a> {
     fn drop(&mut self) {
-        let tmp_path = self.daemon.tmp.as_path().clone().join(self.id.clone());
+        let tmp_path = self.daemon.tmp.as_path().join(self.id.clone());
         log::trace!("Cleaning up container with id :{}", self.id);
         tokio::spawn(async { fs::remove_dir_all(tmp_path).await });
     }
 }
 
 impl<'a> Container<'a> {
+    #[tracing::instrument(skip(self, limit))]
     pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
