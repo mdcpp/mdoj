@@ -101,7 +101,7 @@ pub struct Runtime {
 impl Default for Runtime {
     fn default() -> Self {
         Self {
-            temp: PathBuf::from_str("temp").unwrap(),
+            temp: PathBuf::from_str(".temp").unwrap(),
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
             root_cgroup: "mdoj/c.".to_owned(),

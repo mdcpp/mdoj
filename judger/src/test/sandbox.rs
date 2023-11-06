@@ -15,7 +15,7 @@ mod test {
 
             let process = container
                 .execute(
-                    vec!["/usr/local/bin/lua", "/test.lua"],
+                    vec!["/usr/local/bin/lua", "/test/test1.lua"],
                     Limit {
                         cpu_us: 1000 * 1000 * 1000,
                         rt_us: 1000 * 1000 * 1000,
@@ -65,6 +65,8 @@ mod test {
                 .unwrap();
 
             let process = process.wait().await.unwrap();
+
+            assert_eq!(process.status, ExitStatus::CpuExhausted);
 
             assert!(!process.succeed());
         }

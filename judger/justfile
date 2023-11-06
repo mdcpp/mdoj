@@ -10,7 +10,6 @@ build-nsjail:
 
 prepare:
     mkdir -p .temp
-    mkdir -p log
 
 debian-deps:
     echo todo!()

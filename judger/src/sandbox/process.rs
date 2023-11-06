@@ -96,6 +96,7 @@ impl ExitProc {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ExitStatus {
     SigExit, // RuntimeError
     Code(i32),
