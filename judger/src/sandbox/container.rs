@@ -29,7 +29,7 @@ impl<'a> Container<'a> {
 
         log::trace!("Preparing container with id :{} for new process", self.id);
 
-        let cg_name = format!("{}/{}", config.runtime.root_cgroup, self.id);
+        let cg_name = format!("{}{}", config.runtime.root_cgroup, self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
 
