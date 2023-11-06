@@ -1,13 +1,14 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
 use lru::LruCache;
-use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::mutex::spin::SpinMutex;
+use ring::rand::*;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::instrument;
 
+use crate::init::config::CONFIG;
 use crate::init::db::DB;
 
 use super::Error;
@@ -46,15 +47,38 @@ impl From<token::Model> for CachedToken {
 pub struct TokenController {
     cache: SpinMutex<LruCache<RAND, CachedToken>>,
     frqu: AtomicUsize,
+    rand: SystemRandom,
+    // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
 }
 
 impl Default for TokenController {
     fn default() -> Self {
+        // let config=CONFIG.get().unwrap();
+
         log::debug!("Setup TokenController");
         let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        
+        // let reverse_proxy=config.reverse_proxy.iter().map(|x|{
+        //     x.address.parse().unwrap()
+        // }).collect();
+
+        // let reverse_proxy=Arc::new(RwLock::new(reverse_proxy));
+        // let reverse_proxy1=reverse_proxy.clone();
+
+        // tokio::spawn(async move{
+        //     let new_entry:BTreeSet<_>=config.reverse_proxy.iter().map(|x|{
+        //         x.address.parse().unwrap()
+        //     }).collect();
+
+        //     *reverse_proxy1.write()=new_entry;
+
+        //     tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        // });
+
         Self {
             cache,
             frqu: Default::default(),
+            rand:SystemRandom::new(),
         }
     }
 }
@@ -64,9 +88,8 @@ impl TokenController {
     pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
         let db = DB.get().unwrap();
 
-        let mut rng = rand::thread_rng();
-        let rand: i128 = rng.gen();
-        let rand: RAND = rand.to_be_bytes();
+        let rand = generate(&self.rand).unwrap();
+        let rand: RAND = rand.expose();
 
         let expiry = (Local::now() + dur).naive_local();
 
@@ -82,7 +105,20 @@ impl TokenController {
 
         Ok(hex::encode(rand))
     }
-    #[instrument(skip_all, name = "token_verify")]
+    // pub async fn verify_throttle(&self, token:&str, ip:Option<IpAddr>)-> Result<Option<(i32, UserPermBytes)>, Error>{
+    //     let reverse_proxy=self.reverse_proxy.read();
+    //     if reverse_proxy.len()==0{
+    //         return  self.verify(token).await;
+    //     }else{
+    //         if let Some(ip)=ip{
+    //             if !reverse_proxy.contains(&ip){
+    //                 return self.verify(token).await;
+    //             }
+    //         }
+    //     }
+    //     return Ok(None);
+    // }
+    // #[instrument(skip_all, name = "token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();

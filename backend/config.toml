@@ -8,3 +8,6 @@ address = "127.0.0.1"
 port = 8080
 memory = 1073741824
 cpu_weight = 1
+
+[[reverse_proxy]]
+address = "127.0.0.1"

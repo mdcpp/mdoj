@@ -1,3 +1,5 @@
+use std::{net::{Ipv4Addr, Ipv6Addr}, collections::BTreeSet};
+
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
@@ -13,7 +15,13 @@ pub struct GlobalConfig {
     pub log_level: usize,
     #[serde(default)]
     pub judger: Vec<Sandbox>,
+    // pub reverse_proxy: Vec<ReverseProxy>,
 }
+
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct ReverseProxy{
+//     pub address: String,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sandbox {

@@ -19,12 +19,6 @@ pub struct LangSpec {
     pub path: PathBuf,
 }
 
-impl Into<proto::prelude::LangInfo> for LangSpec {
-    fn into(self) -> proto::prelude::LangInfo {
-        todo!()
-    }
-}
-
 impl LangSpec {
     pub async fn from_file(path: impl AsRef<Path>) -> Result<Self, InternalError> {
         log::trace!("Loading module from {}", path.as_ref().to_string_lossy());
