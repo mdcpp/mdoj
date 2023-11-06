@@ -1,9 +1,9 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
 use lru::LruCache;
+use ring::rand::*;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::mutex::spin::SpinMutex;
-use ring::rand::*;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::instrument;
@@ -57,7 +57,7 @@ impl Default for TokenController {
 
         log::debug!("Setup TokenController");
         let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
-        
+
         // let reverse_proxy=config.reverse_proxy.iter().map(|x|{
         //     x.address.parse().unwrap()
         // }).collect();
@@ -78,7 +78,7 @@ impl Default for TokenController {
         Self {
             cache,
             frqu: Default::default(),
-            rand:SystemRandom::new(),
+            rand: SystemRandom::new(),
         }
     }
 }

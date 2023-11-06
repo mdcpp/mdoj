@@ -1,8 +1,8 @@
 use tonic::async_trait;
 
-use crate::{controller::token::UserPermBytes, Server, init::config::CONFIG};
-use tracing::{span,Level};
 use super::{error::Error, ControllerTrait};
+use crate::{controller::token::UserPermBytes, init::config::CONFIG, Server};
+use tracing::{span, Level};
 
 pub enum Auth {
     Guest,
@@ -48,9 +48,9 @@ impl Auth {
 #[async_trait]
 impl ControllerTrait for Server {
     async fn parse_request<T: Send>(&self, request: tonic::Request<T>) -> Result<(Auth, T), Error> {
-        let span=span!(Level::INFO,"token_verify",addr=?request.remote_addr());
-        let span=span.enter();
-        
+        let span = span!(Level::INFO,"token_verify",addr=?request.remote_addr());
+        let span = span.enter();
+
         let (meta, _, payload) = request.into_parts();
 
         if let Some(x) = meta.get("token") {
@@ -69,4 +69,4 @@ impl ControllerTrait for Server {
     }
 }
 
-// X-Forwarded-For 
+// X-Forwarded-For

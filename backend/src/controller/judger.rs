@@ -12,19 +12,16 @@ pub enum Error {
     Tonic(#[from] tonic::transport::Error),
 }
 
-pub struct RouteRequest{
+pub struct RouteRequest {
     pub match_rule: JudgeMatchRule,
     pub code: Vec<u8>,
     pub language: String,
 }
 
-pub trait Routable{
-}
-
-
+pub trait Routable {}
 
 // There are two type of router, single and multiple(hot reload)
-// Router is responsible for 
+// Router is responsible for
 // 1. routing the request to the judger with corresponding language support
 // 2. expose the language support to the endpoints
 // 3. watch change of the running tasks, notify the endpoints with spsc channel

@@ -1,4 +1,7 @@
-use std::{net::{Ipv4Addr, Ipv6Addr}, collections::BTreeSet};
+use std::{
+    collections::BTreeSet,
+    net::{Ipv4Addr, Ipv6Addr},
+};
 
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
@@ -15,7 +18,34 @@ pub struct GlobalConfig {
     pub log_level: usize,
     #[serde(default)]
     pub judger: Vec<Sandbox>,
+    #[serde(default)]
+    grpc: GrpcOption,
     // pub reverse_proxy: Vec<ReverseProxy>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GrpcOption {
+    pub trust_x_forwarded_for: bool,
+    pub cert: String,
+    pub mode: GrpcMode,
+}
+
+impl Default for GrpcOption {
+    fn default() -> Self {
+        Self {
+            trust_x_forwarded_for: false,
+            cert: "path-to-cert".to_owned(),
+            mode: GrpcMode::Unsecure,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GrpcMode {
+    Unsecure,
+    Secure,
+    Web,
 }
 
 // #[derive(Serialize, Deserialize, Debug)]

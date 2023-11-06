@@ -1,6 +1,6 @@
+pub mod judger;
 pub mod submit;
 pub mod token;
-pub mod judger;
 pub mod util;
 
 use sea_orm::ActiveValue;

@@ -9,5 +9,7 @@ port = 8080
 memory = 1073741824
 cpu_weight = 1
 
-[[reverse_proxy]]
-address = "127.0.0.1"
+[grpc]
+trust_x_forwarded_for = false
+mode = "unsecure"
+cert = "cert.pem"
