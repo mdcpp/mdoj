@@ -22,12 +22,12 @@ pub struct MemoryStatistic {
 
 /// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
 #[derive(Clone)]
-pub struct MemorySemaphore(Arc<Mutex<MemoryCounterInner>>);
+pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);
 
 impl MemorySemaphore {
     #[tracing::instrument]
     pub fn new(memory: i64) -> Self {
-        Self(Arc::new(Mutex::new(MemoryCounterInner {
+        Self(Arc::new(Mutex::new(MemorySemaphoreInner {
             memory,
             all_mem: memory,
             queue: BTreeSet::new(),
@@ -91,7 +91,7 @@ impl MemorySemaphore {
     }
 }
 
-pub struct MemoryCounterInner {
+pub struct MemorySemaphoreInner {
     memory: i64,
     all_mem: i64,
     queue: BTreeSet<MemDemand>,

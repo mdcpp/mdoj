@@ -11,7 +11,7 @@ use super::{
     utils::{
         limiter::{cpu::CpuStatistics, mem::MemStatistics, Limiter},
         nsjail::NsJail,
-        preserve::MemoryPermit,
+        semaphore::MemoryPermit,
     },
     Error,
 };

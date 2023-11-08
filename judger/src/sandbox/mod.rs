@@ -11,7 +11,7 @@ pub mod prelude {
     pub use super::process::{ExitProc, ExitStatus, RunningProc};
     pub use super::utils::limiter::cpu::CpuStatistics;
     pub use super::utils::limiter::mem::MemStatistics;
-    pub use super::utils::preserve::{MemoryPermit, MemorySemaphore, MemoryStatistic};
+    pub use super::utils::semaphore::{MemoryPermit, MemorySemaphore, MemoryStatistic};
     pub use super::Error;
     pub use super::Limit;
 }

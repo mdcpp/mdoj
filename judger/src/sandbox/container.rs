@@ -33,8 +33,13 @@ impl<'a> Container<'a> {
         let cg_name = format!("{}{}", config.runtime.root_cgroup, self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
+        let output_limit = config.platform.output_limit as i64;
 
-        let memory_holder = self.daemon.memory_counter.allocate(reversed_memory).await?;
+        let memory_holder = self
+            .daemon
+            .memory_counter
+            .allocate(output_limit + reversed_memory)
+            .await?;
 
         let nsjail = NsJail::new(&self.root)
             .cgroup(&cg_name)
