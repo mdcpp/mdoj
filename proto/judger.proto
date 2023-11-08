@@ -84,7 +84,7 @@ message LangInfo {
 }
 
 message JudgeInfo {
-  // memory limit of judger in byte
+  // max support memory in byte
   int64 memory = 1;
   // max possible deviation in nanosecond
   int64 accuracy = 2;

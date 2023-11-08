@@ -19,6 +19,7 @@ pub mod mem;
 pub enum LimitReason {
     Cpu,
     Mem,
+    SysMem
 }
 
 pub struct Limiter {
@@ -83,6 +84,8 @@ impl Limiter {
                 let mut end = false;
                 let mut reason = LimitReason::Mem;
 
+                // oom could be incured from invaild configuration
+                // check other factor to determine whether is a systm failure or MLE
                 if mem.oom {
                     log::trace!("Stopping process because it reach its memory limit");
                     reason = LimitReason::Mem;
