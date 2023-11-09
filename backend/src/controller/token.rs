@@ -53,28 +53,8 @@ pub struct TokenController {
 
 impl Default for TokenController {
     fn default() -> Self {
-        // let config=CONFIG.get().unwrap();
-
         log::debug!("Setup TokenController");
         let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
-
-        // let reverse_proxy=config.reverse_proxy.iter().map(|x|{
-        //     x.address.parse().unwrap()
-        // }).collect();
-
-        // let reverse_proxy=Arc::new(RwLock::new(reverse_proxy));
-        // let reverse_proxy1=reverse_proxy.clone();
-
-        // tokio::spawn(async move{
-        //     let new_entry:BTreeSet<_>=config.reverse_proxy.iter().map(|x|{
-        //         x.address.parse().unwrap()
-        //     }).collect();
-
-        //     *reverse_proxy1.write()=new_entry;
-
-        //     tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-        // });
-
         Self {
             cache,
             frqu: Default::default(),

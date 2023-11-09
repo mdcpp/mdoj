@@ -25,6 +25,7 @@ thiserror = "1.0.44"
 futures = "0.3.28"
 ring = "0.17.5"
 futures-core = "0.3.29"
+lockfree = "0.5.1"
 
 [dependencies.tokio-stream]
 version = "0.1.14"

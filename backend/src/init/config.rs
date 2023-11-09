@@ -1,6 +1,8 @@
 use std::{
     collections::BTreeSet,
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
+    path::PathBuf,
+    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -17,10 +19,19 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub log_level: usize,
     #[serde(default)]
-    pub judger: Vec<Sandbox>,
+    pub judger: Vec<Arc<Judger>>,
     #[serde(default)]
     grpc: GrpcOption,
     // pub reverse_proxy: Vec<ReverseProxy>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Judger {
+    uri: SocketAddr,
+    root_cert: Option<PathBuf>,
+    client_cert: Option<PathBuf>,
+    client_key: Option<PathBuf>,
+    domain: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,13 +64,13 @@ pub enum GrpcMode {
 //     pub address: String,
 // }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Sandbox {
-    address: String,
-    port: u16,
-    memory: i64,
-    cpu_weight: usize,
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct Sandbox {
+//     address: String,
+//     port: u16,
+//     memory: i64,
+//     cpu_weight: usize,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Database {

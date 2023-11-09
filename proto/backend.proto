@@ -405,6 +405,7 @@ service SubmitSet {
   rpc Create(CreateSubmitRequest) returns (SubmitId);
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
+  // are not guarantee to yield status
   rpc Follow(SubmitId) returns (stream SubmitStatus);
   rpc Rejudge(SubmitId) returns (google.protobuf.Empty);
 }

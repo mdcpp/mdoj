@@ -12,7 +12,7 @@ pub fn init() {
         3 => Level::WARN,
         4 => Level::ERROR,
         _ => Level::INFO,
-    }; 
+    };
 
     tracing_subscriber::fmt()
         .json()

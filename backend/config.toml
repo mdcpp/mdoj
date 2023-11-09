@@ -4,10 +4,11 @@ log_level = 1
 uri = "sqlite://test.sqlite"
 
 [[judger]]
-address = "127.0.0.1"
-port = 8080
-memory = 1073741824
-cpu_weight = 1
+uri = "http://127.0.0.1:8080"
+# root_cert = "/path/to/file"
+# client_cert = "/path/to/file"
+# client_key = "/path/to/file"
+# domain = "/path/to/file"
 
 [grpc]
 trust_x_forwarded_for = false
