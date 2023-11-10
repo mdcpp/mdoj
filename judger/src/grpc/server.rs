@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{Response, Status};
+use tonic::{metadata, Response, Status};
 
 use crate::{
     grpc::proto::prelude::judge_response,
@@ -13,24 +13,7 @@ use crate::{
 use super::proto::prelude::{judger_server::Judger, *};
 
 pub type UUID = String;
-pub struct GRpcServer {
-    factory: Arc<ArtifactFactory>,
-}
 
-impl GRpcServer {
-    pub async fn new() -> Self {
-        let config = CONFIG.get().unwrap();
-        let mut factory = ArtifactFactory::default();
-
-        factory.load_dir(config.plugin.path.clone()).await;
-
-        Self {
-            factory: Arc::new(factory),
-        }
-    }
-}
-
-// TODO: fix bad request
 macro_rules! report {
     ($result:expr,$tx:expr) => {
         match $result {
@@ -68,6 +51,22 @@ macro_rules! report {
         }
     };
 }
+pub struct GRpcServer {
+    factory: Arc<ArtifactFactory>,
+}
+
+impl GRpcServer {
+    pub async fn new() -> Self {
+        let config = CONFIG.get().unwrap();
+        let mut factory = ArtifactFactory::default();
+
+        factory.load_dir(config.plugin.path.clone()).await;
+
+        Self {
+            factory: Arc::new(factory),
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl Judger for GRpcServer {
@@ -77,7 +76,8 @@ impl Judger for GRpcServer {
         &'a self,
         request: tonic::Request<JudgeRequest>,
     ) -> Result<Response<Self::JudgeStream>, Status> {
-        let request = request.into_inner();
+        let (meta, _, request) = request.into_parts();
+        check_secret(&meta)?;
 
         let (tx, rx) = mpsc::channel(2);
 
@@ -126,10 +126,13 @@ impl Judger for GRpcServer {
 
     async fn judger_info<'a>(
         &'a self,
-        _: tonic::Request<()>,
+        request: tonic::Request<()>,
     ) -> Result<Response<JudgeInfo>, Status> {
         log::trace!("Query judger info");
         let config = CONFIG.get().unwrap();
+
+        let (meta, _, _) = request.into_parts();
+        check_secret(&meta)?;
 
         let modules = self.factory.list_module();
 
@@ -140,4 +143,26 @@ impl Judger for GRpcServer {
             cpu_factor: config.platform.cpu_time_multiplier as f32,
         }))
     }
+}
+
+fn check_secret(meta: &metadata::MetadataMap) -> Result<(), Status> {
+    let config = CONFIG.get().unwrap();
+    if config.secret.is_none() {
+        return Ok(());
+    }
+    if let Some(header) = meta.get("Authorization") {
+        let secret = ["basic ", config.secret.as_ref().unwrap()]
+            .concat()
+            .into_bytes();
+        let vaild = header
+            .as_bytes()
+            .iter()
+            .zip(secret.iter())
+            .map(|(&a, &b)| a == b)
+            .reduce(|a, b| a && b);
+        if vaild.unwrap_or(false) {
+            return Ok(());
+        }
+    }
+    Err(Status::permission_denied("Invalid secret"))
 }

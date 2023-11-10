@@ -22,6 +22,8 @@ pub struct GlobalConfig {
     pub kernel: Kernel,
     #[serde(default)]
     pub log_level: usize,
+    #[serde(default)]
+    pub secret: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

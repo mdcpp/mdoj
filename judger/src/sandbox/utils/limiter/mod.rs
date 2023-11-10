@@ -19,7 +19,7 @@ pub mod mem;
 pub enum LimitReason {
     Cpu,
     Mem,
-    SysMem
+    SysMem,
 }
 
 pub struct Limiter {

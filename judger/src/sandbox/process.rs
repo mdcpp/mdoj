@@ -103,7 +103,7 @@ pub enum ExitStatus {
     Code(i32),
     MemExhausted,
     CpuExhausted,
-    SysError
+    SysError,
 }
 
 impl Display for ExitStatus {
@@ -113,7 +113,7 @@ impl Display for ExitStatus {
             ExitStatus::Code(x) => write!(f, "Exit with code {}", x),
             ExitStatus::MemExhausted => write!(f, "Reach memory limit"),
             ExitStatus::CpuExhausted => write!(f, "Reach cpu quota"),
-            ExitStatus::SysError => write!(f,"Unknown system error"),
+            ExitStatus::SysError => write!(f, "Unknown system error"),
         }
     }
 }
