@@ -73,4 +73,36 @@ Due to the natural of Cgroup V2, we cannot use ``cpuacct.usage`` instead of ``cp
 
 We measures both user space and kernel space execution time of the process, a stable process clock can make result more stable. 
 
+### Config Reference
+
+default config:
+```toml
+log_level = 0
+# secret = "<your basic auth secret>"
+
+[runtime]
+temp = ".temp"
+bind = "0.0.0.0:8080"
+accuracy = 50000
+root_cgroup = "mdoj/c."
+
+[platform]
+cpu_time_multiplier = 1.0
+available_memory = 1073741824
+output_limit = 33554432
+
+[nsjail]
+runtime = "nsjail/nsjail"
+rootless = false
+log = "/dev/null"
+cgroup_version = "v2"
+
+[plugin]
+path = "plugins"
+
+[kernel]
+KERNEL_HZ = 1000
+tickless = false
+```
+
 

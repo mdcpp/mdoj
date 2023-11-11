@@ -115,14 +115,14 @@ impl Default for Runtime {
 #[serde(deny_unknown_fields)]
 pub struct Kernel {
     #[serde(alias = "USER_HZ")]
-    pub user_hz: i32,
+    pub kernel_hz: i32,
     pub tickless: bool,
 }
 
 impl Default for Kernel {
     fn default() -> Self {
         Self {
-            user_hz: 100,
+            kernel_hz: 1000,
             tickless: false,
         }
     }

@@ -128,7 +128,7 @@ impl Limiter {
 
         if !config.kernel.tickless {
             time::sleep(time::Duration::from_nanos(
-                (1000 * 1000 / config.kernel.user_hz) as u64,
+                (1000 * 1000 / config.kernel.kernel_hz) as u64,
             ))
             .await;
         }

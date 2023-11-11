@@ -139,7 +139,7 @@ impl Judger for GRpcServer {
         Ok(Response::new(JudgeInfo {
             langs: Some(Langs { list: modules }),
             memory: config.platform.available_memory,
-            accuracy: (1000 * 1000 / config.kernel.user_hz) as i64,
+            accuracy: (1000 * 1000 / config.kernel.kernel_hz) as i64,
             cpu_factor: config.platform.cpu_time_multiplier as f32,
         }))
     }
