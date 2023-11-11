@@ -69,7 +69,10 @@ impl ArtifactFactory {
             tracing_id
         );
 
-        let spec = self.langs.get(uid).ok_or(RequestError::LangNotFound)?;
+        let spec = self
+            .langs
+            .get(uid)
+            .ok_or(RequestError::LangNotFound(uid.clone()))?;
 
         let container = self.runtime.create(&spec.path).await.unwrap();
 

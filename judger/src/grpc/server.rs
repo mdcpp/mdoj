@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{metadata, Response, Status};
+use tonic::{codegen::Bytes, metadata, Code, Response, Status};
 
 use crate::{
     grpc::proto::prelude::judge_response,
@@ -21,15 +21,28 @@ macro_rules! report {
             Err(err) => match err {
                 LangError::Internal(err) => {
                     log::warn!("{}", err);
-                    $tx.send(Err(Status::internal("Internal Error: see log.")))
+                    #[cfg(debug_assertions)]
+                    $tx.send(Err(Status::with_details(
+                        Code::Internal,
+                        "Lanuage internal error: see debug info",
+                        Bytes::from(format!("{}", err)),
+                    )))
+                    .await
+                    .ok();
+                    #[cfg(not(debug_assertions))]
+                    $tx.send(Err(Status::internal("See log for more details")))
                         .await
                         .ok();
                     return ();
                 }
                 LangError::BadRequest(err) => {
                     match err {
-                        RequestError::LangNotFound => $tx
-                            .send(Err(Status::invalid_argument("language uuid not found.")))
+                        RequestError::LangNotFound(uid) => $tx
+                            .send(Err(Status::with_details(
+                                Code::FailedPrecondition,
+                                "language with such uuid does not exist on this judger",
+                                Bytes::from(format!("lang_uid: {}", uid)),
+                            )))
                             .await
                             .ok(),
                     };
