@@ -3,8 +3,6 @@ mod test {
     use crate::sandbox::prelude::*;
     use tokio::time;
 
-    use super::*;
-
     #[tokio::test]
     async fn exec() {
         crate::init::new().await;
