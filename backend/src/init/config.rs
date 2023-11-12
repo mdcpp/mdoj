@@ -25,13 +25,11 @@ pub struct GlobalConfig {
     // pub reverse_proxy: Vec<ReverseProxy>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judger {
-    uri: SocketAddr,
-    root_cert: Option<PathBuf>,
-    client_cert: Option<PathBuf>,
-    client_key: Option<PathBuf>,
-    domain: Option<String>,
+    pub uri: SocketAddr,
+    pub pem: Option<PathBuf>,
+    pub domain: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

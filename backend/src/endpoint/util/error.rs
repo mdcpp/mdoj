@@ -8,7 +8,7 @@ pub enum Error {
     PremissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
     DBErr(#[from] sea_orm::DbErr),
-    #[error("Downstream: `{0}`")]
+    #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("Not in payload: `{0}`")]
     NotInPayload(&'static str),
