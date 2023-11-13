@@ -22,8 +22,6 @@ pub struct Model {
     pub memory: Option<i64>,
     #[sea_orm(default_value = 0)]
     pub pass_case: i32,
-    #[sea_orm(default_value = 0)]
-    pub report: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

@@ -196,7 +196,13 @@ impl Router {
             let next = self.next_entry.fetch_add(1, Ordering::Relaxed) % server_count;
             let upstream = &self.upstreams[next];
             if upstream.healthy.load(Ordering::Relaxed) && upstream.langs.read().contains_key(uid) {
-                return upstream.pool.get(JUDGER_QUE_MAX).await;
+                match upstream.pool.get(JUDGER_QUE_MAX).await {
+                    Ok(x) => return Ok(x),
+                    Err(err) => {
+                        log::warn!("judger {} is unavailable: {}", upstream.config.uri, err);
+                        upstream.healthy.store(false, Ordering::Relaxed);
+                    }
+                }
             }
         }
         log::warn!("no judger available");

@@ -16,7 +16,11 @@ pub enum Error {
     #[error("`{0}`")]
     Transaction(#[from] sea_orm::TransactionError<sea_orm::error::DbErr>),
     #[error("`{0}`")]
-    Submit(#[from] submit::Error),
+    Submit(submit::Error),
+    #[error("`{0}`")]
+    GrpcReport(#[from] tonic::Status),
+    #[error("`{0}`")]
+    Internal(&'static str),
 }
 
 pub fn to_active_value<C>(option: Option<C>) -> ActiveValue<C>
