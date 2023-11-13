@@ -70,5 +70,6 @@ features = ["mutex","spin_mutex","rwlock"]
 tonic-build = "0.9.2"
 
 [features]
-default = []
+default = ["single-instance"]
 unsecured-log = []
+single-instance = []

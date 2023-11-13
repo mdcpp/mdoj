@@ -13,7 +13,7 @@ use crate::init::db::DB;
 
 use super::Error;
 
-const EXPIRY_FRQU: usize = 10;
+const EXPIRY_FRQU: usize = 300;
 type RAND = [u8; 16];
 
 macro_rules! report {
@@ -45,6 +45,7 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
+    #[cfg(feature = "single-instance")]
     cache: Mutex<LruCache<RAND, CachedToken>>,
     frqu: AtomicUsize,
     rand: SystemRandom,
@@ -54,8 +55,10 @@ pub struct TokenController {
 impl Default for TokenController {
     fn default() -> Self {
         log::debug!("Setup TokenController");
+        #[cfg(feature = "single-instance")]
         let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
         Self {
+            #[cfg(feature = "single-instance")]
             cache,
             frqu: Default::default(),
             rand: SystemRandom::new(),
@@ -116,6 +119,7 @@ impl TokenController {
 
         let token: CachedToken;
 
+        #[cfg(feature = "single-instance")]
         let cache_result = {
             let mut cache = self.cache.lock();
             match cache.get(&rand) {
@@ -130,6 +134,8 @@ impl TokenController {
                 None => None,
             }
         };
+        #[cfg(not(feature = "single-instance"))]
+        let cache_result: Option<CachedToken> = None;
 
         match cache_result {
             Some(token_) => {
@@ -148,6 +154,7 @@ impl TokenController {
                     return Ok(None);
                 }
 
+                #[cfg(feature = "single-instance")]
                 self.cache.lock().put(rand, token.clone());
             }
         }
@@ -166,6 +173,7 @@ impl TokenController {
             .exec(db)
             .await?;
 
+        #[cfg(feature = "single-instance")]
         self.cache.lock().pop(&rand);
 
         Ok(Some(()))
