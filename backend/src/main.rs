@@ -1,7 +1,5 @@
 use controller::token::TokenController;
 
-use crate::init::config::CONFIG;
-
 pub mod controller;
 pub mod endpoint;
 pub mod grpc;

@@ -1,7 +1,7 @@
 use tonic::async_trait;
 
 use super::{error::Error, ControllerTrait};
-use crate::{controller::token::UserPermBytes, init::config::CONFIG, Server};
+use crate::{controller::token::UserPermBytes, Server};
 use tracing::{span, Level};
 
 pub enum Auth {
@@ -36,7 +36,7 @@ impl Auth {
     }
     pub fn is_root(&self) -> bool {
         match self {
-            Auth::User((uid, perm)) => perm.can_root(),
+            Auth::User((_, perm)) => perm.can_root(),
             _ => false,
         }
     }

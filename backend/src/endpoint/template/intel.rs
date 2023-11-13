@@ -1,5 +1,4 @@
 use std::pin::Pin;
-use std::process::Output;
 
 use futures_core::Stream;
 use sea_orm::sea_query::ValueType;
@@ -9,7 +8,7 @@ use tonic::{async_trait, Request, Response};
 use super::super::tools::*;
 use crate::grpc::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
 
-use super::stream::{*};
+use super::stream::*;
 use super::transform::*;
 
 pub trait IntelTrait {
@@ -99,8 +98,8 @@ where
 
         let query = Self::sort_filter(query, sort_by, page, reverse);
 
-        let stream:Pin<Box<dyn Stream<Item = Result<I::PartialModel,_>>+Send>> = 
-        Box::pin(query.stream_partial_model(db).await?);
+        let stream: Pin<Box<dyn Stream<Item = Result<I::PartialModel, _>> + Send>> =
+            Box::pin(query.stream_partial_model(db).await?);
 
         let output_stream = map_stream(stream);
         Ok(Response::new(Box::pin(output_stream)))
@@ -138,8 +137,8 @@ where
 
         let query = query.filter(condition);
 
-        let stream:Pin<Box<dyn Stream<Item = Result<I::PartialModel,_>>+Send>> = 
-        Box::pin(query.stream_partial_model(db).await?);
+        let stream: Pin<Box<dyn Stream<Item = Result<I::PartialModel, _>> + Send>> =
+            Box::pin(query.stream_partial_model(db).await?);
 
         let output_stream = map_stream(stream);
         Ok(Response::new(Box::pin(output_stream)))

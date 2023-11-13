@@ -5,8 +5,6 @@ pub mod util;
 use sea_orm::ActiveValue;
 use thiserror::Error;
 
-use self::token::TokenController;
-
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("`{0}`")]

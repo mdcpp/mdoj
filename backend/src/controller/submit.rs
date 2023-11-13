@@ -1,7 +1,10 @@
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related};
 use thiserror::Error;
 
-use crate::{endpoint::tools::DB, grpc::prelude::{JudgeRequest, TestIo}};
+use crate::{
+    endpoint::tools::DB,
+    grpc::prelude::{JudgeRequest, TestIo},
+};
 
 use super::util::router::*;
 use entity::*;
@@ -73,7 +76,11 @@ impl SubmitController {
 
         let mut conn = self.router.get(&submit.lang).await?;
 
-        let (problem,testcases)=problem::Entity::find_by_id(submit.problem).find_also_related(testcase::Entity).one(db).await?.ok_or(Error::BadArgument("problem id"))?;
+        let (problem, testcases) = problem::Entity::find_by_id(submit.problem)
+            .find_also_related(testcase::Entity)
+            .one(db)
+            .await?
+            .ok_or(Error::BadArgument("problem id"))?;
 
         // create uncommited submit
         let mut model = submit::ActiveModel {
@@ -89,19 +96,24 @@ impl SubmitController {
         .await?;
 
         tokio::spawn(async move {
-            let tests=testcases.into_iter().map(|x| TestIo{
-                input: x.stdin,
-                output: x.stdout,
-            }).collect::<Vec<_>>();
+            let tests = testcases
+                .into_iter()
+                .map(|x| TestIo {
+                    input: x.stdin,
+                    output: x.stdout,
+                })
+                .collect::<Vec<_>>();
 
-            let res=conn.judge(JudgeRequest{
-                lang_uid: submit.lang,
-                code: submit.code,
-                memory: submit.memory_limit,
-                time: submit.time_limit as u64,
-                rule: problem.match_rule,
-                tests,
-            }).await;
+            let res = conn
+                .judge(JudgeRequest {
+                    lang_uid: submit.lang,
+                    code: submit.code,
+                    memory: submit.memory_limit,
+                    time: submit.time_limit as u64,
+                    rule: problem.match_rule,
+                    tests,
+                })
+                .await;
             todo!()
         });
 

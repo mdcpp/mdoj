@@ -1,8 +1,6 @@
 use tonic::async_trait;
 
-use crate::Server;
-
-use self::{auth::Auth, error::Error};
+use self::error::Error;
 
 pub mod auth;
 pub mod error;

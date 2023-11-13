@@ -8,7 +8,7 @@ use sea_orm::*;
 
 use super::{
     intel::{Intel, IntelTrait},
-    stream::{*},
+    stream::*,
     transform::Transform,
 };
 
@@ -141,8 +141,8 @@ where
             query = <Self as LinkQueryable<I>>::ro_filter(query, auth, ppk).await?;
         }
 
-        let stream:Pin<Box<dyn Stream<Item = Result<I::PartialModel,_>>+Send>> = 
-        Box::pin(query.stream_partial_model(db).await?);
+        let stream: Pin<Box<dyn Stream<Item = Result<I::PartialModel, _>> + Send>> =
+            Box::pin(query.stream_partial_model(db).await?);
 
         let output_stream = map_stream(stream);
         Ok(Response::new(Box::pin(output_stream)))

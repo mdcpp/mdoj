@@ -8,7 +8,6 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tracing::instrument;
 
-use crate::init::config::CONFIG;
 use crate::init::db::DB;
 
 use super::Error;
