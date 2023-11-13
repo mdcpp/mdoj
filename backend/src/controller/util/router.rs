@@ -102,7 +102,7 @@ struct Upstream {
     config: Arc<config::Judger>,
     pool: Arc<ConnPool>,
     langs: RwLock<BTreeMap<String, LangInfo>>,
-    accuracy: RwLock<i64>,
+    accuracy: RwLock<u64>,
     healthy: AtomicBool,
 }
 

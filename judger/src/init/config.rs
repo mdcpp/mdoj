@@ -30,7 +30,7 @@ pub struct GlobalConfig {
 #[serde(deny_unknown_fields)]
 pub struct Platform {
     pub cpu_time_multiplier: f64,
-    pub available_memory: i64,
+    pub available_memory: u64,
     pub output_limit: usize,
 }
 

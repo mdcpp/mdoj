@@ -123,7 +123,7 @@ impl<'a> CompiledArtifact<'a> {
         &mut self,
         input: &Vec<u8>,
         time: u64,
-        memory: i64,
+        memory: u64,
     ) -> Result<TaskResult, Error> {
         log::trace!("Running program -trace:{}", self.tracing_id);
         let mut limit = self.spec.judge_limit.clone().apply_platform();
@@ -203,7 +203,7 @@ impl Limit {
         let config = CONFIG.get().unwrap();
 
         self.cpu_us = ((self.cpu_us as f64) * config.platform.cpu_time_multiplier) as u64;
-        self.rt_us = ((self.rt_us as f64) * config.platform.cpu_time_multiplier) as i64;
+        self.rt_us = ((self.rt_us as f64) * config.platform.cpu_time_multiplier) as u64;
         self.total_us = ((self.total_us as f64) * config.platform.cpu_time_multiplier) as u64;
 
         self

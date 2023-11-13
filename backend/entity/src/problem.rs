@@ -13,7 +13,7 @@ pub struct Model {
     pub success: i32,
     pub submit_count: u32,
     pub ac_rate: f32,
-    pub memory: i64,
+    pub memory: u64,
     pub time: u64,
     pub difficulty: u32,
     pub public: bool,

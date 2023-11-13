@@ -15,8 +15,8 @@ use super::super::Error;
 const MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub struct MemoryStatistic {
-    pub available_mem: i64,
-    pub max_mem: i64,
+    pub available_mem: u64,
+    pub max_mem: u64,
     pub tasks: u64,
 }
 
@@ -26,7 +26,7 @@ pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);
 
 impl MemorySemaphore {
     #[tracing::instrument]
-    pub fn new(memory: i64) -> Self {
+    pub fn new(memory: u64) -> Self {
         Self(Arc::new(Mutex::new(MemorySemaphoreInner {
             memory,
             all_mem: memory,
@@ -43,7 +43,7 @@ impl MemorySemaphore {
         }
     }
     #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
-    pub async fn allocate(&self, memory: i64) -> Result<MemoryPermit, Error> {
+    pub async fn allocate(&self, memory: u64) -> Result<MemoryPermit, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
@@ -75,7 +75,7 @@ impl MemorySemaphore {
         Ok(MemoryPermit::new(self, memory))
     }
     #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
-    fn deallocate(&self, released_memory: i64) {
+    fn deallocate(&self, released_memory: u64) {
         let self_ = &mut *self.0.lock();
 
         self_.memory += released_memory;
@@ -92,14 +92,14 @@ impl MemorySemaphore {
 }
 
 pub struct MemorySemaphoreInner {
-    memory: i64,
-    all_mem: i64,
+    memory: u64,
+    all_mem: u64,
     queue: BTreeSet<MemDemand>,
     tasks: u64,
 }
 
 struct MemDemand {
-    memory: i64,
+    memory: u64,
     tx: oneshot::Sender<()>,
     id: usize,
 }
@@ -124,12 +124,12 @@ impl PartialEq for MemDemand {
 }
 
 pub struct MemoryPermit {
-    memory: i64,
+    memory: u64,
     counter: MemorySemaphore,
 }
 
 impl MemoryPermit {
-    fn new(counter: &MemorySemaphore, memory: i64) -> Self {
+    fn new(counter: &MemorySemaphore, memory: u64) -> Self {
         counter.0.lock().tasks += 1;
         Self {
             memory,

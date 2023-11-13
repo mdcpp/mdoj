@@ -82,9 +82,9 @@ pub struct RawLangSpec {
 struct Compile {
     lockdown: bool,
     pub command: Vec<String>,
-    pub kernel_mem: i64,
-    pub user_mem: i64,
-    pub rt_time: i64,
+    pub kernel_mem: u64,
+    pub user_mem: u64,
+    pub rt_time: u64,
     pub cpu_time: u64,
     pub total_time: u64,
 }
@@ -92,8 +92,8 @@ struct Compile {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judge {
     pub command: Vec<String>,
-    pub kernel_mem: i64,
-    pub multiplier_memory: i64,
-    pub rt_time: i64,
+    pub kernel_mem: u64,
+    pub multiplier_memory: u64,
+    pub rt_time: u64,
     pub multiplier_cpu: u64,
 }

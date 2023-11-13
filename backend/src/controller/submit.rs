@@ -55,8 +55,8 @@ impl Into<super::Error> for Error {
 pub struct Submit {
     user: i32,
     problem: i32,
-    time_limit: i64,
-    memory_limit: i64,
+    time_limit: u64,
+    memory_limit: u64,
     lang: String,
     code: Vec<u8>,
 }

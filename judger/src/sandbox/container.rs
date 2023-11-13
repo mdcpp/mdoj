@@ -33,7 +33,7 @@ impl<'a> Container<'a> {
         let cg_name = format!("{}{}", config.runtime.root_cgroup, self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
-        let output_limit = config.platform.output_limit as i64;
+        let output_limit = config.platform.output_limit as u64;
 
         let memory_holder = self
             .daemon

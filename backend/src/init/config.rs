@@ -66,7 +66,7 @@ pub enum GrpcMode {
 // pub struct Sandbox {
 //     address: String,
 //     port: u16,
-//     memory: i64,
+//     memory: u64,
 //     cpu_weight: usize,
 // }
 

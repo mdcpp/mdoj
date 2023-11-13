@@ -55,9 +55,9 @@ impl Limiter {
 
         let cg = CgroupBuilder::new(&cg_name)
             .memory()
-            .kernel_memory_limit(limit.kernel_mem)
-            .memory_hard_limit(limit.user_mem)
-            .memory_swap_limit(limit.swap_user)
+            .kernel_memory_limit(limit.kernel_mem as i64)
+            .memory_hard_limit(limit.user_mem as i64)
+            .memory_swap_limit(limit.swap_user as i64 )
             .done()
             .cpu()
             .period(config.runtime.accuracy)

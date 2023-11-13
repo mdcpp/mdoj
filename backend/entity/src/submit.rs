@@ -19,7 +19,7 @@ pub struct Model {
     pub lang: String,
     pub code: Vec<u8>,
     #[sea_orm(nullable)]
-    pub memory: Option<i64>,
+    pub memory: Option<u64>,
     #[sea_orm(default_value = 0)]
     pub pass_case: i32,
 }

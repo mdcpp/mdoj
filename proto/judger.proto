@@ -8,7 +8,7 @@ message JudgeRequest {
   string lang_uid = 1;
   bytes code = 2;
   // memory limit in byte
-  int64 memory = 3;
+  uint64 memory = 3;
   // time limit in nanosecond
   uint64 time = 4;
   JudgeMatchRule rule = 5;
@@ -85,9 +85,9 @@ message LangInfo {
 
 message JudgeInfo {
   // max support memory in byte
-  int64 memory = 1;
+  uint64 memory = 1;
   // max possible deviation in nanosecond
-  int64 accuracy = 2;
+  uint64 accuracy = 2;
   // list of supported languages(extension)
   Langs langs = 3;
   // cpu factor, the total time limit is calculated by time * cpu_factor

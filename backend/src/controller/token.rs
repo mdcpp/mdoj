@@ -30,7 +30,7 @@ macro_rules! report {
 #[derive(Clone)]
 struct CachedToken {
     user_id: i32,
-    permission: i64,
+    permission: u64,
     expiry: NaiveDateTime,
 }
 
@@ -185,11 +185,11 @@ macro_rules! set_bit_value {
         paste::paste! {
             impl $item{
                 pub fn [<can_ $name>](&self)->bool{
-                    let filter = 1_i64<<($pos);
+                    let filter = 1_u64<<($pos);
                     (self.0&filter) == filter
                 }
                 pub fn [<grant_ $name>](&mut self,value:bool){
-                    let filter = 1_i64<<($pos);
+                    let filter = 1_u64<<($pos);
                     if (self.0&filter == filter) ^ value{
                         self.0 = self.0 ^ filter;
                     }
@@ -200,7 +200,7 @@ macro_rules! set_bit_value {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct UserPermBytes(pub i64);
+pub struct UserPermBytes(pub u64);
 
 impl UserPermBytes {
     pub fn strict_ge(&self, other: Self) -> bool {
