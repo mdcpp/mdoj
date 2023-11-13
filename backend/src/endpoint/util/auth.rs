@@ -49,7 +49,7 @@ impl Auth {
 impl ControllerTrait for Server {
     async fn parse_request<T: Send>(&self, request: tonic::Request<T>) -> Result<(Auth, T), Error> {
         let span = span!(Level::INFO,"token_verify",addr=?request.remote_addr());
-        let span = span.enter();
+        let _ = span.enter();
 
         let (meta, _, payload) = request.into_parts();
 

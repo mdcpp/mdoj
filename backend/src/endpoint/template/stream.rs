@@ -1,12 +1,14 @@
-use std::pin::Pin;
+use std::{error::Error, pin::Pin};
 
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
+use tokio::sync::mpsc::*;
+use tokio_stream::{wrappers::ReceiverStream, StreamExt};
+
+use super::transform::Transform;
 
 pub fn into_tokiostream<O: Send + 'static>(
     mut iter: impl Iterator<Item = O> + Send + 'static,
 ) -> TonicStream<O> {
-    let (tx, rx) = mpsc::channel(128);
+    let (tx, rx) = channel(128);
 
     tokio::spawn(async move {
         while let Some(item) = iter.next() {
@@ -18,6 +20,52 @@ pub fn into_tokiostream<O: Send + 'static>(
 
     let output_stream = ReceiverStream::new(rx);
     Box::pin(output_stream) as TonicStream<O>
+}
+
+// pub fn map_stream<O,I>(mut stream: impl tokio_stream::Stream<Item = I>+Unpin+Send+'static)->TonicStream<O>
+// where
+// O:Send+'static,
+// I:Send+'static+Into<O>,
+// {
+//     let (tx,rx)=channel(128);
+
+//     tokio::spawn(async move{
+//         while let Some(item)=stream.next().await{
+//             if tx.send(Result::<_, tonic::Status>::Ok(item.into())).await.is_err(){
+//                 break;
+//             }
+//         }
+//     });
+
+//     Box::pin(ReceiverStream::new(rx)) as TonicStream<O>
+// }
+
+pub fn map_stream<O, I, E>(
+    mut stream: impl tokio_stream::Stream<Item = Result<I, E>> + Unpin + Send + 'static,
+) -> TonicStream<O>
+where
+    O: Send + 'static,
+    I: Send + 'static + Transform<O>,
+    E: Send + Error,
+{
+    let (tx, rx) = channel(128);
+
+    tokio::spawn(async move {
+        while let Some(item) = stream.next().await {
+            if item.is_err() {
+                break;
+            }
+            if tx
+                .send(Result::<_, tonic::Status>::Ok(item.unwrap().into()))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+
+    Box::pin(ReceiverStream::new(rx)) as TonicStream<O>
 }
 
 pub type TonicStream<T> =

@@ -1,3 +1,6 @@
+use std::pin::Pin;
+
+use futures_core::Stream;
 use tonic::{async_trait, Request, Response};
 
 use super::super::tools::*;
@@ -5,7 +8,7 @@ use sea_orm::*;
 
 use super::{
     intel::{Intel, IntelTrait},
-    stream::{into_tokiostream, TonicStream},
+    stream::{*},
     transform::Transform,
 };
 
@@ -138,9 +141,10 @@ where
             query = <Self as LinkQueryable<I>>::ro_filter(query, auth, ppk).await?;
         }
 
-        let list: Vec<I::PartialModel> = query.into_partial_model().all(db).await?;
-        let output_stream = into_tokiostream(list.into_iter().map(|x| Transform::into(x)));
+        let stream:Pin<Box<dyn Stream<Item = Result<I::PartialModel,_>>+Send>> = 
+        Box::pin(query.stream_partial_model(db).await?);
 
+        let output_stream = map_stream(stream);
         Ok(Response::new(Box::pin(output_stream)))
     }
 
