@@ -96,7 +96,7 @@ impl Intel<ProblemIntel> for Server {
         let user_id = model.user_id;
 
         let mut target = model.into_active_model();
-        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags);
+        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags,match_rule);
 
         if let Some(tests) = info.tests {
             let list = tests.list.clone();
@@ -128,7 +128,7 @@ impl Intel<ProblemIntel> for Server {
 
         todo!("commit changes(active model)")
     }
-
+ 
     async fn create_model(model: create_problem_request::Info, user_id: i32) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
@@ -141,6 +141,7 @@ impl Intel<ProblemIntel> for Server {
             tags: ActiveValue::Set(model.tags),
             title: ActiveValue::Set(model.title),
             content: ActiveValue::Set(model.content),
+            match_rule: ActiveValue::Set(model.match_rule),
             ..Default::default()
         }
         .insert(db)

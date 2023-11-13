@@ -15,6 +15,7 @@ pub struct Model {
     pub problem_id: i32,
     pub stdin: Vec<u8>,
     pub stdout: Vec<u8>,
+    pub score: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

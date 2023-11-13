@@ -1,10 +1,10 @@
-use sea_orm::{ActiveModelTrait, ActiveValue};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related};
 use thiserror::Error;
 
-use crate::endpoint::tools::DB;
+use crate::{endpoint::tools::DB, grpc::prelude::{JudgeRequest, TestIo}};
 
 use super::util::router::*;
-use entity::submit::*;
+use entity::*;
 
 pub struct SubmitController {
     router: Router,
@@ -33,7 +33,9 @@ pub enum Error {
 impl Into<super::Error> for Error {
     fn into(self) -> super::Error {
         match self {
-            Error::JudgerUnavailable => super::Error::Internal("judger temporarily unavailable"),
+            Error::JudgerUnavailable => {
+                super::Error::Internal("no judger available(for such lang)")
+            }
             Error::HealthCheck => super::Error::Internal("judger health check failed"),
             Error::ReachLimit => tonic::Status::unavailable("judger reach limit").into(),
             Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
@@ -69,20 +71,54 @@ impl SubmitController {
     async fn submit(&self, submit: Submit) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
-        let model = ActiveModel {
+        let mut conn = self.router.get(&submit.lang).await?;
+
+        let (problem,testcases)=problem::Entity::find_by_id(submit.problem).find_also_related(testcase::Entity).one(db).await?.ok_or(Error::BadArgument("problem id"))?;
+
+        // create uncommited submit
+        let mut model = submit::ActiveModel {
             user_id: ActiveValue::Set(submit.user),
             problem_id: ActiveValue::Set(submit.user),
             committed: ActiveValue::Set(false),
-            lang: ActiveValue::Set(submit.lang),
-            code: ActiveValue::Set(submit.code),
+            lang: ActiveValue::Set(submit.lang.clone()),
+            code: ActiveValue::Set(submit.code.clone()),
             memory: ActiveValue::Set(Some(submit.memory_limit)),
             ..Default::default()
-        };
+        }
+        .save(db)
+        .await?;
 
-        let mut model=model.save(db).await?;
+        tokio::spawn(async move {
+            let tests=testcases.into_iter().map(|x| TestIo{
+                input: x.stdin,
+                output: x.stdout,
+            }).collect::<Vec<_>>();
 
+            let res=conn.judge(JudgeRequest{
+                lang_uid: submit.lang,
+                code: submit.code,
+                memory: submit.memory_limit,
+                time: submit.time_limit as u64,
+                rule: problem.match_rule,
+                tests,
+            }).await;
+            todo!()
+        });
+
+        // judge(background)
+        // conn.judge(JudgeRequest {
+        //     lang_uid: submit.lang,
+        //     code: submit.code,
+        //     memory: submit.memory_limit,
+        //     time: submit.time_limit,
+        //     rule: todo!(),
+        //     tests: todo!(),
+        // });
         todo!();
 
-        model.id.take().ok_or(Error::Internal("submit id should be autoincrement"))
+        Ok(model.id.unwrap())
+    }
+    async fn follow(&self, submit_id: i32) {
+        todo!()
     }
 }

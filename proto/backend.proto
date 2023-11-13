@@ -5,6 +5,17 @@ package oj.backend;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
+
+// How judge assert input
+enum MatchRule {
+  // exactly same
+  ExactSame = 0;
+  // assert segment between space or newline, empty segments are also compare
+  IgnoreSNL = 1;
+  // assert segment between space or newline, empty segments are ignored
+  SkipSNL = 2;
+}
+
 // Search
 enum SortBy {
   UploadDate = 0;
@@ -189,6 +200,7 @@ message CreateProblemRequest {
     string tags = 6;
     string content = 7;
     Testcases tests = 8;
+    MatchRule match_rule =9;
   };
   Info info = 1;
 }
@@ -204,6 +216,7 @@ message UpdateProblemRequest {
     optional uint32 submit_count = 3;
     optional float ac_rate = 8;
     optional Testcases tests = 9;
+    optional MatchRule match_rule =10;
   };
   Info info = 1;
   ProblemId id = 3;
