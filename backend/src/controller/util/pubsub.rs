@@ -1,4 +1,3 @@
-use futures_core::stream::Stream;
 use spin::mutex::Mutex;
 use std::ops::{Deref, DerefMut};
 // use std::pin::Pin;
@@ -6,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use std::{collections::HashMap, hash::Hash, sync::Arc};
 use tokio::sync::broadcast::*;
 use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::StreamExt;
+use tokio_stream::{StreamExt, Stream};
 
 pub struct PubGuard<M, I>
 where
@@ -29,7 +28,6 @@ where
         &self.tx
     }
 }
-
 
 impl<M, I> DerefMut for PubGuard<M, I>
 where

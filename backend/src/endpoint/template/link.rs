@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use futures_core::Stream;
+use tokio_stream::Stream;
 use tonic::{async_trait, Request, Response};
 
 use super::super::tools::*;

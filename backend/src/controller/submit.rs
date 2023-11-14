@@ -1,9 +1,10 @@
-use std::{ops::Deref, sync::Arc, borrow::BorrowMut};
+use std::{borrow::BorrowMut, cmp, ops::Deref, pin::Pin, sync::Arc};
 
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, Related};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 
+use tokio_stream::Stream;
 use crate::{
     controller::util::state::parse_state,
     grpc::{
@@ -16,10 +17,8 @@ use crate::{
 use super::util::{pubsub::PubSub, router::*};
 use entity::*;
 
-pub struct SubmitController {
-    router: Router,
-    pubsub: Arc<PubSub<SubmitStatus, i32>>,
-}
+type TonicStream<T> =
+    std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -77,6 +76,11 @@ impl Submit {
     }
 }
 
+pub struct SubmitController {
+    router: Router,
+    pubsub: Arc<PubSub<Result<SubmitStatus, tonic::Status>, i32>>,
+}
+
 impl SubmitController {
     async fn submit(&self, submit: Submit) -> Result<i32, Error> {
         let db = DB.get().unwrap();
@@ -126,21 +130,38 @@ impl SubmitController {
 
         tokio::spawn(async move {
             let mut res = res.into_inner();
+            let mut time = 0_u64;
+            let mut mem = 0_u64;
 
             while let Some(res) = res.next().await {
-                if let Ok(res) = res.map_err(|x| log::warn!("{}", x)) {
-                    todo!("count time and peak memory");
-                    parse_state(pubguard.borrow_mut(), res);
+                match res.map_err(|x| {
+                    log::warn!("{}", x);
+                    x
+                }) {
+                    Ok(res) => {
+                        if let Some(state) = parse_state(pubguard.borrow_mut(), res) {
+                            time += state.time;
+                            mem = cmp::max(mem, state.mem);
+                        }
+                    }
+                    Err(err) => {
+                        pubguard.send(Err(err)).ok();
+                        break;
+                    }
                 }
             }
-            todo!("commit the judge result");
-            let mut model=model.into_active_model();
-            model.committed=ActiveValue::Set(true);
-            // model.time=ActiveValue::Set(res.time);
+            let mut model = model.into_active_model();
+            model.committed = ActiveValue::Set(true);
+            model.time = ActiveValue::Set(Some(time));
+            model.memory = ActiveValue::Set(Some(mem));
+            if let Err(err) = model.save(db).await {
+                log::warn!("failed to commit the judge result: {}", err);
+            }
         });
         Ok(submit_id)
     }
-    async fn follow(&self, submit_id: i32) {
+    async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
+        // self.pubsub.subscribe(&submit_id)
         todo!()
     }
 }

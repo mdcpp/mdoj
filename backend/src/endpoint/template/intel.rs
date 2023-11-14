@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use futures_core::Stream;
+use tokio_stream::Stream;
 use sea_orm::sea_query::ValueType;
 use sea_orm::*;
 use tonic::{async_trait, Request, Response};

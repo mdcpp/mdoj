@@ -35,23 +35,36 @@ impl Into<JudgeState> for BackendState {
     }
 }
 
-pub fn parse_state(tx: &mut Sender<SubmitStatus>, res: JudgeResponse) {
+pub struct State {
+    pub time: u64,
+    pub mem: u64,
+}
+
+pub fn parse_state(
+    tx: &mut Sender<Result<SubmitStatus, tonic::Status>>,
+    res: JudgeResponse,
+) -> Option<State> {
     match res.task.unwrap_or_default() {
         judge_response::Task::Case(case) => {
-            tx.send(SubmitStatus {
+            tx.send(Ok(SubmitStatus {
                 task: Some(submit_status::Task::Case(case)),
-            })
+            }))
             .ok();
+            None
         }
         judge_response::Task::Result(res) => {
-            tx.send(SubmitStatus {
+            tx.send(Ok(SubmitStatus {
                 task: Some(submit_status::Task::Result(backend::JudgeResult {
                     status: res.status() as i32,
                     max_time: Some(res.max_time()),
                     max_mem: Some(res.max_mem()),
                 })),
-            })
+            }))
             .ok();
+            Some(State {
+                time: res.max_time(),
+                mem: res.max_mem(),
+            })
         }
     }
 }
