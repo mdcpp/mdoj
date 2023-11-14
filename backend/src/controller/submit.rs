@@ -4,7 +4,6 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, Relat
 use thiserror::Error;
 use tokio_stream::StreamExt;
 
-use tokio_stream::Stream;
 use crate::{
     controller::util::state::parse_state,
     grpc::{
@@ -13,6 +12,7 @@ use crate::{
     },
     init::db::DB,
 };
+use tokio_stream::Stream;
 
 use super::util::{pubsub::PubSub, router::*};
 use entity::*;
@@ -161,7 +161,6 @@ impl SubmitController {
         Ok(submit_id)
     }
     async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
-        // self.pubsub.subscribe(&submit_id)
-        todo!()
+        self.pubsub.subscribe(&submit_id)
     }
 }

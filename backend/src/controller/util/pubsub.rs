@@ -1,11 +1,12 @@
 use spin::mutex::Mutex;
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
 // use std::pin::Pin;
 // use std::task::Poll;
 use std::{collections::HashMap, hash::Hash, sync::Arc};
 use tokio::sync::broadcast::*;
 use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::{StreamExt, Stream};
+use tokio_stream::{Stream, StreamExt};
 
 pub struct PubGuard<M, I>
 where
@@ -84,11 +85,15 @@ where
             tx,
         }
     }
-    pub fn subscribe(self: Arc<Self>, id: &I) -> Option<BroadcastStream<M>> {
-        self.outgoing
+    pub fn subscribe(self: &Arc<Self>, id: &I) -> Option<Pin<Box<dyn Stream<Item = M> + Send>>> {
+        self.clone()
+            .outgoing
             .lock()
             .get(id)
             .map(|s| BroadcastStream::new(s.resubscribe()))
+            .map(|s| {
+                Box::pin(s.filter_map(|item| item.ok())) as Pin<Box<dyn Stream<Item = M> + Send>>
+            })
     }
 }
 
