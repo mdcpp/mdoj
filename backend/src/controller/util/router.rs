@@ -11,7 +11,7 @@ use spin::{Mutex, RwLock};
 use tonic::transport;
 
 use crate::{
-    grpc::prelude::{judger_client::*, *},
+    grpc::judger::{judger_client::*, *},
     init::config,
 };
 
@@ -67,6 +67,7 @@ struct ConnPool {
     config: Arc<config::Judger>,
     clients: Mutex<VecDeque<JudgerClient<transport::Channel>>>,
     running: AtomicUsize,
+    healthy: AtomicBool,
 }
 
 impl ConnPool {
@@ -75,12 +76,14 @@ impl ConnPool {
             config,
             clients: Default::default(),
             running: Default::default(),
+            healthy: Default::default(),
         })
     }
     async fn get(self: &Arc<Self>, max: usize) -> Result<ConnGuard, Error> {
         if self.running.fetch_add(1, Ordering::Relaxed) > max {
             self.running.fetch_sub(1, Ordering::Relaxed);
-            return Err(Error::ReachLimit);
+            self.healthy.store(false, Ordering::Relaxed);
+            return Err(Error::JudgerUnavailable);
         };
         let pool = self.clone();
         Ok(match { self.clients.lock().pop_front() } {
@@ -103,7 +106,6 @@ struct Upstream {
     pool: Arc<ConnPool>,
     langs: RwLock<BTreeMap<String, LangInfo>>,
     accuracy: RwLock<u64>,
-    healthy: AtomicBool,
 }
 
 impl Upstream {
@@ -113,7 +115,6 @@ impl Upstream {
             pool: ConnPool::new(config),
             langs: Default::default(),
             accuracy: Default::default(),
-            healthy: Default::default(),
         });
 
         let self_weak = Arc::downgrade(&self_);
@@ -195,12 +196,13 @@ impl Router {
         for _ in 0..(server_count * 2 + 1) {
             let next = self.next_entry.fetch_add(1, Ordering::Relaxed) % server_count;
             let upstream = &self.upstreams[next];
-            if upstream.healthy.load(Ordering::Relaxed) && upstream.langs.read().contains_key(uid) {
+            if upstream.pool.healthy.load(Ordering::Relaxed)
+                && upstream.langs.read().contains_key(uid)
+            {
                 match upstream.pool.get(JUDGER_QUE_MAX).await {
                     Ok(x) => return Ok(x),
                     Err(err) => {
                         log::warn!("judger {} is unavailable: {}", upstream.config.uri, err);
-                        upstream.healthy.store(false, Ordering::Relaxed);
                     }
                 }
             }

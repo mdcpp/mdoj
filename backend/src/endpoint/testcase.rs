@@ -1,8 +1,8 @@
 use super::endpoints::*;
 use super::tools::*;
 
-use crate::grpc::prelude::testcase_set_server::TestcaseSet;
-use crate::{endpoint::*, grpc::prelude::*, impl_id, Server};
+use crate::grpc::backend::testcase_set_server::TestcaseSet;
+use crate::{endpoint::*, grpc::backend::*, impl_id, Server};
 
 use entity::{testcase::*, *};
 use tonic::*;

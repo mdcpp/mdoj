@@ -9,14 +9,14 @@ use thiserror::Error;
 pub enum Error {
     #[error("`{0}`")]
     Database(#[from] sea_orm::error::DbErr),
-    #[error("`{0}`")]
+    #[error("grpc transport: `{0}`")]
     Tonic(#[from] tonic::transport::Error),
-    #[error("`{0}`")]
-    Transaction(#[from] sea_orm::TransactionError<sea_orm::error::DbErr>),
-    #[error("`{0}`")]
-    Submit(submit::Error),
+    // #[error("`{0}`")]
+    // Submit(submit::Error),
     #[error("`{0}`")]
     GrpcReport(#[from] tonic::Status),
+    #[error("service `{0}` temporarily unavailable")]
+    Unavailable(&'static str),
     #[error("`{0}`")]
     Internal(&'static str),
 }

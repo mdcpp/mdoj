@@ -5,7 +5,6 @@ package oj.backend;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
-
 // How judge assert input
 enum MatchRule {
   // exactly same
@@ -42,6 +41,84 @@ message TextSearchRequest {
   string text = 3;
 }
 
+message Case {
+  repeated bytes inputs = 1;
+  repeated bytes outputs = 2;
+}
+
+message Testcases { repeated TestcaseId list = 1; }
+
+// Submit
+enum JudgeResultState {
+  AC = 0;
+  NA = 1;
+  WA = 2;
+  CE = 3;
+  RE = 4;
+  RF = 5;
+  TLE = 6;
+  MLE = 7;
+  OLE = 8;
+}
+
+message SubmitId { int32 id = 1; }
+
+message Submits { repeated SubmitInfo list = 1; }
+
+message SubmitUpload {
+  SubmitId id = 1;
+  bytes code = 2;
+}
+
+message SubmitInfo {
+  SubmitId id = 1;
+  google.protobuf.Timestamp upload_time = 3;
+  uint64 time = 4;
+  uint64 peak_mem = 5;
+  uint64 score = 6;
+  JudgeResult state = 7;
+}
+
+message JudgeResult {
+  // assertion code
+  JudgeResult status = 1;
+  // the time in nanosecond
+  optional uint64 max_time = 2;
+  // the peak memory usage
+  optional uint64 max_mem = 3;
+}
+
+message SubmitStatus {
+  oneof task {
+    // number of test case running(or finished)
+    int32 case = 1;
+    JudgeResult result = 2;
+  }
+}
+
+message CreateSubmitRequest {
+  message Info {
+    bytes code = 1;
+    ProblemId problem_id = 2;
+  }
+  Info info = 1;
+  SubmitId id = 2;
+}
+
+service SubmitSet {
+  rpc List(ListRequest) returns (Submits);
+  rpc SearchByText(TextSearchRequest) returns (Submits);
+  rpc SearchByTag(TextSearchRequest) returns (Submits);
+  rpc Info(SubmitId) returns (SubmitInfo);
+
+  rpc Create(CreateSubmitRequest) returns (SubmitId);
+  rpc Remove(SubmitId) returns (google.protobuf.Empty);
+
+  // are not guarantee to yield status
+  rpc Follow(SubmitId) returns (stream SubmitStatus);
+  rpc Rejudge(SubmitId) returns (google.protobuf.Empty);
+}
+
 // Announcements
 message Announcements { repeated AnnouncementInfo list = 1; }
 
@@ -65,8 +142,8 @@ message AnnouncementLink {
   ContestId contest_id = 2;
 }
 
-message CreateAnnouncementRequest{
-  message Info{
+message CreateAnnouncementRequest {
+  message Info {
     string title = 1;
     string content = 2;
   }
@@ -74,8 +151,8 @@ message CreateAnnouncementRequest{
   ContestId id = 2;
 }
 
-message UpdateAnnouncementRequest{
-  message Info{
+message UpdateAnnouncementRequest {
+  message Info {
     optional string title = 1;
     optional string content = 2;
   }
@@ -121,22 +198,22 @@ message EducationLink {
   ProblemId problem_id = 2;
 }
 
-message CreateEducationRequest{
-  message Info{
+message CreateEducationRequest {
+  message Info {
     string title = 1;
     string content = 2;
   }
   Info info = 1;
-  EducationId id =2;
+  EducationId id = 2;
 }
 
-message UpdateEducationRequest{
-  message Info{
+message UpdateEducationRequest {
+  message Info {
     optional string title = 1;
     optional string content = 2;
   }
   Info info = 1;
-  EducationId id =2;
+  EducationId id = 2;
 }
 
 service EducationSet {
@@ -177,15 +254,6 @@ message ProblemFullInfo {
   // bool commit
 }
 
-message Case {
-  repeated bytes inputs = 1;
-  repeated bytes outputs = 2;
-}
-
-message Testcases{
-  repeated TestcaseId list=1;
-}
-
 message ProblemLink {
   ContestId contest_id = 1;
   ProblemId problem_id = 2;
@@ -200,7 +268,7 @@ message CreateProblemRequest {
     string tags = 6;
     string content = 7;
     Testcases tests = 8;
-    MatchRule match_rule =9;
+    MatchRule match_rule = 9;
   };
   Info info = 1;
 }
@@ -216,7 +284,7 @@ message UpdateProblemRequest {
     optional uint32 submit_count = 3;
     optional float ac_rate = 8;
     optional Testcases tests = 9;
-    optional MatchRule match_rule =10;
+    optional MatchRule match_rule = 10;
   };
   Info info = 1;
   ProblemId id = 3;
@@ -257,7 +325,7 @@ message TestcaseFullInfo {
   repeated bytes outputs = 4;
 }
 
-message TestcaseLink{
+message TestcaseLink {
   TestcaseId testcase_id = 1;
   ProblemId problem_id = 2;
 }
@@ -292,7 +360,6 @@ service TestcaseSet {
   rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
   rpc ListByProblem(TestcaseLink) returns (stream TestcaseInfo);
 }
-
 
 // Contest
 message ContestId { int32 id = 1; }
@@ -329,7 +396,7 @@ message CreateContestRequest {
     google.protobuf.Timestamp begin = 2;
     google.protobuf.Timestamp end = 3;
     string content = 4;
-    optional string password =5;
+    optional string password = 5;
   }
   Info info = 1;
   ContestId id = 2;
@@ -341,7 +408,7 @@ message UpdateContestRequest {
     optional google.protobuf.Timestamp begin = 2;
     optional google.protobuf.Timestamp end = 3;
     optional string content = 4;
-    optional string password =5;
+    optional string password = 5;
   }
   Info info = 1;
   ContestId id = 2;
@@ -361,66 +428,6 @@ service ContestSet {
   rpc Exit(ContestId) returns (google.protobuf.Empty);
 
   rpc Rank(ListRequest) returns (UserRanks);
-}
-
-// Submit
-enum JudgeState {
-  AC = 0;
-  NA = 1;
-  WA = 2;
-  CE = 3;
-  RE = 4;
-  RF = 5;
-  TLE = 6;
-  MLE = 7;
-  OLE = 8;
-}
-
-message SubmitId { int32 id = 1; }
-
-message Submits { repeated SubmitInfo list = 1; }
-
-message SubmitUpload {
-  SubmitId id = 1;
-  bytes code = 2;
-}
-
-message SubmitInfo {
-  SubmitId id = 1;
-  google.protobuf.Timestamp upload_time = 3;
-  uint64 time = 4;
-  uint64 peak_mem = 5;
-  uint64 score = 6;
-  JudgeState state = 7;
-}
-
-message SubmitStatus {
-  JudgeState state = 1;
-  uint64 time = 2;
-  uint64 peak_mem = 3;
-}
-
-message CreateSubmitRequest {
-  message Info {
-    bytes code = 1;
-    ProblemId problem_id = 2;
-  }
-  Info info = 1;
-  SubmitId id = 2;
-}
-
-service SubmitSet {
-  rpc List(ListRequest) returns (Submits);
-  rpc SearchByText(TextSearchRequest) returns (Submits);
-  rpc SearchByTag(TextSearchRequest) returns (Submits);
-  rpc Info(SubmitId) returns (SubmitInfo);
-
-  rpc Create(CreateSubmitRequest) returns (SubmitId);
-  rpc Remove(SubmitId) returns (google.protobuf.Empty);
-
-  // are not guarantee to yield status
-  rpc Follow(SubmitId) returns (stream SubmitStatus);
-  rpc Rejudge(SubmitId) returns (google.protobuf.Empty);
 }
 
 // User
@@ -490,4 +497,3 @@ service TokenSet {
 
   rpc Logout(Token) returns (google.protobuf.Empty);
 }
-

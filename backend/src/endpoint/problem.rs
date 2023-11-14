@@ -1,7 +1,7 @@
 use super::endpoints::*;
 use super::tools::*;
 
-use crate::{endpoint::*, grpc::prelude::*, impl_id, Server};
+use crate::{endpoint::*, grpc::backend::*, impl_id, Server};
 
 use entity::{problem::*, *};
 use tonic::*;

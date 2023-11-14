@@ -1,11 +1,40 @@
 use futures_core::stream::Stream;
 use spin::mutex::Mutex;
+use std::ops::Deref;
 // use std::pin::Pin;
 // use std::task::Poll;
 use std::{collections::HashMap, hash::Hash, sync::Arc};
 use tokio::sync::broadcast::*;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
+
+pub struct PubGuard<M, I>
+where
+    M: Clone + Send + 'static,
+    I: Eq + Clone + Hash + Send + 'static,
+{
+    pubsub: Arc<PubSub<M, I>>,
+    id: I,
+    tx: Sender<M>,
+}
+
+impl<M, I> Deref for PubGuard<M, I>
+where
+    M: Clone + Send + 'static,
+    I: Eq + Clone + Hash + Send + 'static,
+{
+    type Target = Sender<M>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tx
+    }
+}
+
+impl<M: Clone + Send + 'static, I: Eq + Clone + Hash + Send + 'static> Drop for PubGuard<M, I> {
+    fn drop(&mut self) {
+        self.pubsub.outgoing.lock().remove(&self.id);
+    }
+}
 
 pub struct PubSub<M, I> {
     outgoing: Mutex<HashMap<I, Receiver<M>>>,
@@ -36,6 +65,15 @@ where
             }
             self_.outgoing.lock().remove(&id);
         });
+    }
+    pub fn publish(self: &Arc<Self>, id: I) -> PubGuard<M, I> {
+        let (tx, rx) = channel(16);
+        self.outgoing.lock().insert(id.clone(), rx);
+        PubGuard {
+            pubsub: self.clone(),
+            id,
+            tx,
+        }
     }
     pub fn subscribe(self: Arc<Self>, id: &I) -> Option<BroadcastStream<M>> {
         self.outgoing

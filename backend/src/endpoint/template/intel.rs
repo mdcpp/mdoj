@@ -6,7 +6,7 @@ use sea_orm::*;
 use tonic::{async_trait, Request, Response};
 
 use super::super::tools::*;
-use crate::grpc::prelude::{ListRequest, Page, SortBy, TextSearchRequest};
+use crate::grpc::backend::{ListRequest, Page, SortBy, TextSearchRequest};
 
 use super::stream::*;
 use super::transform::*;

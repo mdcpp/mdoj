@@ -1,16 +1,24 @@
+use std::sync::Arc;
+
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related};
 use thiserror::Error;
+use tokio_stream::StreamExt;
 
 use crate::{
-    endpoint::tools::DB,
-    grpc::prelude::{JudgeRequest, TestIo},
+    controller::util::state::parse_state,
+    grpc::{
+        backend::SubmitStatus,
+        judger::{JudgeRequest, TestIo},
+    },
+    init::db::DB,
 };
 
-use super::util::router::*;
+use super::util::{pubsub::PubSub, router::*};
 use entity::*;
 
 pub struct SubmitController {
     router: Router,
+    pubsub: Arc<PubSub<SubmitStatus, i32>>,
 }
 
 #[derive(Debug, Error)]
@@ -19,8 +27,8 @@ pub enum Error {
     JudgerUnavailable,
     #[error("judger health check failed")]
     HealthCheck,
-    #[error("judger reach limit")]
-    ReachLimit,
+    #[error("`{0}`")]
+    GrpcReport(#[from] tonic::Status),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("`{0}`")]
@@ -35,22 +43,23 @@ pub enum Error {
 
 impl Into<super::Error> for Error {
     fn into(self) -> super::Error {
-        match self {
-            Error::JudgerUnavailable => {
-                super::Error::Internal("no judger available(for such lang)")
-            }
-            Error::HealthCheck => super::Error::Internal("judger health check failed"),
-            Error::ReachLimit => tonic::Status::unavailable("judger reach limit").into(),
-            Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
-                "Client sent invaild argument: payload.{}",
-                x
-            ))
-            .into(),
-            Error::Database(x) => super::Error::Database(x),
-            Error::Tonic(x) => super::Error::Tonic(x),
-            Error::Internal(x) => super::Error::Internal(x),
-            // Error::TlsError => todo!(),
-        }
+        // match self {
+        //     Error::JudgerUnavailable => {
+        //         super::Error::Internal("no judger available(for such lang)")
+        //     }
+        //     Error::HealthCheck => super::Error::Internal("judger health check failed"),
+        //     Error::ReachLimit => tonic::Status::unavailable("judger reach limit").into(),
+        //     Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
+        //         "Client sent invaild argument: payload.{}",
+        //         x
+        //     ))
+        //     .into(),
+        //     Error::Database(x) => super::Error::Database(x),
+        //     Error::Tonic(x) => super::Error::Tonic(x),
+        //     Error::Internal(x) => super::Error::Internal(x),
+        //     // Error::TlsError => todo!(),
+        // }
+        todo!()
     }
 }
 
@@ -95,25 +104,40 @@ impl SubmitController {
         .save(db)
         .await?;
 
-        tokio::spawn(async move {
-            let tests = testcases
-                .into_iter()
-                .map(|x| TestIo {
-                    input: x.stdin,
-                    output: x.stdout,
-                })
-                .collect::<Vec<_>>();
+        let submit_id = model.id.unwrap();
+        let mut pubguard = self.pubsub.publish(submit_id);
 
-            let res = conn
-                .judge(JudgeRequest {
-                    lang_uid: submit.lang,
-                    code: submit.code,
-                    memory: submit.memory_limit,
-                    time: submit.time_limit as u64,
-                    rule: problem.match_rule,
-                    tests,
-                })
-                .await;
+        let tests = testcases
+            .into_iter()
+            .map(|x| TestIo {
+                input: x.stdin,
+                output: x.stdout,
+            })
+            .collect::<Vec<_>>();
+
+        let res = conn
+            .judge(JudgeRequest {
+                lang_uid: submit.lang,
+                code: submit.code,
+                memory: submit.memory_limit,
+                time: submit.time_limit as u64,
+                rule: problem.match_rule,
+                tests,
+            })
+            .await?;
+
+        tokio::spawn(async move {
+            let mut res = res.into_inner();
+
+            let mut task_count = 0;
+            while let Some(res) = res.next().await {
+                if let Ok(res) = res.map_err(|x| log::warn!("{}", x)) {
+                    // pubguard.send(parse_state(res));
+                    todo!();
+                    break;
+                }
+            }
+
             todo!()
         });
 
@@ -128,7 +152,7 @@ impl SubmitController {
         // });
         todo!();
 
-        Ok(model.id.unwrap())
+        Ok(submit_id)
     }
     async fn follow(&self, submit_id: i32) {
         todo!()
