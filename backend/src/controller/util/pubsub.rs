@@ -1,6 +1,7 @@
 use spin::mutex::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 // use std::pin::Pin;
 // use std::task::Poll;
 use std::{collections::HashMap, hash::Hash, sync::Arc};
@@ -86,14 +87,17 @@ where
         }
     }
     pub fn subscribe(self: &Arc<Self>, id: &I) -> Option<Pin<Box<dyn Stream<Item = M> + Send>>> {
-        self.clone()
-            .outgoing
-            .lock()
-            .get(id)
-            .map(|s| BroadcastStream::new(s.resubscribe()))
-            .map(|s| {
-                Box::pin(s.filter_map(|item| item.ok())) as Pin<Box<dyn Stream<Item = M> + Send>>
-            })
+        self.clone().outgoing.lock().get(id).map(|s| {
+            Box::pin(BroadcastStream::new(s.resubscribe()).filter_map(|item| {
+                item.map_err(|err| match err {
+                    BroadcastStreamRecvError::Lagged(x) => {
+                        log::trace!("PubSub: lagged {} messeges", x)
+                    }
+                    _ => log::error!("PubSub: {}", err),
+                })
+                .ok()
+            })) as Pin<Box<dyn Stream<Item = M> + Send>>
+        })
     }
 }
 
