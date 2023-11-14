@@ -1,6 +1,6 @@
 use futures_core::stream::Stream;
 use spin::mutex::Mutex;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 // use std::pin::Pin;
 // use std::task::Poll;
 use std::{collections::HashMap, hash::Hash, sync::Arc};
@@ -27,6 +27,17 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.tx
+    }
+}
+
+
+impl<M, I> DerefMut for PubGuard<M, I>
+where
+    M: Clone + Send + 'static,
+    I: Eq + Clone + Hash + Send + 'static,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tx
     }
 }
 

@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc, borrow::BorrowMut};
 
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, Related, IntoActiveModel};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 
@@ -43,23 +43,21 @@ pub enum Error {
 
 impl Into<super::Error> for Error {
     fn into(self) -> super::Error {
-        // match self {
-        //     Error::JudgerUnavailable => {
-        //         super::Error::Internal("no judger available(for such lang)")
-        //     }
-        //     Error::HealthCheck => super::Error::Internal("judger health check failed"),
-        //     Error::ReachLimit => tonic::Status::unavailable("judger reach limit").into(),
-        //     Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
-        //         "Client sent invaild argument: payload.{}",
-        //         x
-        //     ))
-        //     .into(),
-        //     Error::Database(x) => super::Error::Database(x),
-        //     Error::Tonic(x) => super::Error::Tonic(x),
-        //     Error::Internal(x) => super::Error::Internal(x),
-        //     // Error::TlsError => todo!(),
-        // }
-        todo!()
+        match self {
+            Error::JudgerUnavailable => {
+                super::Error::Internal("no judger available(for such lang)")
+            }
+            Error::HealthCheck => super::Error::Internal("judger health check failed"),
+            Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
+                "Client sent invaild argument: payload.{}",
+                x
+            ))
+            .into(),
+            Error::Database(x) => super::Error::Database(x),
+            Error::Tonic(x) => super::Error::Tonic(x),
+            Error::Internal(x) => super::Error::Internal(x),
+            Error::GrpcReport(x) => super::Error::GrpcReport(x),
+        }
     }
 }
 
@@ -92,7 +90,7 @@ impl SubmitController {
             .ok_or(Error::BadArgument("problem id"))?;
 
         // create uncommited submit
-        let mut model = submit::ActiveModel {
+        let model = submit::ActiveModel {
             user_id: ActiveValue::Set(submit.user),
             problem_id: ActiveValue::Set(submit.user),
             committed: ActiveValue::Set(false),
@@ -104,7 +102,7 @@ impl SubmitController {
         .save(db)
         .await?;
 
-        let submit_id = model.id.unwrap();
+        let submit_id = model.id.as_ref().clone();
         let mut pubguard = self.pubsub.publish(submit_id);
 
         let tests = testcases
@@ -129,29 +127,17 @@ impl SubmitController {
         tokio::spawn(async move {
             let mut res = res.into_inner();
 
-            let mut task_count = 0;
             while let Some(res) = res.next().await {
                 if let Ok(res) = res.map_err(|x| log::warn!("{}", x)) {
-                    // pubguard.send(parse_state(res));
-                    todo!();
-                    break;
+                    todo!("count time and peak memory");
+                    parse_state(pubguard.borrow_mut(), res);
                 }
             }
-
-            todo!()
+            todo!("commit the judge result");
+            let mut model=model.into_active_model();
+            model.committed=ActiveValue::Set(true);
+            // model.time=ActiveValue::Set(res.time);
         });
-
-        // judge(background)
-        // conn.judge(JudgeRequest {
-        //     lang_uid: submit.lang,
-        //     code: submit.code,
-        //     memory: submit.memory_limit,
-        //     time: submit.time_limit,
-        //     rule: todo!(),
-        //     tests: todo!(),
-        // });
-        todo!();
-
         Ok(submit_id)
     }
     async fn follow(&self, submit_id: i32) {

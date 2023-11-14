@@ -1,41 +1,41 @@
 use tokio::sync::broadcast::*;
 
-use crate::grpc::backend::{submit_status, SubmitStatus};
-use crate::grpc::judger::{judge_response, JudgeResponse};
+use crate::grpc::backend::{self, submit_status, JudgeResultState as BackendState, SubmitStatus};
+use crate::grpc::judger::{judge_response, JudgeResponse, JudgeResultState as JudgeState};
 
-// impl Into<JudgeState> for JudgeResultState {
-//     fn into(self) -> JudgeState {
-//         match self {
-//             JudgeResultState::Ac => JudgeState::Ac,
-//             JudgeResultState::Wa => JudgeState::Wa,
-//             JudgeResultState::Tle => JudgeState::Tle,
-//             JudgeResultState::Mle => JudgeState::Mle,
-//             JudgeResultState::Re => JudgeState::Re,
-//             JudgeResultState::Ce => JudgeState::Ce,
-//             JudgeResultState::Ole => JudgeState::Ole,
-//             JudgeResultState::Na => JudgeState::Na,
-//             JudgeResultState::Rf => JudgeState::Rf,
-//         }
-//     }
-// }
+impl Into<BackendState> for JudgeState {
+    fn into(self) -> BackendState {
+        match self {
+            JudgeState::Ac => BackendState::Ac,
+            JudgeState::Wa => BackendState::Wa,
+            JudgeState::Tle => BackendState::Tle,
+            JudgeState::Mle => BackendState::Mle,
+            JudgeState::Re => BackendState::Re,
+            JudgeState::Ce => BackendState::Ce,
+            JudgeState::Ole => BackendState::Ole,
+            JudgeState::Na => BackendState::Na,
+            JudgeState::Rf => BackendState::Rf,
+        }
+    }
+}
 
-// impl Into<JudgeResultState> for JudgeState {
-//     fn into(self) -> JudgeResultState {
-//         match self {
-//             JudgeState::Ac => JudgeResultState::Ac,
-//             JudgeState::Wa => JudgeResultState::Wa,
-//             JudgeState::Tle => JudgeResultState::Tle,
-//             JudgeState::Mle => JudgeResultState::Mle,
-//             JudgeState::Re => JudgeResultState::Re,
-//             JudgeState::Ce => JudgeResultState::Ce,
-//             JudgeState::Ole => JudgeResultState::Ole,
-//             JudgeState::Na => JudgeResultState::Na,
-//             JudgeState::Rf => JudgeResultState::Rf,
-//         }
-//     }
-// }
+impl Into<JudgeState> for BackendState {
+    fn into(self) -> JudgeState {
+        match self {
+            BackendState::Ac => JudgeState::Ac,
+            BackendState::Wa => JudgeState::Wa,
+            BackendState::Tle => JudgeState::Tle,
+            BackendState::Mle => JudgeState::Mle,
+            BackendState::Re => JudgeState::Re,
+            BackendState::Ce => JudgeState::Ce,
+            BackendState::Ole => JudgeState::Ole,
+            BackendState::Na => JudgeState::Na,
+            BackendState::Rf => JudgeState::Rf,
+        }
+    }
+}
 
-pub fn parse_state<M>(tx: &mut Sender<SubmitStatus>, res: JudgeResponse) {
+pub fn parse_state(tx: &mut Sender<SubmitStatus>, res: JudgeResponse) {
     match res.task.unwrap_or_default() {
         judge_response::Task::Case(case) => {
             tx.send(SubmitStatus {
@@ -44,7 +44,14 @@ pub fn parse_state<M>(tx: &mut Sender<SubmitStatus>, res: JudgeResponse) {
             .ok();
         }
         judge_response::Task::Result(res) => {
-            todo!()
+            tx.send(SubmitStatus {
+                task: Some(submit_status::Task::Result(backend::JudgeResult {
+                    status: res.status() as i32,
+                    max_time: Some(res.max_time()),
+                    max_mem: Some(res.max_mem()),
+                })),
+            })
+            .ok();
         }
     }
 }

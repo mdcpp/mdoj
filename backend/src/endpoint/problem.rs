@@ -23,9 +23,9 @@ macro_rules! insert_if_exists {
 fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
     v.into_iter().collect()
 }
-fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
-    v.into_iter().collect()
-}
+// fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
+//     v.into_iter().collect()
+// }
 
 // setup ZST(ProblemIntel for Problem)
 pub struct ProblemIntel;

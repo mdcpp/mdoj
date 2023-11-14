@@ -81,7 +81,7 @@ message SubmitInfo {
 
 message JudgeResult {
   // assertion code
-  JudgeResult status = 1;
+  JudgeResultState status = 1;
   // the time in nanosecond
   optional uint64 max_time = 2;
   // the peak memory usage
