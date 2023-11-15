@@ -3,6 +3,7 @@ use super::tools::*;
 
 use crate::fill_active_model;
 use crate::fill_exist_active_model;
+
 use crate::{endpoint::*, grpc::backend::*, impl_id, Server};
 
 use entity::{problem::*, *};
@@ -10,20 +11,7 @@ use tonic::*;
 
 type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
 
-pub struct ProblemIntel;
-
-impl IntelTrait for ProblemIntel {
-    const NAME: &'static str = "problem";
-    type Entity = Entity;
-    type PartialModel = PartialTestcase;
-    type InfoArray = Problems;
-    type FullInfo = ProblemFullInfo;
-    type Info = ProblemInfo;
-    type PrimaryKey = i32;
-    type Id = ProblemId;
-    type UpdateInfo = update_problem_request::Info;
-    type CreateInfo = create_problem_request::Info;
-}
+impl_endpoint!(Problem);
 
 #[async_trait]
 impl Intel<ProblemIntel> for Server {
@@ -114,7 +102,7 @@ impl Transform<Problems> for Vec<ProblemInfo> {
     }
 }
 
-impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialTestcase {
+impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialProblem {
     fn into(self) -> <ProblemIntel as IntelTrait>::Info {
         ProblemInfo {
             id: Some(Transform::into(self.id)),
@@ -161,23 +149,6 @@ impl AsyncTransform<Result<ProblemFullInfo, Error>> for Model {
             education_id,
             testcases: Some(Testcases { list: test_id }),
         })
-    }
-}
-
-impl_id!(Problem);
-
-impl TryTransform<create_problem_request::Info, Error> for CreateProblemRequest {
-    fn try_into(self) -> Result<create_problem_request::Info, Error> {
-        let info = self.info.ok_or(Error::NotInPayload("info"))?;
-        Ok(info)
-    }
-}
-
-impl TryTransform<(update_problem_request::Info, i32), Error> for UpdateProblemRequest {
-    fn try_into(self) -> Result<(update_problem_request::Info, i32), Error> {
-        let info = self.info.ok_or(Error::NotInPayload("info"))?;
-        let id = self.id.map(|x| x.id).ok_or(Error::NotInPayload("id"))?;
-        Ok((info, id))
     }
 }
 
