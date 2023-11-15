@@ -5,6 +5,7 @@ use self::error::Error;
 pub mod auth;
 pub mod error;
 pub mod macro_tool;
+pub mod pagination;
 
 #[async_trait]
 pub trait ControllerTrait {
