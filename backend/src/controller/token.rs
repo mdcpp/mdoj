@@ -5,14 +5,15 @@ use ring::rand::*;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::mutex::Mutex;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tokio::time;
 use tracing::instrument;
 
 use crate::init::db::DB;
 
 use super::Error;
 
-const EXPIRY_FRQU: usize = 300;
+const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type RAND = [u8; 16];
 
 macro_rules! report {
@@ -46,26 +47,35 @@ impl From<token::Model> for CachedToken {
 pub struct TokenController {
     #[cfg(feature = "single-instance")]
     cache: Mutex<LruCache<RAND, CachedToken>>,
-    frqu: AtomicUsize,
     rand: SystemRandom,
     // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
 }
 
-impl Default for TokenController {
-    fn default() -> Self {
+impl TokenController {
+    fn new() -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
         let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
-        Self {
+        let self_ = Arc::new(Self {
             #[cfg(feature = "single-instance")]
             cache,
-            frqu: Default::default(),
             rand: SystemRandom::new(),
-        }
-    }
-}
+        });
+        let self_1 = self_.clone();
+        tokio::spawn(async move {
+            let db = DB.get().unwrap();
+            loop {
+                time::sleep(CLEAN_DUR).await;
+                let now = Local::now().naive_local();
 
-impl TokenController {
+                token::Entity::delete_many()
+                    .filter(token::Column::Expiry.lte(now))
+                    .exec(db)
+                    .await;
+            }
+        });
+        self_
+    }
     #[instrument(skip_all, name="token_create",fields(user = user.id))]
     pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
         let db = DB.get().unwrap();
@@ -104,14 +114,6 @@ impl TokenController {
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
-
-        if self.frqu.fetch_add(1, Ordering::Relaxed) % EXPIRY_FRQU == 1 {
-            tokio::spawn(
-                token::Entity::delete_many()
-                    .filter(token::Column::Expiry.lte(now))
-                    .exec(db),
-            );
-        }
 
         let rand = report!(hex::decode(token).ok());
         let rand: [u8; 16] = report!(rand.try_into().ok());
