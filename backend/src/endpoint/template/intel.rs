@@ -64,7 +64,7 @@ where
     async fn update_model(
         model: <I::Entity as EntityTrait>::Model,
         info: I::UpdateInfo,
-    ) -> Result<I::PrimaryKey, Error>;
+    ) -> Result<(), Error>;
     async fn create_model(info: I::CreateInfo, user_id: i32) -> Result<I::PrimaryKey, Error>;
 }
 

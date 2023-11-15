@@ -4,7 +4,7 @@ use super::tools::*;
 use crate::grpc::backend::testcase_set_server::TestcaseSet;
 use crate::{endpoint::*, grpc::backend::*, impl_id, Server};
 
-use entity::{testcase::*, *};
+use entity::{test::*, *};
 use tonic::*;
 
 type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
@@ -55,7 +55,7 @@ impl Intel<TestcaseIntel> for Server {
         todo!()
     }
 
-    async fn update_model(model: Model, info: update_testcase_request::Info) -> Result<i32, Error> {
+    async fn update_model(model: Model, info: update_testcase_request::Info) -> Result<(), Error> {
         todo!()
     }
 

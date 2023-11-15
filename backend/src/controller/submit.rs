@@ -88,7 +88,7 @@ impl SubmitController {
         let mut conn = self.router.get(&submit.lang).await?;
 
         let (problem, testcases) = problem::Entity::find_by_id(submit.problem)
-            .find_also_related(testcase::Entity)
+            .find_also_related(test::Entity)
             .one(db)
             .await?
             .ok_or(Error::BadArgument("problem id"))?;

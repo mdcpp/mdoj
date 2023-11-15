@@ -15,38 +15,9 @@ pub trait Transform<I> {
 //     }
 // }
 
-#[macro_export]
-macro_rules! impl_id {
-    ($name:ident) => {
-        paste::paste! {
-            impl Transform<i32> for [<$name Id>] {
-                fn into(self) -> i32 {
-                    self.id
-                }
-            }
-            impl Transform<[<$name Id>]> for i32 {
-                fn into(self) -> [<$name Id>] {
-                    [<$name Id>] { id: self }
-                }
-            }
-        }
-    };
-}
-
 #[async_trait]
 pub trait AsyncTransform<T> {
     async fn into(self) -> T;
-}
-
-#[macro_export]
-macro_rules! parse_option {
-    ($payload:expr,$field:ident) => {
-        paste::paste! {
-            $payload
-            .$field
-            .ok_or(tonic::Status::invalid_argument(format!("{} is required",stringify!($ident))))?
-        }
-    };
 }
 
 // macro_rules! match_col {

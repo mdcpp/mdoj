@@ -19,7 +19,7 @@ pub mod endpoints {
     pub use super::template::publish::*;
     pub use super::template::transform::*;
     pub use super::*;
-    pub use crate::{impl_id, parse_option};
+    pub use crate::impl_id;
     pub use sea_orm::{
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
         PaginatorTrait, QueryFilter, QuerySelect,

@@ -3,7 +3,7 @@ pub mod contest;
 pub mod education;
 pub mod problem;
 pub mod submit;
-pub mod testcase;
+pub mod test;
 pub mod token;
 pub mod user;
 pub mod user_contest;

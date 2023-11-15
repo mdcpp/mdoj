@@ -4,6 +4,7 @@ use self::error::Error;
 
 pub mod auth;
 pub mod error;
+pub mod macro_tool;
 
 #[async_trait]
 pub trait ControllerTrait {

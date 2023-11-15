@@ -1,6 +1,8 @@
 use super::endpoints::*;
 use super::tools::*;
 
+use crate::fill_active_model;
+use crate::fill_exist_active_model;
 use crate::{endpoint::*, grpc::backend::*, impl_id, Server};
 
 use entity::{problem::*, *};
@@ -8,48 +10,19 @@ use tonic::*;
 
 type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
 
-macro_rules! insert_if_exists {
-    ($target:expr,$src:expr , $field:ident) => {
-        if let Some(x) = $src.$field {
-            $target.$field = ActiveValue::Set(x);
-        }
-    };
-    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
-        insert_if_exists!($target,$src, $field);
-        insert_if_exists!($target,$src, $($ext),+);
-    };
-}
-
-fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
-    v.into_iter().collect()
-}
-// fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
-//     v.into_iter().collect()
-// }
-
-// setup ZST(ProblemIntel for Problem)
 pub struct ProblemIntel;
 
 impl IntelTrait for ProblemIntel {
-    type Entity = Entity;
-
-    type PartialModel = PartialTestcase;
-
-    type InfoArray = Problems;
-
-    type FullInfo = ProblemFullInfo;
-
-    type Info = ProblemInfo;
-
-    type PrimaryKey = i32;
-
-    type Id = ProblemId;
-
-    type UpdateInfo = update_problem_request::Info;
-
-    type CreateInfo = create_problem_request::Info;
-
     const NAME: &'static str = "problem";
+    type Entity = Entity;
+    type PartialModel = PartialTestcase;
+    type InfoArray = Problems;
+    type FullInfo = ProblemFullInfo;
+    type Info = ProblemInfo;
+    type PrimaryKey = i32;
+    type Id = ProblemId;
+    type UpdateInfo = update_problem_request::Info;
+    type CreateInfo = create_problem_request::Info;
 }
 
 #[async_trait]
@@ -91,61 +64,26 @@ impl Intel<ProblemIntel> for Server {
         }
     }
 
-    async fn update_model(model: Model, info: update_problem_request::Info) -> Result<i32, Error> {
+    async fn update_model(model: Model, info: update_problem_request::Info) -> Result<(), Error> {
         let db = DB.get().unwrap();
-        let user_id = model.user_id;
 
         let mut target = model.into_active_model();
-        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags, match_rule);
+        fill_exist_active_model!(
+            target, info, title, content, memory, time, difficulty, tags, match_rule
+        );
 
-        if let Some(tests) = info.tests {
-            let list = tests.list.clone();
-
-            let futs: Vec<_> = list
-                .into_iter()
-                .map(|testcase_id| {
-                    entity::testcase::Entity::find_by_id(testcase_id.id)
-                        .filter(entity::testcase::Column::UserId.eq(user_id))
-                        .count(db)
-                })
-                .into_iter()
-                .collect();
-
-            let list = vr_to_rv(futures::future::join_all(futs).await)?;
-
-            let vaild = list
-                .into_iter()
-                .map(|x| x == 0)
-                .reduce(|x, y| x || y)
-                .unwrap_or(true);
-
-            if vaild {
-                todo!("Update testcases's problem_id")
-            } else {
-                return Err(Error::PremissionDeny("Only admin can add unowned testcase"));
-            };
-        };
-
-        todo!("commit changes(active model)")
+        target.save(db).await?;
+        Ok(())
     }
 
-    async fn create_model(model: create_problem_request::Info, user_id: i32) -> Result<i32, Error> {
+    async fn create_model(info: create_problem_request::Info, user_id: i32) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
-        let model = ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            ac_rate: ActiveValue::Set(0.0),
-            memory: ActiveValue::Set(model.memory),
-            time: ActiveValue::Set(model.time),
-            difficulty: ActiveValue::Set(model.difficulty),
-            tags: ActiveValue::Set(model.tags),
-            title: ActiveValue::Set(model.title),
-            content: ActiveValue::Set(model.content),
-            match_rule: ActiveValue::Set(model.match_rule),
-            ..Default::default()
-        }
-        .insert(db)
-        .await?;
+        let mut model: ActiveModel = Default::default();
+        fill_active_model!(model, info, memory, time, difficulty, tags, title, content, match_rule);
+        model.user_id = ActiveValue::Set(user_id);
+
+        let model = model.insert(db).await?;
         Ok(model.id)
     }
 }
@@ -179,7 +117,7 @@ impl Transform<Problems> for Vec<ProblemInfo> {
 impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialTestcase {
     fn into(self) -> <ProblemIntel as IntelTrait>::Info {
         ProblemInfo {
-            id: Some(ProblemId { id: self.id }),
+            id: Some(Transform::into(self.id)),
             title: self.title,
             submit_count: self.submit_count,
             ac_rate: self.ac_rate,
@@ -193,13 +131,19 @@ impl AsyncTransform<Result<ProblemFullInfo, Error>> for Model {
     async fn into(self) -> Result<ProblemFullInfo, Error> {
         let db = DB.get().unwrap();
 
-        let edu = self
-            .find_related(education::Entity)
-            .select_only()
-            .columns([education::Column::Id])
-            .one(db)
-            .await?;
-        let education_id = edu.map(|x| EducationId { id: x.id });
+        let (edu, test) = tokio::join!(
+            self.find_related(education::Entity)
+                .select_only()
+                .columns([education::Column::Id])
+                .one(db),
+            self.find_related(test::Entity)
+                .select_only()
+                .columns([test::Column::Id])
+                .all(db)
+        );
+
+        let education_id = edu?.map(|x| EducationId { id: x.id });
+        let test_id: Vec<TestcaseId> = test?.into_iter().map(|x| TestcaseId { id: x.id }).collect();
 
         Ok(ProblemFullInfo {
             content: self.content,
@@ -215,6 +159,7 @@ impl AsyncTransform<Result<ProblemFullInfo, Error>> for Model {
                 ac_rate: self.ac_rate,
             }),
             education_id,
+            testcases: Some(Testcases { list: test_id }),
         })
     }
 }

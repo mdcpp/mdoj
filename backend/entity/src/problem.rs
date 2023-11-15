@@ -1,7 +1,7 @@
 use sea_orm::{entity::prelude::*, DerivePartialModel, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
-use crate::{contest, education, submit, testcase, user};
+use crate::{contest, education, submit, test, user};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "problem")]
@@ -10,8 +10,11 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub contest_id: i32,
+    #[sea_orm(default_value = 0)]
     pub success: i32,
+    #[sea_orm(default_value = 0)]
     pub submit_count: u32,
+    #[sea_orm(default_value = 0.0)]
     pub ac_rate: f32,
     pub memory: u64,
     pub time: u64,
@@ -49,7 +52,7 @@ impl RelationTrait for Relation {
                 .into(),
             Self::Submit => Entity::has_many(submit::Entity).into(),
             Self::Education => Entity::has_one(education::Entity).into(),
-            Self::TestCase => Entity::has_many(testcase::Entity).into(),
+            Self::TestCase => Entity::has_many(test::Entity).into(),
         }
     }
 }
@@ -77,7 +80,7 @@ impl Related<education::Entity> for Entity {
     }
 }
 
-impl Related<testcase::Entity> for Entity {
+impl Related<test::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TestCase.def()
     }

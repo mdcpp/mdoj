@@ -251,6 +251,7 @@ message ProblemFullInfo {
   bool public = 5;
   uint64 time = 6;
   uint64 memory = 7;
+  Testcases testcases = 9;
   // bool commit
 }
 
@@ -267,7 +268,6 @@ message CreateProblemRequest {
     uint64 memory = 5;
     string tags = 6;
     string content = 7;
-    Testcases tests = 8;
     MatchRule match_rule = 9;
   };
   Info info = 1;
@@ -283,7 +283,6 @@ message UpdateProblemRequest {
     optional string content = 7;
     optional uint32 submit_count = 3;
     optional float ac_rate = 8;
-    optional Testcases tests = 9;
     optional MatchRule match_rule = 10;
   };
   Info info = 1;
