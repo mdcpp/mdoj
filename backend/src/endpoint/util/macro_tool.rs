@@ -6,7 +6,7 @@ macro_rules! impl_endpoint {
         impl_create_request!($name);
         impl_update_request!($name);
     };
-} 
+}
 
 #[macro_export]
 macro_rules! impl_id {

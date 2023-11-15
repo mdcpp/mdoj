@@ -11,7 +11,7 @@ pub struct Model {
     pub user_id: i32,
     pub contest_id: i32,
     #[sea_orm(default_value = 0)]
-    pub success: i32,
+    pub accept_count: i32,
     #[sea_orm(default_value = 0)]
     pub submit_count: u32,
     #[sea_orm(default_value = 0.0)]

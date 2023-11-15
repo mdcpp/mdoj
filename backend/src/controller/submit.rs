@@ -1,18 +1,16 @@
-use std::{borrow::BorrowMut, cmp, ops::Deref, pin::Pin, sync::Arc};
+use std::{borrow::BorrowMut, sync::Arc};
 
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, Related};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 
 use crate::{
-    controller::util::state::parse_state,
     grpc::{
         backend::SubmitStatus,
         judger::{JudgeRequest, TestIo},
     },
     init::db::DB,
 };
-use tokio_stream::Stream;
 
 use super::util::{pubsub::PubSub, router::*};
 use entity::*;
@@ -87,14 +85,15 @@ impl SubmitController {
 
         let mut conn = self.router.get(&submit.lang).await?;
 
-        let (problem, testcases) = problem::Entity::find_by_id(submit.problem)
-            .find_also_related(test::Entity)
-            .one(db)
-            .await?
-            .ok_or(Error::BadArgument("problem id"))?;
+        let mut binding = problem::Entity::find_by_id(submit.problem)
+            .find_with_related(test::Entity)
+            .order_by_asc(test::Column::Score)
+            .all(db)
+            .await?;
+        let (mut problem, testcases) = binding.pop().ok_or(Error::BadArgument("problem id"))?;
 
         // create uncommited submit
-        let model = submit::ActiveModel {
+        let submit_model = submit::ActiveModel {
             user_id: ActiveValue::Set(submit.user),
             problem_id: ActiveValue::Set(submit.user),
             committed: ActiveValue::Set(false),
@@ -106,8 +105,10 @@ impl SubmitController {
         .save(db)
         .await?;
 
-        let submit_id = model.id.as_ref().clone();
+        let submit_id = submit_model.id.as_ref().clone();
         let mut pubguard = self.pubsub.publish(submit_id);
+
+        let mut scores = testcases.iter().rev().map(|x| x.score).collect::<Vec<_>>();
 
         let tests = testcases
             .into_iter()
@@ -129,32 +130,47 @@ impl SubmitController {
             .await?;
 
         tokio::spawn(async move {
+            let mut state = crate::controller::util::state::State::default();
             let mut res = res.into_inner();
-            let mut time = 0_u64;
-            let mut mem = 0_u64;
 
             while let Some(res) = res.next().await {
-                match res.map_err(|x| {
-                    log::warn!("{}", x);
-                    x
-                }) {
+                match res {
                     Ok(res) => {
-                        if let Some(state) = parse_state(pubguard.borrow_mut(), res) {
-                            time += state.time;
-                            mem = cmp::max(mem, state.mem);
-                        }
+                        state.parse_state(pubguard.borrow_mut(), res);
                     }
                     Err(err) => {
+                        log::warn!("{}", err);
                         pubguard.send(Err(err)).ok();
                         break;
                     }
                 }
             }
-            let mut model = model.into_active_model();
-            model.committed = ActiveValue::Set(true);
-            model.time = ActiveValue::Set(Some(time));
-            model.memory = ActiveValue::Set(Some(mem));
-            if let Err(err) = model.save(db).await {
+            let pass = state.pass == scores.len();
+            let mut score = 0;
+            while let Some(x) = scores.pop() {
+                if state.pass == 0 {
+                    break;
+                }
+                state.pass -= 1;
+                score += x;
+            }
+
+            let mut submit_model = submit_model.into_active_model();
+            submit_model.committed = ActiveValue::Set(true);
+            submit_model.time = ActiveValue::Set(Some(state.time));
+            submit_model.memory = ActiveValue::Set(Some(state.mem));
+            submit_model.score = ActiveValue::Set(score);
+
+            problem.submit_count += 1;
+            if pass {
+                problem.accept_count += 1;
+            }
+            problem.ac_rate = problem.accept_count as f32 / problem.submit_count as f32;
+
+            if let Err(err) = problem.into_active_model().save(db).await {
+                log::warn!("failed to update problem statistics: {}", err);
+            }
+            if let Err(err) = submit_model.save(db).await {
                 log::warn!("failed to commit the judge result: {}", err);
             }
         });
