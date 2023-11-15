@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package oj.backend;
+package oj.backend.new;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -24,21 +24,18 @@ enum SortBy {
   Difficulty = 4;
 }
 
-message Page {
-  uint32 offset = 1;
-  uint32 amount = 2;
-}
-
 message ListRequest {
   SortBy sort_by = 1;
   bool reverse = 2;
-  Page page = 3;
+  uint32 advance = 3;
+  string page_token = 4;
 }
 
 message TextSearchRequest {
   SortBy sort_by = 1;
-  Page page = 2;
   string text = 3;
+  uint32 advance = 4;
+  string page_token = 5;
 }
 
 message Case {
@@ -255,6 +252,11 @@ message ProblemFullInfo {
   // bool commit
 }
 
+message ListProblemResponse {
+  Problems list = 1;
+  string next_page_token = 2;
+}
+
 message ProblemLink {
   ContestId contest_id = 1;
   ProblemId problem_id = 2;
@@ -290,9 +292,9 @@ message UpdateProblemRequest {
 }
 
 service ProblemSet {
-  rpc List(ListRequest) returns (stream ProblemInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream ProblemInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream ProblemInfo);
+  rpc List(ListRequest) returns (ListProblemResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListProblemResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListProblemResponse);
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
 
   rpc Create(CreateProblemRequest) returns (ProblemId);

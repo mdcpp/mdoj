@@ -13,6 +13,8 @@ where
     const TYPE_NUMBER: i32;
     const COL_ID: Self::Column;
     const COL_TEXT: &'static [Self::Column];
+    // const HAS_PAPENT: bool = false;
+    // type ParentEntity: EntityTrait;
 
     fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self>;
     fn get_id(model: &Self::Model) -> i32;
@@ -22,6 +24,7 @@ where
 enum RawSearchDep {
     Text(String),
     Column(i32, bool),
+    Parent(i32),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,6 +38,7 @@ struct RawPager {
 pub enum SearchDep {
     Text(String),
     Column(SortBy, bool),
+    Parent(i32),
 }
 
 #[derive(Clone)]
@@ -176,4 +180,5 @@ impl PagerTrait for problem::Entity {
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
+
 }
