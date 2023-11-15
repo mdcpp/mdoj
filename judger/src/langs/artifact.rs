@@ -164,6 +164,19 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
+    pub fn get_expection(&self) -> Option<JudgeResultState> {
+        match self.process.status {
+            ExitStatus::SigExit => Some(JudgeResultState::Rf),
+            ExitStatus::Code(code) => match code {
+                0 | 5 | 6 | 9 => None,
+                137 => Some(JudgeResultState::Na),
+                _ => Some(JudgeResultState::Rf),
+            },
+            ExitStatus::MemExhausted => Some(JudgeResultState::Mle),
+            ExitStatus::CpuExhausted => Some(JudgeResultState::Tle),
+            ExitStatus::SysError => Some(JudgeResultState::Na),
+        }
+    }
     pub fn assert(&self, input: &Vec<u8>, mode: JudgeMatchRule) -> bool {
         let newline = '\n' as u8;
         let space = ' ' as u8;

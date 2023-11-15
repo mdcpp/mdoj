@@ -119,6 +119,19 @@ impl Judger for GRpcServer {
 
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
+                if let Some(x) = result.get_expection() {
+                    tx.send(Ok(JudgeResponse {
+                        task: Some(judge_response::Task::Result(JudgeResult {
+                            status: x as i32,
+                            max_time: None,
+                            max_mem: None,
+                        })),
+                    }))
+                    .await
+                    .ok();
+                    return;
+                }
+
                 tx.send(Ok(JudgeResponse {
                     task: Some(judge_response::Task::Result(JudgeResult {
                         status: match result.assert(&task.output, mode) {
