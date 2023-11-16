@@ -16,6 +16,8 @@ pub enum Error {
     Unauthenticated,
     #[error("Not in database: `{0}`")]
     NotInDB(&'static str),
+    #[error("Invaild Pager`{0}`")]
+    PaginationError(&'static str),
 }
 
 impl Into<tonic::Status> for Error {
@@ -56,6 +58,10 @@ impl Into<tonic::Status> for Error {
             Error::NotInDB(x) => {
                 log::debug!("{} is not found in database", x);
                 tonic::Status::not_found("")
+            }
+            Error::PaginationError(x) => {
+                log::debug!("{} is not a vaild pager", x);
+                tonic::Status::failed_precondition(x)
             }
         }
     }
