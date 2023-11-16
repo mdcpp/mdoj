@@ -1,9 +1,14 @@
 syntax = "proto3";
 
-package oj.backend.new;
+package oj.backend;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
+
+/* 
+ * all time are in unit of nanosecond
+ * all memory are in unit of byte
+ */
 
 // How judge assert input
 enum MatchRule {
@@ -27,35 +32,30 @@ enum SortBy {
 }
 
 message ListRequest {
+  // Parameters new list paginator
   message Create {
     SortBy sort_by = 1;
     string text = 3;
     bool reverse = 2;
-    uint32 size = 4;
-  }
-  message Pager {
-    uint32 advance = 4;
-    string size = 5;
   }
   oneof request {
     Create create = 1;
-    Pager pager = 2;
+    // session for list pagination
+    string session = 2;
   }
+  // expected size of list
+  uint32 size = 3;
 }
 
 message TextSearchRequest {
-  message Create {
-    string text = 3;
-    uint32 size = 4;
-  }
-  message Pager {
-    uint32 advance = 4;
-    string size = 5;
-  }
   oneof request {
-    Create create = 1;
-    Pager pager = 2;
+    // text to search
+    string text = 1;
+    // session for list pagination
+    string session = 2;
   }
+  // expected size of list
+  uint32 size = 3;
 }
 
 message Case {
@@ -66,6 +66,8 @@ message Case {
 message Testcases { repeated TestcaseId list = 1; }
 
 // Submit
+
+// I don't want to write docs
 enum JudgeResultState {
   AC = 0;
   NA = 1;

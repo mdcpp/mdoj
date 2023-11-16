@@ -65,7 +65,7 @@ where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
     P: EntityTrait,
 {
-    fn parent_search(ppk:i32) -> Self;
+    fn parent_search(ppk: i32) -> Self;
     fn from_raw(s: String) -> Result<Pager<E>, Error>;
     fn into_raw(self) -> String;
     async fn fetch(&mut self, limit: u64, auth: &Auth) -> Result<Vec<E::Model>, Error>;
@@ -90,7 +90,7 @@ where
     <P::PrimaryKey as PrimaryKeyTrait>::ValueType: From<i32>,
     P: Related<E>,
 {
-    fn parent_search(ppk:i32) -> Self {
+    fn parent_search(ppk: i32) -> Self {
         Self {
             ppk: None,
             sort: SearchDep::Parent(ppk),
