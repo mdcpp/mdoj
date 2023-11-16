@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package oj.backend;
+package oj.backend.new;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
@@ -22,23 +22,40 @@ enum SortBy {
   SubmitCount = 2;
   Score = 3;
   Difficulty = 4;
-}
-
-message Page {
-  uint32 offset = 1;
-  uint32 amount = 2;
+  Rank = 5;
+  UserCount = 6;
 }
 
 message ListRequest {
-  SortBy sort_by = 1;
-  bool reverse = 2;
-  Page page = 3;
+  message Create {
+    SortBy sort_by = 1;
+    string text = 3;
+    bool reverse = 2;
+    uint32 size = 4;
+  }
+  message Pager {
+    uint32 advance = 4;
+    string size = 5;
+  }
+  oneof request {
+    Create create = 1;
+    Pager pager = 2;
+  }
 }
 
 message TextSearchRequest {
-  SortBy sort_by = 1;
-  Page page = 2;
-  string text = 3;
+  message Create {
+    string text = 3;
+    uint32 size = 4;
+  }
+  message Pager {
+    uint32 advance = 4;
+    string size = 5;
+  }
+  oneof request {
+    Create create = 1;
+    Pager pager = 2;
+  }
 }
 
 message Case {
@@ -103,6 +120,13 @@ message CreateSubmitRequest {
   }
   Info info = 1;
   SubmitId id = 2;
+  ProblemId problem = 3;
+  string request_id = 4;
+}
+
+message RejudgeRequest {
+  SubmitId id = 1;
+  string request_id = 2;
 }
 
 service SubmitSet {
@@ -116,11 +140,11 @@ service SubmitSet {
 
   // are not guarantee to yield status
   rpc Follow(SubmitId) returns (stream SubmitStatus);
-  rpc Rejudge(SubmitId) returns (google.protobuf.Empty);
+  rpc Rejudge(RejudgeRequest) returns (google.protobuf.Empty);
 }
 
 // Announcements
-message Announcements { repeated AnnouncementInfo list = 1; }
+message AnnouncementId { int32 id = 1; }
 
 message AnnouncementInfo {
   AnnouncementId id = 1;
@@ -135,7 +159,10 @@ message AnnouncementFullInfo {
   bool public = 4;
 }
 
-message AnnouncementId { int32 id = 1; }
+message ListAnnouncementResponse {
+  repeated AnnouncementInfo list = 1;
+  string next_page_token = 2;
+}
 
 message AnnouncementLink {
   AnnouncementId announcement_id = 1;
@@ -148,7 +175,7 @@ message CreateAnnouncementRequest {
     string content = 2;
   }
   Info info = 1;
-  ContestId id = 2;
+  string request_id = 2;
 }
 
 message UpdateAnnouncementRequest {
@@ -157,13 +184,14 @@ message UpdateAnnouncementRequest {
     optional string content = 2;
   }
   Info info = 1;
-  ContestId id = 2;
+  AnnouncementId id = 2;
+  string request_id = 3;
 }
 
 service AnnouncementSet {
-  rpc List(ListRequest) returns (stream AnnouncementInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream AnnouncementInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream AnnouncementInfo);
+  rpc List(ListRequest) returns (ListAnnouncementResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListAnnouncementResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListAnnouncementResponse);
   rpc FullInfo(AnnouncementId) returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (AnnouncementId);
@@ -175,10 +203,13 @@ service AnnouncementSet {
 
   rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
   rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
+
+  rpc ListByContest(AnnouncementLink) returns (ListAnnouncementResponse);
+  rpc FullInfoByContest(AnnouncementLink) returns (AnnouncementFullInfo);
 }
 
 // Educations
-message Educations { repeated EducationInfo list = 1; }
+message EducationId { int32 id = 1; }
 
 message EducationInfo {
   EducationId id = 1;
@@ -191,7 +222,10 @@ message EducationFullInfo {
   repeated ProblemId problems = 3;
 }
 
-message EducationId { int32 id = 1; }
+message ListEducationResponse {
+  repeated EducationInfo list = 1;
+  string next_page_token = 2;
+}
 
 message EducationLink {
   EducationId education_id = 1;
@@ -204,7 +238,8 @@ message CreateEducationRequest {
     string content = 2;
   }
   Info info = 1;
-  EducationId id = 2;
+  string request_id = 2;
+  ProblemId problem = 3;
 }
 
 message UpdateEducationRequest {
@@ -214,12 +249,13 @@ message UpdateEducationRequest {
   }
   Info info = 1;
   EducationId id = 2;
+  string request_id = 3;
 }
 
 service EducationSet {
-  rpc List(ListRequest) returns (stream EducationInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream EducationInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream EducationInfo);
+  rpc List(ListRequest) returns (ListEducationResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListEducationResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListEducationResponse);
   rpc FullInfo(EducationId) returns (EducationFullInfo);
 
   rpc Create(CreateEducationRequest) returns (google.protobuf.Empty);
@@ -228,10 +264,12 @@ service EducationSet {
 
   rpc Link(EducationLink) returns (google.protobuf.Empty);
   rpc Unlink(EducationLink) returns (google.protobuf.Empty);
+
+  rpc FullInfoByProblem(EducationLink) returns (EducationFullInfo);
 }
 
 // Problems
-message Problems { repeated ProblemInfo list = 1; }
+message ProblemId { int32 id = 1; }
 
 message ProblemInfo {
   ProblemId id = 1;
@@ -239,8 +277,6 @@ message ProblemInfo {
   uint32 submit_count = 3;
   float ac_rate = 4;
 }
-
-message ProblemId { int32 id = 1; }
 
 message ProblemFullInfo {
   ProblemInfo info = 1;
@@ -253,6 +289,11 @@ message ProblemFullInfo {
   uint64 memory = 7;
   Testcases testcases = 9;
   // bool commit
+}
+
+message ListProblemResponse {
+  repeated ProblemInfo list = 1;
+  string next_page_token = 2;
 }
 
 message ProblemLink {
@@ -271,6 +312,7 @@ message CreateProblemRequest {
     MatchRule match_rule = 9;
   };
   Info info = 1;
+  string request_id = 2;
 }
 
 message UpdateProblemRequest {
@@ -286,13 +328,14 @@ message UpdateProblemRequest {
     optional MatchRule match_rule = 10;
   };
   Info info = 1;
-  ProblemId id = 3;
+  ProblemId id = 2;
+  string request_id = 3;
 }
 
 service ProblemSet {
-  rpc List(ListRequest) returns (stream ProblemInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream ProblemInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream ProblemInfo);
+  rpc List(ListRequest) returns (ListProblemResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListProblemResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListProblemResponse);
   rpc FullInfo(ProblemId) returns (ProblemFullInfo);
 
   rpc Create(CreateProblemRequest) returns (ProblemId);
@@ -309,6 +352,7 @@ service ProblemSet {
   rpc ListByContest(ContestId) returns (stream ProblemInfo);
 }
 
+// Testcase
 message TestcaseId { int32 id = 1; }
 
 message TestcaseInfo {
@@ -324,6 +368,11 @@ message TestcaseFullInfo {
   repeated bytes outputs = 4;
 }
 
+message ListTestcaseResponse {
+  repeated TestcaseInfo list = 1;
+  string next_page_token = 2;
+}
+
 message TestcaseLink {
   TestcaseId testcase_id = 1;
   ProblemId problem_id = 2;
@@ -332,20 +381,22 @@ message TestcaseLink {
 message CreateTestcaseRequest {
   message Info {
     uint32 score = 2;
-    repeated bytes inputs = 3;
-    repeated bytes outputs = 4;
+    optional bytes inputs = 3;
+    optional bytes outputs = 4;
   };
   Info info = 1;
+  string request_id = 2;
 }
 
 message UpdateTestcaseRequest {
   message Info {
-    uint32 score = 2;
-    repeated bytes inputs = 3;
-    repeated bytes outputs = 4;
+    optional uint32 score = 2;
+    optional bytes inputs = 3;
+    optional bytes outputs = 4;
   };
   Info info = 1;
-  TestcaseId id = 3;
+  TestcaseId id = 2;
+  string request_id = 3;
 }
 // Testcase
 service TestcaseSet {
@@ -357,13 +408,11 @@ service TestcaseSet {
   rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
 
   rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
-  rpc ListByProblem(TestcaseLink) returns (stream TestcaseInfo);
+  rpc ListByProblem(TestcaseLink) returns (ListTestcaseResponse);
 }
 
 // Contest
 message ContestId { int32 id = 1; }
-
-message Contests { repeated ContestInfo list = 1; }
 
 message ContestInfo {
   ContestId id = 1;
@@ -381,13 +430,10 @@ message ContestFullInfo {
   repeated ProblemId problems = 4;
 }
 
-message UserRank {
-  UserId user_id = 1;
-  int32 score = 2;
-  uint32 rank = 3;
+message ListContestResponse {
+  repeated ContestInfo list = 1;
+  string next_page_token = 2;
 }
-
-message UserRanks { repeated UserRank list = 1; }
 
 message CreateContestRequest {
   message Info {
@@ -398,7 +444,7 @@ message CreateContestRequest {
     optional string password = 5;
   }
   Info info = 1;
-  ContestId id = 2;
+  string request_id = 2;
 }
 
 message UpdateContestRequest {
@@ -411,12 +457,24 @@ message UpdateContestRequest {
   }
   Info info = 1;
   ContestId id = 2;
+  string request_id = 3;
+}
+
+message UserRank {
+  UserId user_id = 1;
+  int32 score = 2;
+  uint32 rank = 3;
+}
+
+message ListRankResponse {
+  repeated UserRank list = 1;
+  string next_page_token = 2;
 }
 
 service ContestSet {
-  rpc List(ListRequest) returns (stream ContestInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream ContestInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream ContestInfo);
+  rpc List(ListRequest) returns (ListContestResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListContestResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListContestResponse);
   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
   rpc Create(CreateContestRequest) returns (google.protobuf.Empty);
@@ -426,7 +484,7 @@ service ContestSet {
   rpc Join(ContestId) returns (google.protobuf.Empty);
   rpc Exit(ContestId) returns (google.protobuf.Empty);
 
-  rpc Rank(ListRequest) returns (UserRanks);
+  rpc Rank(ListRequest) returns (ListRankResponse);
 }
 
 // User
@@ -443,7 +501,10 @@ message UserFullInfo {
   bytes hashed_pwd = 2;
 }
 
-message Users { repeated UserInfo list = 1; }
+message ListUserResponse {
+  repeated UserInfo list = 1;
+  string next_page_token = 2;
+}
 
 message CreateUserRequest {
   message Info {
@@ -461,12 +522,13 @@ message UpdateUserRequest {
   }
   Info info = 1;
   UserId id = 2;
+  string request_id = 3;
 }
 
 service UserSet {
-  rpc List(ListRequest) returns (stream UserInfo);
-  rpc SearchByText(TextSearchRequest) returns (stream UserInfo);
-  rpc SearchByTag(TextSearchRequest) returns (stream UserInfo);
+  rpc List(ListRequest) returns (ListUserResponse);
+  rpc SearchByText(TextSearchRequest) returns (ListUserResponse);
+  rpc SearchByTag(TextSearchRequest) returns (ListUserResponse);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
   rpc Create(CreateUserRequest) returns (google.protobuf.Empty);
@@ -489,7 +551,7 @@ message LoginRequest {
 }
 
 service TokenSet {
-  rpc List(ListRequest) returns (stream Token);
+  rpc List(UserId) returns (stream Token);
 
   rpc Create(LoginRequest) returns (TokenInfo);
   rpc Refresh(Token) returns (TokenInfo);
