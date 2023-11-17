@@ -4,6 +4,7 @@ use self::error::Error;
 
 pub mod auth;
 pub mod error;
+pub mod filter;
 pub mod macro_tool;
 pub mod pagination;
 

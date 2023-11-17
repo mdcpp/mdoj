@@ -1,7 +1,7 @@
 use tonic::async_trait;
 
 use super::{error::Error, ControllerTrait};
-use crate::{controller::token::UserPermBytes, Server};
+use crate::{controller::token::UserPermBytes, server::Server};
 use tracing::{span, Level};
 
 pub enum Auth {

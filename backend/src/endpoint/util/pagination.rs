@@ -8,12 +8,16 @@ use crate::{grpc::backend::SortBy, init::db::DB};
 
 use super::{auth::Auth, error::Error};
 
+pub trait PagerMarker {}
+
 pub struct NoParent;
-pub struct HasParent<P: EntityTrait + Default> {
+pub struct HasParent<P: EntityTrait> {
     _parent: PhantomData<P>,
 }
 
-pub trait PagerMarker {}
+impl PagerMarker for NoParent {}
+
+impl<P: EntityTrait> PagerMarker for HasParent<P> {}
 
 #[tonic::async_trait]
 pub trait PagerTrait
@@ -162,8 +166,7 @@ where
                 query
             }
             SearchDep::Column(sort_by, reverse) => {
-                let query = E::query_filter(E::find(), auth).await?;
-                let mut query = E::sort(query, sort_by, reverse);
+                let mut query = E::query_filter(E::find(), auth).await?;
                 if reverse {
                     query = query.order_by_asc(E::COL_ID);
                     if let Some(x) = self.ppk {
@@ -175,7 +178,7 @@ where
                         query = query.filter(E::COL_ID.lt(x));
                     }
                 }
-                query
+                E::sort(query, sort_by, reverse)
             }
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
@@ -282,8 +285,7 @@ where
                 query
             }
             SearchDep::Column(sort_by, reverse) => {
-                let query = E::query_filter(E::find(), auth).await?;
-                let mut query = E::sort(query, sort_by, reverse);
+                let mut query = E::query_filter(E::find(), auth).await?;
                 if reverse {
                     query = query.order_by_asc(E::COL_ID);
                     if let Some(x) = self.ppk {
@@ -295,7 +297,7 @@ where
                         query = query.filter(E::COL_ID.lt(x));
                     }
                 }
-                query
+                E::sort(query, sort_by, reverse)
             }
             SearchDep::Parent(p_pk) => {
                 unreachable!();
