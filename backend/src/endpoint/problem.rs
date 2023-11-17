@@ -13,42 +13,49 @@ use sea_orm::Select;
 use tonic::*;
 
 #[tonic::async_trait]
-impl Filter for Entity{
-    async fn read_filter(query:Select<Self>,auth: &Auth) -> Result<Select<Self>,Error> {
-        todo!()
+impl Filter for Entity {
+    async fn read_filter(query: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_link() || perm.can_root() || perm.can_manage_problem() {
+                return Ok(query);
+            }
+        }
+        Ok(query.filter(Column::Public.eq(true)))
     }
-
-    async fn write_filter(query:Select<Self>,auth: &Auth) -> Result<Select<Self>,Error> {
-        todo!()
+    async fn write_filter(query: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_root() {
+                return Ok(query);
+            }
+            if perm.can_manage_problem() {
+                let user_id = auth.user_id().unwrap();
+                return Ok(query.filter(Column::UserId.eq(user_id)));
+            }
+        }
+        Ok(query.filter(Column::Id.eq(-1)))
     }
 }
 
-#[tonic::async_trait]
-impl PagerTrait for Entity {
-    const TYPE_NUMBER: i32 = 11223;
+impl Into<ProblemId> for i32 {
+    fn into(self) -> ProblemId {
+        ProblemId { id: self }
+    }
+}
 
-    const COL_ID: Column = Column::Id;
+impl From<ProblemId> for i32 {
+    fn from(value: ProblemId) -> Self {
+        value.id
+    }
+}
 
-    const COL_TEXT: &'static [Column] = &[Column::Title, Column::Tags];
-
-    type ParentMarker = HasParent<contest::Entity>;
-
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        match sort {
-            SortBy::UploadDate => select.order_by_desc(Column::CreateAt),
-            SortBy::AcRate => select.order_by_desc(Column::AcRate),
-            SortBy::SubmitCount => select.order_by_desc(Column::SubmitCount),
-            SortBy::Difficulty => select.order_by_asc(Column::Difficulty),
-            _ => select,
+impl Into<ProblemInfo> for Model {
+    fn into(self) -> ProblemInfo {
+        ProblemInfo {
+            id: self.id.into(),
+            title: self.title,
+            submit_count: self.submit_count,
+            ac_rate: self.ac_rate,
         }
-    }
-
-    fn get_id(model: &Self::Model) -> i32 {
-        model.id
-    }
-
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
-        Entity::read_filter(select, auth).await
     }
 }
 
@@ -58,21 +65,72 @@ impl ProblemSet for Server {
         &self,
         req: Request<ListRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        todo!()
+        let (auth, req) = self.parse_request(req).await.i()?;
+
+        let mut reverse = false;
+        let mut pager: Pager<Entity> =
+            match req.request.ok_or(Error::NotInPayload("request")).i()? {
+                list_request::Request::Create(create) => {
+                    Pager::sort_search(create.sort_by(), create.reverse)
+                }
+                list_request::Request::Pager(old) => {
+                    reverse = old.reverse;
+                    <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
+                        old.session,
+                    )
+                    .i()?
+                }
+            };
+
+        let list = pager
+            .fetch(req.size, reverse, &auth)
+            .await
+            .i()?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_page_token = pager.into_raw();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_page_token,
+        }))
     }
 
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        todo!()
-    }
+        let (auth, req) = self.parse_request(req).await.i()?;
 
-    async fn search_by_tag(
-        &self,
-        req: Request<TextSearchRequest>,
-    ) -> Result<Response<ListProblemResponse>, Status> {
-        todo!()
+        let mut reverse = false;
+        let mut pager: Pager<Entity> =
+            match req.request.ok_or(Error::NotInPayload("request")).i()? {
+                text_search_request::Request::Text(create) => Pager::text_search(create),
+                text_search_request::Request::Pager(old) => {
+                    reverse = old.reverse;
+                    <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
+                        old.session,
+                    )
+                    .i()?
+                }
+            };
+
+        let list = pager
+            .fetch(req.size, reverse, &auth)
+            .await
+            .i()?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_page_token = pager.into_raw();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_page_token,
+        }))
     }
 
     async fn full_info(

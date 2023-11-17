@@ -4,20 +4,32 @@ use ::entity::*;
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{grpc::backend::SortBy, init::db::DB};
+use crate::{
+    grpc::backend::SortBy,
+    init::db::{self, DB},
+};
 
-use super::{auth::Auth, error::Error};
+use super::{auth::Auth, error::Error, filter::Filter};
+
+#[tonic::async_trait]
+pub trait ParentalTrait
+where
+    Self: EntityTrait,
+{
+    const COL_ID: Self::Column;
+    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
+}
 
 pub trait PagerMarker {}
 
 pub struct NoParent;
-pub struct HasParent<P: EntityTrait> {
+pub struct HasParent<P: ParentalTrait> {
     _parent: PhantomData<P>,
 }
 
 impl PagerMarker for NoParent {}
 
-impl<P: EntityTrait> PagerMarker for HasParent<P> {}
+impl<P: ParentalTrait> PagerMarker for HasParent<P> {}
 
 #[tonic::async_trait]
 pub trait PagerTrait
@@ -27,6 +39,7 @@ where
     const TYPE_NUMBER: i32;
     const COL_ID: Self::Column;
     const COL_TEXT: &'static [Self::Column];
+    const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
     // type ParentEntity: EntityTrait;
 
@@ -67,12 +80,17 @@ pub struct Pager<E: PagerTrait> {
 pub trait HasParentPager<P, E>
 where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
-    P: EntityTrait,
+    P: ParentalTrait,
 {
     fn parent_search(ppk: i32) -> Self;
     fn from_raw(s: String) -> Result<Pager<E>, Error>;
     fn into_raw(self) -> String;
-    async fn fetch(&mut self, limit: u64, auth: &Auth) -> Result<Vec<E::Model>, Error>;
+    async fn fetch(
+        &mut self,
+        limit: u64,
+        reverse: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error>;
 }
 
 #[tonic::async_trait]
@@ -82,16 +100,18 @@ where
 {
     fn from_raw(s: String) -> Result<Pager<E>, Error>;
     fn into_raw(self) -> String;
-    async fn fetch(&mut self, limit: u64, auth: &Auth) -> Result<Vec<E::Model>, Error>;
+    async fn fetch(
+        &mut self,
+        limit: u64,
+        reverse: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error>;
 }
 
 #[tonic::async_trait]
-impl<P: EntityTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
+impl<P: ParentalTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = HasParent<P>>,
-    Value: From<<E as EntityTrait>::PrimaryKey>,
-    i32: From<<E as sea_orm::EntityTrait>::PrimaryKey>,
-    <P::PrimaryKey as PrimaryKeyTrait>::ValueType: From<i32>,
     P: Related<E>,
 {
     fn parent_search(ppk: i32) -> Self {
@@ -150,58 +170,67 @@ where
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
     }
-    async fn fetch(&mut self, limit: u64, auth: &Auth) -> Result<Vec<E::Model>, Error> {
+    async fn fetch(
+        &mut self,
+        limit: u64,
+        reverse: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error> {
+        macro_rules! order_by_pk {
+            ($src:expr,$reverse: expr) => {
+                if $reverse {
+                    $src = $src.order_by_asc(E::COL_ID);
+                    if let Some(x) = self.ppk {
+                        $src = $src.filter(E::COL_ID.gt(x));
+                    }
+                } else {
+                    $src = $src.order_by_desc(E::COL_ID);
+                    if let Some(x) = self.ppk {
+                        $src = $src.filter(E::COL_ID.lt(x));
+                    }
+                }
+            };
+        }
         let query = match self.sort.clone() {
             SearchDep::Text(txt) => {
                 let mut query = E::query_filter(E::find(), auth).await?;
+                order_by_pk!(query, reverse);
                 let mut condition = E::COL_TEXT[0].like(&txt);
                 for col in E::COL_TEXT[1..].iter() {
                     condition = condition.or(col.like(&txt));
                 }
-                query = query.order_by_asc(E::COL_ID);
-                if let Some(x) = self.ppk {
-                    query = query.filter(E::COL_ID.gt(x));
-                }
                 query = query.filter(condition);
                 query
             }
-            SearchDep::Column(sort_by, reverse) => {
+            SearchDep::Column(sort_by, inner_reverse) => {
                 let mut query = E::query_filter(E::find(), auth).await?;
-                if reverse {
-                    query = query.order_by_asc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        query = query.filter(E::COL_ID.gt(x));
-                    }
-                } else {
-                    query = query.order_by_desc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        query = query.filter(E::COL_ID.lt(x));
-                    }
-                }
+                order_by_pk!(query, reverse ^ inner_reverse);
                 E::sort(query, sort_by, reverse)
             }
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
                 // TODO: select ID only
-                let query = P::find_by_id(p_pk).one(db).await?;
+                let query = P::related_filter(auth).await?;
+                let query = query.columns([P::COL_ID]).one(db).await?;
 
                 if query.is_none() {
                     return Ok(vec![]);
                 }
 
-                let query = query.unwrap().find_related(E::default());
+                let mut query = query.unwrap().find_related(E::default());
 
-                let query = E::query_filter(query, auth).await?;
+                query = E::query_filter(query, auth).await?;
 
-                let mut query = query.order_by_asc(E::COL_ID);
-                if let Some(x) = self.ppk {
-                    query = query.filter(E::COL_ID.gt(x));
-                }
+                order_by_pk!(query, reverse);
                 query
             }
         };
 
-        let models = query.limit(limit).all(DB.get().unwrap()).await?;
+        let models = query
+            .columns(E::COL_SELECT.to_vec())
+            .limit(limit)
+            .all(DB.get().unwrap())
+            .await?;
 
         if let Some(x) = (&models).last() {
             self.ppk = Some(E::get_id(x));
@@ -215,8 +244,6 @@ where
 impl<E> NoParentPager<E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = NoParent>,
-    Value: From<<E as EntityTrait>::PrimaryKey>,
-    i32: From<<E as sea_orm::EntityTrait>::PrimaryKey>,
 {
     fn into_raw(self) -> String {
         let raw = RawPager {
@@ -269,42 +296,51 @@ where
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
     }
-    async fn fetch(&mut self, limit: u64, auth: &Auth) -> Result<Vec<E::Model>, Error> {
+    async fn fetch(
+        &mut self,
+        limit: u64,
+        reverse: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error> {
+        macro_rules! order_by_pk {
+            ($src:expr,$reverse: expr) => {
+                if $reverse {
+                    $src = $src.order_by_asc(E::COL_ID);
+                    if let Some(x) = self.ppk {
+                        $src = $src.filter(E::COL_ID.gt(x));
+                    }
+                } else {
+                    $src = $src.order_by_desc(E::COL_ID);
+                    if let Some(x) = self.ppk {
+                        $src = $src.filter(E::COL_ID.lt(x));
+                    }
+                }
+            };
+        }
         let query = match self.sort.clone() {
             SearchDep::Text(txt) => {
                 let mut query = E::query_filter(E::find(), auth).await?;
+                order_by_pk!(query, reverse);
                 let mut condition = E::COL_TEXT[0].like(&txt);
                 for col in E::COL_TEXT[1..].iter() {
                     condition = condition.or(col.like(&txt));
                 }
-                query = query.order_by_asc(E::COL_ID);
-                if let Some(x) = self.ppk {
-                    query = query.filter(E::COL_ID.gt(x));
-                }
                 query = query.filter(condition);
                 query
             }
-            SearchDep::Column(sort_by, reverse) => {
+            SearchDep::Column(sort_by, inner_reverse) => {
                 let mut query = E::query_filter(E::find(), auth).await?;
-                if reverse {
-                    query = query.order_by_asc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        query = query.filter(E::COL_ID.gt(x));
-                    }
-                } else {
-                    query = query.order_by_desc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        query = query.filter(E::COL_ID.lt(x));
-                    }
-                }
+                order_by_pk!(query, reverse ^ inner_reverse);
                 E::sort(query, sort_by, reverse)
             }
-            SearchDep::Parent(p_pk) => {
-                unreachable!();
-            }
+            SearchDep::Parent(_) => unreachable!(),
         };
 
-        let models = query.limit(limit).all(DB.get().unwrap()).await?;
+        let models = query
+            .columns(E::COL_SELECT.to_vec())
+            .limit(limit)
+            .all(DB.get().unwrap())
+            .await?;
 
         if let Some(x) = (&models).last() {
             self.ppk = Some(E::get_id(x));
@@ -314,10 +350,7 @@ where
     }
 }
 
-impl<E: PagerTrait> Pager<E>
-where
-    Value: From<<E as EntityTrait>::PrimaryKey>,
-{
+impl<E: PagerTrait> Pager<E> {
     pub fn sort_search(sort: SortBy, reverse: bool) -> Self {
         Self {
             ppk: None,
@@ -325,7 +358,7 @@ where
             _entity: PhantomData,
         }
     }
-    pub fn text_search(sort: String, reverse: bool) -> Self {
+    pub fn text_search(sort: String) -> Self {
         Self {
             ppk: None,
             sort: SearchDep::Text(sort),
@@ -334,29 +367,47 @@ where
     }
 }
 
-// impl PagerTrait for problem::Entity {
-//     const TYPE_NUMBER: i32 = const_random::const_random!(i32);
-//     const COL_ID: problem::Column = problem::Column::Id;
-//     const COL_TEXT: &'static [problem::Column] =
-//         &[problem::Column::Title, problem::Column::Content];
+#[tonic::async_trait]
+impl ParentalTrait for contest::Entity {
+    const COL_ID: Self::Column = contest::Column::Id;
 
-//     fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-//         let col = match sort {
-//             SortBy::UploadDate => problem::Column::CreateAt,
-//             SortBy::AcRate => problem::Column::AcRate,
-//             SortBy::SubmitCount => problem::Column::SubmitCount,
-//             SortBy::Difficulty => problem::Column::Difficulty,
-//             _ => {
-//                 return select;
-//             }
-//         };
-//         if reverse {
-//             select.order_by_desc(col)
-//         } else {
-//             select.order_by_asc(col)
-//         }
-//     }
-//     fn get_id(model: &Self::Model) -> i32 {
-//         model.id
-//     }
-// }
+    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error> {
+        let db = DB.get().unwrap();
+
+        Ok(auth.get_user(db).await?.find_related(contest::Entity))
+    }
+}
+
+#[tonic::async_trait]
+impl PagerTrait for problem::Entity {
+    const TYPE_NUMBER: i32 = 11223;
+    const COL_ID: problem::Column = problem::Column::Id;
+    const COL_TEXT: &'static [problem::Column] = &[problem::Column::Title, problem::Column::Tags];
+    const COL_SELECT: &'static [problem::Column] = &[
+        problem::Column::Id,
+        problem::Column::Title,
+        problem::Column::AcRate,
+        problem::Column::SubmitCount,
+        problem::Column::Difficulty,
+    ];
+
+    type ParentMarker = HasParent<contest::Entity>;
+
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        match sort {
+            SortBy::UploadDate => select.order_by_desc(problem::Column::CreateAt),
+            SortBy::AcRate => select.order_by_desc(problem::Column::AcRate),
+            SortBy::SubmitCount => select.order_by_desc(problem::Column::SubmitCount),
+            SortBy::Difficulty => select.order_by_asc(problem::Column::Difficulty),
+            _ => select,
+        }
+    }
+
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        problem::Entity::read_filter(select, auth).await
+    }
+}

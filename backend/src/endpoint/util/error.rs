@@ -66,3 +66,13 @@ impl Into<tonic::Status> for Error {
         }
     }
 }
+
+pub trait ResultExt<T> {
+    fn i(self) -> Result<T, tonic::Status>;
+}
+
+impl<T> ResultExt<T> for Result<T, Error> {
+    fn i(self) -> Result<T, tonic::Status> {
+        self.map_err(|x| x.into())
+    }
+}

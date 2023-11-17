@@ -6,7 +6,7 @@ pub mod util;
 
 pub mod tools {
     pub use super::*;
-    pub use util::error::Error;
+    pub use util::error::{Error, ResultExt};
     // pub use util::error::handle_dberr;
     pub use super::util::auth::Auth;
     pub use super::util::ControllerTrait;

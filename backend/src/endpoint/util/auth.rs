@@ -1,3 +1,5 @@
+use entity::user;
+use sea_orm::{EntityTrait, QuerySelect};
 use tonic::async_trait;
 
 use super::{error::Error, ControllerTrait};
@@ -42,6 +44,14 @@ impl Auth {
     }
     pub fn ok_or_default(&self) -> Result<(i32, UserPermBytes), Error> {
         self.ok_or(Error::PremissionDeny("Guest is not allow in this endpoint"))
+    }
+    pub async fn get_user(&self, db: &sea_orm::DatabaseConnection) -> Result<user::Model, Error> {
+        let user_id = self.user_id().ok_or(Error::Unauthenticated)?;
+        user::Entity::find_by_id(user_id)
+            .columns([user::Column::Id])
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB("user"))
     }
 }
 
