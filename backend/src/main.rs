@@ -1,15 +1,8 @@
-use std::sync::Arc;
-
-use controller::token::TokenController;
-
 pub mod controller;
 pub mod endpoint;
 pub mod grpc;
 pub mod init;
-
-pub struct Server {
-    pub controller: Arc<TokenController>,
-}
+pub mod server;
 
 #[tokio::main]
 async fn main() {

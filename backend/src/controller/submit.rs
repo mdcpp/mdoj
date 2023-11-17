@@ -94,7 +94,7 @@ impl SubmitController {
 
         // create uncommited submit
         let submit_model = submit::ActiveModel {
-            user_id: ActiveValue::Set(submit.user),
+            user_id: ActiveValue::Set(Some(submit.user)),
             problem_id: ActiveValue::Set(submit.user),
             committed: ActiveValue::Set(false),
             lang: ActiveValue::Set(submit.lang.clone()),
