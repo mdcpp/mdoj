@@ -12,24 +12,24 @@ use crate::{
 use super::{auth::Auth, error::Error, filter::Filter};
 
 #[tonic::async_trait]
-pub trait ParentalTrait
+pub trait ParentalTrait<P>
 where
-    Self: EntityTrait,
+    P: EntityTrait,
 {
-    const COL_ID: Self::Column;
-    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
+    const COL_ID: P::Column;
+    async fn related_filter(auth: &Auth) -> Result<Select<P>, Error>;
 }
 
 pub trait PagerMarker {}
 
 pub struct NoParent;
-pub struct HasParent<P: ParentalTrait> {
+pub struct HasParent<P> {
     _parent: PhantomData<P>,
 }
 
 impl PagerMarker for NoParent {}
 
-impl<P: ParentalTrait> PagerMarker for HasParent<P> {}
+impl<P: EntityTrait> PagerMarker for HasParent<P> {}
 
 #[tonic::async_trait]
 pub trait PagerTrait
@@ -80,7 +80,6 @@ pub struct Pager<E: PagerTrait> {
 pub trait HasParentPager<P, E>
 where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
-    P: ParentalTrait,
 {
     fn parent_search(ppk: i32) -> Self;
     fn from_raw(s: String) -> Result<Pager<E>, Error>;
@@ -109,9 +108,10 @@ where
 }
 
 #[tonic::async_trait]
-impl<P: ParentalTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
+impl<P: EntityTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = HasParent<P>>,
+    <E as PagerTrait>::ParentMarker: ParentalTrait<P>,
     P: Related<E>,
 {
     fn parent_search(ppk: i32) -> Self {
@@ -210,8 +210,8 @@ where
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
                 // TODO: select ID only
-                let query = P::related_filter(auth).await?;
-                let query = query.columns([P::COL_ID]).one(db).await?;
+                let query = E::ParentMarker::related_filter(auth).await?;
+                let query = query.columns([E::ParentMarker::COL_ID]).one(db).await?;
 
                 if query.is_none() {
                     return Ok(vec![]);
@@ -368,10 +368,10 @@ impl<E: PagerTrait> Pager<E> {
 }
 
 #[tonic::async_trait]
-impl ParentalTrait for contest::Entity {
-    const COL_ID: Self::Column = contest::Column::Id;
+impl ParentalTrait<contest::Entity> for HasParent<contest::Entity> {
+    const COL_ID: contest::Column = contest::Column::Id;
 
-    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error> {
+    async fn related_filter(auth: &Auth) -> Result<Select<contest::Entity>, Error> {
         let db = DB.get().unwrap();
 
         Ok(auth.get_user(db).await?.find_related(contest::Entity))
@@ -408,6 +408,6 @@ impl PagerTrait for problem::Entity {
     }
 
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
-        problem::Entity::read_filter(select, auth).await
+        problem::Entity::read_filter(select, auth)
     }
 }

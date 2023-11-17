@@ -57,6 +57,14 @@ message TextSearchRequest {
   required uint64 size = 3;
 }
 
+message ListByRequest {
+  oneof request {
+    int32 parent_id = 1;
+    Paginator pager = 2;
+  }
+  required uint64 size = 3;
+}
+
 message Case {
   repeated bytes inputs = 1;
   repeated bytes outputs = 2;
@@ -203,7 +211,7 @@ service AnnouncementSet {
   rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
   rpc Unpublish(AnnouncementId) returns (google.protobuf.Empty);
 
-  rpc ListByContest(AnnouncementLink) returns (ListAnnouncementResponse);
+  rpc ListByContest(ListByRequest) returns (ListAnnouncementResponse);
   rpc FullInfoByContest(AnnouncementLink) returns (AnnouncementFullInfo);
 }
 
@@ -281,13 +289,10 @@ message ProblemFullInfo {
   required ProblemInfo info = 1;
   required string content = 2;
   required string tags = 8;
-  optional EducationId education_id = 3;
   required uint32 difficulty = 4;
   required bool public = 5;
   required uint64 time = 6;
   required uint64 memory = 7;
-  required Testcases testcases = 9;
-  // bool commit
 }
 
 message ListProblemResponse {
@@ -322,9 +327,9 @@ message UpdateProblemRequest {
     optional uint64 memory = 5;
     optional string tags = 6;
     optional string content = 7;
+    optional MatchRule match_rule = 10;
     optional uint32 submit_count = 3;
     optional float ac_rate = 8;
-    optional MatchRule match_rule = 10;
   };
   required Info info = 1;
   required ProblemId id = 2;
@@ -347,7 +352,7 @@ service ProblemSet {
   rpc Unpublish(ProblemId) returns (google.protobuf.Empty);
 
   rpc FullInfoByContest(ProblemLink) returns (ProblemFullInfo);
-  rpc ListByContest(ContestId) returns (ListProblemResponse);
+  rpc ListByContest(ListByRequest) returns (ListProblemResponse);
 }
 
 // Testcase
@@ -406,7 +411,7 @@ service TestcaseSet {
   rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
 
   rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
-  rpc ListByProblem(TestcaseLink) returns (ListTestcaseResponse);
+  rpc ListByProblem(ListByRequest) returns (ListTestcaseResponse);
 }
 
 // Contest

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use crate::controller::*;
+use crate::controller::{duplicate::DupController, *};
 
 pub struct Server {
-    pub controller: Arc<token::TokenController>,
+    pub token: Arc<token::TokenController>,
     pub submit: Arc<submit::SubmitController>,
+    pub dup: DupController,
 }

@@ -9,18 +9,23 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
     pub user_id: i32,
-    pub contest_id: i32,
+    #[sea_orm(nullable)]
+    pub contest_id: Option<i32>,
     #[sea_orm(default_value = 0)]
     pub accept_count: i32,
     #[sea_orm(default_value = 0)]
     pub submit_count: u32,
-    #[sea_orm(default_value = 0.0)]
+    #[sea_orm(default_value = 0.0, indexed)]
     pub ac_rate: f32,
     pub memory: u64,
     pub time: u64,
+    #[sea_orm(indexed)]
     pub difficulty: u32,
+    #[sea_orm(indexed)]
     pub public: bool,
+    #[sea_orm(indexed)]
     pub tags: String,
+    #[sea_orm(indexed)]
     pub title: String,
     pub content: String,
     #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]

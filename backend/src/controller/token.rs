@@ -61,17 +61,19 @@ impl TokenController {
             cache,
             rand: SystemRandom::new(),
         });
-        let self_1 = self_.clone();
         tokio::spawn(async move {
             let db = DB.get().unwrap();
             loop {
                 time::sleep(CLEAN_DUR).await;
                 let now = Local::now().naive_local();
 
-                token::Entity::delete_many()
+                if let Err(err) = token::Entity::delete_many()
                     .filter(token::Column::Expiry.lte(now))
                     .exec(db)
-                    .await;
+                    .await
+                {
+                    log::error!("Token clean failed: {}", err);
+                }
             }
         });
         self_

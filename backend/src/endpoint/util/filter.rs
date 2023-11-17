@@ -2,11 +2,15 @@ use sea_orm::*;
 
 use super::{auth::Auth, error::Error};
 
-#[tonic::async_trait]
 pub trait Filter
 where
     Self: EntityTrait,
 {
-    async fn read_filter(query: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
-    async fn write_filter(query: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
+    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error>;
+    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error>;
+}
+
+pub trait ParentalFilter {
+    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error>;
+    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error>;
 }
