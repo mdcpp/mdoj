@@ -118,11 +118,11 @@ impl ContestSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_page_token = pager.into_raw();
+        let next_session = pager.into_raw();
 
         Ok(Response::new(ListContestResponse {
             list,
-            next_page_token,
+            next_session,
         }))
     }
     async fn search_by_text(
@@ -147,11 +147,11 @@ impl ContestSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_page_token = pager.into_raw();
+        let next_session = pager.into_raw();
 
         Ok(Response::new(ListContestResponse {
             list,
-            next_page_token,
+            next_session,
         }))
     }
     async fn full_info(

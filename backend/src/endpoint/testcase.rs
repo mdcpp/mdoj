@@ -244,11 +244,11 @@ impl TestcaseSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_page_token = pager.into_raw();
+        let next_session = pager.into_raw();
 
         Ok(Response::new(ListTestcaseResponse {
             list,
-            next_page_token,
+            next_session,
         }))
     }
 }

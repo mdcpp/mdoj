@@ -10,9 +10,8 @@ import "google/protobuf/empty.proto";
  * all memory are in unit of byte
  * 
  * any rpc with field request_id can be sent multiple time
- * but will only be execute once, the return value will be store and return on preceding request
- * request_id should be unique(for each token) and be a vaild UUIDv4
- * 6cb1c0e2-d35c-40e7-a4f1-8e92e5257283
+ * but will only be execute once, the return value will be store and return on preceeding request
+ * request_ids for each token should be unique and be a vaild UUIDv4:
  * upper or lower case, with "-" or no "-" is all allowed
  */
 
@@ -37,6 +36,13 @@ enum SortBy {
   UserCount = 6;
 }
 
+// paginator is used to paginate list
+// its usually used with parameter size and offset
+// For example, if we have a data with SubmitCount 1 to 20
+// (offset, size, reverse) => return value
+// (0, 3, false) => 1, 2, 3 # this is the first one(without pagination in use)
+// (0, 3, true) => 3, 2, 1
+// (4, 3, false) => 5, 6, 7
 message Paginator {
   required string session = 1;
   required bool reverse = 2;
@@ -178,7 +184,7 @@ message AnnouncementFullInfo {
 
 message ListAnnouncementResponse {
   repeated AnnouncementInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message AnnouncementLink {
@@ -224,6 +230,16 @@ service AnnouncementSet {
   rpc FullInfoByContest(AnnouncementLink) returns (AnnouncementFullInfo);
 }
 
+/*
+ * about entity hierarchy(I named it!)
+ * There are a lot of entity pair which have a parent-child relationship
+ * For example, you can only view a unpublish problem if you are in a contest with it
+ *
+ * So, for entity that can expose sololy, we call it a top-level entity
+ * Top level entity are: Contest, User, Announcement, Problem
+ * all entity(including top-level entity) have rpc like SearchBy[A-Z]{1}[a-z]+
+ */
+
 // Educations
 message EducationId { required int32 id = 1; }
 
@@ -240,7 +256,7 @@ message EducationFullInfo {
 
 message ListEducationResponse {
   repeated EducationInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message EducationLink {
@@ -306,7 +322,7 @@ message ProblemFullInfo {
 
 message ListProblemResponse {
   repeated ProblemInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message ProblemLink {
@@ -381,7 +397,7 @@ message TestcaseFullInfo {
 
 message ListTestcaseResponse {
   repeated TestcaseInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message TestcaseLink {
@@ -441,7 +457,7 @@ message ContestFullInfo {
 
 message ListContestResponse {
   repeated ContestInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message CreateContestRequest {
@@ -480,7 +496,7 @@ message UserRank {
 
 message ListRankResponse {
   repeated UserRank list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message JoinContestRequest{
@@ -524,7 +540,7 @@ message UserFullInfo {
 
 message ListUserResponse {
   repeated UserInfo list = 1;
-  required string next_page_token = 2;
+  required string next_session = 2;
 }
 
 message CreateUserRequest {
