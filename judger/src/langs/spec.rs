@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
-use crate::{grpc::proto, sandbox::Limit};
+use crate::sandbox::Limit;
 
 use super::InternalError;
 
@@ -17,12 +17,6 @@ pub struct LangSpec {
     pub judge_args: Vec<String>,
     pub judge_limit: Limit,
     pub path: PathBuf,
-}
-
-impl Into<proto::prelude::LangInfo> for LangSpec {
-    fn into(self) -> proto::prelude::LangInfo {
-        todo!()
-    }
 }
 
 impl LangSpec {
@@ -88,9 +82,9 @@ pub struct RawLangSpec {
 struct Compile {
     lockdown: bool,
     pub command: Vec<String>,
-    pub kernel_mem: i64,
-    pub user_mem: i64,
-    pub rt_time: i64,
+    pub kernel_mem: u64,
+    pub user_mem: u64,
+    pub rt_time: u64,
     pub cpu_time: u64,
     pub total_time: u64,
 }
@@ -98,8 +92,8 @@ struct Compile {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judge {
     pub command: Vec<String>,
-    pub kernel_mem: i64,
-    pub multiplier_memory: i64,
-    pub rt_time: i64,
+    pub kernel_mem: u64,
+    pub multiplier_memory: u64,
+    pub rt_time: u64,
     pub multiplier_cpu: u64,
 }

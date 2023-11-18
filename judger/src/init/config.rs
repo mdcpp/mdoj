@@ -22,13 +22,15 @@ pub struct GlobalConfig {
     pub kernel: Kernel,
     #[serde(default)]
     pub log_level: usize,
+    #[serde(default)]
+    pub secret: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Platform {
     pub cpu_time_multiplier: f64,
-    pub available_memory: i64,
+    pub available_memory: u64,
     pub output_limit: usize,
 }
 
@@ -101,7 +103,7 @@ pub struct Runtime {
 impl Default for Runtime {
     fn default() -> Self {
         Self {
-            temp: PathBuf::from_str("temp").unwrap(),
+            temp: PathBuf::from_str(".temp").unwrap(),
             bind: "0.0.0.0:8080".to_owned(),
             accuracy: 50 * 1000,
             root_cgroup: "mdoj/c.".to_owned(),
@@ -112,15 +114,15 @@ impl Default for Runtime {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Kernel {
-    #[allow(non_snake_case)]
-    pub USER_HZ: i32,
+    #[serde(alias = "USER_HZ")]
+    pub kernel_hz: i32,
     pub tickless: bool,
 }
 
 impl Default for Kernel {
     fn default() -> Self {
         Self {
-            USER_HZ: 100,
+            kernel_hz: 1000,
             tickless: false,
         }
     }

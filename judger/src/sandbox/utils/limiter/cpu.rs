@@ -6,7 +6,7 @@ use crate::init::config::CONFIG;
 
 #[derive(Default, Clone, Debug)]
 pub struct CpuStatistics {
-    pub rt_us: i64,
+    pub rt_us: u64,
     pub cpu_us: u64,
     pub total_us: u64,
 }
@@ -36,14 +36,14 @@ impl CpuStatistics {
         let acct = cpuacct.cpuacct();
 
         Self {
-            rt_us: acct.usage_sys as i64,
+            rt_us: acct.usage_sys as u64,
             cpu_us: acct.usage_user,
             total_us: acct.usage,
         }
     }
     pub fn from_cpu_controller(cpu: &CpuController) -> Self {
         let raw: &str = &cpu.cpu().stat;
-        let mut rt_us = i64::MAX;
+        let mut rt_us = u64::MAX;
         let mut cpu_us = u64::MAX;
         let mut total_us = u64::MAX;
         for (key, value) in raw

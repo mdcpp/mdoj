@@ -7,10 +7,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
 #[sea_orm(table_name = "user_contest")]
 pub struct Model {
+    #[sea_orm(primary_key, auto_increment = true)]
+    pub id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub contest_id: i32,
+    #[sea_orm(default_value = 0)]
+    pub score: u32,
 }
 
 /// CakeFilling relation

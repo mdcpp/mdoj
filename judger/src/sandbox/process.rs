@@ -11,7 +11,7 @@ use super::{
     utils::{
         limiter::{cpu::CpuStatistics, mem::MemStatistics, Limiter},
         nsjail::NsJail,
-        preserve::MemoryPermit,
+        semaphore::MemoryPermit,
     },
     Error,
 };
@@ -40,7 +40,8 @@ impl RunningProc {
             reason = self.limiter.wait_exhausted()=>{
                 match reason.unwrap(){
                     LimitReason::Cpu=>ExitStatus::CpuExhausted,
-                    LimitReason::Mem=>ExitStatus::MemExhausted
+                    LimitReason::Mem=>ExitStatus::MemExhausted,
+                    LimitReason::SysMem=>ExitStatus::SysError,
                 }
             }
             code = self.nsjail.wait()=>{
@@ -96,11 +97,13 @@ impl ExitProc {
     }
 }
 
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ExitStatus {
     SigExit, // RuntimeError
     Code(i32),
     MemExhausted,
     CpuExhausted,
+    SysError,
 }
 
 impl Display for ExitStatus {
@@ -110,6 +113,7 @@ impl Display for ExitStatus {
             ExitStatus::Code(x) => write!(f, "Exit with code {}", x),
             ExitStatus::MemExhausted => write!(f, "Reach memory limit"),
             ExitStatus::CpuExhausted => write!(f, "Reach cpu quota"),
+            ExitStatus::SysError => write!(f, "Unknown system error"),
         }
     }
 }

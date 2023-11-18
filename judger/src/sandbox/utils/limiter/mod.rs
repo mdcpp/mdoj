@@ -19,6 +19,7 @@ pub mod mem;
 pub enum LimitReason {
     Cpu,
     Mem,
+    SysMem,
 }
 
 pub struct Limiter {
@@ -54,9 +55,9 @@ impl Limiter {
 
         let cg = CgroupBuilder::new(&cg_name)
             .memory()
-            .kernel_memory_limit(limit.kernel_mem)
-            .memory_hard_limit(limit.user_mem)
-            .memory_swap_limit(limit.swap_user)
+            .kernel_memory_limit(limit.kernel_mem as i64)
+            .memory_hard_limit(limit.user_mem as i64)
+            .memory_swap_limit(limit.swap_user as i64)
             .done()
             .cpu()
             .period(config.runtime.accuracy)
@@ -83,6 +84,8 @@ impl Limiter {
                 let mut end = false;
                 let mut reason = LimitReason::Mem;
 
+                // oom could be incured from invaild configuration
+                // check other factor to determine whether is a systm failure or MLE
                 if mem.oom {
                     log::trace!("Stopping process because it reach its memory limit");
                     reason = LimitReason::Mem;
@@ -125,7 +128,7 @@ impl Limiter {
 
         if !config.kernel.tickless {
             time::sleep(time::Duration::from_nanos(
-                (1000 * 1000 / config.kernel.USER_HZ) as u64,
+                (1000 * 1000 / config.kernel.kernel_hz) as u64,
             ))
             .await;
         }
@@ -135,6 +138,7 @@ impl Limiter {
 
         (stat.cpu.clone(), stat.mem.clone())
     }
+    #[tracing::instrument(skip(self),level = tracing::Level::DEBUG)]
     pub fn wait_exhausted(&mut self) -> Receiver<LimitReason> {
         self.limit_oneshot
             .take()

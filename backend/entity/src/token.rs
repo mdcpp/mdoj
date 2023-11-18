@@ -10,7 +10,7 @@ pub struct Model {
     pub id: i32,
     pub user_id: i32,
     pub rand: Vec<u8>,
-    pub permission: i64,
+    pub permission: u64,
     #[sea_orm(column_type = "Timestamp")]
     pub expiry: DateTime,
 }

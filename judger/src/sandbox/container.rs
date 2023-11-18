@@ -17,23 +17,29 @@ pub struct Container<'a> {
 
 impl<'a> Drop for Container<'a> {
     fn drop(&mut self) {
-        let tmp_path = self.daemon.tmp.as_path().clone().join(self.id.clone());
+        let tmp_path = self.daemon.tmp.as_path().join(self.id.clone());
         log::trace!("Cleaning up container with id :{}", self.id);
         tokio::spawn(async { fs::remove_dir_all(tmp_path).await });
     }
 }
 
 impl<'a> Container<'a> {
+    #[tracing::instrument(skip(self, limit))]
     pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
         log::trace!("Preparing container with id :{} for new process", self.id);
 
-        let cg_name = format!("{}/{}", config.runtime.root_cgroup, self.id);
+        let cg_name = format!("{}{}", config.runtime.root_cgroup, self.id);
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
+        let output_limit = config.platform.output_limit as u64;
 
-        let memory_holder = self.daemon.memory_counter.allocate(reversed_memory).await?;
+        let memory_holder = self
+            .daemon
+            .memory_counter
+            .allocate(output_limit + reversed_memory)
+            .await?;
 
         let nsjail = NsJail::new(&self.root)
             .cgroup(&cg_name)

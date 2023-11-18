@@ -69,7 +69,10 @@ impl ArtifactFactory {
             tracing_id
         );
 
-        let spec = self.langs.get(uid).ok_or(RequestError::LangNotFound)?;
+        let spec = self
+            .langs
+            .get(uid)
+            .ok_or(RequestError::LangNotFound(uid.clone()))?;
 
         let container = self.runtime.create(&spec.path).await.unwrap();
 
@@ -120,7 +123,7 @@ impl<'a> CompiledArtifact<'a> {
         &mut self,
         input: &Vec<u8>,
         time: u64,
-        memory: i64,
+        memory: u64,
     ) -> Result<TaskResult, Error> {
         log::trace!("Running program -trace:{}", self.tracing_id);
         let mut limit = self.spec.judge_limit.clone().apply_platform();
@@ -161,6 +164,19 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
+    pub fn get_expection(&self) -> Option<JudgeResultState> {
+        match self.process.status {
+            ExitStatus::SigExit => Some(JudgeResultState::Rf),
+            ExitStatus::Code(code) => match code {
+                0 | 5 | 6 | 9 => None,
+                137 => Some(JudgeResultState::Na),
+                _ => Some(JudgeResultState::Rf),
+            },
+            ExitStatus::MemExhausted => Some(JudgeResultState::Mle),
+            ExitStatus::CpuExhausted => Some(JudgeResultState::Tle),
+            ExitStatus::SysError => Some(JudgeResultState::Na),
+        }
+    }
     pub fn assert(&self, input: &Vec<u8>, mode: JudgeMatchRule) -> bool {
         let newline = '\n' as u8;
         let space = ' ' as u8;
@@ -200,7 +216,7 @@ impl Limit {
         let config = CONFIG.get().unwrap();
 
         self.cpu_us = ((self.cpu_us as f64) * config.platform.cpu_time_multiplier) as u64;
-        self.rt_us = ((self.rt_us as f64) * config.platform.cpu_time_multiplier) as i64;
+        self.rt_us = ((self.rt_us as f64) * config.platform.cpu_time_multiplier) as u64;
         self.total_us = ((self.total_us as f64) * config.platform.cpu_time_multiplier) as u64;
 
         self

@@ -1,19 +1,20 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
 use lru::LruCache;
-use rand::Rng;
+use ring::rand::*;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use spin::mutex::spin::SpinMutex;
+use spin::mutex::Mutex;
 use std::num::NonZeroUsize;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tokio::time;
 use tracing::instrument;
 
 use crate::init::db::DB;
 
 use super::Error;
 
-const EXPIRY_FRQU: usize = 10;
-type RAND = [u8; 16];
+const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
+type RAND = [u8; 20];
 
 macro_rules! report {
     ($e:expr) => {
@@ -29,7 +30,7 @@ macro_rules! report {
 #[derive(Clone)]
 struct CachedToken {
     user_id: i32,
-    permission: i64,
+    permission: u64,
     expiry: NaiveDateTime,
 }
 
@@ -44,29 +45,49 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
-    cache: SpinMutex<LruCache<RAND, CachedToken>>,
-    frqu: AtomicUsize,
-}
-
-impl Default for TokenController {
-    fn default() -> Self {
-        log::debug!("Setup TokenController");
-        let cache = SpinMutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
-        Self {
-            cache,
-            frqu: Default::default(),
-        }
-    }
+    #[cfg(feature = "single-instance")]
+    cache: Mutex<LruCache<RAND, CachedToken>>,
+    rand: SystemRandom,
+    // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
 }
 
 impl TokenController {
+    pub fn new() -> Arc<Self> {
+        log::debug!("Setup TokenController");
+        #[cfg(feature = "single-instance")]
+        let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        let self_ = Arc::new(Self {
+            #[cfg(feature = "single-instance")]
+            cache,
+            rand: SystemRandom::new(),
+        });
+        tokio::spawn(async move {
+            let db = DB.get().unwrap();
+            loop {
+                time::sleep(CLEAN_DUR).await;
+                let now = Local::now().naive_local();
+
+                if let Err(err) = token::Entity::delete_many()
+                    .filter(token::Column::Expiry.lte(now))
+                    .exec(db)
+                    .await
+                {
+                    log::error!("Token clean failed: {}", err);
+                }
+            }
+        });
+        self_
+    }
     #[instrument(skip_all, name="token_create",fields(user = user.id))]
-    pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
+    pub async fn add(
+        &self,
+        user: &entity::user::Model,
+        dur: Duration,
+    ) -> Result<(String, NaiveDateTime), Error> {
         let db = DB.get().unwrap();
 
-        let mut rng = rand::thread_rng();
-        let rand: i128 = rng.gen();
-        let rand: RAND = rand.to_be_bytes();
+        let rand = generate(&self.rand).unwrap();
+        let rand: RAND = rand.expose();
 
         let expiry = (Local::now() + dur).naive_local();
 
@@ -80,26 +101,32 @@ impl TokenController {
         .insert(db)
         .await?;
 
-        Ok(hex::encode(rand))
+        Ok((hex::encode(rand), expiry))
     }
-    #[instrument(skip_all, name = "token_verify")]
+    // pub async fn verify_throttle(&self, token:&str, ip:Option<IpAddr>)-> Result<Option<(i32, UserPermBytes)>, Error>{
+    //     let reverse_proxy=self.reverse_proxy.read();
+    //     if reverse_proxy.len()==0{
+    //         return  self.verify(token).await;
+    //     }else{
+    //         if let Some(ip)=ip{
+    //             if !reverse_proxy.contains(&ip){
+    //                 return self.verify(token).await;
+    //             }
+    //         }
+    //     }
+    //     return Ok(None);
+    // }
+    // #[instrument(skip_all, name = "token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
-        if self.frqu.fetch_add(1, Ordering::Relaxed) % EXPIRY_FRQU == 1 {
-            tokio::spawn(
-                token::Entity::delete_many()
-                    .filter(token::Column::Expiry.lte(now))
-                    .exec(db),
-            );
-        }
-
         let rand = report!(hex::decode(token).ok());
-        let rand: [u8; 16] = report!(rand.try_into().ok());
+        let rand: RAND = report!(rand.try_into().ok());
 
         let token: CachedToken;
 
+        #[cfg(feature = "single-instance")]
         let cache_result = {
             let mut cache = self.cache.lock();
             match cache.get(&rand) {
@@ -114,6 +141,8 @@ impl TokenController {
                 None => None,
             }
         };
+        #[cfg(not(feature = "single-instance"))]
+        let cache_result: Option<CachedToken> = None;
 
         match cache_result {
             Some(token_) => {
@@ -132,6 +161,7 @@ impl TokenController {
                     return Ok(None);
                 }
 
+                #[cfg(feature = "single-instance")]
                 self.cache.lock().put(rand, token.clone());
             }
         }
@@ -143,13 +173,14 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = report!(hex::decode(token).ok());
-        let rand: [u8; 16] = report!(rand.try_into().ok());
+        let rand: RAND = report!(rand.try_into().ok());
 
         token::Entity::delete_many()
             .filter(token::Column::Rand.eq(rand.to_vec()))
             .exec(db)
             .await?;
 
+        #[cfg(feature = "single-instance")]
         self.cache.lock().pop(&rand);
 
         Ok(Some(()))
@@ -161,11 +192,11 @@ macro_rules! set_bit_value {
         paste::paste! {
             impl $item{
                 pub fn [<can_ $name>](&self)->bool{
-                    let filter = 1_i64<<($pos);
+                    let filter = 1_u64<<($pos);
                     (self.0&filter) == filter
                 }
                 pub fn [<grant_ $name>](&mut self,value:bool){
-                    let filter = 1_i64<<($pos);
+                    let filter = 1_u64<<($pos);
                     if (self.0&filter == filter) ^ value{
                         self.0 = self.0 ^ filter;
                     }
@@ -176,7 +207,7 @@ macro_rules! set_bit_value {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct UserPermBytes(pub i64);
+pub struct UserPermBytes(pub u64);
 
 impl UserPermBytes {
     pub fn strict_ge(&self, other: Self) -> bool {
@@ -191,3 +222,4 @@ set_bit_value!(UserPermBytes, manage_announcement, 3);
 set_bit_value!(UserPermBytes, manage_submit, 4);
 set_bit_value!(UserPermBytes, publish, 5);
 set_bit_value!(UserPermBytes, link, 6);
+set_bit_value!(UserPermBytes, manage_contest, 7);
