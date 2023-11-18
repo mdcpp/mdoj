@@ -19,7 +19,7 @@ impl From<UserId> for i32 {
 }
 
 #[async_trait]
-impl UserSet for Server {
+impl UserSet for Arc<Server> {
     async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListUserResponse>, Status> {
         Err(Status::unimplemented("unimplemented"))
     }

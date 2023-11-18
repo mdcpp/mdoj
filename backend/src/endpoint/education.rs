@@ -6,7 +6,7 @@ use crate::grpc::backend::*;
 
 use entity::{education::*, *};
 #[async_trait]
-impl EducationSet for Server {
+impl EducationSet for Arc<Server> {
     async fn list(
         &self,
         req: Request<ListRequest>,

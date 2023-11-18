@@ -6,7 +6,7 @@ use crate::{
     controller::{duplicate::DupController, *},
     grpc::backend::{
         contest_set_server::ContestSetServer, problem_set_server::ProblemSetServer,
-        testcase_set_server::TestcaseSetServer,
+        testcase_set_server::TestcaseSetServer, education_set_server::EducationSetServer, user_set_server::UserSetServer, token_set_server::TokenSetServer,
     },
     init::config::CONFIG,
 };
@@ -31,6 +31,9 @@ impl Server {
 
         transport::Server::builder()
             .add_service(ProblemSetServer::new(server.clone()))
+            .add_service(EducationSetServer::new(server.clone()))
+            .add_service(UserSetServer::new(server.clone()))
+            .add_service(TokenSetServer::new(server.clone()))
             .add_service(ContestSetServer::new(server.clone()))
             .add_service(TestcaseSetServer::new(server))
             .serve(config.bind_address.parse().unwrap())
