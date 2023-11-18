@@ -14,7 +14,7 @@ use crate::init::db::DB;
 use super::Error;
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
-type RAND = [u8; 16];
+type RAND = [u8; 20];
 
 macro_rules! report {
     ($e:expr) => {
@@ -118,7 +118,7 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = report!(hex::decode(token).ok());
-        let rand: [u8; 16] = report!(rand.try_into().ok());
+        let rand: RAND = report!(rand.try_into().ok());
 
         let token: CachedToken;
 
@@ -169,7 +169,7 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = report!(hex::decode(token).ok());
-        let rand: [u8; 16] = report!(rand.try_into().ok());
+        let rand: RAND = report!(rand.try_into().ok());
 
         token::Entity::delete_many()
             .filter(token::Column::Rand.eq(rand.to_vec()))

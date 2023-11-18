@@ -8,6 +8,12 @@ import "google/protobuf/empty.proto";
 /*
  * all time are in unit of nanosecond
  * all memory are in unit of byte
+ * 
+ * any rpc with field request_id can be sent multiple time
+ * but will only be execute once, the return value will be store and return on preceding request
+ * request_id should be unique(for each token) and be a vaild UUIDv4
+ * 6cb1c0e2-d35c-40e7-a4f1-8e92e5257283
+ * upper or lower case, with "-" or no "-" is all allowed
  */
 
 // How judge assert input
@@ -47,6 +53,7 @@ message ListRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
+  optional uint64 offset =4;
 }
 
 message TextSearchRequest {
@@ -55,6 +62,7 @@ message TextSearchRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
+  optional uint64 offset =4;
 }
 
 message ListByRequest {
@@ -63,6 +71,7 @@ message ListByRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
+  optional uint64 offset =4;
 }
 
 message Case {
@@ -101,7 +110,7 @@ message SubmitInfo {
   required google.protobuf.Timestamp upload_time = 3;
   required uint64 time = 4;
   required uint64 peak_mem = 5;
-  required uint64 score = 6;
+  required uint32 score = 6;
   required JudgeResult state = 7;
 }
 
@@ -440,6 +449,7 @@ message CreateContestRequest {
     required string title = 1;
     required google.protobuf.Timestamp begin = 2;
     required google.protobuf.Timestamp end = 3;
+    required string tags = 6;
     required string content = 4;
     optional string password = 5;
   }
@@ -453,6 +463,9 @@ message UpdateContestRequest {
     optional google.protobuf.Timestamp begin = 2;
     optional google.protobuf.Timestamp end = 3;
     optional string content = 4;
+    optional string tags = 6;
+    // if there is password: enter original password to disable password, null to keep password
+    // if there isn't: enter new password to set password, null to keep it password disable
     optional string password = 5;
   }
   required Info info = 1;
@@ -462,8 +475,7 @@ message UpdateContestRequest {
 
 message UserRank {
   required UserId user_id = 1;
-  required int32 score = 2;
-  required uint32 rank = 3;
+  required uint32 score = 2;
 }
 
 message ListRankResponse {
@@ -471,19 +483,29 @@ message ListRankResponse {
   required string next_page_token = 2;
 }
 
+message JoinContestRequest{
+  required ContestId id=1;
+  optional string password=2;
+}
+
+message Users{
+  repeated UserRank list=1;
+}
+
 service ContestSet {
   rpc List(ListRequest) returns (ListContestResponse);
   rpc SearchByText(TextSearchRequest) returns (ListContestResponse);
   rpc FullInfo(ContestId) returns (ContestFullInfo);
 
-  rpc Create(CreateContestRequest) returns (google.protobuf.Empty);
+  rpc Create(CreateContestRequest) returns (ContestId);
   rpc Update(UpdateContestRequest) returns (google.protobuf.Empty);
   rpc Remove(ContestId) returns (google.protobuf.Empty);
 
-  rpc Join(ContestId) returns (google.protobuf.Empty);
+  rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
   rpc Exit(ContestId) returns (google.protobuf.Empty);
 
-  rpc Rank(ListRequest) returns (ListRankResponse);
+  // return up to 10 user
+  rpc Rank(ContestId) returns (Users);
 }
 
 // User

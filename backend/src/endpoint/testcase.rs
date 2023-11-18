@@ -123,11 +123,9 @@ impl TestcaseSet for Arc<Server> {
 
         fill_exist_active_model!(model, req.info, input, output, score);
 
-        let id = model.id.clone().unwrap();
+        let model = model.update(db).await.map_err(|x| Into::<Error>::into(x))?;
 
-        model.save(db).await.map_err(|x| Into::<Error>::into(x))?;
-
-        self.dup.store(user_id, uuid, id);
+        self.dup.store(user_id, uuid, model.id);
 
         Ok(Response::new(()))
     }
@@ -246,7 +244,7 @@ impl TestcaseSet for Arc<Server> {
         };
 
         let list = pager
-            .fetch(req.size, reverse, &auth)
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
             .await?
             .into_iter()
             .map(|x| x.into())

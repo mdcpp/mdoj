@@ -18,11 +18,13 @@ pub struct Model {
     pub content: String,
     pub tags: String,
     #[sea_orm(nullable)]
-    pub password: Option<String>,
+    pub password: Option<Vec<u8>>,
     #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
     pub create_at: DateTime,
     #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
     pub update_at: DateTime,
+    #[sea_orm(indexed)]
+    pub public: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

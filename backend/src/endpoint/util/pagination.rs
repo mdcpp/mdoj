@@ -4,10 +4,7 @@ use ::entity::*;
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    grpc::backend::SortBy,
-    init::db::{self, DB},
-};
+use crate::{grpc::backend::SortBy, init::db::DB};
 
 use super::{auth::Auth, error::Error, filter::Filter};
 
@@ -41,9 +38,10 @@ where
     const COL_TEXT: &'static [Self::Column];
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
-    // type ParentEntity: EntityTrait;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self>;
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        select
+    }
     fn get_id(model: &Self::Model) -> i32;
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
@@ -87,6 +85,7 @@ where
     async fn fetch(
         &mut self,
         limit: u64,
+        offset: u64,
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error>;
@@ -102,6 +101,7 @@ where
     async fn fetch(
         &mut self,
         limit: u64,
+        offset: u64,
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error>;
@@ -173,6 +173,7 @@ where
     async fn fetch(
         &mut self,
         limit: u64,
+        offset: u64,
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
@@ -211,7 +212,11 @@ where
                 let db = DB.get().unwrap();
                 // TODO: select ID only
                 let query = E::ParentMarker::related_filter(auth).await?;
-                let query = query.columns([E::ParentMarker::COL_ID]).one(db).await?;
+                let query = query
+                    .filter(E::ParentMarker::COL_ID.eq(p_pk))
+                    .columns([E::ParentMarker::COL_ID])
+                    .one(db)
+                    .await?;
 
                 if query.is_none() {
                     return Ok(vec![]);
@@ -229,6 +234,7 @@ where
         let models = query
             .columns(E::COL_SELECT.to_vec())
             .limit(limit)
+            .offset(offset)
             .all(DB.get().unwrap())
             .await?;
 
@@ -283,7 +289,7 @@ where
                             .ok_or(Error::PaginationError("Pager reconstruction failed"))?;
                         SearchDep::Column(sort_by, reverse)
                     }
-                    RawSearchDep::Parent(x) => {
+                    RawSearchDep::Parent(_) => {
                         return Err(Error::PaginationError("Pager reconstruction failed"));
                     }
                 };
@@ -299,6 +305,7 @@ where
     async fn fetch(
         &mut self,
         limit: u64,
+        offset: u64,
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
@@ -339,6 +346,7 @@ where
         let models = query
             .columns(E::COL_SELECT.to_vec())
             .limit(limit)
+            .offset(offset)
             .all(DB.get().unwrap())
             .await?;
 
@@ -380,7 +388,7 @@ impl ParentalTrait<contest::Entity> for HasParent<contest::Entity> {
 
 #[tonic::async_trait]
 impl PagerTrait for problem::Entity {
-    const TYPE_NUMBER: i32 = 11223;
+    const TYPE_NUMBER: i32 = 1591223;
     const COL_ID: problem::Column = problem::Column::Id;
     const COL_TEXT: &'static [problem::Column] = &[problem::Column::Title, problem::Column::Tags];
     const COL_SELECT: &'static [problem::Column] = &[
@@ -394,19 +402,25 @@ impl PagerTrait for problem::Entity {
     type ParentMarker = HasParent<contest::Entity>;
 
     fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        let asc = match reverse {
+            true => Order::Desc,
+            false => Order::Asc,
+        };
         match sort {
-            SortBy::UploadDate => select.order_by_desc(problem::Column::CreateAt),
-            SortBy::AcRate => select.order_by_desc(problem::Column::AcRate),
-            SortBy::SubmitCount => select.order_by_desc(problem::Column::SubmitCount),
-            SortBy::Difficulty => select.order_by_asc(problem::Column::Difficulty),
+            SortBy::UploadDate => select.order_by(problem::Column::CreateAt, desc),
+            SortBy::AcRate => select.order_by(problem::Column::AcRate, desc),
+            SortBy::SubmitCount => select.order_by(problem::Column::SubmitCount, desc),
+            SortBy::Difficulty => select.order_by(problem::Column::Difficulty, asc),
             _ => select,
         }
     }
-
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         problem::Entity::read_filter(select, auth)
     }
@@ -426,11 +440,8 @@ impl ParentalTrait<problem::Entity> for HasParent<problem::Entity> {
 #[tonic::async_trait]
 impl PagerTrait for test::Entity {
     const TYPE_NUMBER: i32 = 78879091;
-
     const COL_ID: Self::Column = test::Column::Id;
-
     const COL_TEXT: &'static [Self::Column] = &[test::Column::Output, test::Column::Input];
-
     const COL_SELECT: &'static [Self::Column] = &[
         test::Column::Id,
         test::Column::UserId,
@@ -439,14 +450,43 @@ impl PagerTrait for test::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        todo!()
-    }
-
     fn get_id(model: &Self::Model) -> i32 {
-        todo!()
+        model.id
     }
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        test::Entity::read_filter(select, auth)
+    }
+}
 
+#[tonic::async_trait]
+impl PagerTrait for contest::Entity {
+    const TYPE_NUMBER: i32 = 61475758;
+    const COL_ID: Self::Column = contest::Column::Id;
+    const COL_TEXT: &'static [Self::Column] = &[contest::Column::Title, contest::Column::Tags];
+    const COL_SELECT: &'static [Self::Column] = &[
+        contest::Column::Id,
+        contest::Column::Title,
+        contest::Column::Begin,
+        contest::Column::End,
+        contest::Column::Hoster,
+    ];
+
+    type ParentMarker = NoParent;
+
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        // TODO: difficulty should be an option
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        match sort {
+            SortBy::UploadDate => select.order_by(contest::Column::CreateAt, desc),
+            _ => select,
+        }
+    }
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         todo!()
     }

@@ -20,6 +20,8 @@ pub enum Error {
     PaginationError(&'static str),
     #[error("Invaild request_id")]
     InvaildUUID(#[from] uuid::Error),
+    #[error("Function should be unreachable!")]
+    Unreachable(&'static str),
 }
 
 impl From<Error> for tonic::Status {
@@ -70,6 +72,12 @@ impl From<Error> for tonic::Status {
                 tonic::Status::invalid_argument(
                     "Invaild request_id(should be a client generated UUIDv4)",
                 )
+            }
+            Error::Unreachable(x) => {
+                log::error!("Function should be unreachable: {}", x);
+                #[cfg(feature = "unsecured-log")]
+                return tonic::Status::internal(format!("Function should be unreachable: {}", x));
+                tonic::Status::unavailable("")
             }
         }
     }

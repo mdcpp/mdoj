@@ -17,7 +17,7 @@ pub mod endpoints {
     pub use crate::{fill_active_model, fill_exist_active_model, server::Server};
     pub use sea_orm::{
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-        PaginatorTrait, QueryFilter, QuerySelect,
+        PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
     };
     pub use std::sync::Arc;
     pub use tonic::*;

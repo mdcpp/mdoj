@@ -1,5 +1,6 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 
+use ring::rand::{generate, SystemRandom};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
@@ -9,7 +10,7 @@ const CONFIG_PATH: &'static str = "config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalConfig {
-    pub bind_address: SocketAddr,
+    pub bind_address: String,
     #[serde(default)]
     pub database: Database,
     #[serde(default)]
@@ -69,12 +70,16 @@ pub enum GrpcMode {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Database {
     pub uri: String,
+    pub salt: String,
 }
 
 impl Default for Database {
     fn default() -> Self {
+        let rng = SystemRandom::new();
+        let salt: [u8; 10] = generate(&rng).unwrap().expose();
         Self {
             uri: "sqlite://test.sqlite".to_owned(),
+            salt: String::from_utf8_lossy(&salt).to_string(),
         }
     }
 }

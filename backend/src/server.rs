@@ -33,7 +33,7 @@ impl Server {
             .add_service(ProblemSetServer::new(server.clone()))
             .add_service(ContestSetServer::new(server.clone()))
             .add_service(TestcaseSetServer::new(server))
-            .serve(config.bind_address)
+            .serve(config.bind_address.parse().unwrap())
             .await
             .unwrap();
     }
