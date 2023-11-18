@@ -5,7 +5,7 @@ use std::{
     sync::{atomic, Arc},
 };
 
-use spin::mutex::SpinMutex;
+use spin::mutex::Mutex;
 use tokio::sync::oneshot;
 
 use crate::init::config::CONFIG;
@@ -22,11 +22,11 @@ pub struct MemoryStatistic {
 
 /// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
 #[derive(Clone)]
-pub struct MemorySemaphore(Arc<SpinMutex<MemoryCounterInner>>);
+pub struct MemorySemaphore(Arc<Mutex<MemoryCounterInner>>);
 
 impl MemorySemaphore {
     pub fn new(memory: i64) -> Self {
-        Self(Arc::new(SpinMutex::new(MemoryCounterInner {
+        Self(Arc::new(Mutex::new(MemoryCounterInner {
             memory,
             all_mem: memory,
             queue: BTreeSet::new(),
@@ -59,10 +59,9 @@ impl MemorySemaphore {
                 tx,
                 id: MEMID.fetch_add(1, atomic::Ordering::SeqCst),
             });
-
             drop(self_lock);
 
-            self.deallocate(memory);
+            self.deallocate(0);
 
             rx
         };
@@ -77,15 +76,13 @@ impl MemorySemaphore {
         let self_ = &mut *self.0.lock();
 
         self_.memory += de_memory;
-        loop {
-            if let Some(demand) = self_.queue.last() {
-                if demand.memory < self_.memory {
-                    self_.memory -= demand.memory;
-                    let channel = self_.queue.pop_last().unwrap().tx;
-                    channel.send(()).unwrap();
-                } else {
-                    break;
-                }
+        while let Some(demand) = self_.queue.last() {
+            if demand.memory < self_.memory {
+                self_.memory -= demand.memory;
+                let channel = self_.queue.pop_last().unwrap().tx;
+                channel.send(()).unwrap();
+            } else {
+                break;
             }
         }
     }
@@ -119,12 +116,12 @@ impl PartialOrd for MemDemand {
 impl Eq for MemDemand {}
 impl PartialEq for MemDemand {
     fn eq(&self, other: &Self) -> bool {
-        self.memory == other.memory && self.id == other.id
+        self.id == other.id
     }
 }
 
 pub struct MemoryPermit {
-    mem: i64,
+    memory: i64,
     counter: MemorySemaphore,
 }
 
@@ -132,7 +129,7 @@ impl MemoryPermit {
     fn new(counter: &MemorySemaphore, memory: i64) -> Self {
         counter.0.lock().tasks += 1;
         Self {
-            mem: memory,
+            memory,
             counter: counter.clone(),
         }
     }
@@ -143,7 +140,7 @@ impl Drop for MemoryPermit {
         {
             self.counter.0.lock().tasks -= 1;
         }
-        self.counter.deallocate(self.mem);
+        self.counter.deallocate(self.memory);
     }
 }
 
@@ -154,6 +151,6 @@ mod test{
     async fn basic_semaphore(){
         crate::init::new().await;
         let semaphore=MemorySemaphore::new(10000);
-        drop(semaphore.allocate(10000).await.unwrap());
+        drop(semaphore.allocate(9999).await.unwrap());
     }
 }
