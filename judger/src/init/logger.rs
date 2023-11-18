@@ -1,4 +1,4 @@
-use log::LevelFilter;
+use tracing::Level;
 
 use super::config::CONFIG;
 
@@ -6,20 +6,18 @@ pub fn init() {
     let config = CONFIG.get().unwrap();
 
     let level = match config.log_level {
-        0 => LevelFilter::Trace,
-        1 => LevelFilter::Debug,
-        2 => LevelFilter::Info,
-        3 => LevelFilter::Warn,
-        4 => LevelFilter::Error,
-        _ => LevelFilter::Off,
+        0 => Level::TRACE,
+        1 => Level::DEBUG,
+        2 => Level::INFO,
+        3 => Level::WARN,
+        4 => Level::ERROR,
+        _ => Level::INFO,
     };
-    let mut logger = env_logger::builder();
 
-    println!("Set up logger with {}", level);
-
-    logger.filter_module("judger", level);
-    #[cfg(not(test))]
-    logger.try_init().unwrap();
-    #[cfg(test)]
-    logger.try_init().ok();
+    tracing_subscriber::fmt()
+        .json()
+        .with_max_level(level)
+        .with_current_span(false)
+        .try_init()
+        .ok();
 }

@@ -5,7 +5,7 @@ use std::{
     sync::{atomic, Arc},
 };
 
-use spin::mutex::SpinMutex;
+use spin::mutex::Mutex;
 use tokio::sync::oneshot;
 
 use crate::init::config::CONFIG;
@@ -15,18 +15,19 @@ use super::super::Error;
 const MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub struct MemoryStatistic {
-    pub available_mem: i64,
-    pub max_mem: i64,
+    pub available_mem: u64,
+    pub max_mem: u64,
     pub tasks: u64,
 }
 
 /// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
 #[derive(Clone)]
-pub struct MemorySemaphore(Arc<SpinMutex<MemoryCounterInner>>);
+pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);
 
 impl MemorySemaphore {
-    pub fn new(memory: i64) -> Self {
-        Self(Arc::new(SpinMutex::new(MemoryCounterInner {
+    #[tracing::instrument]
+    pub fn new(memory: u64) -> Self {
+        Self(Arc::new(Mutex::new(MemorySemaphoreInner {
             memory,
             all_mem: memory,
             queue: BTreeSet::new(),
@@ -41,7 +42,8 @@ impl MemorySemaphore {
             tasks: self_.tasks,
         }
     }
-    pub async fn allocate(&self, memory: i64) -> Result<MemoryPermit, Error> {
+    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
+    pub async fn allocate(&self, memory: u64) -> Result<MemoryPermit, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
 
@@ -59,10 +61,9 @@ impl MemorySemaphore {
                 tx,
                 id: MEMID.fetch_add(1, atomic::Ordering::SeqCst),
             });
-
             drop(self_lock);
 
-            self.deallocate(memory);
+            self.deallocate(0);
 
             rx
         };
@@ -73,33 +74,32 @@ impl MemorySemaphore {
 
         Ok(MemoryPermit::new(self, memory))
     }
-    fn deallocate(&self, de_memory: i64) {
+    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
+    fn deallocate(&self, released_memory: u64) {
         let self_ = &mut *self.0.lock();
 
-        self_.memory += de_memory;
-        loop {
-            if let Some(demand) = self_.queue.last() {
-                if demand.memory < self_.memory {
-                    self_.memory -= demand.memory;
-                    let channel = self_.queue.pop_last().unwrap().tx;
-                    channel.send(()).unwrap();
-                } else {
-                    break;
-                }
+        self_.memory += released_memory;
+        while let Some(demand) = self_.queue.last() {
+            if demand.memory < self_.memory {
+                self_.memory -= demand.memory;
+                let channel = self_.queue.pop_last().unwrap().tx;
+                channel.send(()).unwrap();
+            } else {
+                break;
             }
         }
     }
 }
 
-pub struct MemoryCounterInner {
-    memory: i64,
-    all_mem: i64,
+pub struct MemorySemaphoreInner {
+    memory: u64,
+    all_mem: u64,
     queue: BTreeSet<MemDemand>,
     tasks: u64,
 }
 
 struct MemDemand {
-    memory: i64,
+    memory: u64,
     tx: oneshot::Sender<()>,
     id: usize,
 }
@@ -119,20 +119,20 @@ impl PartialOrd for MemDemand {
 impl Eq for MemDemand {}
 impl PartialEq for MemDemand {
     fn eq(&self, other: &Self) -> bool {
-        self.memory == other.memory && self.id == other.id
+        self.id == other.id
     }
 }
 
 pub struct MemoryPermit {
-    mem: i64,
+    memory: u64,
     counter: MemorySemaphore,
 }
 
 impl MemoryPermit {
-    fn new(counter: &MemorySemaphore, memory: i64) -> Self {
+    fn new(counter: &MemorySemaphore, memory: u64) -> Self {
         counter.0.lock().tasks += 1;
         Self {
-            mem: memory,
+            memory,
             counter: counter.clone(),
         }
     }
@@ -143,6 +143,6 @@ impl Drop for MemoryPermit {
         {
             self.counter.0.lock().tasks -= 1;
         }
-        self.counter.deallocate(self.mem);
+        self.counter.deallocate(self.memory);
     }
 }

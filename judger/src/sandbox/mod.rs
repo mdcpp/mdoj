@@ -11,7 +11,7 @@ pub mod prelude {
     pub use super::process::{ExitProc, ExitStatus, RunningProc};
     pub use super::utils::limiter::cpu::CpuStatistics;
     pub use super::utils::limiter::mem::MemStatistics;
-    pub use super::utils::preserve::{MemoryPermit, MemorySemaphore, MemoryStatistic};
+    pub use super::utils::semaphore::{MemoryPermit, MemorySemaphore, MemoryStatistic};
     pub use super::Error;
     pub use super::Limit;
 }
@@ -42,9 +42,9 @@ pub enum Error {
 pub struct Limit {
     pub lockdown: bool,
     pub cpu_us: u64,
-    pub rt_us: i64,
+    pub rt_us: u64,
     pub total_us: u64,
-    pub user_mem: i64,
-    pub kernel_mem: i64,
-    pub swap_user: i64,
+    pub user_mem: u64,
+    pub kernel_mem: u64,
+    pub swap_user: u64,
 }

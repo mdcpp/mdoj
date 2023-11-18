@@ -79,4 +79,15 @@ pub fn init() {
             Err(x) => log::error!("Unable to find cgroup root, is it mounted? {}", x),
         }
     }
+
+    if config.platform.output_limit >= config.platform.available_memory.try_into().unwrap() {
+        log::error!("config.platform.output_limit is too larget or config.platform.available_memory is too low");
+        unsafe {
+            libc::abort();
+        }
+    }
+
+    if config.platform.output_limit * 8 >= config.platform.available_memory.try_into().unwrap() {
+        log::warn!("config.platform.output_limit is consider too high");
+    }
 }

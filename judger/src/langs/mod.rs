@@ -25,7 +25,7 @@ pub enum InternalError {
 #[derive(Error, Debug)]
 pub enum RequestError {
     #[error("Language not found")]
-    LangNotFound,
+    LangNotFound(String),
 }
 
 #[derive(Error, Debug)]

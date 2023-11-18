@@ -1,444 +1,406 @@
 use super::endpoints::*;
 use super::tools::*;
 
-use crate::{endpoint::*, grpc::prelude::*, impl_id, Server};
+use crate::grpc::backend::problem_set_server::*;
+use crate::grpc::backend::*;
 
 use entity::{problem::*, *};
-use tonic::*;
 
-type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
-
-macro_rules! insert_if_exists {
-    ($target:expr,$src:expr , $field:ident) => {
-        if let Some(x) = $src.$field {
-            $target.$field = ActiveValue::Set(x);
+#[async_trait]
+impl Filter for Entity {
+    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_link() || perm.can_root() || perm.can_manage_problem() {
+                return Ok(query);
+            }
         }
-    };
-    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
-        insert_if_exists!($target,$src, $field);
-        insert_if_exists!($target,$src, $($ext),+);
-    };
-}
-
-fn vr_to_rv<T, E>(v: Vec<Result<T, E>>) -> Result<Vec<T>, E> {
-    v.into_iter().collect()
-}
-fn vo_to_ov<T>(v: Vec<Option<T>>) -> Option<Vec<T>> {
-    v.into_iter().collect()
-}
-
-// setup ZST(ProblemIntel for Problem)
-pub struct ProblemIntel;
-
-impl IntelTrait for ProblemIntel {
-    type Entity = Entity;
-
-    type PartialModel = PartialTestcase;
-
-    type InfoArray = Problems;
-
-    type FullInfo = ProblemFullInfo;
-
-    type Info = ProblemInfo;
-
-    type PrimaryKey = i32;
-
-    type Id = ProblemId;
-
-    type UpdateInfo = update_problem_request::Info;
-
-    type CreateInfo = create_problem_request::Info;
-
-    const NAME: &'static str = "problem";
+        Ok(query.filter(Column::Public.eq(true)))
+    }
+    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_root() {
+                return Ok(query);
+            }
+            if perm.can_manage_problem() {
+                let user_id = auth.user_id().unwrap();
+                return Ok(query.filter(Column::UserId.eq(user_id)));
+            }
+        }
+        Err(Error::PremissionDeny("Can't write problem"))
+    }
 }
 
 #[async_trait]
-impl Intel<ProblemIntel> for Server {
-    fn ro_filter<S>(query: S, auth: Auth) -> Result<S, Error>
-    where
-        S: QueryFilter,
-    {
-        Ok(match auth {
-            Auth::Guest => query.filter(Column::Public.eq(true)),
-            Auth::User((user_id, perm)) => match perm.can_manage_problem() {
-                true => query,
-                false => query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))),
-            },
-        })
-    }
-
-    fn rw_filter<S>(query: S, auth: Auth) -> Result<S, Error>
-    where
-        S: QueryFilter,
-    {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_manage_problem() {
-            Ok(query.filter(Column::UserId.eq(user_id)))
-        } else {
-            Err(Error::PremissionDeny(
-                "Only User with `can_manage_problem` can modify problem",
-            ))
+impl ParentalFilter for Entity {
+    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_root() {
+                return Ok(query);
+            }
+            if perm.can_publish() {
+                let user_id = auth.user_id().unwrap();
+                return Ok(query.filter(Column::UserId.eq(user_id)));
+            }
         }
+        Err(Error::PremissionDeny("Can't publish problem"))
     }
 
-    fn can_create(auth: Auth) -> Result<i32, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        match perm.can_manage_problem() {
-            true => Ok(user_id),
-            false => Err(Error::PremissionDeny(
-                "Only User with `can_manage_problem` can create problem",
-            )),
+    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_root() {
+                return Ok(query);
+            }
+            if perm.can_link() {
+                let user_id = auth.user_id().unwrap();
+                return Ok(query.filter(Column::UserId.eq(user_id)));
+            }
         }
-    }
-
-    async fn update_model(model: Model, info: update_problem_request::Info) -> Result<i32, Error> {
-        let db = DB.get().unwrap();
-        let user_id = model.user_id;
-
-        let mut target = model.into_active_model();
-        insert_if_exists!(target, info, title, content, memory, time, difficulty, tags);
-
-        if let Some(tests) = info.tests {
-            let list = tests.list.clone();
-
-            let futs: Vec<_> = list
-                .into_iter()
-                .map(|testcase_id| {
-                    entity::testcase::Entity::find_by_id(testcase_id.id)
-                        .filter(entity::testcase::Column::UserId.eq(user_id))
-                        .count(db)
-                })
-                .into_iter()
-                .collect();
-
-            let list = vr_to_rv(futures::future::join_all(futs).await)?;
-
-            let vaild = list
-                .into_iter()
-                .map(|x| x == 0)
-                .reduce(|x, y| x || y)
-                .unwrap_or(true);
-
-            if vaild {
-                todo!("Update testcases's problem_id")
-            } else {
-                return Err(Error::PremissionDeny("Only admin can add unowned testcase"));
-            };
-        };
-
-        todo!("commit changes(active model)")
-    }
-
-    async fn create_model(model: create_problem_request::Info, user_id: i32) -> Result<i32, Error> {
-        let db = DB.get().unwrap();
-
-        let model = ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            ac_rate: ActiveValue::Set(0.0),
-            memory: ActiveValue::Set(model.memory),
-            time: ActiveValue::Set(model.time),
-            difficulty: ActiveValue::Set(model.difficulty),
-            tags: ActiveValue::Set(model.tags),
-            title: ActiveValue::Set(model.title),
-            content: ActiveValue::Set(model.content),
-            ..Default::default()
-        }
-        .insert(db)
-        .await?;
-        Ok(model.id)
+        Err(Error::PremissionDeny("Can't link problem"))
     }
 }
 
-impl Transform<<Entity as EntityTrait>::Column> for SortBy {
-    fn into(self) -> <<ProblemIntel as IntelTrait>::Entity as EntityTrait>::Column {
-        match self {
-            SortBy::SubmitCount => Column::SubmitCount,
-            SortBy::AcRate => Column::AcRate,
-            SortBy::Difficulty => Column::Difficulty,
-            _ => Column::Id,
-        }
+impl From<i32> for ProblemId {
+    fn from(value: i32) -> Self {
+        ProblemId { id: value }
     }
 }
 
-impl Transform<Problems> for Vec<ProblemInfo> {
-    fn into(self) -> Problems {
-        let list = self
-            .into_iter()
-            .map(|x| ProblemInfo {
-                id: x.id,
-                title: x.title,
-                submit_count: x.submit_count,
-                ac_rate: x.ac_rate,
-            })
-            .collect();
-        Problems { list }
+impl From<ProblemId> for i32 {
+    fn from(value: ProblemId) -> Self {
+        value.id
     }
 }
 
-impl Transform<<ProblemIntel as IntelTrait>::Info> for PartialTestcase {
-    fn into(self) -> <ProblemIntel as IntelTrait>::Info {
+impl From<Model> for ProblemInfo {
+    fn from(value: Model) -> Self {
         ProblemInfo {
-            id: Some(ProblemId { id: self.id }),
-            title: self.title,
-            submit_count: self.submit_count,
-            ac_rate: self.ac_rate,
+            id: value.id.into(),
+            title: value.title,
+            submit_count: value.submit_count,
+            ac_rate: value.ac_rate,
         }
     }
 }
 
-// TODO, use specialized impl under ``Intel`` for such (operation?)
-#[async_trait]
-impl AsyncTransform<Result<ProblemFullInfo, Error>> for Model {
-    async fn into(self) -> Result<ProblemFullInfo, Error> {
-        let db = DB.get().unwrap();
-
-        let edu = self
-            .find_related(education::Entity)
-            .select_only()
-            .columns([education::Column::Id])
-            .one(db)
-            .await?;
-        let education_id = edu.map(|x| EducationId { id: x.id });
-
-        Ok(ProblemFullInfo {
-            content: self.content,
-            memory: self.memory,
-            time: self.time,
-            difficulty: self.difficulty,
-            tags: self.tags,
-            public: self.public,
-            info: Some(ProblemInfo {
-                id: Some(ProblemId { id: self.id }),
-                title: self.title,
-                submit_count: self.submit_count,
-                ac_rate: self.ac_rate,
-            }),
-            education_id,
-        })
+impl From<Model> for ProblemFullInfo {
+    fn from(value: Model) -> Self {
+        ProblemFullInfo {
+            content: value.content.clone(),
+            tags: value.tags.clone(),
+            difficulty: value.difficulty,
+            public: value.public,
+            time: value.time,
+            memory: value.memory,
+            info: value.into(),
+        }
     }
-}
-
-impl_id!(Problem);
-
-impl TryTransform<create_problem_request::Info, Error> for CreateProblemRequest {
-    fn try_into(self) -> Result<create_problem_request::Info, Error> {
-        let info = self.info.ok_or(Error::NotInPayload("info"))?;
-        Ok(info)
-    }
-}
-
-impl TryTransform<(update_problem_request::Info, i32), Error> for UpdateProblemRequest {
-    fn try_into(self) -> Result<(update_problem_request::Info, i32), Error> {
-        let info = self.info.ok_or(Error::NotInPayload("info"))?;
-        let id = self.id.map(|x| x.id).ok_or(Error::NotInPayload("id"))?;
-        Ok((info, id))
-    }
-}
-
-// pub struct ProblemLink;
-
-// impl LinkTrait for ProblemLink {
-//     type Linker = ProblemLink;
-//     type Intel = ProblemIntel;
-
-//     type ParentIntel;
-// }
-
-impl PublishTrait<ProblemIntel> for ProblemIntel {
-    type Publisher = ProblemId;
 }
 
 #[async_trait]
-impl Publishable<ProblemIntel> for Server {
-    async fn publish(&self, entity: Model) -> Result<(), Error> {
-        let db = DB.get().unwrap();
-
-        let mut model = entity.into_active_model();
-        model.public = ActiveValue::Set(true);
-
-        model.save(db).await?;
-
-        Ok(())
-    }
-
-    async fn unpublish(&self, entity: Model) -> Result<(), Error> {
-        let db = DB.get().unwrap();
-
-        let mut model = entity.into_active_model();
-        model.public = ActiveValue::Set(false);
-
-        model.save(db).await?;
-
-        Ok(())
-    }
-}
-
-// impl Endpoints
-impl BaseEndpoint<ProblemIntel> for Server {}
-impl PublishEndpoint<ProblemIntel> for Server {}
-
-// Adapters
-#[async_trait]
-impl problem_set_server::ProblemSet for Server {
-    async fn full_info(
-        &self,
-        request: Request<ProblemId>,
-    ) -> Result<Response<ProblemFullInfo>, Status> {
-        BaseEndpoint::<ProblemIntel>::full_info(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-
-    async fn create(
-        &self,
-        request: tonic::Request<CreateProblemRequest>,
-    ) -> Result<Response<ProblemId>, Status> {
-        BaseEndpoint::<ProblemIntel>::create(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-
-    async fn update(
-        &self,
-        request: tonic::Request<UpdateProblemRequest>,
-    ) -> Result<Response<()>, Status> {
-        BaseEndpoint::<ProblemIntel>::update(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-
-    async fn remove(&self, request: tonic::Request<ProblemId>) -> Result<Response<()>, Status> {
-        BaseEndpoint::<ProblemIntel>::remove(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-
-    async fn link(&self, request: tonic::Request<ProblemLink>) -> Result<Response<()>, Status> {
-        // let db = DB.get().unwrap();
-
-        // let (auth, payload) = self.parse_request(request).await?;
-
-        // let contest_id = parse_option!(payload, contest_id).id;
-        // let problem_id = parse_option!(payload, problem_id).id;
-
-        // let (_, perm) = auth.ok_or_default()?;
-
-        // if perm.can_link() {
-        //     let mut problem = handle_dberr(
-        //         Entity::find_by_id(problem_id)
-        //             .select_only()
-        //             .columns([Column::ContestId])
-        //             .one(db)
-        //             .await,
-        //     )?
-        //     .ok_or(Status::not_found("problem not found"))?
-        //     .into_active_model();
-        //     problem.contest_id = ActiveValue::Set(contest_id);
-        //     handle_dberr(problem.update(db).await).map(|_| Response::new(()))
-        // } else {
-        //     Err(Status::permission_denied("User cannot link"))
-        // }
-        todo!()
-    }
-
-    async fn unlink(&self, request: tonic::Request<ProblemLink>) -> Result<Response<()>, Status> {
-        // let (auth, payload) = self.parse_request(request).await?;
-
-        // let (_, perm) = auth.ok_or_default()?;
-
-        // if perm.can_root() || perm.can_link() {
-        //     let db = DB.get().unwrap();
-        //     let contest_id = payload
-        //         .contest_id
-        //         .ok_or(Status::not_found("contest id not found"))?
-        //         .id;
-        //     let problem_id = payload
-        //         .problem_id
-        //         .ok_or(Status::not_found("problem id not found"))?
-        //         .id;
-        //     let mut problem = handle_dberr(
-        //         Entity::find_by_id(problem_id)
-        //             .select_only()
-        //             .columns([Column::ContestId])
-        //             .one(db)
-        //             .await,
-        //     )?
-        //     .ok_or(Status::not_found("problem not found"))?
-        //     .into_active_model();
-        //     problem.contest_id = ActiveValue::Set(contest_id);
-        //     handle_dberr(problem.update(db).await).map(|_| Response::new(()))
-        // } else {
-        //     Err(Status::permission_denied(""))
-        // }
-        todo!()
-    }
-
-    async fn publish(
-        &self,
-        request: tonic::Request<ProblemId>,
-    ) -> Result<tonic::Response<()>, Status> {
-        PublishEndpoint::<ProblemIntel>::publish(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-
-    async fn unpublish(
-        &self,
-        request: tonic::Request<ProblemId>,
-    ) -> Result<tonic::Response<()>, Status> {
-        PublishEndpoint::<ProblemIntel>::unpublish(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
-    type ListStream = TonicStream<ProblemInfo>;
-
+impl ProblemSet for Arc<Server> {
     async fn list(
         &self,
-        request: tonic::Request<ListRequest>,
-    ) -> Result<tonic::Response<Self::ListStream>, Status> {
-        BaseEndpoint::<ProblemIntel>::list(self, request)
-            .await
-            .map_err(|x| x.into())
-    }
+        req: Request<ListRequest>,
+    ) -> Result<Response<ListProblemResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
 
-    type SearchByTextStream = TonicStream<ProblemInfo>;
+        let mut reverse = false;
+        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_request::Request::Create(create) => {
+                Pager::sort_search(create.sort_by(), create.reverse)
+            }
+            list_request::Request::Pager(old) => {
+                reverse = old.reverse;
+                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+            }
+        };
+
+        let list = pager
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
+            .await?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_page_token = pager.into_raw();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_page_token,
+        }))
+    }
     async fn search_by_text(
         &self,
-        request: tonic::Request<TextSearchRequest>,
-    ) -> Result<tonic::Response<Self::SearchByTextStream>, Status> {
-        BaseEndpoint::<ProblemIntel>::search_by_text(
-            self,
-            request,
-            &[Column::Title, Column::Content],
-        )
-        .await
-        .map_err(|x| x.into())
-    }
-    type SearchByTagStream = TonicStream<ProblemInfo>;
+        req: Request<TextSearchRequest>,
+    ) -> Result<Response<ListProblemResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
 
-    async fn search_by_tag(
+        let mut reverse = false;
+        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(create) => Pager::text_search(create),
+            text_search_request::Request::Pager(old) => {
+                reverse = old.reverse;
+                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+            }
+        };
+
+        let list = pager
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
+            .await?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_page_token = pager.into_raw();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_page_token,
+        }))
+    }
+    async fn full_info(
         &self,
-        request: tonic::Request<TextSearchRequest>,
-    ) -> Result<tonic::Response<Self::SearchByTagStream>, Status> {
-        BaseEndpoint::<ProblemIntel>::search_by_text(self, request, &[Column::Tags])
-            .await
-            .map_err(|x| x.into())
-    }
+        req: Request<ProblemId>,
+    ) -> Result<Response<ProblemFullInfo>, Status> {
+        let db = DB.get().unwrap();
+        let (_, req) = self.parse_request(req).await?;
 
+        let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
+        let model = query
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("problem"))?;
+
+        Ok(Response::new(model.into()))
+    }
+    async fn create(
+        &self,
+        req: Request<CreateProblemRequest>,
+    ) -> Result<Response<ProblemId>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
+        if let Some(x) = self.dup.check(user_id, &uuid) {
+            return Ok(Response::new(x.into()));
+        };
+
+        if !(perm.can_root() || perm.can_manage_problem()) {
+            return Err(Error::PremissionDeny("Can't create problem").into());
+        }
+
+        let mut model: ActiveModel = Default::default();
+        model.user_id = ActiveValue::Set(user_id);
+
+        fill_active_model!(
+            model, req.info, title, difficulty, time, memory, tags, content, match_rule
+        );
+
+        let model = model.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        self.dup.store(user_id, uuid, model.id.clone().unwrap());
+
+        Ok(Response::new(model.id.unwrap().into()))
+    }
+    async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
+        if let Some(_) = self.dup.check(user_id, &uuid) {
+            return Ok(Response::new(()));
+        };
+
+        if !(perm.can_root() || perm.can_manage_problem()) {
+            return Err(Error::PremissionDeny("Can't update problem").into());
+        }
+
+        let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("problem"))?
+            .into_active_model();
+
+        fill_exist_active_model!(
+            model,
+            req.info,
+            title,
+            difficulty,
+            time,
+            memory,
+            tags,
+            content,
+            match_rule,
+            ac_rate,
+            submit_count
+        );
+
+        let model = model.update(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        self.dup.store(user_id, uuid, model.id);
+
+        Ok(Response::new(()))
+    }
+    async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+            .exec(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?;
+
+        Ok(Response::new(()))
+    }
+    async fn link(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (_, perm) = auth.ok_or_default()?;
+
+        if !(perm.can_root() || perm.can_link()) {
+            return Err(Error::PremissionDeny("Can't link problem").into());
+        }
+
+        let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
+            .columns([Column::Id, Column::ContestId])
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("problem"))?
+            .into_active_model();
+
+        problem.contest_id = ActiveValue::Set(Some(req.contest_id.id));
+
+        problem.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        Ok(Response::new(()))
+    }
+    async fn unlink(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (_, perm) = auth.ok_or_default()?;
+
+        if !(perm.can_root() || perm.can_link()) {
+            return Err(Error::PremissionDeny("Can't link problem").into());
+        }
+
+        let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
+            .columns([Column::Id, Column::ContestId])
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("problem"))?
+            .into_active_model();
+
+        problem.contest_id = ActiveValue::Set(None);
+
+        problem.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        Ok(Response::new(()))
+    }
+    async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (_, perm) = auth.ok_or_default()?;
+
+        let mut problem =
+            Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
+                .columns([Column::Id, Column::ContestId])
+                .one(db)
+                .await
+                .map_err(|x| Into::<Error>::into(x))?
+                .ok_or(Error::NotInDB("problem"))?
+                .into_active_model();
+
+        problem.public = ActiveValue::Set(true);
+
+        problem.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        Ok(Response::new(()))
+    }
+    async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (_, perm) = auth.ok_or_default()?;
+
+        let mut problem =
+            Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
+                .columns([Column::Id, Column::ContestId])
+                .one(db)
+                .await
+                .map_err(|x| Into::<Error>::into(x))?
+                .ok_or(Error::NotInDB("problem"))?
+                .into_active_model();
+
+        problem.public = ActiveValue::Set(false);
+
+        problem.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+
+        Ok(Response::new(()))
+    }
     async fn full_info_by_contest(
         &self,
-        request: tonic::Request<ProblemLink>,
-    ) -> Result<tonic::Response<ProblemFullInfo>, Status> {
-        todo!()
+        req: Request<ProblemLink>,
+    ) -> Result<Response<ProblemFullInfo>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let parent = auth
+            .get_user(db)
+            .await?
+            .find_related(contest::Entity)
+            .columns([contest::Column::Id])
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("contest"))?;
+
+        let model = parent
+            .find_related(Entity)
+            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
+            .one(db)
+            .await
+            .map_err(|x| Into::<Error>::into(x))?
+            .ok_or(Error::NotInDB("problem"))?;
+
+        Ok(Response::new(model.into()))
     }
-
-    #[doc = " Server streaming response type for the ListByContest method."]
-    type ListByContestStream = TonicStream<ProblemInfo>;
-
     async fn list_by_contest(
         &self,
-        request: tonic::Request<ContestId>,
-    ) -> Result<tonic::Response<Self::ListByContestStream>, Status> {
-        todo!()
+        req: Request<ListByRequest>,
+    ) -> Result<Response<ListProblemResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
+
+        let mut reverse = false;
+        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::Pager(old) => {
+                reverse = old.reverse;
+                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+            }
+        };
+
+        let list = pager
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
+            .await?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_page_token = pager.into_raw();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_page_token,
+        }))
     }
 }
