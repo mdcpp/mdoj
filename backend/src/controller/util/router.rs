@@ -11,7 +11,7 @@ use spin::{Mutex, RwLock};
 use tonic::transport;
 
 use crate::{
-    grpc::judger::{judger_client::*, *},
+    grpc::judger::{judger_client::*, judger_server::Judger, *},
     init::config,
 };
 
@@ -32,7 +32,12 @@ pub struct RouteRequest {
 async fn connect_by_config(
     config: &config::Judger,
 ) -> Result<JudgerClient<transport::Channel>, Error> {
-    todo!()
+    JudgerClient::connect(config.uri.clone())
+        .await
+        .map_err(|err| {
+            log::warn!("judger {} is unavailable: {}", config.uri, err);
+            Error::JudgerUnavailable
+        })
 }
 
 pub struct ConnGuard {

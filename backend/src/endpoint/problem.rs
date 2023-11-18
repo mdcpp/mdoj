@@ -124,10 +124,7 @@ impl ProblemSet for Arc<Server> {
 
         let next_session = pager.into_raw();
 
-        Ok(Response::new(ListProblemResponse {
-            list,
-            next_session,
-        }))
+        Ok(Response::new(ListProblemResponse { list, next_session }))
     }
     async fn search_by_text(
         &self,
@@ -153,10 +150,7 @@ impl ProblemSet for Arc<Server> {
 
         let next_session = pager.into_raw();
 
-        Ok(Response::new(ListProblemResponse {
-            list,
-            next_session,
-        }))
+        Ok(Response::new(ListProblemResponse { list, next_session }))
     }
     async fn full_info(
         &self,
@@ -398,9 +392,6 @@ impl ProblemSet for Arc<Server> {
 
         let next_session = pager.into_raw();
 
-        Ok(Response::new(ListProblemResponse {
-            list,
-            next_session,
-        }))
+        Ok(Response::new(ListProblemResponse { list, next_session }))
     }
 }

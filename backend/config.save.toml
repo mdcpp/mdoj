@@ -1,0 +1,18 @@
+log_level = 1
+bind_address = "0.0.0.0:8081"
+
+[database]
+uri = "sqlite://test.sqlite"
+salt = "salt"
+
+[[judger]]
+uri = "http://127.0.0.1:8080"
+# root_cert = "/path/to/file"
+# client_cert = "/path/to/file"
+# client_key = "/path/to/file"
+# domain = "/path/to/file"
+
+[grpc]
+trust_x_forwarded_for = false
+mode = "unsecure"
+cert = "cert.pem"

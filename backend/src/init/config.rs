@@ -10,21 +10,31 @@ const CONFIG_PATH: &'static str = "config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalConfig {
+    #[serde(default = "default_bind_address")]
     pub bind_address: String,
     #[serde(default)]
     pub database: Database,
     #[serde(default)]
     pub log_level: usize,
-    #[serde(default)]
+    #[serde(default = "default_judger")]
     pub judger: Vec<Arc<Judger>>,
     #[serde(default)]
     grpc: GrpcOption,
     // pub reverse_proxy: Vec<ReverseProxy>,
 }
-
+fn default_bind_address() -> String {
+    "0.0.0.0:8081".to_string()
+}
+fn default_judger() -> Vec<Arc<Judger>> {
+    vec![Arc::new(Judger {
+        uri: "127.0.0.1:8080".to_owned(),
+        pem: None,
+        domain: None,
+    })]
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judger {
-    pub uri: SocketAddr,
+    pub uri: String,
     pub pem: Option<PathBuf>,
     pub domain: Option<String>,
 }
@@ -85,22 +95,24 @@ impl Default for Database {
 }
 
 pub async fn init() {
-    let mut buf = Vec::new();
-
-    let config = if fs::metadata(CONFIG_PATH).await.is_ok() {
+    if fs::metadata(CONFIG_PATH).await.is_ok() {
+        let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)
             .await
             .expect(&format!("Cannot found ,{}", CONFIG_PATH));
         config.read_to_end(&mut buf).await.unwrap();
-        std::str::from_utf8(&buf).expect("Config file may container non-utf8 character")
+        let config =
+            std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
+        let config: GlobalConfig = toml::from_str(config).unwrap();
+        CONFIG.set(config).ok();
     } else {
-        println!("using default config");
-        ""
-    };
+        println!("Unable to find {}, generating default config", CONFIG_PATH);
+        let config: GlobalConfig = toml::from_str("").unwrap();
 
-    let config: GlobalConfig = toml::from_str(config).unwrap();
-
-    CONFIG.set(config).ok();
+        let config_txt = toml::to_string(&config).unwrap();
+        fs::write(CONFIG_PATH, config_txt).await.unwrap();
+        CONFIG.set(config).ok();
+    }
 }
 
 #[cfg(test)]

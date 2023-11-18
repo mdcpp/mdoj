@@ -246,9 +246,6 @@ impl TestcaseSet for Arc<Server> {
 
         let next_session = pager.into_raw();
 
-        Ok(Response::new(ListTestcaseResponse {
-            list,
-            next_session,
-        }))
+        Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }
 }

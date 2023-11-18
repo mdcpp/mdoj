@@ -1,17 +1,14 @@
-log_level = 1
 bind_address = "0.0.0.0:8081"
+log_level = 0
 
 [database]
 uri = "sqlite://test.sqlite"
+salt = "�c\u000E�\u001D\u0005`�o�"
 
 [[judger]]
-uri = "http://127.0.0.1:8080"
-# root_cert = "/path/to/file"
-# client_cert = "/path/to/file"
-# client_key = "/path/to/file"
-# domain = "/path/to/file"
+uri = "127.0.0.1:8080"
 
 [grpc]
 trust_x_forwarded_for = false
+cert = "path-to-cert"
 mode = "unsecure"
-cert = "cert.pem"
