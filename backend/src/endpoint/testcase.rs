@@ -98,7 +98,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
-
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -129,7 +128,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -141,7 +139,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn link(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -166,7 +163,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn unlink(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -191,7 +187,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn full_info_by_problem(
         &self,
         req: Request<TestcaseLink>,
@@ -227,7 +222,6 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
-
     async fn list_by_problem(
         &self,
         req: Request<ListByRequest>,

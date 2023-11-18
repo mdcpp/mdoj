@@ -148,8 +148,7 @@ impl Judger for GRpcServer {
         });
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
-    }
-
+        }
     async fn judger_info<'a>(
         &'a self,
         request: tonic::Request<()>,

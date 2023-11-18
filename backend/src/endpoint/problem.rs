@@ -129,7 +129,6 @@ impl ProblemSet for Arc<Server> {
             next_page_token,
         }))
     }
-
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -159,7 +158,6 @@ impl ProblemSet for Arc<Server> {
             next_page_token,
         }))
     }
-
     async fn full_info(
         &self,
         req: Request<ProblemId>,
@@ -176,14 +174,12 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
-
     async fn create(
         &self,
         req: Request<CreateProblemRequest>,
     ) -> Result<Response<ProblemId>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
@@ -208,7 +204,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
-
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -251,7 +246,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -263,7 +257,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn link(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -288,7 +281,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn unlink(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -313,7 +305,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -335,7 +326,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -357,7 +347,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn full_info_by_contest(
         &self,
         req: Request<ProblemLink>,
@@ -385,7 +374,6 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
-
     async fn list_by_contest(
         &self,
         req: Request<ListByRequest>,

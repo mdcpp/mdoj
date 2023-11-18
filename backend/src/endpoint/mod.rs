@@ -1,6 +1,8 @@
 pub mod contest;
+mod education;
 pub mod problem;
 pub mod testcase;
+pub mod token;
 pub mod user;
 pub mod util;
 

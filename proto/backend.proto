@@ -558,23 +558,25 @@ service UserSet {
 
 message TokenInfo {
   required Token token = 1;
-  required bytes permission = 2;
+  required uint64 permission = 2;
   required google.protobuf.Timestamp expiry = 3;
 }
 
-message Token { required bytes signature = 1; }
+message Token { required string signature = 1; }
 message Tokens { repeated Token list = 1; }
 
 message LoginRequest {
-  required string usertitle = 1;
-  required bytes raw_pwd = 2;
+  required string username = 1;
+  required string password = 2;
+  // in second
+  optional uint64 expiry = 3;
 }
 
 service TokenSet {
-  rpc List(UserId) returns (stream Token);
+  rpc List(UserId) returns (Tokens);
 
   rpc Create(LoginRequest) returns (TokenInfo);
-  rpc Refresh(Token) returns (TokenInfo);
+  rpc Refresh(google.protobuf.Empty) returns (TokenInfo);
 
-  rpc Logout(Token) returns (google.protobuf.Empty);
+  rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
 }

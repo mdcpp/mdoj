@@ -79,7 +79,11 @@ impl TokenController {
         self_
     }
     #[instrument(skip_all, name="token_create",fields(user = user.id))]
-    pub async fn add(&self, user: &entity::user::Model, dur: Duration) -> Result<String, Error> {
+    pub async fn add(
+        &self,
+        user: &entity::user::Model,
+        dur: Duration,
+    ) -> Result<(String, NaiveDateTime), Error> {
         let db = DB.get().unwrap();
 
         let rand = generate(&self.rand).unwrap();
@@ -97,7 +101,7 @@ impl TokenController {
         .insert(db)
         .await?;
 
-        Ok(hex::encode(rand))
+        Ok((hex::encode(rand), expiry))
     }
     // pub async fn verify_throttle(&self, token:&str, ip:Option<IpAddr>)-> Result<Option<(i32, UserPermBytes)>, Error>{
     //     let reverse_proxy=self.reverse_proxy.read();

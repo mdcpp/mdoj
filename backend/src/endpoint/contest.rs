@@ -1,13 +1,13 @@
 use super::endpoints::*;
 use super::tools::*;
+use super::util::time::into_prost;
 
+use crate::endpoint::util::hash::hash;
+use crate::endpoint::util::hash::hash_eq;
+use crate::endpoint::util::time::into_chrono;
 use crate::grpc::backend::contest_set_server::*;
 use crate::grpc::backend::*;
-use crate::init::config::CONFIG;
-
-use chrono::NaiveDateTime;
 use entity::{contest::*, *};
-use ring::digest;
 use sea_orm::QueryOrder;
 
 #[async_trait]
@@ -80,38 +80,6 @@ impl From<user_contest::Model> for UserRank {
     }
 }
 
-fn into_prost(time: chrono::NaiveDateTime) -> prost_types::Timestamp {
-    prost_types::Timestamp {
-        seconds: time.timestamp(),
-        nanos: time.timestamp_subsec_nanos() as i32,
-    }
-}
-
-fn into_chrono(time: prost_types::Timestamp) -> chrono::NaiveDateTime {
-    chrono::NaiveDateTime::from_timestamp(time.seconds, time.nanos as u32)
-}
-
-fn hash(src: &str) -> Vec<u8> {
-    let config = CONFIG.get().unwrap();
-    digest::digest(
-        &digest::SHA256,
-        &[src.as_bytes(), config.database.salt.as_bytes()].concat(),
-    )
-    .as_ref()
-    .to_vec()
-}
-
-fn hash_eq(src: &str, tar: &Vec<u8>) -> bool {
-    let hashed = hash(src);
-    let mut result = true;
-    for (a, b) in hashed.iter().zip(tar.iter()) {
-        if *a != *b {
-            result = false;
-        }
-    }
-    result
-}
-
 impl From<Model> for ContestInfo {
     fn from(value: Model) -> Self {
         ContestInfo {
@@ -157,7 +125,6 @@ impl ContestSet for Arc<Server> {
             next_page_token,
         }))
     }
-
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -187,7 +154,6 @@ impl ContestSet for Arc<Server> {
             next_page_token,
         }))
     }
-
     async fn full_info(
         &self,
         req: Request<ContestId>,
@@ -204,7 +170,6 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
-
     async fn create(
         &self,
         req: Request<CreateContestRequest>,
@@ -239,7 +204,6 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
-
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -287,7 +251,6 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn remove(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -299,7 +262,6 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -332,7 +294,6 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
     async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
