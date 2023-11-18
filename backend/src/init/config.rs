@@ -18,6 +18,7 @@ pub struct GlobalConfig {
     pub log_level: usize,
     #[serde(default = "default_judger")]
     pub judger: Vec<Arc<Judger>>,
+    pub judger_secret: Option<String>,
     #[serde(default)]
     grpc: GrpcOption,
     // pub reverse_proxy: Vec<ReverseProxy>,
@@ -27,7 +28,7 @@ fn default_bind_address() -> String {
 }
 fn default_judger() -> Vec<Arc<Judger>> {
     vec![Arc::new(Judger {
-        uri: "127.0.0.1:8080".to_owned(),
+        uri: "http://127.0.0.1:8080".to_owned(),
         pem: None,
         domain: None,
     })]

@@ -8,11 +8,11 @@ use std::{
 };
 
 use spin::{Mutex, RwLock};
-use tonic::transport;
+use tonic::*;
 
 use crate::{
-    grpc::judger::{judger_client::*, judger_server::Judger, *},
-    init::config,
+    grpc::judger::{judger_client::*, *},
+    init::config::{self, CONFIG},
 };
 
 use super::super::submit::Error;
@@ -27,22 +27,39 @@ pub struct RouteRequest {
     pub language: String,
 }
 
-// unavailable => available
-// tls error => log + internal error
-async fn connect_by_config(
-    config: &config::Judger,
-) -> Result<JudgerClient<transport::Channel>, Error> {
-    JudgerClient::connect(config.uri.clone())
-        .await
-        .map_err(|err| {
-            log::warn!("judger {} is unavailable: {}", config.uri, err);
-            Error::JudgerUnavailable
-        })
+type AuthIntercept = JudgerClient<
+    service::interceptor::InterceptedService<
+        transport::Channel,
+        fn(tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status>,
+    >,
+>;
+fn auth_middleware(mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+    let config = CONFIG.get().unwrap();
+    match &config.judger_secret {
+        Some(secret) => {
+            let token: metadata::MetadataValue<_> = format!("basic {}", secret).parse().unwrap();
+            req.metadata_mut().insert("Authorization", token);
+            Ok(req)
+        }
+        None => Ok(req),
+    }
+}
+async fn connect_by_config(config: &config::Judger) -> Result<AuthIntercept, Error> {
+    if config.pem.is_some() {
+        log::error!("tls is not supported yet");
+    }
+
+    let channel = transport::Channel::from_shared(config.uri.clone())
+        .unwrap()
+        .connect()
+        .await?;
+
+    Ok(JudgerClient::with_interceptor(channel, auth_middleware))
 }
 
 pub struct ConnGuard {
     pool: Arc<ConnPool>,
-    client: Option<JudgerClient<transport::Channel>>,
+    client: Option<AuthIntercept>,
 }
 
 impl Drop for ConnGuard {
@@ -56,7 +73,7 @@ impl Drop for ConnGuard {
     }
 }
 impl std::ops::Deref for ConnGuard {
-    type Target = JudgerClient<transport::Channel>;
+    type Target = AuthIntercept;
     fn deref(&self) -> &Self::Target {
         self.client.as_ref().unwrap()
     }
@@ -70,7 +87,7 @@ impl DerefMut for ConnGuard {
 // Abstraction for pipelining, reconnect logic
 struct ConnPool {
     config: Arc<config::Judger>,
-    clients: Mutex<VecDeque<JudgerClient<transport::Channel>>>,
+    clients: Mutex<VecDeque<AuthIntercept>>,
     running: AtomicUsize,
     healthy: AtomicBool,
 }
@@ -173,11 +190,10 @@ impl Router {
         let mut upstreams = Vec::new();
         for config in configs {
             let upstream = Upstream::new(config.clone());
-            if let Err(err) = upstream.health_check().await {
-                log::warn!("judger {} is unavailable: {}", config.uri, err);
-                continue;
+            match upstream.health_check().await {
+                Err(err) => log::warn!("judger {} is unavailable: {}", config.uri, err),
+                Ok(_) => upstreams.push(upstream),
             }
-            upstreams.push(upstream);
         }
         // let futs: Box<dyn Future<Output = Arc<Upstream>>> = configs
         //     .iter()

@@ -31,6 +31,7 @@ impl Server {
         });
 
         transport::Server::builder()
+            .accept_http1(true)
             .add_service(ProblemSetServer::new(server.clone()))
             .add_service(EducationSetServer::new(server.clone()))
             .add_service(UserSetServer::new(server.clone()))

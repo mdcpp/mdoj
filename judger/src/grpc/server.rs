@@ -3,6 +3,7 @@ use std::{pin::Pin, sync::Arc};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{codegen::Bytes, metadata, Code, Response, Status};
+use tracing::instrument;
 
 use crate::{
     grpc::proto::prelude::judge_response,
@@ -88,6 +89,7 @@ impl Server {
 impl Judger for Server {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
+    #[instrument(skip_all, name="grpc_judge")]
     async fn judge<'a>(
         &'a self,
         request: tonic::Request<JudgeRequest>,
@@ -152,6 +154,7 @@ impl Judger for Server {
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
+    #[instrument(skip_all, name="grpc_info")]
     async fn judger_info<'a>(
         &'a self,
         request: tonic::Request<()>,
