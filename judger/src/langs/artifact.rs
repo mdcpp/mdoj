@@ -22,7 +22,7 @@ pub struct ArtifactFactory {
 
 impl ArtifactFactory {
     // load all modules from a directory
-    // 
+    //
     // definition of module:
     // 1. a directory with a spec.toml file inside
     // 2. resides in `path`(default to "plugins") directory

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tempfile::NamedTempFile;
 use tokio::net;
-use tonic::transport::{Endpoint, self, Uri};
+use tonic::transport::{self, Endpoint, Uri};
 use tower::service_fn;
 
 use crate::grpc::proto::prelude::{

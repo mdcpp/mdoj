@@ -3,12 +3,10 @@ log_level = 1
 
 [database]
 uri = "sqlite://test.sqlite"
-salt = "�c\u000E�\u001D\u0005`�o�"
+salt = "your_salt_here"
 
 [[judger]]
 uri = "http://127.0.0.1:8080"
 
 [grpc]
 trust_x_forwarded_for = false
-cert = "path-to-cert"
-mode = "unsecure"

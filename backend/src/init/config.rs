@@ -1,6 +1,6 @@
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
-use ring::rand::{generate, SystemRandom};
+use ring::rand::SystemRandom;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
@@ -21,7 +21,6 @@ pub struct GlobalConfig {
     pub judger_secret: Option<String>,
     #[serde(default)]
     grpc: GrpcOption,
-    // pub reverse_proxy: Vec<ReverseProxy>,
 }
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
@@ -43,40 +42,15 @@ pub struct Judger {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GrpcOption {
     pub trust_x_forwarded_for: bool,
-    pub cert: String,
-    pub mode: GrpcMode,
 }
 
 impl Default for GrpcOption {
     fn default() -> Self {
         Self {
             trust_x_forwarded_for: false,
-            cert: "path-to-cert".to_owned(),
-            mode: GrpcMode::Unsecure,
         }
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum GrpcMode {
-    Unsecure,
-    Secure,
-    Web,
-}
-
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct ReverseProxy{
-//     pub address: String,
-// }
-
-// #[derive(Serialize, Deserialize, Debug)]
-// pub struct Sandbox {
-//     address: String,
-//     port: u16,
-//     memory: u64,
-//     cpu_weight: usize,
-// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Database {
@@ -87,10 +61,9 @@ pub struct Database {
 impl Default for Database {
     fn default() -> Self {
         let rng = SystemRandom::new();
-        let salt: [u8; 10] = generate(&rng).unwrap().expose();
         Self {
             uri: "sqlite://test.sqlite".to_owned(),
-            salt: String::from_utf8_lossy(&salt).to_string(),
+            salt: "be sure to change it".to_owned(),
         }
     }
 }
