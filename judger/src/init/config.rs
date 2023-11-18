@@ -7,6 +7,7 @@ pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
 const CONFIG_PATH: &'static str = "config.toml";
 
+// config
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {

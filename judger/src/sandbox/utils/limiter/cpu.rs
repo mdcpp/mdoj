@@ -22,6 +22,7 @@ impl Display for CpuStatistics {
 }
 
 impl CpuStatistics {
+    // generate CPU statistics from cgroup
     pub fn from_cgroup(cgroup: &Cgroup) -> Self {
         let config = CONFIG.get().unwrap();
         if config.nsjail.is_cgv1() {
@@ -32,6 +33,8 @@ impl CpuStatistics {
             Self::from_cpu_controller(ctrl)
         }
     }
+    // generate CPU statistics from cpuacct controller
+    // which is more accurate, but not supported by cgroup v2
     pub fn from_cpuacct_controller(cpuacct: &CpuAcctController) -> Self {
         let acct = cpuacct.cpuacct();
 
@@ -41,6 +44,9 @@ impl CpuStatistics {
             total_us: acct.usage,
         }
     }
+    // generate CPU statistics from cpu controller(scheduler)
+    // which is usually less accurate, but not supported by cgroup v2
+    // CFS is recommanded instead of EEVDF
     pub fn from_cpu_controller(cpu: &CpuController) -> Self {
         let raw: &str = &cpu.cpu().stat;
         let mut rt_us = u64::MAX;

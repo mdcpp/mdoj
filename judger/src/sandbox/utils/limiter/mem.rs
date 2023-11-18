@@ -7,11 +7,13 @@ pub struct MemStatistics {
 }
 
 impl MemStatistics {
+    // generate memory statistics from cgroup
     pub fn from_cgroup(cgroup: &Cgroup) -> Self {
         let ctrl = cgroup.controller_of().unwrap();
 
         Self::from_controller(ctrl)
     }
+    // generate memory statistics with memory controller
     pub fn from_controller(mem: &MemController) -> Self {
         let stat = mem.memory_stat();
 
@@ -21,12 +23,3 @@ impl MemStatistics {
         Self { oom, peak }
     }
 }
-
-// pub struct MemLimiter {}
-
-// impl MemLimiter {
-//     fn check(cg:&Cgroup){
-//         let m:&MemController=cg.controller_of().unwrap();
-//         m.kmem_stat()
-//     }
-// }

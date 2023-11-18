@@ -4,6 +4,8 @@ use cgroups_rs::{hierarchies, Hierarchy};
 
 use super::config::CONFIG;
 
+// Check if all required systems are met
+// abort if necessary
 pub fn init() {
     let config = CONFIG.get().unwrap();
 

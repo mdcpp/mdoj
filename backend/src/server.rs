@@ -5,8 +5,9 @@ use tonic::transport;
 use crate::{
     controller::{duplicate::DupController, *},
     grpc::backend::{
-        contest_set_server::ContestSetServer, problem_set_server::ProblemSetServer,
-        testcase_set_server::TestcaseSetServer, education_set_server::EducationSetServer, user_set_server::UserSetServer, token_set_server::TokenSetServer,
+        contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
+        problem_set_server::ProblemSetServer, testcase_set_server::TestcaseSetServer,
+        token_set_server::TokenSetServer, user_set_server::UserSetServer,
     },
     init::config::CONFIG,
 };

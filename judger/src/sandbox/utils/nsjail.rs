@@ -13,6 +13,9 @@ use crate::init::config::CONFIG;
 
 use super::super::Error;
 
+// Nsjail abstraction, don't implement any meaningful logic
+// Just a wrapper for nsjail
+
 pub struct LimitBuilder {
     cmds: Vec<Cow<'static, str>>,
 }

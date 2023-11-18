@@ -20,7 +20,8 @@ pub struct MemoryStatistic {
     pub tasks: u64,
 }
 
-/// A Semaphore for memory(used instead bc of tokio::sync::Semaphore default to u32 for inner type)
+/// A Semaphore for large buffer accounting 
+/// because tokio::sync::Semaphore default to u32 for inner type
 #[derive(Clone)]
 pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);
 
@@ -80,7 +81,7 @@ impl MemorySemaphore {
 
         self_.memory += released_memory;
         while let Some(demand) = self_.queue.last() {
-            if demand.memory < self_.memory {
+            if demand.memory <= self_.memory {
                 self_.memory -= demand.memory;
                 let channel = self_.queue.pop_last().unwrap().tx;
                 channel.send(()).unwrap();
@@ -144,5 +145,23 @@ impl Drop for MemoryPermit {
             self.counter.0.lock().tasks -= 1;
         }
         self.counter.deallocate(self.memory);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_semaphore() {
+        crate::init::new().await;
+        let semaphore = MemorySemaphore::new(100);
+        let permit = semaphore.allocate(10).await.unwrap();
+        assert_eq!(semaphore.usage().available_mem, 90);
+        drop(permit);
+        assert_eq!(semaphore.usage().available_mem, 100);
+        let permit = semaphore.allocate(100).await.unwrap();
+        assert_eq!(semaphore.usage().available_mem, 0);
+        drop(permit);
     }
 }

@@ -16,8 +16,7 @@ use super::{
     Error,
 };
 
-// const BUFFER_LIMIT: usize = 32 * 1024 * 1024 - 1;
-
+// an abstraction of running process, no meaningful logic implemented
 pub struct RunningProc {
     pub(super) limiter: Limiter,
     pub(super) nsjail: NsJail,

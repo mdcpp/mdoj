@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use tempfile::NamedTempFile;
 use tokio::net;
-use tonic::transport::{Endpoint, Server, Uri};
+use tonic::transport::{Endpoint, self, Uri};
 use tower::service_fn;
 
 use crate::grpc::proto::prelude::{
     judge_response::Task, judger_client::JudgerClient, judger_server::JudgerServer, *,
 };
-use crate::grpc::server::GRpcServer;
+use crate::grpc::server::Server;
 use crate::init;
 
 // TODO!: split test
@@ -18,7 +18,7 @@ async fn full() {
     init::new().await;
 
     // create stub for unix socket
-    let server = Server::builder().add_service(JudgerServer::new(GRpcServer::new().await));
+    let server = transport::Server::builder().add_service(JudgerServer::new(Server::new().await));
     let socket1 = Arc::new(NamedTempFile::new().unwrap().into_temp_path());
     let socket2 = socket1.clone();
     let socket3 = socket2.clone();

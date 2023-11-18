@@ -46,6 +46,7 @@ impl Drop for Limiter {
 
 impl Limiter {
     pub fn new(cg_name: &str, limit: Limit) -> Result<Self, Error> {
+        log::trace!("Creating new limiter for {}", cg_name);
         let (tx, rx) = oneshot::channel();
 
         let state = Box::into_raw(Box::new(LimiterState::default()));

@@ -7,6 +7,7 @@ use crate::sandbox::Limit;
 
 use super::InternalError;
 
+// Language specification
 pub struct LangSpec {
     pub info: String,
     pub extension: String,
@@ -20,6 +21,7 @@ pub struct LangSpec {
 }
 
 impl LangSpec {
+    // load a module from spec.toml
     pub async fn from_file(path: impl AsRef<Path>) -> Result<Self, InternalError> {
         log::trace!("Loading module from {}", path.as_ref().to_string_lossy());
 

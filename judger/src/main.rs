@@ -1,8 +1,7 @@
-use crate::grpc::server::GRpcServer;
+use crate::grpc::server::Server;
 use grpc::proto::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;
-use tonic::transport::Server;
-
+use tonic::transport;
 // use crate::plugin::proto::prelude::judge_service_server::JudgeServiceServer;
 
 pub mod grpc;
@@ -20,9 +19,9 @@ async fn main() {
 
     log::info!("Server started");
 
-    let server = GRpcServer::new().await;
+    let server = Server::new().await;
 
-    Server::builder()
+    transport::Server::builder()
         .add_service(JudgerServer::new(server))
         .serve(addr)
         .await

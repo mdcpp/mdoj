@@ -9,6 +9,8 @@ use crate::{
 
 use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};
 
+// Container abstraction, call nsjail to execute process, limiter to limit resources
+// expect downstream(daemon) setup up and clear tmp files
 pub struct Container<'a> {
     pub(super) id: String,
     pub(super) daemon: &'a ContainerDaemon,

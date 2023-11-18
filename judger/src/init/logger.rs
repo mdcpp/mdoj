@@ -2,6 +2,7 @@ use tracing::Level;
 
 use super::config::CONFIG;
 
+// logger
 pub fn init() {
     let config = CONFIG.get().unwrap();
 

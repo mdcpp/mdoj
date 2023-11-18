@@ -64,11 +64,14 @@ macro_rules! report {
         }
     };
 }
-pub struct GRpcServer {
+
+// Adapter and abstraction for tonic to serve
+// utilize artifact factory and other components(in module `langs``)
+pub struct Server {
     factory: Arc<ArtifactFactory>,
 }
 
-impl GRpcServer {
+impl Server {
     pub async fn new() -> Self {
         let config = CONFIG.get().unwrap();
         let mut factory = ArtifactFactory::default();
@@ -82,7 +85,7 @@ impl GRpcServer {
 }
 
 #[tonic::async_trait]
-impl Judger for GRpcServer {
+impl Judger for Server {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
     async fn judge<'a>(
@@ -148,7 +151,7 @@ impl Judger for GRpcServer {
         });
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
-        }
+    }
     async fn judger_info<'a>(
         &'a self,
         request: tonic::Request<()>,

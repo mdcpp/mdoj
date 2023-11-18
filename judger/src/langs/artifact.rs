@@ -13,14 +13,19 @@ pub type UID = String;
 
 const TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 
+// Artifact factory, load module from disk to compile code
+// Rely on container daemon to create container
 pub struct ArtifactFactory {
     runtime: ContainerDaemon,
     langs: BTreeMap<UID, LangSpec>,
 }
 
 impl ArtifactFactory {
-    // path would like plugins/
-    // TODO: add pal
+    // load all modules from a directory
+    // 
+    // definition of module:
+    // 1. a directory with a spec.toml file inside
+    // 2. resides in `path`(default to "plugins") directory
     pub async fn load_dir(&mut self, path: impl AsRef<Path>) {
         let mut rd_dir = fs::read_dir(path).await.unwrap();
         while let Some(dir) = rd_dir.next_entry().await.unwrap() {
@@ -39,8 +44,7 @@ impl ArtifactFactory {
             log::info!("Module {} for {}(*.{})", uid, module.name, module.extension);
         }
     }
-    // spec would like plugins/lua-5.2/spec.toml
-    // TODO: add format check
+    // adaptor, load a module from spec.toml
     pub async fn load_module(&mut self, spec: impl AsRef<Path>) -> Result<(), InternalError> {
         let spec = LangSpec::from_file(spec).await?;
 
@@ -48,7 +52,7 @@ impl ArtifactFactory {
 
         Ok(())
     }
-
+    // list all modules
     pub fn list_module(&self) -> Vec<LangInfo> {
         self.langs
             .iter()
@@ -60,7 +64,7 @@ impl ArtifactFactory {
             })
             .collect()
     }
-
+    // compile code with sepcfication and container deamon
     pub async fn compile(&self, uid: &UID, code: &Vec<u8>) -> Result<CompiledArtifact, Error> {
         let tracing_id = TRACING_ID.fetch_add(1, Ordering::Relaxed);
         log::trace!(
@@ -111,7 +115,7 @@ impl Default for ArtifactFactory {
         }
     }
 }
-
+// Wrapper for container which contain compiled program in its volume
 pub struct CompiledArtifact<'a> {
     container: Container<'a>,
     spec: &'a LangSpec,
@@ -119,6 +123,7 @@ pub struct CompiledArtifact<'a> {
 }
 
 impl<'a> CompiledArtifact<'a> {
+    // run compiled program with input and limit
     pub async fn judge(
         &mut self,
         input: &Vec<u8>,
@@ -157,7 +162,8 @@ impl<'a> CompiledArtifact<'a> {
         })
     }
 }
-
+// Wrapper for result of process(ended process)
+// provide information about process's exitcode, resource usage, stdout, stderr
 pub struct TaskResult {
     process: ExitProc,
     tracing_id: usize,

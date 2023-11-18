@@ -6,6 +6,7 @@ use std::{
 
 use super::config::CONFIG;
 
+// Clean up cgroup
 pub fn init() {
     let config = CONFIG.get().unwrap();
     let root_cg = Path::new("/sys/fs/cgroup").join(config.runtime.root_cgroup.clone());
