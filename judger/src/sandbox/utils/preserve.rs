@@ -146,3 +146,14 @@ impl Drop for MemoryPermit {
         self.counter.deallocate(self.mem);
     }
 }
+
+#[cfg(test)]
+mod test{
+    use super::*;
+    #[tokio::test]
+    async fn basic_semaphore(){
+        crate::init::new().await;
+        let semaphore=MemorySemaphore::new(10000);
+        drop(semaphore.allocate(10000).await.unwrap());
+    }
+}
