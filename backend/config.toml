@@ -1,4 +1,5 @@
 log_level = 1
+bind_address = "0.0.0.0:8081"
 
 [database]
 uri = "sqlite://test.sqlite"

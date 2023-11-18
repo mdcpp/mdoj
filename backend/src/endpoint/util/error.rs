@@ -67,7 +67,9 @@ impl From<Error> for tonic::Status {
             }
             Error::InvaildUUID(err) => {
                 log::trace!("Fail parsing request_id: {}", err);
-                tonic::Status::invalid_argument("Invaild UUID")
+                tonic::Status::invalid_argument(
+                    "Invaild request_id(should be a client generated UUIDv4)",
+                )
             }
         }
     }

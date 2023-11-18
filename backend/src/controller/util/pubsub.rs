@@ -56,6 +56,11 @@ where
     M: Clone + Send + 'static,
     I: Eq + Clone + Hash + Send + 'static,
 {
+    pub fn new() -> Self {
+        PubSub {
+            outgoing: Mutex::new(HashMap::new()),
+        }
+    }
     pub fn stream(
         self: &Arc<Self>,
         mut stream: impl Stream<Item = M> + Unpin + Send + 'static,

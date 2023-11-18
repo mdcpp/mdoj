@@ -164,10 +164,10 @@ pub struct Router {
 }
 
 impl Router {
-    pub async fn new(configs: &Vec<config::Judger>) -> Result<Arc<Router>, Error> {
+    pub async fn new(configs: &[Arc<config::Judger>]) -> Result<Arc<Router>, Error> {
         let mut upstreams = Vec::new();
         for config in configs {
-            let upstream = Upstream::new(Arc::new(config.clone()));
+            let upstream = Upstream::new(config.clone());
             if let Err(err) = upstream.health_check().await {
                 log::warn!("judger {} is unavailable: {}", config.uri, err);
                 continue;

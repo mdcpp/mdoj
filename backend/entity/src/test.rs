@@ -7,14 +7,13 @@ use crate::problem;
 #[sea_orm(table_name = "testcase")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
-    #[serde(skip_deserializing)]
     pub id: i32,
-    #[serde(skip_deserializing)]
+    #[sea_orm(nullable, indexed)]
     pub user_id: i32,
-    #[serde(skip_deserializing)]
-    pub problem_id: i32,
-    pub stdin: Vec<u8>,
-    pub stdout: Vec<u8>,
+    #[sea_orm(nullable, indexed)]
+    pub problem_id: Option<i32>,
+    pub input: Vec<u8>,
+    pub output: Vec<u8>,
     pub score: u32,
 }
 

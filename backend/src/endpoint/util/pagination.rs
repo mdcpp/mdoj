@@ -411,3 +411,43 @@ impl PagerTrait for problem::Entity {
         problem::Entity::read_filter(select, auth)
     }
 }
+
+#[tonic::async_trait]
+impl ParentalTrait<problem::Entity> for HasParent<problem::Entity> {
+    const COL_ID: problem::Column = problem::Column::Id;
+
+    async fn related_filter(auth: &Auth) -> Result<Select<problem::Entity>, Error> {
+        let db = DB.get().unwrap();
+
+        Ok(auth.get_user(db).await?.find_related(problem::Entity))
+    }
+}
+
+#[tonic::async_trait]
+impl PagerTrait for test::Entity {
+    const TYPE_NUMBER: i32 = 78879091;
+
+    const COL_ID: Self::Column = test::Column::Id;
+
+    const COL_TEXT: &'static [Self::Column] = &[test::Column::Output, test::Column::Input];
+
+    const COL_SELECT: &'static [Self::Column] = &[
+        test::Column::Id,
+        test::Column::UserId,
+        test::Column::ProblemId,
+    ];
+
+    type ParentMarker = HasParent<problem::Entity>;
+
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        todo!()
+    }
+
+    fn get_id(model: &Self::Model) -> i32 {
+        todo!()
+    }
+
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        todo!()
+    }
+}

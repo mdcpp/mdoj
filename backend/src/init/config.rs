@@ -9,6 +9,7 @@ const CONFIG_PATH: &'static str = "config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalConfig {
+    pub bind_address: SocketAddr,
     #[serde(default)]
     pub database: Database,
     #[serde(default)]

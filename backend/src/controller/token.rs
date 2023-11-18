@@ -52,7 +52,7 @@ pub struct TokenController {
 }
 
 impl TokenController {
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
         let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
@@ -218,3 +218,4 @@ set_bit_value!(UserPermBytes, manage_announcement, 3);
 set_bit_value!(UserPermBytes, manage_submit, 4);
 set_bit_value!(UserPermBytes, publish, 5);
 set_bit_value!(UserPermBytes, link, 6);
+set_bit_value!(UserPermBytes, manage_contest, 7);

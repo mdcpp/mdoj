@@ -361,14 +361,13 @@ message TestcaseId { required int32 id = 1; }
 message TestcaseInfo {
   required TestcaseId id = 1;
   required uint32 score = 2;
-  repeated Case cases = 3;
 }
 
 message TestcaseFullInfo {
   required TestcaseId id = 1;
   required uint32 score = 2;
-  repeated bytes inputs = 3;
-  repeated bytes outputs = 4;
+  required bytes inputs = 3;
+  required bytes outputs = 4;
 }
 
 message ListTestcaseResponse {
@@ -384,8 +383,8 @@ message TestcaseLink {
 message CreateTestcaseRequest {
   message Info {
     required uint32 score = 2;
-    optional bytes inputs = 3;
-    optional bytes outputs = 4;
+    required bytes input = 3;
+    required bytes output = 4;
   };
   required Info info = 1;
   required string request_id = 2;
@@ -394,8 +393,8 @@ message CreateTestcaseRequest {
 message UpdateTestcaseRequest {
   message Info {
     optional uint32 score = 2;
-    optional bytes inputs = 3;
-    optional bytes outputs = 4;
+    optional bytes input = 3;
+    optional bytes output = 4;
   };
   required Info info = 1;
   required TestcaseId id = 2;
@@ -420,7 +419,6 @@ message ContestId { required int32 id = 1; }
 message ContestInfo {
   required ContestId id = 1;
   required string title = 2;
-  required uint32 participant_count = 3;
   required google.protobuf.Timestamp begin = 4;
   required google.protobuf.Timestamp end = 5;
   required bool need_password = 6;
@@ -430,7 +428,6 @@ message ContestFullInfo {
   required ContestInfo info = 1;
   required string content = 2;
   required UserId hoster = 3;
-  repeated ProblemId problems = 4;
 }
 
 message ListContestResponse {

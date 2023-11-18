@@ -32,10 +32,7 @@ impl Filter for Entity {
 
 #[async_trait]
 impl ParentalFilter for Entity {
-    fn publish_filter<S: QueryFilter + Send>(
-        query: S,
-        auth: &Auth,
-    ) -> std::result::Result<S, Error> {
+    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Some(perm) = auth.user_perm() {
             if perm.can_root() {
                 return Ok(query);
@@ -100,7 +97,7 @@ impl From<Model> for ProblemFullInfo {
 }
 
 #[async_trait]
-impl ProblemSet for Server {
+impl ProblemSet for Arc<Server> {
     async fn list(
         &self,
         req: Request<ListRequest>,
@@ -260,8 +257,6 @@ impl ProblemSet for Server {
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
-        let (_, perm) = auth.ok_or_default()?;
 
         Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)

@@ -9,7 +9,7 @@ use crate::{
         backend::SubmitStatus,
         judger::{JudgeRequest, TestIo},
     },
-    init::db::DB,
+    init::{config::CONFIG, db::DB},
 };
 
 use super::util::{pubsub::PubSub, router::*};
@@ -75,11 +75,18 @@ impl Submit {
 }
 
 pub struct SubmitController {
-    router: Router,
+    router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, tonic::Status>, i32>>,
 }
 
 impl SubmitController {
+    pub async fn new() -> Result<Self, Error> {
+        let config = CONFIG.get().unwrap();
+        Ok(SubmitController {
+            router: Router::new(&config.judger).await?,
+            pubsub: Arc::new(PubSub::new()),
+        })
+    }
     async fn submit(&self, submit: Submit) -> Result<i32, Error> {
         let db = DB.get().unwrap();
 
@@ -113,8 +120,8 @@ impl SubmitController {
         let tests = testcases
             .into_iter()
             .map(|x| TestIo {
-                input: x.stdin,
-                output: x.stdout,
+                input: x.input,
+                output: x.output,
             })
             .collect::<Vec<_>>();
 
