@@ -1,4 +1,3 @@
-pub mod judger;
 pub mod duplicate;
 pub mod submit;
 pub mod token;
