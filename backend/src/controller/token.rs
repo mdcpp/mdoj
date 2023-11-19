@@ -206,7 +206,7 @@ macro_rules! set_bit_value {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct UserPermBytes(pub u64);
 
 impl UserPermBytes {

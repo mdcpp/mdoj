@@ -8,7 +8,6 @@ use crate::{contest, education, problem, token};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
-    pub submit_id: i32,
     pub permission: u64,
     pub username: String,
     pub password: Vec<u8>,

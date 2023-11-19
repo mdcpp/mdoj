@@ -4,6 +4,8 @@ use ring::rand::SystemRandom;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
+use crate::init::db::first_migration;
+
 pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
 const CONFIG_PATH: &'static str = "config.toml";
@@ -86,6 +88,13 @@ pub async fn init() {
         let config_txt = toml::to_string(&config).unwrap();
         fs::write(CONFIG_PATH, config_txt).await.unwrap();
         CONFIG.set(config).ok();
+
+        println!("Config generated, please edit {}", CONFIG_PATH);
+        println!("Setting up database migration");
+
+        first_migration().await;
+        println!("Finished, exiting...");
+        std::process::exit(0);
     }
 }
 

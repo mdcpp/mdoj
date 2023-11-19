@@ -162,7 +162,8 @@ pub async fn init() {
                     let config_txt = toml::to_string(&config).unwrap();
                     fs::write(CONFIG_PATH, config_txt).await.unwrap();
 
-                    config
+                    println!("Finished, exiting...");
+                    std::process::exit(0);
                 }
             };
 
