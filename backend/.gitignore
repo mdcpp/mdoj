@@ -2,3 +2,5 @@
 /config
 /.cargo
 *.sqlite
+/key.pem
+/cert.pem

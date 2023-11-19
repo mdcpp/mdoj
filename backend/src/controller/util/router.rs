@@ -45,10 +45,6 @@ fn auth_middleware(mut req: tonic::Request<()>) -> Result<tonic::Request<()>, to
     }
 }
 async fn connect_by_config(config: &config::Judger) -> Result<AuthIntercept, Error> {
-    if config.pem.is_some() {
-        log::error!("tls is not supported yet");
-    }
-
     let channel = transport::Channel::from_shared(config.uri.clone())
         .unwrap()
         .connect()

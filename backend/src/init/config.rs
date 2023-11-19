@@ -20,7 +20,7 @@ pub struct GlobalConfig {
     pub judger: Vec<Arc<Judger>>,
     pub judger_secret: Option<String>,
     #[serde(default)]
-    grpc: GrpcOption,
+    pub grpc: GrpcOption,
 }
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
@@ -28,26 +28,26 @@ fn default_bind_address() -> String {
 fn default_judger() -> Vec<Arc<Judger>> {
     vec![Arc::new(Judger {
         uri: "http://127.0.0.1:8080".to_owned(),
-        pem: None,
-        domain: None,
     })]
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judger {
     pub uri: String,
-    pub pem: Option<PathBuf>,
-    pub domain: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GrpcOption {
     pub trust_x_forwarded_for: bool,
+    pub public_pem: PathBuf,
+    pub private_pem: PathBuf,
 }
 
 impl Default for GrpcOption {
     fn default() -> Self {
         Self {
             trust_x_forwarded_for: false,
+            public_pem: "cert.pem".into(),
+            private_pem: "key.pem".into(),
         }
     }
 }
@@ -62,7 +62,7 @@ impl Default for Database {
     fn default() -> Self {
         let rng = SystemRandom::new();
         Self {
-            uri: "sqlite://test.sqlite".to_owned(),
+            uri: "sqlite://backend.sqlite".to_owned(),
             salt: "be sure to change it".to_owned(),
         }
     }

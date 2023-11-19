@@ -1,8 +1,11 @@
 # dev-migrate:
-#     rm -rf test.sqlite
-#     touch test.sqlite
-#     DATABASE_URL=sqlite://test.sqlite sea-orm-cli migrate refresh
-#     sea-orm-cli generate entity -u sqlite://test.sqlite -o entities
+#     rm -rf backend.sqlite
+#     touch backend.sqlite
+#     DATABASE_URL=sqlite://backend.sqlite sea-orm-cli migrate refresh
+#     sea-orm-cli generate entity -u sqlite://backend.sqlite -o entities
 
-# run:
-#     cargo run
+prepare:
+    openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=CommonNameOrHostname"
+    touch backend.sqlite
+run:
+    cargo run
