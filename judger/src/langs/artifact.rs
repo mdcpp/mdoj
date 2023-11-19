@@ -174,7 +174,7 @@ impl TaskResult {
         match self.process.status {
             ExitStatus::SigExit => Some(JudgeResultState::Rf),
             ExitStatus::Code(code) => match code {
-                0 | 5 | 6 | 9 => None,
+                0 | 5 | 6 | 9 | 255 => None,
                 137 => Some(JudgeResultState::Na),
                 _ => Some(JudgeResultState::Rf),
             },
