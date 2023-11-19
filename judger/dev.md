@@ -1,4 +1,22 @@
-In this document, we will give brief description about some technical detail for those who want to integrate this project to other system.
+This document contain two parts, first part is for developer who want to use this project(Developer), second part is for those who want to contribute to this project. 
+
+# Developer
+
+## Features
+
+To understand this project, you need to know following features:
+
+1. http basic auth
+2. judging
+    - abstracting for language
+    - abstracting for platform
+3. health check
+
+And then, just follow the setup and communicate with judger with grpc(see `proto/plugin.proto`).
+
+# Contributor
+
+In this chapter, we will give brief description about some technical detail for those who want to integrate this project to other system.
 
 ## Outline
 

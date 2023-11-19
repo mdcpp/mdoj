@@ -8,7 +8,7 @@ See ``proto/plugin.proto``, use grpc to communicate with it.
 
 ## How to build it?
 
-Install just, clone this git repo, and run ``just install-deps-debian``, ``just build-nsjail``, ``just build-plugin``.
+Install just, clone this git repo, fetch git submodule,and run ``just install-deps-debian``, ``just build-nsjail``, ``just build-plugin``.
 
 After that, build this crate(``cargo build --release``).
 
@@ -16,6 +16,8 @@ After that, build this crate(``cargo build --release``).
 
 1. CGroupv2 support
 2. Linux kernel 5.14 or later
+
+If you are unsure about whether your system meet requirement, run ``just test``, both our binary and test check for system requirement.
 
 ## How to develop new language supports?
 

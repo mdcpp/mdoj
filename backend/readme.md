@@ -1,3 +1,4 @@
 # MdOJ backend
 
-## How to use it?
+A backend for MdOJ.
+

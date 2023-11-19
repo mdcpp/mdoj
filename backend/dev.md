@@ -1,0 +1,1 @@
+In this document, we will give detail for those who want to contribute.
