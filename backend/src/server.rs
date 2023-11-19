@@ -32,12 +32,12 @@ impl Server {
 
         transport::Server::builder()
             .accept_http1(true)
-            .add_service(ProblemSetServer::new(server.clone()))
-            .add_service(EducationSetServer::new(server.clone()))
-            .add_service(UserSetServer::new(server.clone()))
-            .add_service(TokenSetServer::new(server.clone()))
-            .add_service(ContestSetServer::new(server.clone()))
-            .add_service(TestcaseSetServer::new(server))
+            .add_service(tonic_web::enable(ProblemSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(EducationSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(UserSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(TokenSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(ContestSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(TestcaseSetServer::new(server)))
             .serve(config.bind_address.parse().unwrap())
             .await
             .unwrap();
