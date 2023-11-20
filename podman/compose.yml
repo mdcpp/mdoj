@@ -1,4 +1,0 @@
-# we should put docker dockerfile in each folder, not just put in /docker folder, bc we would have multiple docker
-# backend need a web service and db service, that's two containers. maybe we don't need nginx, but we do need db
-
-
