@@ -2,7 +2,7 @@ bind_address = "0.0.0.0:8081"
 log_level = 0
 
 [database]
-uri = "sqlite://backend.sqlite"
+path = "backend.sqlite"
 salt = "be sure to change it"
 
 [[judger]]

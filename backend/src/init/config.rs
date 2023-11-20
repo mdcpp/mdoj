@@ -56,7 +56,7 @@ impl Default for GrpcOption {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Database {
-    pub uri: String,
+    pub path: String,
     pub salt: String,
 }
 
@@ -64,7 +64,7 @@ impl Default for Database {
     fn default() -> Self {
         let rng = SystemRandom::new();
         Self {
-            uri: "sqlite://backend.sqlite".to_owned(),
+            path: "backend.sqlite".to_owned(),
             salt: "be sure to change it".to_owned(),
         }
     }
@@ -89,10 +89,7 @@ pub async fn init() {
         fs::write(CONFIG_PATH, config_txt).await.unwrap();
         CONFIG.set(config).ok();
 
-        println!("Config generated, please edit {}", CONFIG_PATH);
-        println!("Setting up database migration");
-
-        first_migration().await;
+        println!("Config generated, please edit {} before restart", CONFIG_PATH);
         println!("Finished, exiting...");
         std::process::exit(0);
     }

@@ -1,4 +1,7 @@
+use std::path::PathBuf;
+
 use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection};
+use tokio::fs;
 use tokio::sync::OnceCell;
 
 use super::config::CONFIG;
@@ -9,12 +12,28 @@ pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
 pub async fn init() {
     let config = CONFIG.get().unwrap();
+    let uri=format!("sqlite://{}", config.database.path.clone());
 
-    let db: DatabaseConnection = Database::connect(config.database.uri.clone())
-        .await
-        .unwrap();
+    match Database::connect(&uri)
+    .await {
+        Ok(db)=>{
+            DB.set(db).unwrap();
+            return;
+        },
+        Err(_)=>{
+            println!("Database connection failed, creating database");
 
-    DB.set(db).unwrap();
+            fs::File::create(PathBuf::from(config.database.path.clone())).await.unwrap();
+            first_migration().await;
+
+            let db: DatabaseConnection = Database::connect(&uri)
+            .await
+            .unwrap();
+        
+            DB.set(db).unwrap();
+            println!("Database created");
+        }
+    }
 }
 
 pub async fn first_migration() {
