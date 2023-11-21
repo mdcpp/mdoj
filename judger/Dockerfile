@@ -26,6 +26,7 @@ WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/judger /
 COPY --from=builder /environment/.temp /
 COPY nsjail-3.1 /
-COPY plugins /
+# don't load plugins, should be mounted manually in runtime
+# COPY plugins /
 
 CMD ["/judger"]
