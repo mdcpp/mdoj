@@ -2,4 +2,4 @@
 .temp
 *.log
 /config.toml
-/nsjail-docker
+*.pem

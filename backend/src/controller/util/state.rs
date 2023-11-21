@@ -61,13 +61,13 @@ impl State {
                 tx.send(Ok(SubmitStatus {
                     task: Some(submit_status::Task::Result(backend::JudgeResult {
                         status: res.status() as i32,
-                        max_time: Some(res.max_time()),
-                        max_mem: Some(res.max_mem()),
+                        max_time: Some(res.max_time),
+                        max_mem: Some(res.max_mem),
                     })),
                 }))
                 .ok();
-                self.time = cmp::max(self.time, res.max_time());
-                self.mem = cmp::max(self.mem, res.max_mem());
+                self.time = cmp::max(self.time, res.max_time);
+                self.mem = cmp::max(self.mem, res.max_mem);
                 if res.status() == JudgeState::Ac {
                     self.pass += 1;
                 }

@@ -1,21 +1,26 @@
-FROM rust:1.60.0 AS builder
+FROM rust:1.74.0-slim-buster AS builder
+
+ARG ARCH
 WORKDIR /complier
 
-# install musl-gcc for ring
-RUN USER=root apt update -y
-# RUN USER=root apt install musl-tools -y
+RUN apt update -y
+RUN apt install musl-tools protobuf-compiler -y
 
-RUN rustup target add ${targets}
+RUN cargo install just
 
-RUN USER=root cargo new backend
+RUN rustup target add ${ARCH}-unknown-linux-musl
+
+WORKDIR /complier/proto
+COPY backend.proto .
+COPY judger.proto .
+
 WORKDIR /complier/backend
 COPY . .
 
-RUN cargo install --target ${targets} --path .
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
 
-FROM alpine
-WORKDIR /app
-COPY --from=builder /usr/local/cargo/bin/backend .
-COPY ./config ./config
-RUN mkdir log
-CMD ["./backend"]
+FROM scratch
+WORKDIR /
+COPY --from=builder /usr/local/cargo/bin/backend /
+
+CMD ["/backend"]
