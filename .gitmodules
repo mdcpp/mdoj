@@ -1,0 +1,3 @@
+[submodule "judger/nsjail"]
+	path = judger/nsjail
+	url = git@github.com:mdcpp/static-binary-zoo.git
