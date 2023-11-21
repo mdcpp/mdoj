@@ -6,7 +6,12 @@ build-plugin:
     cd plugins && sh build-all.sh
 
 build-nsjail:
+    TARGET=x86_64-linux-musl
     cd nsjail && make
+
+build-nsjail-musl:
+    MUSL_TARGET=x86_64-linux-musl
+    echo todo!()
 
 prepare:
     mkdir -p .temp
