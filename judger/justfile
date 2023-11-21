@@ -1,20 +1,19 @@
 release-docker:
-    just build-plugin
-    docker build . -t mdoj-judger
+    MUSL_TARGET=$(uname -m)-linux-musl
+    just prepare
+    cp ../proto/judger.proto .
+    docker build . --build-arg ARCH=$(uname -m) -t mdoj-judger
 
 build-plugin:
     cd plugins && sh build-all.sh
-
+    
 build-nsjail:
-    TARGET=x86_64-linux-musl
-    cd nsjail && make
-
-build-nsjail-musl:
-    MUSL_TARGET=x86_64-linux-musl
-    echo todo!()
+    cd nsjail-docker && make nsjail-3.1
+    cp nsjail-docker/output/*-linux-musl/nsjail-* .
 
 prepare:
-    mkdir -p .temp
+    just build-nsjail
+    just build-plugin
 
 debian-deps:
     echo todo!()
@@ -23,20 +22,26 @@ feodra-deps:
     sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
 
 clean:
-    sudo rm -rf .temp/* 
+    sudo rm -rf .temp
     cargo clean
+    docker images rm nsjail-3.1-$(uname -m)-linux-musl
+    docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
+    docker images rm libnl-3.2.25-$(uname -m)-linux-musl
+    docker images rm  musl-cross-make-$(uname -m)-linux-musl
 
 test:
-    sudo rm -rf .temp/* 
+    sudo rm -rf .temp/*
+    mkdir -p .temp
     cargo test --no-fail-fast -- --test-threads 1 
 
 run:
     sudo rm -rf .temp/* 
+    mkdir -p .temp
     cargo run
 
-podman-run:
-    # recreate cgroup of mdoj for normal user
-    sudo rm -rf /sys/fs/cgroup/mdoj
-    sudo cgcreate -a $USER -t $USER -g memory,cpu,cpuset:mdoj
-    # run podman
-    podman-compose up
+# podman-run:
+#     # recreate cgroup of mdoj for normal user
+#     sudo rm -rf /sys/fs/cgroup/mdoj
+#     sudo cgcreate -a $USER -t $USER -g memory,cpu,cpuset:mdoj
+#     # run podman
+#     podman-compose up

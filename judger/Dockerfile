@@ -1,31 +1,31 @@
-FROM docker.io/libray/rust:1.71.1-buster AS builder
+FROM rust:1.74.0-slim-buster AS builder
+
+ARG ARCH
 WORKDIR /complier
 
-RUN USER=root apt update -y
-RUN USER=root apt install musl-tools musl-gcc -y
+RUN apt update -y
+RUN apt install musl-tools protobuf-compiler -y
 
 RUN cargo install just
 
-RUN just debian-deps
+RUN rustup target add ${ARCH}-unknown-linux-musl
 
-RUN just build-nsjail
+WORKDIR /complier/proto
+COPY judger.proto .
 
-RUN rustup target add ${targets}
-
-RUN USER=root cargo new judger
 WORKDIR /complier/judger
 COPY . .
 
-RUN cargo install --target ${targets} --path .
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
+
+WORKDIR /environment
+RUN mkdir -p .temp
 
 FROM scratch
 WORKDIR /
-RUN mkdir -p .temp
-RUN mkdir -p log
-RUN mkdir -p nsjail-sys/nsjail/nsjail
-COPY plugins /
 COPY --from=builder /usr/local/cargo/bin/judger /
-COPY --from=builder nsjail/nsjail /nsjail/
+COPY --from=builder /environment/.temp /
+COPY nsjail-3.1 /
+COPY plugins /
 
-RUN mkdir temp
 CMD ["/judger"]
