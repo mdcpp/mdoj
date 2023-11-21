@@ -1,6 +1,5 @@
 /target
 .temp
-/nsjail-3.1
 *.log
 /config.toml
-/judger.proto
+*.pem

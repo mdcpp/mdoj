@@ -151,6 +151,7 @@ impl NsJailBuilder {
         cmd.args(self.cmds.iter().map(|a| a.as_ref()).collect::<Vec<&str>>());
 
         let process = cmd
+            .kill_on_drop(true)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())

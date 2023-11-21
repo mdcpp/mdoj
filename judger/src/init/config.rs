@@ -63,7 +63,7 @@ impl Nsjail {
 impl Default for Nsjail {
     fn default() -> Self {
         Self {
-            runtime: "nsjail/nsjail".to_owned(),
+            runtime: "./nsjail-3.1".to_owned(),
             rootless: false,
             log: "/dev/null".to_owned(),
             cgroup_version: CgVersion::V2,
