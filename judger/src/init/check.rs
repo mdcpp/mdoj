@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use cgroups_rs::{hierarchies, Hierarchy};
+use cgroups_rs::{hierarchies, Hierarchy, Subsystem};
 
 use super::config::CONFIG;
 
@@ -12,54 +12,33 @@ pub fn init() {
     if config.nsjail.is_cgv1() {
         let hier = hierarchies::V1::new();
         let subsystems = hier.subsystems();
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::CpuAcct(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuAcct(_))) {
             log::warn!("Subsystem CpuAcct(Cpu Accounting) is unavailable.");
         };
 
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::CpuSet(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuSet(_))) {
             log::warn!("Subsystem CpuSet(Cpu Scheduling Per Core) is unavailable.");
         };
 
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::Cpu(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Cpu(_))) {
             log::warn!("Subsystem Cpu(Cpu Scheduling) is unavailable.");
         };
 
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::Mem(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Mem(_))) {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
     } else {
         let hier = hierarchies::V2::new();
         let subsystems = hier.subsystems();
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::CpuSet(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuSet(_))) {
             log::warn!("Subsystem CpuSet(Cpu Scheduling Per Core) is unavailable.");
         };
 
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::Cpu(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Cpu(_))) {
             log::warn!("Subsystem Cpu(Cpu Scheduling) is unavailable.");
         };
 
-        if let None = subsystems.iter().find(|sub| match sub {
-            cgroups_rs::Subsystem::Mem(_) => true,
-            _ => false,
-        }) {
+        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Mem(_))) {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
     }

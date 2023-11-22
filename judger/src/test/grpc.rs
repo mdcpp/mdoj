@@ -47,7 +47,7 @@ async fn full() {
         lang_uid: "f060f3c5-b2b2-46be-97ba-a128e5922aee".to_string(),
         code: b"print(\"basic test\")".to_vec(),
         memory: 1024 * 1024 * 1024,
-        time: 1 * 1000 * 1000,
+        time: 1000 * 1000,
         rule: JudgeMatchRule::SkipSnl as i32,
         tests: vec![TestIo {
             input: b"".to_vec(),

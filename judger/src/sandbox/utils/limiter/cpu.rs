@@ -39,7 +39,7 @@ impl CpuStatistics {
         let acct = cpuacct.cpuacct();
 
         Self {
-            rt_us: acct.usage_sys as u64,
+            rt_us: acct.usage_sys,
             cpu_us: acct.usage_user,
             total_us: acct.usage,
         }
@@ -53,11 +53,8 @@ impl CpuStatistics {
         let mut cpu_us = u64::MAX;
         let mut total_us = u64::MAX;
         for (key, value) in raw
-            .split("\n")
-            .filter_map(|stmt| match stmt.split_once(" ") {
-                Some(a) => Some(a),
-                None => None,
-            })
+            .split('\n')
+            .filter_map(|stmt| stmt.split_once(' '))
         {
             match key {
                 "usage_usec" => total_us = value.parse().unwrap(),

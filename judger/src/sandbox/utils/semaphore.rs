@@ -12,7 +12,7 @@ use crate::init::config::CONFIG;
 
 use super::super::Error;
 
-const MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
+static MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub struct MemoryStatistic {
     pub available_mem: u64,
@@ -113,7 +113,7 @@ impl Ord for MemDemand {
 
 impl PartialOrd for MemDemand {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.memory.partial_cmp(&other.memory)
+        Some(self.cmp(other))
     }
 }
 

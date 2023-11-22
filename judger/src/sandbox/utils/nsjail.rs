@@ -175,13 +175,10 @@ impl Drop for NsJail {
 }
 
 impl NsJail {
-    pub fn new(root: impl AsRef<Path>) -> LimitBuilder {
+    pub fn builder(root: impl AsRef<Path>) -> LimitBuilder {
         let root = root.as_ref().canonicalize().unwrap();
         let root = root.to_str().unwrap();
-        let mut cmds: Vec<Cow<'static, str>> = Vec::new();
-        cmds.push(Cow::Borrowed("--chroot"));
-        cmds.push(Cow::Owned(root.to_owned()));
-        LimitBuilder { cmds }
+        LimitBuilder { cmds:vec![Cow::Borrowed("--chroot"),Cow::Owned(root.to_owned())] }
     }
     pub async fn wait(&self) -> Option<i32> {
         let status = self

@@ -43,7 +43,7 @@ impl<'a> Container<'a> {
             .allocate(output_limit + reversed_memory)
             .await?;
 
-        let nsjail = NsJail::new(&self.root)
+        let nsjail = NsJail::builder(&self.root)
             .cgroup(&cg_name)
             .done()
             .presist_vol(&self.id)

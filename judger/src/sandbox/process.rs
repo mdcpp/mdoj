@@ -24,11 +24,11 @@ pub struct RunningProc {
 }
 
 impl RunningProc {
-    pub async fn write_all(&mut self, buf: &Vec<u8>) -> Result<(), Error> {
+    pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), Error> {
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let stdin = child.stdin.as_mut().ok_or(Error::CapturedPipe)?;
 
-        stdin.write_all(&buf).await?;
+        stdin.write_all(buf).await?;
 
         Ok(())
     }

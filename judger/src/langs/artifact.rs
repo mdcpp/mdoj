@@ -11,7 +11,7 @@ use super::{spec::LangSpec, Error, InternalError};
 
 pub type UID = String;
 
-const TRACING_ID: AtomicUsize = AtomicUsize::new(0);
+static TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 
 // Artifact factory, load module from disk to compile code
 // Rely on container daemon to create container
@@ -55,8 +55,8 @@ impl ArtifactFactory {
     // list all modules
     pub fn list_module(&self) -> Vec<LangInfo> {
         self.langs
-            .iter()
-            .map(|(_, spec)| LangInfo {
+            .values()
+            .map(|spec| LangInfo {
                 lang_uid: spec.uid.clone(),
                 lang_name: spec.name.clone(),
                 info: spec.info.clone(),
@@ -65,7 +65,7 @@ impl ArtifactFactory {
             .collect()
     }
     // compile code with sepcfication and container deamon
-    pub async fn compile(&self, uid: &UID, code: &Vec<u8>) -> Result<CompiledArtifact, Error> {
+    pub async fn compile(&self, uid: &UID, code: &[u8]) -> Result<CompiledArtifact, Error> {
         let tracing_id = TRACING_ID.fetch_add(1, Ordering::Relaxed);
         log::trace!(
             "Compiling program with module {} -trace:{}",
@@ -90,7 +90,7 @@ impl ArtifactFactory {
             )
             .await?;
 
-        process.write_all(&code).await?;
+        process.write_all(code).await?;
 
         let process = process.wait().await?;
 
@@ -126,7 +126,7 @@ impl<'a> CompiledArtifact<'a> {
     // run compiled program with input and limit
     pub async fn judge(
         &mut self,
-        input: &Vec<u8>,
+        input: &[u8],
         time: u64,
         memory: u64,
     ) -> Result<TaskResult, Error> {
@@ -148,7 +148,7 @@ impl<'a> CompiledArtifact<'a> {
             )
             .await?;
 
-        process.write_all(&input).await?;
+        process.write_all(input).await?;
 
         let process = process.wait().await?;
 
@@ -183,9 +183,9 @@ impl TaskResult {
             ExitStatus::SysError => Some(JudgeResultState::Na),
         }
     }
-    pub fn assert(&self, input: &Vec<u8>, mode: JudgeMatchRule) -> bool {
-        let newline = '\n' as u8;
-        let space = ' ' as u8;
+    pub fn assert(&self, input: &[u8], mode: JudgeMatchRule) -> bool {
+        let newline = b'\n';
+        let space = b' ';
         log::trace!("Ssserting program -trace:{}", self.tracing_id);
         let stdout = &self.process.stdout;
 
@@ -199,7 +199,7 @@ impl TaskResult {
                         return false;
                     }
                 }
-                return true;
+                true
             }
             JudgeMatchRule::SkipSnl => {
                 let stdout_filtered = stdout.iter().filter(|x| **x != newline || **x != space);

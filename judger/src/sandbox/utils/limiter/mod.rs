@@ -49,12 +49,12 @@ impl Limiter {
         log::trace!("Creating new limiter for {}", cg_name);
         let (tx, rx) = oneshot::channel();
 
-        let state = Box::into_raw(Box::new(LimiterState::default()));
+        let state = Box::into_raw(Box::default());
         let state = Arc::new(AtomicPtr::new(state));
 
         let config = CONFIG.get().unwrap();
 
-        let cg = CgroupBuilder::new(&cg_name)
+        let cg = CgroupBuilder::new(cg_name)
             .memory()
             .kernel_memory_limit(limit.kernel_mem as i64)
             .memory_hard_limit(limit.user_mem as i64)
