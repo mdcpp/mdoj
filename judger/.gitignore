@@ -4,3 +4,4 @@
 *.log
 /config.toml
 /judger.proto
+/config

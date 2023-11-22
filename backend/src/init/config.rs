@@ -8,7 +8,7 @@ use crate::init::db::first_migration;
 
 pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
-const CONFIG_PATH: &'static str = "config.toml";
+const CONFIG_PATH: &'static str = "config/config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalConfig {
@@ -63,7 +63,7 @@ pub struct Database {
 impl Default for Database {
     fn default() -> Self {
         Self {
-            path: "backend.sqlite".to_owned(),
+            path: "database/backend.sqlite".to_owned(),
             salt: "be sure to change it".to_owned(),
         }
     }

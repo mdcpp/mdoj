@@ -22,9 +22,11 @@ WORKDIR /environment
 RUN mkdir -p .temp
 
 FROM scratch
+WORKDIR /database
+WORKDIR /config
+WORKDIR /.temp
 WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/jurdger /
-COPY --from=builder /environment/.temp /
 COPY nsjail-3.1 /
 # don't load plugins, should be mounted manually in runtime
 # COPY plugins /

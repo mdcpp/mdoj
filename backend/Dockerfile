@@ -20,6 +20,8 @@ COPY . .
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
 
 FROM scratch
+WORKDIR /database
+WORKDIR /config
 WORKDIR /cert
 COPY ./*.pem .
 WORKDIR /backend

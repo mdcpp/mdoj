@@ -14,6 +14,7 @@ build-nsjail:
 prepare:
     just build-nsjail
     just build-plugin
+    mkdir -p config
 
 debian-deps:
     echo todo!()

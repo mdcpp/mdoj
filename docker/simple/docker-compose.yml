@@ -3,7 +3,7 @@ version: '3.9'
 services:
   gateway: 
     container_name: mdoj-gateway
-    build: ../frontend
+    image:
     # remove comment if you need traefik
     # labels:
     #   - "traefik.enable=true"
@@ -19,7 +19,7 @@ services:
       - backend
   backend:
     container_name: mdoj-backend
-    build: ../backend
+    image:
     volumes:
     # TODO: change file bind mount to directory bind mount 
       - ./backend.sqlite:/backend/backend.sqlite
@@ -30,7 +30,7 @@ services:
     container_name: mdoj-judger
     # you can actually turn this off if you setup the cgroup properly(user of the container should own the cgroup)
     privileged: true
-    build: ../judger
+    image:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
     networks:

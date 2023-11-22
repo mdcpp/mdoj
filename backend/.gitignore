@@ -1,6 +1,7 @@
 /target
-/config
 /.cargo
+/database
+/config
 *.sqlite
 /key.pem
 /cert.pem

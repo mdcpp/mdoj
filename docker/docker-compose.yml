@@ -10,8 +10,8 @@ services:
     #   - "traefik.http.services.mdoj.loadbalancer.server.port=80"
     #   - "traefik.http.middlewares.mdoj-grpcweb.grpcweb.allowOrigins=*"
     #   - "traefik.http.routers.mdoj.middlewares=mdoj-grpc"
-    # volumes:
-    #   - ../frontend/build:/usr/share/nginx/html
+    volumes:
+      - ../frontend/build:/usr/share/nginx/html
     ports:
       - "80:80"
     networks:
@@ -20,8 +20,8 @@ services:
     container_name: mdoj-backend
     build: ../backend
     volumes:
-    # TODO: change file bind mount to directory bind mount 
-      - ./backend.sqlite:/backend/backend.sqlite
+      - ./database/:/database/
+      - ./config/:/config/
     networks:
       - backend
       - judger
@@ -32,6 +32,7 @@ services:
     build: ../judger
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
+      - ./config/:/config/
     networks:
       - judger
 networks:

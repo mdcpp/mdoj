@@ -5,7 +5,7 @@ use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
 pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
-static CONFIG_PATH: &str = "config.toml";
+static CONFIG_PATH: &str = "config/config.toml";
 
 // config
 #[derive(Serialize, Deserialize, Debug)]
