@@ -2,6 +2,7 @@
 /.devcontainer
 /.vscode
 /tonic_example
+/cert
 
 # Added by cargo
 

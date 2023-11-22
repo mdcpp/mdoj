@@ -8,9 +8,17 @@
 #     openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=CommonNameOrHostname"
 #     touch backend.sqlite
 release-docker:
+    just prepare
+    just release
     cp ../proto/*.proto .
     cp ../cert/*.pem .
-    docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
+    docker build . -t mdoj-gateway
+
+release:
+    vite build
+    
+prepare:
+    yarn install
 
 run:
-    cargo run
+    vite

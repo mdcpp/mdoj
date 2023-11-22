@@ -20,7 +20,9 @@ COPY . .
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
 
 FROM scratch
-WORKDIR /
+WORKDIR /cert
+COPY ./*.pem .
+WORKDIR /backend
 COPY --from=builder /usr/local/cargo/bin/backend /
 
-CMD ["/backend"]
+CMD ["/backend/backend"]

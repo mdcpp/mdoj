@@ -10,6 +10,10 @@ dev-backend:
 dev-judger:
     cd judger && sudo just podman-run
 
+prepare:
+    mkdir -p cert
+    openssl req -x509 -newkey rsa:4096 -keyout cert/key.pem -out cert/cert.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=CommonNameOrHostname"
+
 clean:
     cd ./frontend && yarn cache clean
     cd ./backend && cargo clean
