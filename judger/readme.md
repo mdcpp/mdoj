@@ -1,5 +1,7 @@
 # MdOJ judger
 
+> For contriber, see ``dev.md``
+
 A judger for cms.
 
 ## How to integrate it to web backend?

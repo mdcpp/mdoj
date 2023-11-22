@@ -18,6 +18,14 @@ And then, just follow the setup and communicate with judger with grpc(see `proto
 
 In this chapter, we will give brief description about some technical detail for those who want to integrate this project to other system.
 
+## Setup
+
+Install `cargo`, `just` and `docker`, then run ``just prepare``.
+
+Then run `just run` when you are ready to run.
+
+At the first run, it will generate default config file at `config/config.toml`, you can modify it to test it.
+
 ## Outline
 
 accpet ``judger.proto`` without tls, exam basic auth secret if it(``config.secret``) is presented in config.
