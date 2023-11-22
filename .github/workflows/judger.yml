@@ -22,7 +22,7 @@ jobs:
           toolchain: stable
           override: true
       - name: Install ProtoBuffer compiler
-        run: apt install -y protobuf-compiler
+        run: sudo apt install -y protobuf-compiler
       - uses: actions-rs/cargo@v1
         with:
           command: check
