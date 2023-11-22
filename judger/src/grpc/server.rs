@@ -1,9 +1,12 @@
+// TODO: clean up imports
+// TODO: error handling
 use std::{pin::Pin, sync::Arc};
 
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{codegen::Bytes, metadata, Code, Response, Status};
 use tracing::instrument;
+use uuid::Uuid;
 
 use crate::{
     grpc::proto::prelude::judge_response,
@@ -103,13 +106,18 @@ impl Judger for Server {
 
         // precondidtion
         let mode = JudgeMatchRule::from_i32(request.rule)
-            .ok_or(Status::invalid_argument("Invaild judge matching rule"))?;
+            .ok_or(Status::failed_precondition("Invaild judge matching rule"))?;
+
+        let lang_uid = Uuid::parse_str(request.lang_uid.as_str()).map_err(|e| {
+            log::warn!("Invalid uuid: {}", e);
+            Status::failed_precondition("Invalid uuid")
+        })?;
 
         tokio::spawn(async move {
             let time = request.time;
             let memory = request.memory;
 
-            let mut compiled = report!(factory.compile(&request.lang_uid, &request.code).await, tx);
+            let mut compiled = report!(factory.compile(&lang_uid, &request.code).await, tx);
 
             let mut running_task = 1;
 

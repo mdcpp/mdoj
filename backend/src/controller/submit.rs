@@ -38,7 +38,7 @@ pub enum Error {
     // TlsError,
 }
 
-impl From<Error> for super::Error{
+impl From<Error> for super::Error {
     fn from(value: Error) -> Self {
         match value {
             Error::JudgerUnavailable => {

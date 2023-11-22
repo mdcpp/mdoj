@@ -1,5 +1,7 @@
 # Develop a module for new language support
 
+`lua-5.2` is the example plugin
+
 ## How it works?
 
 Compile Stage:

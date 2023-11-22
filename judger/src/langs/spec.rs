@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
+use uuid::Uuid;
 
 use crate::sandbox::Limit;
 
@@ -11,7 +12,7 @@ use super::InternalError;
 pub struct LangSpec {
     pub info: String,
     pub extension: String,
-    pub uid: String, // TODO
+    pub uid: Uuid, // TODO
     pub name: String,
     pub compile_args: Vec<String>,
     pub compile_limit: Limit,
@@ -74,7 +75,7 @@ impl LangSpec {
 pub struct RawLangSpec {
     info: String,
     extension: String,
-    uid: String,
+    uid: Uuid,
     name: String,
     compile: Compile,
     judge: Judge,

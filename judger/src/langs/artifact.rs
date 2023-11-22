@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::BTreeMap, path::Path};
 
 use tokio::fs;
+use uuid::Uuid;
 
 use crate::grpc::proto::prelude::*;
 use crate::sandbox::prelude::*;
@@ -9,15 +10,13 @@ use crate::{init::config::CONFIG, langs::RequestError};
 
 use super::{spec::LangSpec, Error, InternalError};
 
-pub type UID = String;
-
 static TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 
 // Artifact factory, load module from disk to compile code
 // Rely on container daemon to create container
 pub struct ArtifactFactory {
     runtime: ContainerDaemon,
-    langs: BTreeMap<UID, LangSpec>,
+    langs: BTreeMap<Uuid, LangSpec>,
 }
 
 impl ArtifactFactory {
@@ -48,7 +47,7 @@ impl ArtifactFactory {
     pub async fn load_module(&mut self, spec: impl AsRef<Path>) -> Result<(), InternalError> {
         let spec = LangSpec::from_file(spec).await?;
 
-        assert!(self.langs.insert(spec.uid.clone(), spec).is_none());
+        assert!(self.langs.insert(spec.uid, spec).is_none());
 
         Ok(())
     }
@@ -57,7 +56,7 @@ impl ArtifactFactory {
         self.langs
             .values()
             .map(|spec| LangInfo {
-                lang_uid: spec.uid.clone(),
+                lang_uid: spec.uid.clone().to_string(),
                 lang_name: spec.name.clone(),
                 info: spec.info.clone(),
                 lang_ext: spec.extension.clone(),
@@ -65,7 +64,7 @@ impl ArtifactFactory {
             .collect()
     }
     // compile code with sepcfication and container deamon
-    pub async fn compile(&self, uid: &UID, code: &[u8]) -> Result<CompiledArtifact, Error> {
+    pub async fn compile(&self, uid: &Uuid, code: &[u8]) -> Result<CompiledArtifact, Error> {
         let tracing_id = TRACING_ID.fetch_add(1, Ordering::Relaxed);
         log::trace!(
             "Compiling program with module {} -trace:{}",
@@ -76,7 +75,7 @@ impl ArtifactFactory {
         let spec = self
             .langs
             .get(uid)
-            .ok_or(RequestError::LangNotFound(uid.clone()))?;
+            .ok_or(RequestError::LangNotFound(uid.to_string()))?;
 
         let container = self.runtime.create(&spec.path).await.unwrap();
 

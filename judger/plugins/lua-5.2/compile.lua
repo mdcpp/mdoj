@@ -1,4 +1,4 @@
-local src_txt=io.read("*a")
+local src_txt=io.read("*all")
 
 local src=io.open("/src/source.txt","w")
 if src==nil then

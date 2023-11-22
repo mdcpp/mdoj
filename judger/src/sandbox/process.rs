@@ -30,6 +30,8 @@ impl RunningProc {
 
         stdin.write_all(buf).await?;
 
+        stdin.shutdown().await?;
+
         Ok(())
     }
     pub async fn wait(mut self) -> Result<ExitProc, Error> {
