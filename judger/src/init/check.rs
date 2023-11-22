@@ -12,33 +12,54 @@ pub fn init() {
     if config.nsjail.is_cgv1() {
         let hier = hierarchies::V1::new();
         let subsystems = hier.subsystems();
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuAcct(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::CpuAcct(_)))
+        {
             log::warn!("Subsystem CpuAcct(Cpu Accounting) is unavailable.");
         };
 
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuSet(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::CpuSet(_)))
+        {
             log::warn!("Subsystem CpuSet(Cpu Scheduling Per Core) is unavailable.");
         };
 
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Cpu(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::Cpu(_)))
+        {
             log::warn!("Subsystem Cpu(Cpu Scheduling) is unavailable.");
         };
 
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Mem(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::Mem(_)))
+        {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
     } else {
         let hier = hierarchies::V2::new();
         let subsystems = hier.subsystems();
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::CpuSet(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::CpuSet(_)))
+        {
             log::warn!("Subsystem CpuSet(Cpu Scheduling Per Core) is unavailable.");
         };
 
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Cpu(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::Cpu(_)))
+        {
             log::warn!("Subsystem Cpu(Cpu Scheduling) is unavailable.");
         };
 
-        if subsystems.iter().any(|sub| matches!(sub, Subsystem::Mem(_))) {
+        if subsystems
+            .iter()
+            .any(|sub| matches!(sub, Subsystem::Mem(_)))
+        {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
     }

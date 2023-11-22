@@ -78,7 +78,7 @@ impl TestcaseSet for Arc<Server> {
 
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
+        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
@@ -92,7 +92,7 @@ impl TestcaseSet for Arc<Server> {
 
         fill_active_model!(model, req.info, input, output, score);
 
-        let model = model.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+        let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
@@ -104,8 +104,8 @@ impl TestcaseSet for Arc<Server> {
 
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
-        if let Some(_) = self.dup.check(user_id, &uuid) {
+        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
+        if self.dup.check(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
 
@@ -116,13 +116,13 @@ impl TestcaseSet for Arc<Server> {
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("test"))?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, input, output, score);
 
-        let model = model.update(db).await.map_err(|x| Into::<Error>::into(x))?;
+        let model = model.update(db).await.map_err(Into::<Error>::into)?;
 
         self.dup.store(user_id, uuid, model.id);
 
@@ -135,7 +135,7 @@ impl TestcaseSet for Arc<Server> {
         Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?;
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -149,17 +149,17 @@ impl TestcaseSet for Arc<Server> {
             return Err(Error::PremissionDeny("Can't link test").into());
         }
 
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id.clone()), &auth)?
+        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("test"))?
             .into_active_model();
 
         test.problem_id = ActiveValue::Set(Some(req.problem_id.id));
 
-        test.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+        test.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -173,17 +173,17 @@ impl TestcaseSet for Arc<Server> {
             return Err(Error::PremissionDeny("Can't link test").into());
         }
 
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id.clone()), &auth)?
+        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("test"))?
             .into_active_model();
 
         test.problem_id = ActiveValue::Set(None);
 
-        test.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+        test.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -209,7 +209,7 @@ impl TestcaseSet for Arc<Server> {
             .columns([problem::Column::Id])
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;
 
         let model = parent
@@ -217,7 +217,7 @@ impl TestcaseSet for Arc<Server> {
             .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("test"))?;
 
         Ok(Response::new(model.into()))

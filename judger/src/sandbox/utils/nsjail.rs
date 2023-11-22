@@ -178,7 +178,9 @@ impl NsJail {
     pub fn builder(root: impl AsRef<Path>) -> LimitBuilder {
         let root = root.as_ref().canonicalize().unwrap();
         let root = root.to_str().unwrap();
-        LimitBuilder { cmds:vec![Cow::Borrowed("--chroot"),Cow::Owned(root.to_owned())] }
+        LimitBuilder {
+            cmds: vec![Cow::Borrowed("--chroot"), Cow::Owned(root.to_owned())],
+        }
     }
     pub async fn wait(&self) -> Option<i32> {
         let status = self

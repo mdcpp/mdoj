@@ -12,24 +12,23 @@ pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
 pub async fn init() {
     let config = CONFIG.get().unwrap();
-    let uri=format!("sqlite://{}", config.database.path.clone());
+    let uri = format!("sqlite://{}", config.database.path.clone());
 
-    match Database::connect(&uri)
-    .await {
-        Ok(db)=>{
+    match Database::connect(&uri).await {
+        Ok(db) => {
             DB.set(db).unwrap();
             return;
-        },
-        Err(_)=>{
+        }
+        Err(_) => {
             println!("Database connection failed, creating database");
 
-            fs::File::create(PathBuf::from(config.database.path.clone())).await.unwrap();
+            fs::File::create(PathBuf::from(config.database.path.clone()))
+                .await
+                .unwrap();
             first_migration().await;
 
-            let db: DatabaseConnection = Database::connect(&uri)
-            .await
-            .unwrap();
-        
+            let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
+
             DB.set(db).unwrap();
             println!("Database created");
         }

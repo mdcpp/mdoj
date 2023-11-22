@@ -159,7 +159,7 @@ impl ContestSet for Arc<Server> {
         let model = query
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("contest"))?;
 
         Ok(Response::new(model.into()))
@@ -173,7 +173,7 @@ impl ContestSet for Arc<Server> {
 
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
+        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
@@ -192,7 +192,7 @@ impl ContestSet for Arc<Server> {
         model.begin = ActiveValue::Set(into_chrono(req.info.begin));
         model.end = ActiveValue::Set(into_chrono(req.info.end));
 
-        let model = model.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+        let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
@@ -204,8 +204,8 @@ impl ContestSet for Arc<Server> {
 
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(|e| Error::InvaildUUID(e))?;
-        if let Some(_) = self.dup.check(user_id, &uuid) {
+        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
+        if self.dup.check(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
 
@@ -216,7 +216,7 @@ impl ContestSet for Arc<Server> {
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("contest"))?;
 
         if let Some(src) = req.info.password {
@@ -224,7 +224,10 @@ impl ContestSet for Arc<Server> {
                 if auth.is_root() || hash_eq(&src, tar) {
                     model.password = Some(hash(&src));
                 } else {
-                    Error::PremissionDeny("password should match in order to update password!");
+                    return Err(Error::PremissionDeny(
+                        "password should match in order to update password!",
+                    )
+                    .into());
                 }
             }
         }
@@ -239,7 +242,7 @@ impl ContestSet for Arc<Server> {
             model.end = ActiveValue::Set(into_chrono(x));
         }
 
-        let model = model.update(db).await.map_err(|x| Into::<Error>::into(x))?;
+        let model = model.update(db).await.map_err(Into::<Error>::into)?;
 
         self.dup.store(user_id, uuid, model.id);
 
@@ -252,7 +255,7 @@ impl ContestSet for Arc<Server> {
         Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?;
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -260,12 +263,12 @@ impl ContestSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("contest"))?;
 
         let empty_password = "".to_string();
@@ -284,21 +287,21 @@ impl ContestSet for Arc<Server> {
             ..Default::default()
         };
 
-        pivot.save(db).await.map_err(|x| Into::<Error>::into(x))?;
+        pivot.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _) = auth.ok_or_default()?;
 
         user_contest::Entity::delete_many()
             .filter(user_contest::Column::UserId.eq(user_id))
             .filter(user_contest::Column::ContestId.eq(req.id))
             .exec(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?;
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -307,13 +310,13 @@ impl ContestSet for Arc<Server> {
     async fn rank(&self, req: Request<ContestId>) -> Result<Response<Users>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _) = auth.ok_or_default()?;
 
         let user = user::Entity::find_by_id(user_id)
             .column(user::Column::Id)
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("user"))?;
 
         let contest = user
@@ -322,15 +325,16 @@ impl ContestSet for Arc<Server> {
             .filter(Column::Id.eq(Into::<i32>::into(req.id)))
             .one(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?
+            .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("user"))?;
 
         let list = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(contest.id))
             .order_by_desc(user_contest::Column::Score)
             .limit(10)
             .all(db)
             .await
-            .map_err(|x| Into::<Error>::into(x))?;
+            .map_err(Into::<Error>::into)?;
 
         let list: Vec<UserRank> = list.into_iter().map(|x| x.into()).collect();
 

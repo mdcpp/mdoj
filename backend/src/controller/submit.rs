@@ -38,9 +38,9 @@ pub enum Error {
     // TlsError,
 }
 
-impl Into<super::Error> for Error {
-    fn into(self) -> super::Error {
-        match self {
+impl From<Error> for super::Error{
+    fn from(value: Error) -> Self {
+        match value {
             Error::JudgerUnavailable => {
                 super::Error::Internal("no judger available(for such lang)")
             }
@@ -112,7 +112,7 @@ impl SubmitController {
         .save(db)
         .await?;
 
-        let submit_id = submit_model.id.as_ref().clone();
+        let submit_id = submit_model.id.as_ref().to_owned();
         let mut pubguard = self.pubsub.publish(submit_id);
 
         let mut scores = testcases.iter().rev().map(|x| x.score).collect::<Vec<_>>();
@@ -130,7 +130,7 @@ impl SubmitController {
                 lang_uid: submit.lang,
                 code: submit.code,
                 memory: submit.memory_limit,
-                time: submit.time_limit as u64,
+                time: submit.time_limit,
                 rule: problem.match_rule,
                 tests,
             })

@@ -52,10 +52,7 @@ impl CpuStatistics {
         let mut rt_us = u64::MAX;
         let mut cpu_us = u64::MAX;
         let mut total_us = u64::MAX;
-        for (key, value) in raw
-            .split('\n')
-            .filter_map(|stmt| stmt.split_once(' '))
-        {
+        for (key, value) in raw.split('\n').filter_map(|stmt| stmt.split_once(' ')) {
             match key {
                 "usage_usec" => total_us = value.parse().unwrap(),
                 "user_usec" => cpu_us = value.parse().unwrap(),

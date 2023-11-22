@@ -62,7 +62,6 @@ pub struct Database {
 
 impl Default for Database {
     fn default() -> Self {
-        let rng = SystemRandom::new();
         Self {
             path: "backend.sqlite".to_owned(),
             salt: "be sure to change it".to_owned(),
@@ -75,7 +74,7 @@ pub async fn init() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)
             .await
-            .expect(&format!("Cannot found ,{}", CONFIG_PATH));
+            .unwrap_or_else(|_| panic!("Cannot found ,{}", CONFIG_PATH));
         config.read_to_end(&mut buf).await.unwrap();
         let config =
             std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
@@ -89,7 +88,10 @@ pub async fn init() {
         fs::write(CONFIG_PATH, config_txt).await.unwrap();
         CONFIG.set(config).ok();
 
-        println!("Config generated, please edit {} before restart", CONFIG_PATH);
+        println!(
+            "Config generated, please edit {} before restart",
+            CONFIG_PATH
+        );
         println!("Finished, exiting...");
         std::process::exit(0);
     }
