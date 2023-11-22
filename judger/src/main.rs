@@ -14,7 +14,7 @@ pub mod test;
 async fn main() {
     init::new().await;
 
-    let config =    CONFIG.get().unwrap()   ;
+    let config =     CONFIG.get().unwrap()   ;
     let addr = config.runtime.bind.parse().unwrap();
 
     log::info!("Server started");
