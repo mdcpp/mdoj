@@ -51,16 +51,19 @@ pub struct PubSub<M, I> {
     outgoing: Mutex<HashMap<I, Receiver<M>>>,
 }
 
+impl<M, I> Default for PubSub<M, I> {
+    fn default() -> Self {
+        PubSub {
+            outgoing: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
 impl<M, I> PubSub<M, I>
 where
     M: Clone + Send + 'static,
     I: Eq + Clone + Hash + Send + 'static,
 {
-    pub fn new() -> Self {
-        PubSub {
-            outgoing: Mutex::new(HashMap::new()),
-        }
-    }
     pub fn stream(
         self: &Arc<Self>,
         mut stream: impl Stream<Item = M> + Unpin + Send + 'static,
@@ -98,7 +101,6 @@ where
                     BroadcastStreamRecvError::Lagged(x) => {
                         log::trace!("PubSub: lagged {} messeges", x)
                     }
-                    _ => log::error!("PubSub: {}", err),
                 })
                 .ok()
             })) as Pin<Box<dyn Stream<Item = M> + Send>>

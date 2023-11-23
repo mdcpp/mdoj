@@ -73,12 +73,6 @@ pub struct Submit {
     code: Vec<u8>,
 }
 
-impl Submit {
-    async fn sent(self, ctrl: &SubmitController) -> Result<i32, Error> {
-        ctrl.submit(self).await
-    }
-}
-
 impl From<i32> for SubmitStatus {
     fn from(value: i32) -> Self {
         SubmitStatus {
@@ -111,7 +105,7 @@ impl SubmitController {
         let config = CONFIG.get().unwrap();
         Ok(SubmitController {
             router: Router::new(&config.judger).await?,
-            pubsub: Arc::new(PubSub::new()),
+            pubsub: Arc::new(PubSub::default()),
         })
     }
     async fn stream(
@@ -138,7 +132,7 @@ impl SubmitController {
             let task = res.task.unwrap();
             match task {
                 judge_response::Task::Case(case) => {
-                    if ps_guard.send(Ok(case.clone().into())).is_err() {
+                    if ps_guard.send(Ok(case.into())).is_err() {
                         log::trace!("client disconnected");
                     }
                     if case != (running_case + 1) {
@@ -232,25 +226,6 @@ impl SubmitController {
     pub async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
         self.pubsub.subscribe(&submit_id)
     }
-    // pub async fn rejudge(&self, submit_id: i32) -> Result<(), Error> {
-    //     let db = DB.get().unwrap();
-    //     let model =
-    //         submit::Entity::find_by_id(submit_id)
-    //             .one(db)
-    //             .await?
-    //             .ok_or(Error::GrpcReport(tonic::Status::failed_precondition(
-    //                 "rejudge error: cannot find submit to rejudge",
-    //             )))?;
-
-    //     let lang = Uuid::parse_str(model.lang.as_str()).map_err(Into::<Error>::into)?;
-    //     let code = model.code;
-    //     let memory = model.memory;
-    //     let time = model.time;
-
-    //     // tokio::spawn(Self::stream(tx, res.into_inner(), submit_model, scores));
-
-    //     Ok(())
-    // }
 }
 
 impl From<Error> for tonic::Status {

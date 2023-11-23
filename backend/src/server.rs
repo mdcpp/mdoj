@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use tokio::fs;
 use tonic::transport;
@@ -35,7 +35,7 @@ impl Server {
         let server = Arc::new(Server {
             token: token::TokenController::new(),
             submit: submit::SubmitController::new().await.unwrap(),
-            dup: DupController::new(),
+            dup: DupController::default(),
         });
 
         transport::Server::builder()

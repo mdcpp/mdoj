@@ -1,14 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ring::rand::SystemRandom;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 
-use crate::init::db::first_migration;
-
 pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
-const CONFIG_PATH: &'static str = "config/config.toml";
+static CONFIG_PATH: &str = "config/config.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GlobalConfig {

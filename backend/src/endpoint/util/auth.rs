@@ -11,10 +11,7 @@ pub enum Auth {
 
 impl Auth {
     pub fn is_guest(&self) -> bool {
-        match self {
-            Auth::Guest => true,
-            _ => false,
-        }
+        matches!(self, Auth::Guest)
     }
     pub fn user_perm(&self) -> Option<UserPermBytes> {
         match self {

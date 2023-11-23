@@ -14,7 +14,7 @@ use crate::init::db::DB;
 use super::Error;
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
-type RAND = [u8; 20];
+type Rand = [u8; 20];
 
 macro_rules! report {
     ($e:expr) => {
@@ -46,7 +46,7 @@ impl From<token::Model> for CachedToken {
 
 pub struct TokenController {
     #[cfg(feature = "single-instance")]
-    cache: Mutex<LruCache<RAND, CachedToken>>,
+    cache: Mutex<LruCache<Rand, CachedToken>>,
     rand: SystemRandom,
     // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
 }
@@ -87,7 +87,7 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = generate(&self.rand).unwrap();
-        let rand: RAND = rand.expose();
+        let rand: Rand = rand.expose();
 
         let expiry = (Local::now() + dur).naive_local();
 
@@ -122,7 +122,7 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = report!(hex::decode(token).ok());
-        let rand: RAND = report!(rand.try_into().ok());
+        let rand: Rand = report!(rand.try_into().ok());
 
         let token: CachedToken;
 
@@ -173,7 +173,7 @@ impl TokenController {
         let db = DB.get().unwrap();
 
         let rand = report!(hex::decode(token).ok());
-        let rand: RAND = report!(rand.try_into().ok());
+        let rand: Rand = report!(rand.try_into().ok());
 
         token::Entity::delete_many()
             .filter(token::Column::Rand.eq(rand.to_vec()))
@@ -198,7 +198,7 @@ macro_rules! set_bit_value {
                 pub fn [<grant_ $name>](&mut self,value:bool){
                     let filter = 1_u64<<($pos);
                     if (self.0&filter == filter) ^ value{
-                        self.0 = self.0 ^ filter;
+                        self.0 ^= filter;
                     }
                 }
             }

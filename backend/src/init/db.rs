@@ -17,7 +17,6 @@ pub async fn init() {
     match Database::connect(&uri).await {
         Ok(db) => {
             DB.set(db).unwrap();
-            return;
         }
         Err(_) => {
             println!("Database connection failed, creating database");

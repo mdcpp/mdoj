@@ -39,7 +39,7 @@ where
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+    fn sort(select: Select<Self>, _: SortBy, _: bool) -> Select<Self> {
         select
     }
     fn get_id(model: &Self::Model) -> i32;
@@ -124,7 +124,7 @@ where
     fn into_raw(self) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
-            ppk: self.ppk.map(|x| x.into()).unwrap_or(0),
+            ppk: self.ppk.unwrap_or(0),
             sort: match self.sort {
                 SearchDep::Text(s) => RawSearchDep::Text(s),
                 SearchDep::Column(sort_by, reverse) => {
@@ -137,7 +137,7 @@ where
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
-            &byte.unwrap(),
+            byte.unwrap(),
         )
     }
     fn from_raw(s: String) -> Result<Pager<E>, Error> {
@@ -161,11 +161,11 @@ where
                     }
                     RawSearchDep::Parent(x) => SearchDep::Parent(x),
                 };
-                return Ok(Pager {
+                Ok(Pager {
                     ppk: Some(pager.ppk),
                     sort,
                     _entity: PhantomData,
-                });
+                })
             }
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
@@ -254,7 +254,7 @@ where
     fn into_raw(self) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
-            ppk: self.ppk.map(|x| x.into()).unwrap_or(0),
+            ppk: self.ppk.unwrap_or(0),
             sort: match self.sort {
                 SearchDep::Text(s) => RawSearchDep::Text(s),
                 SearchDep::Column(sort_by, reverse) => {

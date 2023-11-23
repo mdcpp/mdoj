@@ -60,7 +60,7 @@ impl RelationTrait for Relation {
             Self::TestCase => Entity::has_many(test::Entity).into(),
         }
     }
-}
+} 
 
 impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {

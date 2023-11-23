@@ -9,14 +9,17 @@ pub struct DupController {
     dups: Mutex<LruCache<(i32, Uuid), i32>>,
 }
 
-impl DupController {
-    pub fn new() -> Self {
+impl Default for DupController {
+    fn default() -> Self {
         log::debug!("Setup DupController");
         Self {
             #[cfg(feature = "single-instance")]
             dups: Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap())),
         }
     }
+}
+
+impl DupController {
     pub fn store(&self, user_id: i32, uuid: Uuid, result: i32) {
         #[cfg(feature = "single-instance")]
         self.dups.lock().put((user_id, uuid), result);

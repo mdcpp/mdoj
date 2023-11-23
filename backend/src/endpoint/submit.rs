@@ -3,19 +3,17 @@ use super::tools::*;
 
 use super::util::stream::*;
 use super::util::time::into_prost;
-use crate::controller::submit::Submit;
 use crate::controller::submit::SubmitBuilder;
 use crate::controller::util::code::Code;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;
-use crate::grpc::judger::JudgerCode;
 
 use entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
 
 impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
 
@@ -136,7 +134,7 @@ impl SubmitSet for Arc<Server> {
     ) -> Result<Response<SubmitId>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _) = auth.ok_or_default()?;
 
         let lang = Uuid::parse_str(req.info.lang.as_str()).map_err(Into::<Error>::into)?;
 
