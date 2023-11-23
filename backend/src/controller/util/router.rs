@@ -161,13 +161,12 @@ impl Upstream {
 
         let res = info.into_inner();
 
-        let langs: BTreeMap<String, LangInfo> = match res.langs {
-            Some(x) => x.list,
-            None => Vec::new(),
-        }
-        .into_iter()
-        .map(|x| (x.lang_uid.clone(), x))
-        .collect();
+        let langs: BTreeMap<String, LangInfo> = res
+            .langs
+            .list
+            .into_iter()
+            .map(|x| (x.lang_uid.clone(), x))
+            .collect();
 
         *self.accuracy.write() = res.accuracy;
         *self.langs.write() = langs;

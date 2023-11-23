@@ -18,6 +18,11 @@ use super::proto::prelude::{judger_server::Judger, *};
 
 pub type UUID = String;
 
+fn accuracy() -> u64 {
+    let config = CONFIG.get().unwrap();
+    (1000 * 1000 / config.kernel.kernel_hz) as u64
+}
+
 macro_rules! report {
     ($result:expr,$tx:expr) => {
         match $result {
@@ -58,6 +63,7 @@ macro_rules! report {
                             status: res as i32,
                             max_time: 0,
                             max_mem: 0,
+                            accuracy: accuracy(),
                         })),
                     }))
                     .await
@@ -138,6 +144,7 @@ impl Judger for Server {
                             status: x as i32,
                             max_time: result.time().total_us,
                             max_mem: result.mem().peak,
+                            accuracy: accuracy(),
                         })),
                     }))
                     .await
@@ -153,6 +160,7 @@ impl Judger for Server {
                         } as i32,
                         max_time: result.time().total_us,
                         max_mem: result.mem().peak,
+                        accuracy: accuracy(),
                     })),
                 }))
                 .await
@@ -176,9 +184,9 @@ impl Judger for Server {
         let modules = self.factory.list_module();
 
         Ok(Response::new(JudgeInfo {
-            langs: Some(Langs { list: modules }),
+            langs: Langs { list: modules },
             memory: config.platform.available_memory,
-            accuracy: (1000 * 1000 / config.kernel.kernel_hz) as u64,
+            accuracy: accuracy(),
             cpu_factor: config.platform.cpu_time_multiplier as f32,
         }))
     }

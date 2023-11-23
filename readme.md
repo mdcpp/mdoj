@@ -23,13 +23,19 @@ Performance-oriented contest management system for IOI like contest
 
 ## Quick Start
 
-copy ``docker/simple/docker-compose.yml`` file to your server and run `docker-compose up -d`
-
 > do not use `docker/docker-compose.yml` file, it is for development only
+
+Copy ``docker/simple/docker-compose.yml`` file to your server and run `docker compose up -d`, then open `http://localhost:80` in your browser.
+
+login as `admin@admin` and start play arounds
 
 ## Setup for development
 
-install `cargo`, `just` and `docker`, then run ``just prepare``.
+1. install following package:
+
+- From system package manager: `protobuf-devel`, `autoconf` ,`gettext`, `libtool`, `gcc`, `libcap-devel`, `systemd-devel`, `yajl-devel`, `libgcrypt-devel` ,`glibc-static`, `libseccomp-devel`, `python36`, `git`
+- From rustup: `rustup`, `cargo`, `just`
+- From their website: `docker`, `docker-compose`
 
 Then start reading documents in subfolder of your interest.
 

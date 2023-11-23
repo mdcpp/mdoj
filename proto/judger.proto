@@ -1,25 +1,25 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package oj.judger;
 
 import "google/protobuf/empty.proto";
 
 message JudgeRequest {
-  string lang_uid = 1;
-  bytes code = 2;
+  required string lang_uid = 1;
+  required bytes code = 2;
   // memory limit in byte
-  uint64 memory = 3;
+  required uint64 memory = 3;
   // time limit in nanosecond
-  uint64 time = 4;
-  JudgeMatchRule rule = 5;
+  required uint64 time = 4;
+  required JudgeMatchRule rule = 5;
   // len must > 0
   repeated TestIO tests = 6;
 }
 
 message TestIO {
-  bytes input = 1;
-  bytes output = 2;
-} 
+  required bytes input = 1;
+  required bytes output = 2;
+}
 
 message JudgeResponse {
   oneof task {
@@ -31,11 +31,13 @@ message JudgeResponse {
 
 message JudgeResult {
   // assertion code
-  JudgeResultState status = 1;
+  required JudgeResultState status = 1;
   // the time in nanosecond
-  uint64 max_time = 2;
+  required uint64 max_time = 2;
   // the peak memory usage
-  uint64 max_mem = 3;
+  required uint64 max_mem = 3;
+  // max possible deviation in nanosecond
+  required uint64 accuracy = 4;
 }
 
 enum JudgeResultState {
@@ -74,24 +76,24 @@ message Langs { repeated LangInfo list = 1; }
 // info of a language(extension)
 message LangInfo {
   // unique id
-  string lang_uid = 1;
+  required string lang_uid = 1;
   // human readable name
-  string lang_name = 2;
+  required string lang_name = 2;
   // human readable description
-  string info = 3;
+  required string info = 3;
   // file extension of the language
-  string lang_ext = 4;
+  required string lang_ext = 4;
 }
 
 message JudgeInfo {
   // max support memory in byte
-  uint64 memory = 1;
+  required uint64 memory = 1;
   // max possible deviation in nanosecond
-  uint64 accuracy = 2;
+  required uint64 accuracy = 2;
   // list of supported languages(extension)
-  Langs langs = 3;
+  required Langs langs = 3;
   // cpu factor, the total time limit is calculated by time * cpu_factor
-  float cpu_factor = 4;
+  required float cpu_factor = 4;
 }
 
 service Judger {

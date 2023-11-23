@@ -14,10 +14,10 @@ impl Filter for Entity {
     }
 
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id,perm)=auth.ok_or_default()?;
-            if perm.can_root() || perm.can_manage_user() {
-                return Ok(query);
-            }
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() || perm.can_manage_user() {
+            return Ok(query);
+        }
         Ok(query.filter(Column::Id.eq(user_id)))
     }
 }

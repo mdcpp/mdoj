@@ -90,7 +90,7 @@ message Testcases { repeated TestcaseId list = 1; }
 // Submit
 
 // I don't want to write docs
-enum JudgeResultState {
+enum StateCode{
   AC = 0;
   NA = 1;
   WA = 2;
@@ -101,10 +101,23 @@ enum JudgeResultState {
   MLE = 7;
   OLE = 8;
 }
+message JudgeResult {
+  message Uncommitted{
+
+  }
+  message Committed{
+    required StateCode code=1;
+    required uint64 accuracy=2;
+    required uint64 time=3;
+    required uint64 memory=4;
+  }
+  oneof info{
+    Uncommitted uncommitted=1;
+    Committed committed =2;
+  };
+}
 
 message SubmitId { required int32 id = 1; }
-
-message Submits { repeated SubmitInfo list = 1; }
 
 message SubmitUpload {
   required SubmitId id = 1;
@@ -114,19 +127,13 @@ message SubmitUpload {
 message SubmitInfo {
   required SubmitId id = 1;
   required google.protobuf.Timestamp upload_time = 3;
-  required uint64 time = 4;
-  required uint64 peak_mem = 5;
   required uint32 score = 6;
   required JudgeResult state = 7;
 }
 
-message JudgeResult {
-  // assertion code
-  required JudgeResultState status = 1;
-  // the time in nanosecond
-  optional uint64 max_time = 2;
-  // the peak memory usage
-  optional uint64 max_mem = 3;
+message ListSubmitResponse {
+  repeated SubmitInfo list = 1;
+  required string next_session = 2;
 }
 
 message SubmitStatus {
@@ -154,12 +161,13 @@ message RejudgeRequest {
 }
 
 service SubmitSet {
-  rpc List(ListRequest) returns (Submits);
-  rpc SearchByText(TextSearchRequest) returns (Submits);
+  rpc List(ListRequest) returns (ListSubmitResponse);
   rpc Info(SubmitId) returns (SubmitInfo);
 
   rpc Create(CreateSubmitRequest) returns (SubmitId);
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
+
+  rpc ListByProblem(ListByRequest) returns (ListSubmitResponse);
 
   // are not guarantee to yield status
   rpc Follow(SubmitId) returns (stream SubmitStatus);

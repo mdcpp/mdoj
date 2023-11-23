@@ -517,3 +517,30 @@ impl PagerTrait for user::Entity {
         user::Entity::read_filter(select, auth)
     }
 }
+#[tonic::async_trait]
+impl PagerTrait for submit::Entity {
+    const TYPE_NUMBER: i32 = 539267;
+
+    const COL_ID: Self::Column = submit::Column::Id;
+
+    const COL_TEXT: &'static [Self::Column] = &[submit::Column::Id];
+
+    const COL_SELECT: &'static [Self::Column] = &[
+        submit::Column::Committed,
+        submit::Column::Id,
+        submit::Column::Time,
+        submit::Column::Memory,
+        submit::Column::PassCase,
+        submit::Column::UploadAt,
+    ];
+
+    type ParentMarker = HasParent<problem::Entity>;
+
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        submit::Entity::read_filter(select, auth)
+    }
+}

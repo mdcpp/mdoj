@@ -12,9 +12,11 @@ pub struct Model {
     pub user_id: Option<i32>,
     pub problem_id: i32,
     #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp", indexed)]
-    pub upload: DateTime,
+    pub upload_at: DateTime,
     #[sea_orm(nullable, indexed)]
     pub time: Option<u64>,
+    #[sea_orm(nullable)]
+    pub accuracy: Option<u64>,
     #[sea_orm(default_value = "false")]
     pub committed: bool,
     pub lang: String,
