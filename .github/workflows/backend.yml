@@ -1,4 +1,4 @@
-name: test and fmt
+name: backend ci
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: test and fmt
+name: judger ci
 
 on:
   push:
