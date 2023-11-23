@@ -31,16 +31,16 @@ message JudgeResponse {
 
 message JudgeResult {
   // assertion code
-  required JudgeResultState status = 1;
+  required JudgerCode status = 1;
   // the time in nanosecond
-  required uint64 max_time = 2;
+  required uint64 time = 2;
   // the peak memory usage
-  required uint64 max_mem = 3;
+  required uint64 memory = 3;
   // max possible deviation in nanosecond
   required uint64 accuracy = 4;
 }
 
-enum JudgeResultState {
+enum JudgerCode {
   // Runtime Error
   RE = 0;
   // Unknown

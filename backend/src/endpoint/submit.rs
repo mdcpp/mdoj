@@ -3,8 +3,11 @@ use super::tools::*;
 
 use super::util::stream::*;
 use super::util::time::into_prost;
+use crate::controller::util::code::Code;
 use crate::grpc::backend::submit_set_server::*;
+use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;
+use crate::grpc::judger::JudgerCode;
 
 use entity::{submit::*, *};
 
@@ -38,15 +41,17 @@ impl From<SubmitId> for i32 {
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
         // TODO: solve devation aand uncommitted submit!
-        let state: JudgeResult = match value.committed {
-            true => todo!(),
-            false => todo!(),
-        };
+        let db_code: Code = value.status.try_into().unwrap();
         SubmitInfo {
             id: value.id.into(),
             upload_time: into_prost(value.upload_at),
             score: value.score,
-            state,
+            state: JudgeResult {
+                code: Into::<BackendCode>::into(db_code).into(),
+                accuracy: value.accuracy,
+                time: value.time,
+                memory: value.memory,
+            },
         }
     }
 }
@@ -86,11 +91,38 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, tonic::Status> {
-        todo!()
+        let (auth, req) = self.parse_request(req).await?;
+
+        let mut reverse = false;
+        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::Pager(old) => {
+                reverse = old.reverse;
+                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?
+            }
+        };
+
+        let list = pager
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
+            .await?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_session = pager.into_raw();
+
+        Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
 
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        todo!()
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        let model=Entity::read_filter(Entity::find_by_id(req.id), &auth)?
+            .one(db)
+            .await.map_err(Into::<Error>::into)?.ok_or(Error::NotInDB("submit"))?;
+
+        Ok(Response::new(model.into()))
     }
 
     async fn create(

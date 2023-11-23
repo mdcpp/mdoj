@@ -65,7 +65,7 @@ async fn full() {
     match res2.unwrap() {
         Task::Case(_) => panic!("expect Result"),
         Task::Result(result) => {
-            assert_eq!(result.status, JudgeResultState::Ac as i32);
+            assert_eq!(result.status, JudgerCode::Ac as i32);
         }
     }
     server.abort();

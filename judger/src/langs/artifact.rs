@@ -94,7 +94,7 @@ impl ArtifactFactory {
         let process = process.wait().await?;
 
         if !process.succeed() {
-            return Err(Error::Report(JudgeResultState::Ce));
+            return Err(Error::Report(JudgerCode::Ce));
         }
 
         Ok(CompiledArtifact {
@@ -152,7 +152,7 @@ impl<'a> CompiledArtifact<'a> {
         let process = process.wait().await?;
 
         if !process.succeed() {
-            return Err(Error::Report(JudgeResultState::Re));
+            return Err(Error::Report(JudgerCode::Re));
         }
 
         Ok(TaskResult {
@@ -169,17 +169,17 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
-    pub fn get_expection(&self) -> Option<JudgeResultState> {
+    pub fn get_expection(&self) -> Option<JudgerCode> {
         match self.process.status {
-            ExitStatus::SigExit => Some(JudgeResultState::Rf),
+            ExitStatus::SigExit => Some(JudgerCode::Rf),
             ExitStatus::Code(code) => match code {
                 0 | 5 | 6 | 9 | 255 => None,
-                137 => Some(JudgeResultState::Na),
-                _ => Some(JudgeResultState::Rf),
+                137 => Some(JudgerCode::Na),
+                _ => Some(JudgerCode::Rf),
             },
-            ExitStatus::MemExhausted => Some(JudgeResultState::Mle),
-            ExitStatus::CpuExhausted => Some(JudgeResultState::Tle),
-            ExitStatus::SysError => Some(JudgeResultState::Na),
+            ExitStatus::MemExhausted => Some(JudgerCode::Mle),
+            ExitStatus::CpuExhausted => Some(JudgerCode::Tle),
+            ExitStatus::SysError => Some(JudgerCode::Na),
         }
     }
     pub fn assert(&self, input: &[u8], mode: JudgeMatchRule) -> bool {

@@ -16,7 +16,7 @@ static MEMID: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub struct MemoryStatistic {
     pub available_mem: u64,
-    pub max_mem: u64,
+    pub memory: u64,
     pub tasks: u64,
 }
 
@@ -39,7 +39,7 @@ impl MemorySemaphore {
         let self_ = self.0.lock();
         MemoryStatistic {
             available_mem: self_.memory,
-            max_mem: self_.all_mem,
+            memory: self_.all_mem,
             tasks: self_.tasks,
         }
     }

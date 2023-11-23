@@ -4,19 +4,20 @@ pub mod prelude {
 
 use std::fmt::Display;
 
-impl Display for prelude::JudgeResultState {
+impl Display for prelude::JudgerCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
-            prelude::JudgeResultState::Ac => "Accepted",
-            prelude::JudgeResultState::Na => "Unknown",
-            prelude::JudgeResultState::Wa => "Wrong Answer",
-            prelude::JudgeResultState::Ce => "Compile Error",
-            prelude::JudgeResultState::Re => "Runtime Error",
-            prelude::JudgeResultState::Rf => "Restricted Function",
-            prelude::JudgeResultState::Tle => "Time Limit Excess",
-            prelude::JudgeResultState::Mle => "Memory Limit Excess",
-            prelude::JudgeResultState::Ole => "Output Limit Excess",
+            prelude::JudgerCode::Ac => "Accepted",
+            prelude::JudgerCode::Na => "Unknown",
+            prelude::JudgerCode::Wa => "Wrong Answer",
+            prelude::JudgerCode::Ce => "Compile Error",
+            prelude::JudgerCode::Re => "Runtime Error",
+            prelude::JudgerCode::Rf => "Restricted Function",
+            prelude::JudgerCode::Tle => "Time Limit Excess",
+            prelude::JudgerCode::Mle => "Memory Limit Excess",
+            prelude::JudgerCode::Ole => "Output Limit Excess",
         };
         write!(f, "{}", message)
     }
 }
+ 

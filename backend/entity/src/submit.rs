@@ -25,6 +25,7 @@ pub struct Model {
     pub memory: Option<u64>,
     #[sea_orm(default_value = 0, indexed)]
     pub pass_case: i32,
+    pub status: u32,
     #[sea_orm(default_value = false)]
     pub accept: bool,
     #[sea_orm(default_value = 0, indexed)]

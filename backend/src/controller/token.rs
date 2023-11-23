@@ -116,7 +116,7 @@ impl TokenController {
     //     }
     //     return Ok(None);
     // }
-    // #[instrument(skip_all, name = "token_verify")]
+    #[instrument(skip_all, name = "token_verify")]
     pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();

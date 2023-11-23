@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{grpc::proto::prelude::JudgeResultState, sandbox};
+use crate::{grpc::proto::prelude::JudgerCode, sandbox};
 
 pub mod artifact;
 pub mod spec;
@@ -35,7 +35,7 @@ pub enum Error {
     #[error("Bad Request: `{0}`")]
     BadRequest(#[from] RequestError),
     #[error("Report the result to client")]
-    Report(JudgeResultState),
+    Report(JudgerCode),
 }
 
 impl From<sandbox::Error> for Error {
@@ -43,12 +43,12 @@ impl From<sandbox::Error> for Error {
         match value {
             sandbox::Error::ImpossibleResource
             | sandbox::Error::Stall
-            | sandbox::Error::CapturedPipe => Error::Report(JudgeResultState::Re),
+            | sandbox::Error::CapturedPipe => Error::Report(JudgerCode::Re),
             sandbox::Error::IO(_)
             | sandbox::Error::ControlGroup(_)
             | sandbox::Error::Libc(_)
             | sandbox::Error::CGroup => Error::Internal(InternalError::JailError(value)),
-            sandbox::Error::BufferFull => Error::Report(JudgeResultState::Ole),
+            sandbox::Error::BufferFull => Error::Report(JudgerCode::Ole),
         }
     }
 }

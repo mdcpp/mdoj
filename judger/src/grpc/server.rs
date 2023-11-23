@@ -61,8 +61,8 @@ macro_rules! report {
                     $tx.send(Ok(JudgeResponse {
                         task: Some(judge_response::Task::Result(JudgeResult {
                             status: res as i32,
-                            max_time: 0,
-                            max_mem: 0,
+                            time: 0,
+                            memory: 0,
                             accuracy: accuracy(),
                         })),
                     }))
@@ -134,7 +134,6 @@ impl Judger for Server {
                 .await
                 .ok();
 
-                running_task += 1;
 
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
@@ -142,8 +141,8 @@ impl Judger for Server {
                     tx.send(Ok(JudgeResponse {
                         task: Some(judge_response::Task::Result(JudgeResult {
                             status: x as i32,
-                            max_time: result.time().total_us,
-                            max_mem: result.mem().peak,
+                            time: result.time().total_us,
+                            memory: result.mem().peak,
                             accuracy: accuracy(),
                         })),
                     }))
@@ -155,16 +154,17 @@ impl Judger for Server {
                 tx.send(Ok(JudgeResponse {
                     task: Some(judge_response::Task::Result(JudgeResult {
                         status: match result.assert(&task.output, mode) {
-                            true => JudgeResultState::Ac,
-                            false => JudgeResultState::Wa,
-                        } as i32,
-                        max_time: result.time().total_us,
-                        max_mem: result.mem().peak,
+                            true => JudgerCode::Ac,
+                            false => JudgerCode::Wa,
+                        } as i32, 
+                        time: result.time().total_us,
+                        memory: result.mem().peak,
                         accuracy: accuracy(),
                     })),
                 }))
                 .await
                 .ok();
+                running_task += 1;
             }
         });
 
