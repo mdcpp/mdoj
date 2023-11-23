@@ -69,13 +69,40 @@ impl From<Model> for TestcaseInfo {
 
 #[async_trait]
 impl TestcaseSet for Arc<Server> {
+    async fn list(
+        &self,
+        req: Request<ListRequest>,
+    ) -> Result<Response<ListTestcaseResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
+
+        let mut reverse = false;
+        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_request::Request::Create(create) => {
+                Pager::sort_search(create.sort_by(), create.reverse)
+            }
+            list_request::Request::Pager(old) => {
+                reverse = old.reverse;
+                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?
+            }
+        };
+
+        let list = pager
+            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
+            .await?
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+
+        let next_session = pager.into_raw();
+
+        Ok(Response::new(ListTestcaseResponse { list, next_session }))
+    }
     async fn create(
         &self,
         req: Request<CreateTestcaseRequest>,
     ) -> Result<Response<TestcaseId>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
@@ -101,7 +128,6 @@ impl TestcaseSet for Arc<Server> {
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

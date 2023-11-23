@@ -427,6 +427,8 @@ message UpdateTestcaseRequest {
 }
 // Testcase
 service TestcaseSet {
+  // list owned testcase
+  rpc List(ListRequest) returns (ListTestcaseResponse);
   rpc Create(CreateTestcaseRequest) returns (TestcaseId);
   rpc Update(UpdateTestcaseRequest) returns (google.protobuf.Empty);
   rpc Remove(TestcaseId) returns (google.protobuf.Empty);
@@ -529,7 +531,7 @@ message UserId { required int32 id = 1; }
 
 message UserInfo {
   required string username = 1;
-  required int32 score = 2;
+  required uint32 score = 2;
   required UserId id = 3;
 }
 
@@ -546,19 +548,40 @@ message ListUserResponse {
 message CreateUserRequest {
   message Info {
     required string username = 1;
-    required bytes raw_pwd = 2;
+    required string password = 2;
+    required Permission permission = 3;
   }
   required Info info = 1;
   required UserId id = 2;
+  required string request_id = 3;
+}
+
+message Permission {
+  required bool can_manage_contest = 1;
+  required bool can_manage_problem = 2;
+  required bool can_manage_announcement = 3;
+  required bool can_manage_education = 4;
+  required bool can_manage_user = 5;
+  required bool can_root = 6;
+  required bool can_link = 7;
+  required bool can_publish = 8;
+
 }
 
 message UpdateUserRequest {
   message Info {
     optional string username = 1;
-    optional bytes raw_pwd = 2;
+    optional string password = 2;
+    optional Permission permission = 3;
   }
   required Info info = 1;
   required UserId id = 2;
+  required string request_id = 3;
+}
+
+message UpdatePasswordRequest {
+  required UserId id = 1;
+  required string password = 2;
   required string request_id = 3;
 }
 
@@ -567,9 +590,11 @@ service UserSet {
   rpc SearchByText(TextSearchRequest) returns (ListUserResponse);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
-  rpc Create(CreateUserRequest) returns (google.protobuf.Empty);
+  rpc Create(CreateUserRequest) returns (UserId);
   rpc Update(UpdateUserRequest) returns (google.protobuf.Empty);
   rpc Remove(UserId) returns (google.protobuf.Empty);
+
+  rpc UpdatePassword(UpdatePasswordRequest) returns (google.protobuf.Empty);
 }
 
 message TokenInfo {

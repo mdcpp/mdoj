@@ -488,6 +488,32 @@ impl PagerTrait for contest::Entity {
         model.id
     }
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
-        todo!()
+        contest::Entity::read_filter(select, auth)
+    }
+}
+
+#[tonic::async_trait]
+impl PagerTrait for user::Entity {
+    const TYPE_NUMBER: i32 = 1929833;
+
+    const COL_ID: Self::Column = user::Column::Id;
+
+    const COL_TEXT: &'static [Self::Column] = &[user::Column::Username];
+
+    const COL_SELECT: &'static [Self::Column] = &[
+        user::Column::Id,
+        user::Column::Username,
+        user::Column::Permission,
+        user::Column::CreateAt,
+    ];
+
+    type ParentMarker = NoParent;
+
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        user::Entity::read_filter(select, auth)
     }
 }

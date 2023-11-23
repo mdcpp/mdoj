@@ -9,6 +9,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
     pub permission: u64,
+    #[sea_orm(indexed)]
+    pub score: u32,
     pub username: String,
     pub password: Vec<u8>,
     #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]

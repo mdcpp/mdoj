@@ -206,7 +206,7 @@ macro_rules! set_bit_value {
     };
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct UserPermBytes(pub u64);
 
 impl UserPermBytes {
@@ -223,3 +223,4 @@ set_bit_value!(UserPermBytes, manage_submit, 4);
 set_bit_value!(UserPermBytes, publish, 5);
 set_bit_value!(UserPermBytes, link, 6);
 set_bit_value!(UserPermBytes, manage_contest, 7);
+set_bit_value!(UserPermBytes, manage_user, 8);
