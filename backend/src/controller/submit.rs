@@ -3,6 +3,7 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
+use uuid::Uuid;
 
 use crate::{
     grpc::{
@@ -68,7 +69,7 @@ pub struct Submit {
     problem: i32,
     time_limit: u64,
     memory_limit: u64,
-    lang: String,
+    lang: Uuid,
     code: Vec<u8>,
 }
 
@@ -192,7 +193,7 @@ impl SubmitController {
             user_id: ActiveValue::Set(Some(submit.user)),
             problem_id: ActiveValue::Set(submit.user),
             committed: ActiveValue::Set(false),
-            lang: ActiveValue::Set(submit.lang.clone()),
+            lang: ActiveValue::Set(submit.lang.clone().to_string()),
             code: ActiveValue::Set(submit.code.clone()),
             memory: ActiveValue::Set(Some(submit.memory_limit)),
             ..Default::default()
@@ -215,7 +216,7 @@ impl SubmitController {
 
         let res = conn
             .judge(JudgeRequest {
-                lang_uid: submit.lang,
+                lang_uid: submit.lang.to_string(),
                 code: submit.code,
                 memory: submit.memory_limit,
                 time: submit.time_limit,
@@ -228,7 +229,40 @@ impl SubmitController {
 
         Ok(submit_id)
     }
-    async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
+    pub async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
         self.pubsub.subscribe(&submit_id)
+    }
+    // pub async fn rejudge(&self, submit_id: i32) -> Result<(), Error> {
+    //     let db = DB.get().unwrap();
+    //     let model =
+    //         submit::Entity::find_by_id(submit_id)
+    //             .one(db)
+    //             .await?
+    //             .ok_or(Error::GrpcReport(tonic::Status::failed_precondition(
+    //                 "rejudge error: cannot find submit to rejudge",
+    //             )))?;
+
+    //     let lang = Uuid::parse_str(model.lang.as_str()).map_err(Into::<Error>::into)?;
+    //     let code = model.code;
+    //     let memory = model.memory;
+    //     let time = model.time;
+
+    //     // tokio::spawn(Self::stream(tx, res.into_inner(), submit_model, scores));
+
+    //     Ok(())
+    // }
+}
+
+impl From<Error> for tonic::Status {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::JudgerUnavailable => todo!(),
+            Error::HealthCheck => todo!(),
+            Error::GrpcReport(_) => todo!(),
+            Error::BadArgument(_) => todo!(),
+            Error::Database(_) => todo!(),
+            Error::Tonic(_) => todo!(),
+            Error::Internal(_) => todo!(),
+        }
     }
 }

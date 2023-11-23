@@ -3,6 +3,8 @@ use super::tools::*;
 
 use super::util::stream::*;
 use super::util::time::into_prost;
+use crate::controller::submit::Submit;
+use crate::controller::submit::SubmitBuilder;
 use crate::controller::util::code::Code;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
@@ -10,6 +12,7 @@ use crate::grpc::backend::*;
 use crate::grpc::judger::JudgerCode;
 
 use entity::{submit::*, *};
+use tokio_stream::wrappers::ReceiverStream;
 
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
@@ -90,7 +93,7 @@ impl SubmitSet for Arc<Server> {
     async fn list_by_problem(
         &self,
         req: Request<ListByRequest>,
-    ) -> Result<Response<ListSubmitResponse>, tonic::Status> {
+    ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
@@ -118,9 +121,11 @@ impl SubmitSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let model=Entity::read_filter(Entity::find_by_id(req.id), &auth)?
+        let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
-            .await.map_err(Into::<Error>::into)?.ok_or(Error::NotInDB("submit"))?;
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("submit"))?;
 
         Ok(Response::new(model.into()))
     }
@@ -129,31 +134,121 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<CreateSubmitRequest>,
     ) -> Result<Response<SubmitId>, Status> {
-        todo!()
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        let lang = Uuid::parse_str(req.info.lang.as_str()).map_err(Into::<Error>::into)?;
+
+        let problem = problem::Entity::find_by_id(req.info.problem_id)
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("problem"))?;
+
+        if !problem.public {
+            problem
+                .find_related(contest::Entity)
+                .one(db)
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB("contest"))?
+                .find_related(user::Entity)
+                .one(db)
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB("user"))?;
+        }
+
+        // if problem
+
+        let submit = SubmitBuilder::default()
+            .code(req.info.code)
+            .lang(lang)
+            .time_limit(problem.time)
+            .memory_limit(problem.memory)
+            .user(user_id)
+            .problem(problem.id)
+            .build()
+            .unwrap();
+
+        Ok(Response::new(self.submit.submit(submit).await?.into()))
     }
 
-    async fn remove(
-        &self,
-        req: Request<SubmitId>,
-    ) -> std::result::Result<tonic::Response<()>, Status> {
-        todo!()
+    async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+
+        if !auth.is_root() {
+            return Err(Error::PremissionDeny("only root can remove submit").into());
+        }
+
+        Entity::delete_by_id(req.id)
+            .exec(db)
+            .await
+            .map_err(Into::<Error>::into)?;
+
+        Ok(Response::new(()))
     }
 
     #[doc = " Server streaming response type for the Follow method."]
     type FollowStream = TonicStream<SubmitStatus>;
 
     #[doc = " are not guarantee to yield status"]
-    async fn follow(
-        &self,
-        req: Request<SubmitId>,
-    ) -> std::result::Result<tonic::Response<Self::FollowStream>, Status> {
-        todo!()
+    async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
+        let (_, req) = self.parse_request(req).await?;
+
+        Ok(Response::new(
+            self.submit.follow(req.id).await.unwrap_or_else(|| {
+                Box::pin(ReceiverStream::new(tokio::sync::mpsc::channel(16).1))
+                    as Self::FollowStream
+            }),
+        ))
     }
 
-    async fn rejudge(
-        &self,
-        req: Request<RejudgeRequest>,
-    ) -> std::result::Result<tonic::Response<()>, Status> {
-        todo!()
+    async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        let submit_id = req.id.id;
+
+        if !(perm.can_root() || perm.can_manage_submit()) {
+            return Err(Error::PremissionDeny("Can't update problem").into());
+        }
+
+        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
+        if self.dup.check(user_id, &uuid).is_some() {
+            return Ok(Response::new(()));
+        };
+
+        let submit = submit::Entity::find_by_id(submit_id)
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("submit"))?;
+
+        let problem = submit
+            .find_related(problem::Entity)
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("problem"))?;
+
+        let rejudge = SubmitBuilder::default()
+            .problem(user_id)
+            .problem(problem.id)
+            .memory_limit(problem.memory)
+            .time_limit(problem.time)
+            .code(submit.code)
+            .lang(Uuid::parse_str(&submit.lang).map_err(Error::InvaildUUID)?)
+            .build()
+            .unwrap();
+
+        self.submit.submit(rejudge).await?;
+
+        self.dup.store(user_id, uuid, submit_id);
+
+        Ok(Response::new(()))
     }
 }

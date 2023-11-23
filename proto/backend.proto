@@ -139,6 +139,7 @@ message CreateSubmitRequest {
   message Info {
     required bytes code = 1;
     required ProblemId problem_id = 2;
+    required string lang=3;
   }
   required Info info = 1;
   required SubmitId id = 2;

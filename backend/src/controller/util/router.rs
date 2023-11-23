@@ -9,6 +9,7 @@ use std::{
 
 use spin::{Mutex, RwLock};
 use tonic::*;
+use uuid::Uuid;
 
 use crate::{
     grpc::judger::{judger_client::*, *},
@@ -24,7 +25,7 @@ const HEALTHCHECK_DURATION: std::time::Duration = std::time::Duration::from_secs
 pub struct RouteRequest {
     pub match_rule: JudgeMatchRule,
     pub code: Vec<u8>,
-    pub language: String,
+    pub language: Uuid,
 }
 
 type AuthIntercept = JudgerClient<
@@ -122,7 +123,7 @@ impl ConnPool {
 struct Upstream {
     config: Arc<config::Judger>,
     pool: Arc<ConnPool>,
-    langs: RwLock<BTreeMap<String, LangInfo>>,
+    langs: RwLock<BTreeMap<Uuid, LangInfo>>,
     accuracy: RwLock<u64>,
 }
 
@@ -161,11 +162,11 @@ impl Upstream {
 
         let res = info.into_inner();
 
-        let langs: BTreeMap<String, LangInfo> = res
+        let langs: BTreeMap<Uuid, LangInfo> = res
             .langs
             .list
             .into_iter()
-            .map(|x| (x.lang_uid.clone(), x))
+            .filter_map(|x| Some((Uuid::parse_str(&x.lang_uid).ok()?, x)))
             .collect();
 
         *self.accuracy.write() = res.accuracy;
@@ -207,7 +208,7 @@ impl Router {
             next_entry: AtomicUsize::new(0),
         }))
     }
-    pub async fn get(&self, uid: &String) -> Result<ConnGuard, Error> {
+    pub async fn get(&self, uid: &Uuid) -> Result<ConnGuard, Error> {
         let server_count = self.upstreams.len();
         for _ in 0..(server_count * 2 + 1) {
             let next = self.next_entry.fetch_add(1, Ordering::Relaxed) % server_count;
