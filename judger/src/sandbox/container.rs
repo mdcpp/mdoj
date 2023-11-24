@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use tokio::fs;
 
@@ -8,6 +11,8 @@ use crate::{
 };
 
 use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};
+
+static CG_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 // Container abstraction, call nsjail to execute process, limiter to limit resources
 // expect downstream(daemon) setup up and clear tmp files
@@ -32,7 +37,11 @@ impl<'a> Container<'a> {
 
         log::trace!("Preparing container with id :{} for new process", self.id);
 
-        let cg_name = format!("{}{}", config.runtime.root_cgroup, self.id);
+        let cg_name = format!(
+            "{}{}",
+            config.runtime.root_cgroup,
+            CG_COUNTER.fetch_add(1, Ordering::Acquire)
+        );
 
         let reversed_memory = limit.user_mem + limit.kernel_mem;
         let output_limit = config.platform.output_limit as u64;

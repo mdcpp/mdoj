@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering}, fs::Permissions, os::unix::fs::PermissionsExt,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use tokio::fs;

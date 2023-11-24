@@ -17,5 +17,5 @@ total_time = 10000000
 command = ["/src/src.out"]
 kernel_mem = 67108864
 multiplier_memory = 1 # user_mem
-rt_time = 100000
+rt_time = 1000000
 multiplier_cpu = 1 # cpu_time

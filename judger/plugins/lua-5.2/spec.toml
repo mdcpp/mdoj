@@ -17,5 +17,5 @@ total_time = 10000000
 command = ["/usr/local/bin/lua", "/execute.lua"]
 kernel_mem = 67108864
 multiplier_memory = 6 # user_mem
-rt_time = 100000
+rt_time = 1000000
 multiplier_cpu = 3 # cpu_time

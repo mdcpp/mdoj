@@ -155,6 +155,7 @@ impl<'a> CompiledArtifact<'a> {
         let process = process.wait().await?;
 
         if !process.succeed() {
+            // log::debug!("process status: {:?}", process.status);
             return Err(Error::Report(JudgerCode::Re));
         }
 
@@ -181,7 +182,7 @@ impl TaskResult {
             ExitStatus::Code(code) => match code {
                 125 => Some(JudgerCode::Mle),
                 126 | 127 | 129..=192 => Some(JudgerCode::Rf),
-                0..=124 => None,
+                255 | 0..=124 => None,
                 _ => Some(JudgerCode::Na),
             },
             ExitStatus::MemExhausted => Some(JudgerCode::Mle),

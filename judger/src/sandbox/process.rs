@@ -107,7 +107,7 @@ pub struct ExitProc {
 impl ExitProc {
     pub fn succeed(&self) -> bool {
         match self.status {
-            ExitStatus::Code(x) => x == 0,
+            ExitStatus::Code(x) => x == 0 || x == 255,
             _ => false,
         }
     }

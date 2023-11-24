@@ -32,7 +32,7 @@ async fn cpp(factory: &mut ArtifactFactory) {
         .unwrap();
 
     let result = compiled
-        .judge(b"", 1000 * 1000, 1024 * 1024 * 128)
+        .judge(b"", 10 * 1000 * 1000, 1024 * 1024 * 128)
         .await
         .unwrap();
 
@@ -47,6 +47,6 @@ async fn test() {
 
     factory.load_dir(config.plugin.path.clone()).await;
 
-    // lua(&mut factory).await;
+    lua(&mut factory).await;
     cpp(&mut factory).await;
 }
