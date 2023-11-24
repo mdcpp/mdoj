@@ -49,6 +49,11 @@ impl LimitBuilder {
         self.cmds.push(Cow::Borrowed("--cgroup_mem_swap_max"));
         self.cmds.push(Cow::Borrowed("0"));
         self.cmds.push(Cow::Borrowed("--disable_clone_newcgroup"));
+        self.cmds.push(Cow::Borrowed("--user"));
+        self.cmds.push(Cow::Borrowed("9999"));
+        self.cmds.push(Cow::Borrowed("--group"));
+        self.cmds.push(Cow::Borrowed("9999"));
+
         NaJailBuilder { cmds: self.cmds }
     }
 }
@@ -92,7 +97,7 @@ impl MountBuilder {
         let source = source.to_str().unwrap();
         let dist = vol.as_ref();
 
-        self.cmds.push(Cow::Owned(format!("{}:{}", source, dist)));
+        self.cmds.push(Cow::Owned(format!("{}:/{}", source, dist)));
 
         self
     }
@@ -185,7 +190,11 @@ impl NsJail {
         let root = root.as_ref().canonicalize().unwrap();
         let root = root.to_str().unwrap();
         LimitBuilder {
-            cmds: vec![Cow::Borrowed("--chroot"), Cow::Owned(root.to_owned())],
+            cmds: vec![
+                Cow::Borrowed("--rw"),
+                Cow::Borrowed("--chroot"),
+                Cow::Owned(root.to_owned()),
+            ],
         }
     }
     pub async fn wait(&self) -> TermStatus {

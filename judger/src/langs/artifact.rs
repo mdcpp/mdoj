@@ -94,6 +94,8 @@ impl ArtifactFactory {
         let process = process.wait().await?;
 
         if !process.succeed() {
+            #[cfg(debug_assertions)]
+            log::debug!("stdout: {}", String::from_utf8_lossy(&process.stdout));
             return Err(Error::Report(JudgerCode::Ce));
         }
 

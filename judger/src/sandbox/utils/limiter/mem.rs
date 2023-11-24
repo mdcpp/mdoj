@@ -1,6 +1,6 @@
 use cgroups_rs::{memory::MemController, Cgroup};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct MemStatistics {
     pub oom: bool,
     pub peak: u64,

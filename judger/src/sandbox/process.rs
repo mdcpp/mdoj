@@ -96,6 +96,7 @@ impl RunningProc {
     }
 }
 
+#[derive(Debug)]
 pub struct ExitProc {
     pub status: ExitStatus,
     pub stdout: Vec<u8>,

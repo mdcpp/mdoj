@@ -47,7 +47,7 @@ impl<'a> Container<'a> {
             .cgroup(&cg_name)
             .done()
             .presist_vol(&self.id)
-            .mount("src", limit.lockdown)
+            .mount("src", false)
             .done()
             .common()
             .cmds(args)

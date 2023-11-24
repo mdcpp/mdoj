@@ -5,6 +5,9 @@
 #include <spawn.h>
 #include <errno.h>
 #include <sys/wait.h>
+// #define CC "/usr/lib64/ccache/g++"
+// #define SRC "src.cpp"
+// #define OUT "src.out"
 #define CC "/usr/local/bin/g++"
 #define SRC "/src/src.cpp"
 #define OUT "/src/src.out"
@@ -13,6 +16,11 @@
 int main()
 {
     FILE *source = fopen(SRC, "w");
+    if (source == NULL)
+    {
+        printf("2: %m\n", errno);
+        return 1;
+    }
 
     char *code = malloc(MAX_SIZE * sizeof(char));
     size_t len = fread(code, sizeof(char), MAX_SIZE, stdin);
@@ -21,10 +29,10 @@ int main()
     fclose(source);
 
     char *args[] = {CC, SRC, "-lm", "-o", OUT, NULL};
-    int pid, status, spawn_ret;
-    if (execvp(CC, args) != -1)
+    int pid, status;
+    if (execv(CC, args) != -1)
     {
-        printf("1: success execvp!\n");
+        printf("1: success execv!\n");
         if (wait(NULL) != -1)
         {
             printf("0: success!\n");
