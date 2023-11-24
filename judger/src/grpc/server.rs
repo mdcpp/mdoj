@@ -134,7 +134,6 @@ impl Judger for Server {
                 .await
                 .ok();
 
-
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
                 if let Some(x) = result.get_expection() {
@@ -156,7 +155,7 @@ impl Judger for Server {
                         status: match result.assert(&task.output, mode) {
                             true => JudgerCode::Ac,
                             false => JudgerCode::Wa,
-                        } as i32, 
+                        } as i32,
                         time: result.time().total_us,
                         memory: result.mem().peak,
                         accuracy: accuracy(),

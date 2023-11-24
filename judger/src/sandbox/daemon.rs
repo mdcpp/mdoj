@@ -36,7 +36,7 @@ impl ContainerDaemon {
         }
     }
     pub async fn create(&self, root: impl AsRef<Path>) -> Result<Container<'_>, Error> {
-        let id = self.id_counter.fetch_add(1, Ordering::Release).to_string();
+        let id = self.id_counter.fetch_add(1, Ordering::Acquire).to_string();
         log::trace!("Creating new container: {}", id);
         let container_root = self.tmp.join(id.clone());
 

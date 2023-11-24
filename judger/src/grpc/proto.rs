@@ -20,4 +20,3 @@ impl Display for prelude::JudgerCode {
         write!(f, "{}", message)
     }
 }
- 
