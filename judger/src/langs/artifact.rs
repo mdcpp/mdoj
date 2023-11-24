@@ -96,6 +96,7 @@ impl ArtifactFactory {
         if !process.succeed() {
             #[cfg(debug_assertions)]
             log::debug!("stdout: {}", String::from_utf8_lossy(&process.stdout));
+            dbg!(process.status);
             return Err(Error::Report(JudgerCode::Ce));
         }
 

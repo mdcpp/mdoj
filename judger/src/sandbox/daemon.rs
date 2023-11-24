@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicU64, Ordering}, fs::Permissions, os::unix::fs::PermissionsExt,
 };
 
 use tokio::fs;
@@ -42,6 +42,7 @@ impl ContainerDaemon {
 
         fs::create_dir(container_root.clone()).await?;
         fs::create_dir(container_root.clone().join("src")).await?;
+        // fs::set_permissions(container_root.clone().join("src"), Permissions::from_mode(0o777)).await?;
 
         Ok(Container {
             id,

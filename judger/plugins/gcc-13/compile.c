@@ -20,7 +20,8 @@ int main()
     {
         printf("2: %m\n", errno);
         return 1;
-    }
+    }else
+        printf("1: success create file!\n");
 
     char *code = malloc(MAX_SIZE * sizeof(char));
     size_t len = fread(code, sizeof(char), MAX_SIZE, stdin);
@@ -30,7 +31,7 @@ int main()
 
     char *args[] = {CC, SRC, "-lm", "-o", OUT, NULL};
     int pid, status;
-    if (execv(CC, args) != -1)
+    if (execvp(CC, args) != -1)
     {
         printf("1: success execv!\n");
         if (wait(NULL) != -1)

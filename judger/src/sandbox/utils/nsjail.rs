@@ -49,10 +49,7 @@ impl LimitBuilder {
         self.cmds.push(Cow::Borrowed("--cgroup_mem_swap_max"));
         self.cmds.push(Cow::Borrowed("0"));
         self.cmds.push(Cow::Borrowed("--disable_clone_newcgroup"));
-        self.cmds.push(Cow::Borrowed("--user"));
-        self.cmds.push(Cow::Borrowed("9999"));
-        self.cmds.push(Cow::Borrowed("--group"));
-        self.cmds.push(Cow::Borrowed("9999"));
+        self.cmds.push(Cow::Borrowed("--keep_env"));
 
         NaJailBuilder { cmds: self.cmds }
     }
