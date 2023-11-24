@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    os::unix::process::ExitStatusExt,
     path::{Path, PathBuf},
     process::Stdio,
 };
@@ -163,6 +164,11 @@ impl NsJailBuilder {
     }
 }
 
+pub enum TermStatus {
+    SigExit(i32),
+    Code(i32),
+}
+
 pub struct NsJail {
     pub process: Option<Mutex<Child>>,
 }
@@ -182,7 +188,7 @@ impl NsJail {
             cmds: vec![Cow::Borrowed("--chroot"), Cow::Owned(root.to_owned())],
         }
     }
-    pub async fn wait(&self) -> Option<i32> {
+    pub async fn wait(&self) -> TermStatus {
         let status = self
             .process
             .as_ref()
@@ -192,6 +198,10 @@ impl NsJail {
             .wait()
             .await
             .unwrap();
-        status.code()
+        if let Some(sig) = status.signal() {
+            TermStatus::SigExit(sig)
+        } else {
+            TermStatus::Code(status.code().unwrap())
+        }
     }
 }

@@ -171,11 +171,15 @@ pub struct TaskResult {
 impl TaskResult {
     pub fn get_expection(&self) -> Option<JudgerCode> {
         match self.process.status {
-            ExitStatus::SigExit => Some(JudgerCode::Rf),
-            ExitStatus::Code(code) => match code {
-                0 | 5 | 6 | 9 | 255 => None,
-                137 => Some(JudgerCode::Na),
+            ExitStatus::SigExit(sig) => match sig {
+                11 => Some(JudgerCode::Re),
                 _ => Some(JudgerCode::Rf),
+            },
+            ExitStatus::Code(code) => match code {
+                125 => Some(JudgerCode::Mle),
+                126 | 127 | 129..=192 => Some(JudgerCode::Rf),
+                0..=124 => None,
+                _ => Some(JudgerCode::Na),
             },
             ExitStatus::MemExhausted => Some(JudgerCode::Mle),
             ExitStatus::CpuExhausted => Some(JudgerCode::Tle),

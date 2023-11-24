@@ -2,30 +2,35 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <spawn.h>
-
-#define MAX_SIZE 1048576
+#include <errno.h>
+#include <sys/wait.h>
+#define CC "/usr/local/bin/g++"
+#define SRC "/src/src.cpp"
+#define OUT "/src/src.out"
+#define MAX_SIZE 131072
 
 int main()
 {
-    FILE *source = fopen("/src/src.cpp", "w");
+    FILE *source = fopen(SRC, "w");
 
     char *code = malloc(MAX_SIZE * sizeof(char));
-    fread(code, sizeof(char), MAX_SIZE, stdin);
+    size_t len = fread(code, sizeof(char), MAX_SIZE, stdin);
 
-    fwrite(code, sizeof(char), strlen(code), source);
+    fwrite(code, sizeof(char), len, source);
+    fclose(source);
 
-    char *args[] = {"g++", "/usr/local/bin/g++", "/src/src.cpp", "-lm", "-o", "/src/src.out"};
-    int pid, status;
-    if (posix_spawn(&pid, "/usr/local/bin/g++", NULL, NULL, args, NULL))
-        if (waitpid(pid, &status, 0) != -1)
-            if (status == 0)
-            {
-                printf("0: compile success");
-                return 0;
-            }
-
-    printf("4: compile error");
-    return 0;
+    char *args[] = {CC, SRC, "-lm", "-o", OUT, NULL};
+    int pid, status, spawn_ret;
+    if (execvp(CC, args) != -1)
+    {
+        printf("1: success execvp!\n");
+        if (wait(NULL) != -1)
+        {
+            printf("0: success!\n");
+            return 0;
+        }
+    }
+    printf("4: %m\n", errno);
+    return 1;
 }

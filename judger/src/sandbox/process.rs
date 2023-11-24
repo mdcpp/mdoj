@@ -10,11 +10,30 @@ use crate::{init::config::CONFIG, sandbox::utils::limiter::LimitReason};
 use super::{
     utils::{
         limiter::{cpu::CpuStatistics, mem::MemStatistics, Limiter},
-        nsjail::NsJail,
+        nsjail::{NsJail, TermStatus},
         semaphore::MemoryPermit,
     },
     Error,
 };
+
+impl From<LimitReason> for ExitStatus {
+    fn from(value: LimitReason) -> Self {
+        match value {
+            LimitReason::Cpu => ExitStatus::CpuExhausted,
+            LimitReason::Mem => ExitStatus::MemExhausted,
+            LimitReason::SysMem => ExitStatus::SysError,
+        }
+    }
+}
+
+impl From<TermStatus> for ExitStatus {
+    fn from(value: TermStatus) -> Self {
+        match value {
+            TermStatus::SigExit(x) => ExitStatus::SigExit(x),
+            TermStatus::Code(x) => ExitStatus::Code(x),
+        }
+    }
+}
 
 // an abstraction of running process, no meaningful logic implemented
 pub struct RunningProc {
@@ -37,24 +56,19 @@ impl RunningProc {
     pub async fn wait(mut self) -> Result<ExitProc, Error> {
         let config = CONFIG.get().unwrap();
 
-        let status = select! {
-            reason = self.limiter.wait_exhausted()=>{
-                match reason.unwrap(){
-                    LimitReason::Cpu=>ExitStatus::CpuExhausted,
-                    LimitReason::Mem=>ExitStatus::MemExhausted,
-                    LimitReason::SysMem=>ExitStatus::SysError,
-                }
-            }
-            code = self.nsjail.wait()=>{
-                match code{
-                    Some(x)=>ExitStatus::Code(x),
-                    None=>ExitStatus::SigExit
-                }
-            }
+        let mut status: ExitStatus = select! {
+            reason = self.limiter.wait_exhausted()=>reason.unwrap().into(),
+            code = self.nsjail.wait()=> code.into(),
             _ = time::sleep(time::Duration::from_secs(3600))=>{
                 return Err(Error::Stall);
             }
         };
+        // because in the senario of out of memory, process will be either exit with code
+        // 11(unable to allocate memory) or kill by signal(if oom killer is enable)
+        // , so we need to check if it is oom
+        if self.limiter.check_oom() {
+            status = ExitStatus::MemExhausted;
+        }
 
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let mut stdout = child
@@ -100,7 +114,7 @@ impl ExitProc {
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ExitStatus {
-    SigExit, // RuntimeError
+    SigExit(i32), // RuntimeError
     Code(i32),
     MemExhausted,
     CpuExhausted,
@@ -110,7 +124,7 @@ pub enum ExitStatus {
 impl Display for ExitStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExitStatus::SigExit => write!(f, "Killed by signal"),
+            ExitStatus::SigExit(x) => write!(f, "Killed by signal {}", x),
             ExitStatus::Code(x) => write!(f, "Exit with code {}", x),
             ExitStatus::MemExhausted => write!(f, "Reach memory limit"),
             ExitStatus::CpuExhausted => write!(f, "Reach cpu quota"),

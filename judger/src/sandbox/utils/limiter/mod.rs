@@ -4,6 +4,7 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+use cgroups_rs::Cgroup;
 use cgroups_rs::{cgroup_builder::CgroupBuilder, hierarchies};
 use tokio::fs;
 use tokio::sync::oneshot;
@@ -27,6 +28,7 @@ pub struct Limiter {
     state: Arc<AtomicPtr<LimiterState>>,
     limit_oneshot: Option<Receiver<LimitReason>>,
     cg_name: String,
+    cg: Cgroup,
 }
 
 #[derive(Default)]
@@ -73,6 +75,8 @@ impl Limiter {
             cg.build(Box::new(hierarchies::V2::new()))
         }?;
 
+        let cg2 = cg.clone();
+
         let state_taken = state.clone();
         let task = tokio::spawn(async move {
             loop {
@@ -89,6 +93,7 @@ impl Limiter {
                 // check other factor to determine whether is a systm failure or MLE
                 if mem.oom {
                     log::trace!("Stopping process because it reach its memory limit");
+                    // even if oom occur, process may still be running(child process killed)
                     reason = LimitReason::Mem;
                     end = true;
                 } else if cpu.rt_us > limit.rt_us
@@ -96,8 +101,6 @@ impl Limiter {
                     || cpu.total_us > limit.total_us
                 {
                     log::trace!("Killing process because it reach its cpu quota");
-                    dbg!(&cpu);
-                    dbg!(&limit);
                     reason = LimitReason::Cpu;
                     end = true;
                 }
@@ -122,7 +125,11 @@ impl Limiter {
             state,
             limit_oneshot: Some(rx),
             cg_name: cg_name.to_owned(),
+            cg: cg2,
         })
+    }
+    pub fn check_oom(&mut self) -> bool {
+        MemStatistics::from_cgroup(&self.cg).oom
     }
     pub async fn status(self) -> (CpuStatistics, MemStatistics) {
         let config = CONFIG.get().unwrap();
