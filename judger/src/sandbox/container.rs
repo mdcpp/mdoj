@@ -31,6 +31,18 @@ impl<'a> Drop for Container<'a> {
 }
 
 impl<'a> Container<'a> {
+    pub async fn new(id:String,daemon:&'a ContainerDaemon,root:PathBuf) -> Result<Container<'a>, Error> {
+        let container_root = daemon.tmp.join(id.clone());
+
+        fs::create_dir(container_root.clone()).await?;
+        fs::create_dir(container_root.clone().join("src")).await?;
+
+        Ok(Container {
+            id,
+            daemon,
+            root,
+        })
+    }
     #[tracing::instrument(skip(self, limit))]
     pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();

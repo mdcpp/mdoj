@@ -38,16 +38,7 @@ impl ContainerDaemon {
     pub async fn create(&self, root: impl AsRef<Path>) -> Result<Container<'_>, Error> {
         let id = self.id_counter.fetch_add(1, Ordering::Acquire).to_string();
         log::trace!("Creating new container: {}", id);
-        let container_root = self.tmp.join(id.clone());
 
-        fs::create_dir(container_root.clone()).await?;
-        fs::create_dir(container_root.clone().join("src")).await?;
-        // fs::set_permissions(container_root.clone().join("src"), Permissions::from_mode(0o777)).await?;
-
-        Ok(Container {
-            id,
-            daemon: self,
-            root: root.as_ref().to_path_buf(),
-        })
+        Container::new(id, self, root.as_ref().to_path_buf()).await
     }
 }
