@@ -6,7 +6,7 @@ async fn exec() {
     crate::init::new().await;
 
     {
-        let daemon = ContainerDaemon::new_with_id(".temp", 2);
+        let daemon = ContainerDaemon::new_with_id(".temp", 12);
         let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
         let process = container
@@ -42,7 +42,7 @@ async fn cgroup_cpu() {
     crate::init::new().await;
 
     {
-        let daemon = ContainerDaemon::new_with_id(".temp", 3);
+        let daemon = ContainerDaemon::new_with_id(".temp", 13);
         let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
         let process = container
@@ -76,7 +76,7 @@ async fn network() {
     crate::init::new().await;
 
     {
-        let daemon = ContainerDaemon::new_with_id(".temp", 4);
+        let daemon = ContainerDaemon::new_with_id(".temp", 14);
         let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
 
         let process = container

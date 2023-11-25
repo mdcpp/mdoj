@@ -1,0 +1,21 @@
+# memory in byte, time in microsecond
+info = "Lua 5.4"
+extension = "lua" # same extension means same language
+name = "rlua-54" # must be same as dictionary name
+uid = "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" # be sure it's unique
+
+[compile]
+lockdown = true
+command = ["/rlua-54","compile"]
+kernel_mem = 67108864
+user_mem = 268435456
+rt_time = 1000000
+cpu_time = 10000000
+total_time = 10000000
+
+[judge]
+command = ["/rlua-54","execute"]
+kernel_mem = 67108864
+multiplier_memory = 6 # user_mem
+rt_time = 1000000
+multiplier_cpu = 3 # cpu_time
