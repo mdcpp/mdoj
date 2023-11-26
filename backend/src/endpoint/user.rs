@@ -1,11 +1,14 @@
 use super::endpoints::*;
 use super::tools::*;
+use super::util::hash::hash_eq;
 
 use crate::controller::token::UserPermBytes;
 use crate::endpoint::util::hash;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
+use entity::token;
+use entity::user;
 use entity::user::*;
 
 impl Filter for Entity {
@@ -242,6 +245,40 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        Err(Status::unimplemented("unimplemented"))
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        let model = user::Entity::find()
+            .filter(user::Column::Username.eq(req.username))
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("user"))?;
+
+        if !hash_eq(req.password.as_str(), &model.password) {
+            return Err(Error::PremissionDeny("password").into());
+        }
+
+        for _ in 0..32 {
+            let txn = db.begin().await.map_err(Into::<Error>::into)?;
+
+            Entity::delete_by_id(user_id)
+                .exec(&txn)
+                .await
+                .map_err(Into::<Error>::into)?;
+
+            self.token
+                .remove_by_user_id(user_id, &txn)
+                .await
+                .map_err(Into::<Error>::into)?;
+
+            if txn.commit().await.map_err(Into::<Error>::into).is_ok() {
+                return Ok(Response::new(()));
+            }
+        }
+        Err(Status::aborted(
+            "too many transaction retries, try again later",
+        ))
     }
 }

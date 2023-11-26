@@ -16,7 +16,7 @@ impl Filter for Entity {
             return Ok(query.filter(education::Column::UserId.eq(user_id)));
         }
         Err(Error::Unauthenticated)
-    } 
+    }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.can_root() {

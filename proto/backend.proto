@@ -575,9 +575,8 @@ message UpdateUserRequest {
 }
 
 message UpdatePasswordRequest {
-  required UserId id = 1;
+  required string username = 1;
   required string password = 2;
-  required string request_id = 3;
 }
 
 service UserSet {

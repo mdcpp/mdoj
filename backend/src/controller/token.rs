@@ -2,7 +2,9 @@ use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
 use lru::LruCache;
 use ring::rand::*;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter,
+};
 use spin::mutex::Mutex;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -195,6 +197,20 @@ impl TokenController {
         self.cache.lock().pop(&rand);
 
         Ok(Some(()))
+    }
+    pub async fn remove_by_user_id(
+        &self,
+        user_id: i32,
+        txn: &DatabaseTransaction,
+    ) -> Result<(), Error> {
+        token::Entity::delete_many()
+            .filter(token::Column::UserId.eq(user_id))
+            .exec(txn)
+            .await?;
+
+        self.cache.lock().clear();
+
+        Ok(())
     }
 }
 
