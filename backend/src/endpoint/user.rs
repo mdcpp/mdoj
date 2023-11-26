@@ -7,7 +7,7 @@ use crate::endpoint::util::hash;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
-use entity::token;
+
 use entity::user;
 use entity::user::*;
 
@@ -247,7 +247,7 @@ impl UserSet for Arc<Server> {
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _) = auth.ok_or_default()?;
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))

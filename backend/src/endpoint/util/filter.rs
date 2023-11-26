@@ -6,19 +6,19 @@ pub trait Filter
 where
     Self: EntityTrait,
 {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+    fn read_filter<S: QueryFilter + Send>(_: S, _: &Auth) -> Result<S, Error> {
         Err(Error::Unauthenticated)
     }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+    fn write_filter<S: QueryFilter + Send>(_: S, _: &Auth) -> Result<S, Error> {
         Err(Error::Unauthenticated)
     }
 }
 
 pub trait ParentalFilter {
-    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+    fn publish_filter<S: QueryFilter + Send>(_: S, _: &Auth) -> Result<S, Error> {
         Err(Error::Unauthenticated)
     }
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+    fn link_filter<S: QueryFilter + Send>(_: S, _: &Auth) -> Result<S, Error> {
         Err(Error::Unauthenticated)
     }
 }

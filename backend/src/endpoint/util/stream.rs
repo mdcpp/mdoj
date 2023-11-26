@@ -9,7 +9,7 @@ pub fn into_tokiostream<O: Send + 'static>(
     let (tx, rx) = channel(128);
 
     tokio::spawn(async move {
-        while let Some(item) = iter.next() {
+        for item in iter.by_ref() {
             if tx.send(Result::<_, tonic::Status>::Ok(item)).await.is_err() {
                 break;
             }
