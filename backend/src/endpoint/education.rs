@@ -7,6 +7,16 @@ use crate::grpc::backend::*;
 use entity::{education::*, *};
 
 impl Filter for Entity {
+    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() {
+            return Ok(query);
+        }
+        if perm.can_manage_education() {
+            return Ok(query.filter(education::Column::UserId.eq(user_id)));
+        }
+        Err(Error::Unauthenticated)
+    } 
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.can_root() {
@@ -62,12 +72,19 @@ impl From<EducationId> for i32 {
 
 impl From<Model> for EducationFullInfo {
     fn from(value: Model) -> Self {
-        todo!()
+        EducationFullInfo {
+            info: value.clone().into(),
+            content: value.content,
+            problem: value.problem_id.map(Into::into),
+        }
     }
 }
 impl From<Model> for EducationInfo {
     fn from(value: Model) -> Self {
-        todo!()
+        EducationInfo {
+            id: value.id.into(),
+            title: value.title,
+        }
     }
 }
 

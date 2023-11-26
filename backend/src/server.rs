@@ -7,8 +7,9 @@ use crate::{
     controller::{duplicate::DupController, *},
     grpc::backend::{
         contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
-        problem_set_server::ProblemSetServer, testcase_set_server::TestcaseSetServer,
-        token_set_server::TokenSetServer, user_set_server::UserSetServer,
+        problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
+        testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
+        user_set_server::UserSetServer,
     },
     init::config::CONFIG,
 };
@@ -47,7 +48,8 @@ impl Server {
             .add_service(tonic_web::enable(UserSetServer::new(server.clone())))
             .add_service(tonic_web::enable(TokenSetServer::new(server.clone())))
             .add_service(tonic_web::enable(ContestSetServer::new(server.clone())))
-            .add_service(tonic_web::enable(TestcaseSetServer::new(server)))
+            .add_service(tonic_web::enable(TestcaseSetServer::new(server.clone())))
+            .add_service(tonic_web::enable(SubmitSetServer::new(server)))
             .serve(config.bind_address.parse().unwrap())
             .await
             .unwrap();

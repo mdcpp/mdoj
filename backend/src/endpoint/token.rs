@@ -8,6 +8,7 @@ use crate::endpoint::util::hash::hash_eq;
 use crate::grpc::backend::token_set_server::*;
 use crate::grpc::backend::*;
 
+use entity::token::*;
 use entity::*;
 
 impl From<String> for Token {
@@ -16,10 +17,33 @@ impl From<String> for Token {
     }
 }
 
+impl From<Model> for Token {
+    fn from(value: Model) -> Self {
+        Token {
+            signature: base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD_NO_PAD,
+                value.rand,
+            ),
+        }
+    }
+}
+
 #[async_trait]
 impl TokenSet for Arc<Server> {
-    async fn list(&self, _: Request<UserId>) -> Result<Response<Tokens>, Status> {
-        Err(Status::unimplemented("unimplemented"))
+    async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, _) = self.parse_request(req).await?;
+        let (user_id, _) = auth.ok_or_default()?;
+
+        let tokens = Entity::find()
+            .filter(Column::UserId.eq(user_id))
+            .all(db)
+            .await
+            .map_err(Into::<Error>::into)?;
+
+        Ok(Response::new(Tokens {
+            list: tokens.into_iter().map(Into::into).collect(),
+        }))
     }
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();

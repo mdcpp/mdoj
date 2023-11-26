@@ -14,7 +14,7 @@ use crate::init::db::DB;
 use super::Error;
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
-type Rand = [u8; 20];
+type Rand = [u8; 18];
 
 macro_rules! report {
     ($e:expr) => {
@@ -101,7 +101,10 @@ impl TokenController {
         .insert(db)
         .await?;
 
-        Ok((hex::encode(rand), expiry))
+        Ok((
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD_NO_PAD, rand),
+            expiry,
+        ))
     }
     // pub async fn verify_throttle(&self, token:&str, ip:Option<IpAddr>)-> Result<Option<(i32, UserPermBytes)>, Error>{
     //     let reverse_proxy=self.reverse_proxy.read();
@@ -121,7 +124,11 @@ impl TokenController {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
-        let rand = report!(hex::decode(token).ok());
+        let rand = report!(base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+            token
+        )
+        .ok());
         let rand: Rand = report!(rand.try_into().ok());
 
         let token: CachedToken;
@@ -172,7 +179,11 @@ impl TokenController {
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
 
-        let rand = report!(hex::decode(token).ok());
+        let rand = report!(base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+            token
+        )
+        .ok());
         let rand: Rand = report!(rand.try_into().ok());
 
         token::Entity::delete_many()

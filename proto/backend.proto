@@ -251,7 +251,7 @@ message EducationInfo {
 message EducationFullInfo {
   required EducationInfo info = 1;
   required string content = 2;
-  repeated ProblemId problems = 3;
+  optional ProblemId problem = 4;
 }
 
 message ListEducationResponse {

@@ -176,7 +176,6 @@ dependencies = [
  "entity",
  "env_logger",
  "futures",
- "hex",
  "lockfree",
  "log",
  "lru",

@@ -8,6 +8,16 @@ use entity::{test::*, *};
 
 #[async_trait]
 impl Filter for Entity {
+    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() {
+            return Ok(query);
+        }
+        if perm.can_manage_problem() {
+            return Ok(query.filter(test::Column::UserId.eq(user_id)));
+        }
+        Err(Error::Unauthenticated)
+    }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Some(perm) = auth.user_perm() {
             if perm.can_root() {
