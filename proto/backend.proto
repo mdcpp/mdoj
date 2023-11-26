@@ -271,7 +271,6 @@ message CreateEducationRequest {
   }
   required Info info = 1;
   required string request_id = 2;
-  required ProblemId problem = 3;
 }
 
 message UpdateEducationRequest {
@@ -285,18 +284,14 @@ message UpdateEducationRequest {
 }
 
 service EducationSet {
-  rpc List(ListRequest) returns (ListEducationResponse);
-  rpc SearchByText(TextSearchRequest) returns (ListEducationResponse);
-  rpc SearchByTag(TextSearchRequest) returns (ListEducationResponse);
-  rpc FullInfo(EducationId) returns (EducationFullInfo);
-
-  rpc Create(CreateEducationRequest) returns (google.protobuf.Empty);
+  rpc Create(CreateEducationRequest) returns (EducationId);
   rpc Update(UpdateEducationRequest) returns (google.protobuf.Empty);
   rpc Remove(EducationId) returns (google.protobuf.Empty);
 
   rpc Link(EducationLink) returns (google.protobuf.Empty);
   rpc Unlink(EducationLink) returns (google.protobuf.Empty);
 
+  rpc ListByProblem(ListByRequest) returns (ListEducationResponse);
   rpc FullInfoByProblem(EducationLink) returns (EducationFullInfo);
 }
 

@@ -12,7 +12,7 @@ pub fn hash(src: &str) -> Vec<u8> {
     .to_vec()
 }
 
-pub fn hash_eq(src: &str, tar: &Vec<u8>) -> bool {
+pub fn hash_eq(src: &str, tar: &[u8]) -> bool {
     let hashed = hash(src);
     let mut result = true;
     for (a, b) in hashed.iter().zip(tar.iter()) {

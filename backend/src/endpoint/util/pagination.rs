@@ -238,7 +238,7 @@ where
             .all(DB.get().unwrap())
             .await?;
 
-        if let Some(x) = (&models).last() {
+        if let Some(x) = models.last() {
             self.ppk = Some(E::get_id(x));
         }
 
@@ -267,7 +267,7 @@ where
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
-            &byte.unwrap(),
+            byte.unwrap(),
         )
     }
     fn from_raw(s: String) -> Result<Pager<E>, Error> {
@@ -293,11 +293,11 @@ where
                         return Err(Error::PaginationError("Pager reconstruction failed"));
                     }
                 };
-                return Ok(Pager {
+                Ok(Pager {
                     ppk: Some(pager.ppk),
                     sort,
                     _entity: PhantomData,
-                });
+                })
             }
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
@@ -350,7 +350,7 @@ where
             .all(DB.get().unwrap())
             .await?;
 
-        if let Some(x) = (&models).last() {
+        if let Some(x) = models.last() {
             self.ppk = Some(E::get_id(x));
         }
 
@@ -542,5 +542,26 @@ impl PagerTrait for submit::Entity {
 
     async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         submit::Entity::read_filter(select, auth)
+    }
+}
+
+#[tonic::async_trait]
+impl PagerTrait for education::Entity {
+    const TYPE_NUMBER: i32 = 183456;
+
+    const COL_ID: Self::Column = education::Column::Id;
+
+    const COL_TEXT: &'static [Self::Column] = &[education::Column::Title];
+
+    const COL_SELECT: &'static [Self::Column] = &[education::Column::Id, education::Column::Title];
+
+    type ParentMarker = HasParent<problem::Entity>;
+
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+
+    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        education::Entity::read_filter(select, auth)
     }
 }

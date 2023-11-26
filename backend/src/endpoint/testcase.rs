@@ -62,7 +62,10 @@ impl From<Model> for TestcaseFullInfo {
 
 impl From<Model> for TestcaseInfo {
     fn from(value: Model) -> Self {
-        TestcaseInfo { id: value.id.into(), score:value.score }
+        TestcaseInfo {
+            id: value.id.into(),
+            score: value.score,
+        }
     }
 }
 

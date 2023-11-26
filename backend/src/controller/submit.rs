@@ -3,6 +3,7 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
+use tonic::Status;
 use uuid::Uuid;
 
 use crate::{
@@ -20,8 +21,7 @@ use super::util::{
 };
 use entity::*;
 
-type TonicStream<T> =
-    std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
+type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -30,7 +30,7 @@ pub enum Error {
     #[error("judger health check failed")]
     HealthCheck,
     #[error("`{0}`")]
-    GrpcReport(#[from] tonic::Status),
+    GrpcReport(#[from] Status),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("`{0}`")]
@@ -50,11 +50,10 @@ impl From<Error> for super::Error {
                 super::Error::Internal("no judger available(for such lang)")
             }
             Error::HealthCheck => super::Error::Internal("judger health check failed"),
-            Error::BadArgument(x) => tonic::Status::invalid_argument(format!(
-                "Client sent invaild argument: payload.{}",
-                x
-            ))
-            .into(),
+            Error::BadArgument(x) => {
+                Status::invalid_argument(format!("Client sent invaild argument: payload.{}", x))
+                    .into()
+            }
             Error::Database(x) => super::Error::Database(x),
             Error::Tonic(x) => super::Error::Tonic(x),
             Error::Internal(x) => super::Error::Internal(x),
@@ -97,7 +96,7 @@ impl From<JudgeResult> for SubmitStatus {
 #[derive(Clone)]
 pub struct SubmitController {
     router: Arc<Router>,
-    pubsub: Arc<PubSub<Result<SubmitStatus, tonic::Status>, i32>>,
+    pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
 }
 
 impl SubmitController {
@@ -109,7 +108,7 @@ impl SubmitController {
         })
     }
     async fn stream(
-        ps_guard: PubGuard<Result<SubmitStatus, tonic::Status>, i32>,
+        ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
         mut scores: Vec<u32>,
@@ -228,16 +227,17 @@ impl SubmitController {
     }
 }
 
-impl From<Error> for tonic::Status {
+impl From<Error> for Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::JudgerUnavailable => todo!(),
-            Error::HealthCheck => todo!(),
-            Error::GrpcReport(_) => todo!(),
-            Error::BadArgument(_) => todo!(),
-            Error::Database(_) => todo!(),
-            Error::Tonic(_) => todo!(),
-            Error::Internal(_) => todo!(),
+            Error::JudgerUnavailable | Error::HealthCheck => {
+                Status::unavailable("no judger available(for such lang)")
+            }
+            Error::GrpcReport(x) => x,
+            _ => {
+                let err = crate::endpoint::util::error::Error::Upstream(super::Error::from(value));
+                err.into()
+            }
         }
     }
 }

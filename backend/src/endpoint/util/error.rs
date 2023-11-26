@@ -77,7 +77,7 @@ impl From<Error> for tonic::Status {
                 log::error!("Function should be unreachable: {}", x);
                 #[cfg(feature = "unsecured-log")]
                 return tonic::Status::internal(format!("Function should be unreachable: {}", x));
-                tonic::Status::unavailable("")
+                tonic::Status::aborted("")
             }
         }
     }

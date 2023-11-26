@@ -10,6 +10,8 @@ use super::problem;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
+    #[sea_orm(indexed, nullable)]
+    pub problem_id: Option<i32>,
     pub user_id: i32,
     pub tags: String,
     pub title: String,
@@ -25,7 +27,10 @@ pub enum Relation {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Relation::Problem => Entity::has_one(problem::Entity).into(),
+            Relation::Problem => Entity::belongs_to(super::problem::Entity)
+                .from(Column::ProblemId)
+                .to(super::problem::Column::Id)
+                .into(),
             Relation::User => Entity::belongs_to(user::Entity)
                 .from(Column::UserId)
                 .to(user::Column::Id)
