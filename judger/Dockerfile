@@ -25,12 +25,13 @@ FROM scratch
 WORKDIR /database
 WORKDIR /config
 WORKDIR /.temp
-WORKDIR /plugins
+WORKDIR /plugins/rootfs
 WORKDIR /
-COPY --from=builder /usr/local/cargo/bin/jurdger /
+COPY --from=builder /usr/local/cargo/bin/judger /
 COPY nsjail-3.1 /
 # don't load plugins, should be mounted manually in runtime
 WORKDIR /
-COPY plugins/rlua-54 /plugins
+COPY plugins/rlua-54/rootfs /plugins
+COPY plugins/rlua-54/spec.toml /plugins
 
 CMD ["/judger"]

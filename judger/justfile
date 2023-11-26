@@ -1,6 +1,6 @@
 release-docker:
     MUSL_TARGET=$(uname -m)-linux-musl
-    just prepare
+    cd plugins/rlua-54 && sh ./build.sh
     cp ../proto/judger.proto .
     docker build . --build-arg ARCH=$(uname -m) -t mdoj-judger
 

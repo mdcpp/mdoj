@@ -1,0 +1,104 @@
+syntax = "proto2";
+
+package oj.judger;
+
+import "google/protobuf/empty.proto";
+
+message JudgeRequest {
+  required string lang_uid = 1;
+  required bytes code = 2;
+  // memory limit in byte
+  required uint64 memory = 3;
+  // time limit in nanosecond
+  required uint64 time = 4;
+  required JudgeMatchRule rule = 5;
+  // len must > 0
+  repeated TestIO tests = 6;
+}
+
+message TestIO {
+  required bytes input = 1;
+  required bytes output = 2;
+}
+
+message JudgeResponse {
+  oneof task {
+    // number of test case running(or finished)
+    int32 case = 1;
+    JudgeResult result = 2;
+  }
+}
+
+message JudgeResult {
+  // assertion code
+  required JudgerCode status = 1;
+  // the time in nanosecond
+  required uint64 time = 2;
+  // the peak memory usage
+  required uint64 memory = 3;
+  // max possible deviation in nanosecond
+  required uint64 accuracy = 4;
+}
+
+enum JudgerCode {
+  // Runtime Error
+  RE = 0;
+  // Unknown
+  NA = 1;
+  // Wrong Answer
+  WA = 2;
+  // Compile Error
+  CE = 3;
+  // Accepted
+  AC = 4;
+  // Restricted Function
+  RF = 5;
+  // Time Limit Exceeded
+  TLE = 6;
+  // Memory Limit Exceeded
+  MLE = 7;
+  // Output Limit Exceeded
+  OLE = 8;
+}
+
+// How judge assert input
+enum JudgeMatchRule {
+  // exactly same
+  ExactSame = 0;
+  // assert segment between space or newline, empty segments are also compare
+  IgnoreSNL = 1;
+  // assert segment between space or newline, empty segments are ignored
+  SkipSNL = 2;
+}
+
+message Langs { repeated LangInfo list = 1; }
+
+// info of a language(extension)
+message LangInfo {
+  // unique id
+  required string lang_uid = 1;
+  // human readable name
+  required string lang_name = 2;
+  // human readable description
+  required string info = 3;
+  // file extension of the language
+  required string lang_ext = 4;
+}
+
+message JudgeInfo {
+  // max support memory in byte
+  required uint64 memory = 1;
+  // max possible deviation in nanosecond
+  required uint64 accuracy = 2;
+  // list of supported languages(extension)
+  required Langs langs = 3;
+  // cpu factor, the total time limit is calculated by time * cpu_factor
+  required float cpu_factor = 4;
+}
+
+service Judger {
+  // Send Code for judge
+  rpc Judge(JudgeRequest) returns (stream JudgeResponse);
+  // Get judger info, useful for getting supported language and load balancing
+  rpc JudgerInfo(google.protobuf.Empty) returns (JudgeInfo);
+}

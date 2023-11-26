@@ -18,7 +18,7 @@ services:
       - backend
   backend:
     container_name: mdoj-backend
-    build: ../../backend
+    image: ghcr.io/mdcpp/mdoj:backend
     volumes:
       - ./database/:/database/
       - ./config/:/config/
@@ -29,7 +29,7 @@ services:
     container_name: mdoj-judger
     # you can actually turn this off if you setup the cgroup properly(user of the container should own the cgroup)
     privileged: true
-    build: ../../judger
+    image: ghcr.io/mdcpp/mdoj:judger
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
       - ./config/:/config/
