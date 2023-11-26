@@ -29,6 +29,8 @@ Copy ``docker/simple/docker-compose.yml`` file to your server and run `docker co
 
 login as `admin@admin` and start play arounds.
 
+See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
+
 ## Full Setup(Docker)
 
 > For details of config.toml, please follow the document in ``./backend`` and ``./judger``. 
@@ -50,7 +52,6 @@ login as `admin@admin` and start play arounds.
 7. start both judger and backend.
 8. configure reverse proxy to proxy every request with prefix `/api` to router, and reverse proxy should also trust certification of backend.
 9. Configure proxy to serve static file for request not match prefix of `/api`
-
 
 > backend should only start after judger is online, or you might see a warning from console, and judger is only available after next health check(default to 60 seconds if previous health check fail)
 
