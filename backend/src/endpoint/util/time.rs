@@ -6,5 +6,5 @@ pub fn into_prost(time: chrono::NaiveDateTime) -> prost_types::Timestamp {
 }
 
 pub fn into_chrono(time: prost_types::Timestamp) -> chrono::NaiveDateTime {
-    chrono::NaiveDateTime::from_timestamp(time.seconds, time.nanos as u32)
+    chrono::NaiveDateTime::from_timestamp_opt(time.seconds, time.nanos as u32).unwrap_or_default()
 }

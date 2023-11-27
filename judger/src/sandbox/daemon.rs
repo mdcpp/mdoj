@@ -3,8 +3,6 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use tokio::fs;
-
 use crate::init::config::CONFIG;
 
 use super::{container::Container, utils::semaphore::MemorySemaphore, Error};

@@ -1,12 +1,10 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
-use lru::LruCache;
+use quick_cache::sync::Cache;
 use ring::rand::*;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter,
 };
-use spin::mutex::Mutex;
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tokio::time;
 use tracing::instrument;
@@ -48,7 +46,7 @@ impl From<token::Model> for CachedToken {
 
 pub struct TokenController {
     #[cfg(feature = "single-instance")]
-    cache: Mutex<LruCache<Rand, CachedToken>>,
+    cache: Cache<Rand, CachedToken>,
     rand: SystemRandom,
     // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
 }
@@ -57,7 +55,7 @@ impl TokenController {
     pub fn new() -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
-        let cache = Mutex::new(LruCache::new(NonZeroUsize::new(100).unwrap()));
+        let cache = Cache::new(300);
         let self_ = Arc::new(Self {
             #[cfg(feature = "single-instance")]
             cache,
@@ -137,11 +135,10 @@ impl TokenController {
 
         #[cfg(feature = "single-instance")]
         let cache_result = {
-            let mut cache = self.cache.lock();
-            match cache.get(&rand) {
+            match self.cache.get(&rand) {
                 Some(cc) => {
                     if cc.expiry < now {
-                        cache.pop(&rand);
+                        self.cache.remove(&rand);
                         None
                     } else {
                         Some(cc.clone())
@@ -171,7 +168,7 @@ impl TokenController {
                 }
 
                 #[cfg(feature = "single-instance")]
-                self.cache.lock().put(rand, token.clone());
+                self.cache.insert(rand, token.clone());
             }
         }
 
@@ -194,7 +191,7 @@ impl TokenController {
             .await?;
 
         #[cfg(feature = "single-instance")]
-        self.cache.lock().pop(&rand);
+        self.cache.remove(&rand);
 
         Ok(Some(()))
     }
@@ -203,12 +200,18 @@ impl TokenController {
         user_id: i32,
         txn: &DatabaseTransaction,
     ) -> Result<(), Error> {
+        let models = token::Entity::find()
+            .filter(token::Column::UserId.eq(user_id))
+            .all(txn)
+            .await?;
+
+        for model in models {
+            self.cache.remove(model.rand.as_slice());
+        }
         token::Entity::delete_many()
             .filter(token::Column::UserId.eq(user_id))
             .exec(txn)
             .await?;
-
-        self.cache.lock().clear();
 
         Ok(())
     }
