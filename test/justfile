@@ -1,6 +1,7 @@
 
 
 prepare:
-
+    mkdir codegen
+    protoc --plugin=/home/$(whoami)/.nvm/versions/node/$(node -v)/bin/protoc-gen-ts_proto --proto_path=.. --ts_proto_opt=env=node,outputServices=grpc-js --ts_proto_out=./codegen ../proto/backend.proto
 run: 
     deno run --allow-read --allow-net index.ts
