@@ -35,33 +35,34 @@ The return code of non-zero would be considered Compile Error.
 One of the recommanded way is with ``docker export``.
 
 Program your own docker image and run:
-
+ 
 ```shell
 docker export ${id of your docker container} | tar -C plugins/${plugin name}/rootfs -xvf -
 ```
 
 finish spec.toml like this
 ```ini
-description = "LuaJIT 5.2"
+# memory in byte, time in microsecond
+info = "A Lua 5.4 runtime build both real workloads and sandbox tests"
 extension = "lua" # same extension means same language
 name = "rlua-54" # must be same as dictionary name
-uuid = "f060f3c5-b2b2-46be-97ba-a128e5922aee" # be sure it's unique
+uid = "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" # be sure it's unique
 
 [compile]
-command = ["lua", "/compile.lua"] # command to run when compile
-# in byte
-kernel_mem = 16777216
-user_mem = 33554432
-# in microsecond
+lockdown = true
+command = ["/rlua-54","compile"]
+kernel_mem = 67108864
+user_mem = 268435456
 rt_time = 1000000
 cpu_time = 10000000
+total_time = 10000000
 
-[execute]
-command = ["lua", "/execute.lua"] # command to run when execute
-kernel_mem = 16777216
-memory_multiplier = 6 # user_mem
-rt_time = 100000
-cpu_multiplier = 3 # cpu_time
+[judge]
+command = ["/rlua-54","execute"]
+kernel_mem = 67108864
+multiplier_memory = 6 # user_mem
+rt_time = 1000000
+multiplier_cpu = 3 # cpu_time
 ```
 
 ## Troubleshooting

@@ -44,7 +44,7 @@ async fn full() {
     let mut client = JudgerClient::new(channel);
 
     let request = JudgeRequest {
-        lang_uid: "f060f3c5-b2b2-46be-97ba-a128e5922aee".to_string(),
+        lang_uid: "1c41598f-e253-4f81-9ef5-d50bf1e4e74f".to_string(),
         code: b"print(\"basic test\")".to_vec(),
         memory: 1024 * 1024 * 1024,
         time: 1000 * 1000,

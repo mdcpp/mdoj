@@ -17,7 +17,7 @@ fn main() {
             "syscall" => violate::syscall(),
             _ => println!("3: Invalid command"),
         },
-        "hello" => println!("hello world\n"),
+        "hello" => println!("hello world"),
         _ => println!("4: Invalid command"),
     };
 }

@@ -21,7 +21,7 @@ async fn rlua(factory: &mut ArtifactFactory) {
 }
 
 async fn lua(factory: &mut ArtifactFactory) {
-    let uuid = Uuid::parse_str("f060f3c5-b2b2-46be-97ba-a128e5922aee").unwrap();
+    let uuid = Uuid::parse_str("1c41598f-e253-4f81-9ef5-d50bf1e4e74f").unwrap();
 
     let mut compiled = factory
         .compile(&uuid, b"print(\"hello world\")")
