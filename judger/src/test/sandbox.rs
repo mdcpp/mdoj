@@ -11,7 +11,7 @@ async fn exec() {
 
         let process = container
             .execute(
-                vec!["/usr/local/bin/lua", "/test/test1.lua"],
+                vec!["/rlua-54", "hello"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -43,11 +43,11 @@ async fn cgroup_cpu() {
 
     {
         let daemon = ContainerDaemon::new_with_id(".temp", 13);
-        let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
+        let container = daemon.create("plugins/rlua-54/rootfs").await.unwrap();
 
         let process = container
             .execute(
-                vec!["/usr/local/bin/lua", "/test/test2.lua"],
+                vec!["/rlua-54", "violate","cpu"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -77,11 +77,11 @@ async fn network() {
 
     {
         let daemon = ContainerDaemon::new_with_id(".temp", 14);
-        let container = daemon.create("plugins/lua-5.2/rootfs").await.unwrap();
+        let container = daemon.create("plugins/rlua-54/rootfs").await.unwrap();
 
         let process = container
             .execute(
-                vec!["/usr/local/bin/lua", "/test/test3.lua"],
+                vec!["/rlua-54", "violate","net"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -89,6 +89,105 @@ async fn network() {
                     swap_user: 0,
                     kernel_mem: 128 * 1024 * 1024,
                     user_mem: 512 * 1024 * 1024,
+                    lockdown: false,
+                },
+            )
+            .await
+            .unwrap();
+
+        let process = process.wait().await.unwrap();
+
+        assert!(!process.succeed());
+    }
+
+    // unlike async-std, tokio won't wait for all background task to finish before exit
+    time::sleep(time::Duration::from_millis(12)).await;
+}
+
+#[tokio::test]
+async fn memory() {
+    crate::init::new().await;
+
+    {
+        let daemon = ContainerDaemon::new_with_id(".temp", 15);
+        let container = daemon.create("plugins/rlua-54/rootfs").await.unwrap();
+
+        let process = container
+            .execute(
+                vec!["/rlua-54", "violate","mem"],
+                Limit {
+                    cpu_us: 1000 * 1000 * 1000,
+                    rt_us: 1000 * 1000 * 1000,
+                    total_us: 20 * 1000,
+                    swap_user: 0,
+                    kernel_mem: 64 * 1024 * 1024,
+                    user_mem: 64 * 1024 * 1024,
+                    lockdown: false,
+                },
+            )
+            .await
+            .unwrap();
+
+        let process = process.wait().await.unwrap();
+
+        assert!(!process.succeed());
+    }
+
+    // unlike async-std, tokio won't wait for all background task to finish before exit
+    time::sleep(time::Duration::from_millis(12)).await;
+}
+
+#[tokio::test]
+async fn disk() {
+    crate::init::new().await;
+
+    {
+        let daemon = ContainerDaemon::new_with_id(".temp", 15);
+        let container = daemon.create("plugins/rlua-54/rootfs").await.unwrap();
+
+        let process = container
+            .execute(
+                vec!["/rlua-54", "violate","disk"],
+                Limit {
+                    cpu_us: 1000 * 1000 * 1000,
+                    rt_us: 1000 * 1000 * 1000,
+                    total_us: 20 * 1000,
+                    swap_user: 0,
+                    kernel_mem: 64 * 1024 * 1024,
+                    user_mem: 64 * 1024 * 1024,
+                    lockdown: false,
+                },
+            )
+            .await
+            .unwrap();
+
+        let process = process.wait().await.unwrap();
+
+        assert!(!process.succeed());
+    }
+
+    // unlike async-std, tokio won't wait for all background task to finish before exit
+    time::sleep(time::Duration::from_millis(12)).await;
+}
+
+#[tokio::test]
+async fn syscall() {
+    crate::init::new().await;
+
+    {
+        let daemon = ContainerDaemon::new_with_id(".temp", 15);
+        let container = daemon.create("plugins/rlua-54/rootfs").await.unwrap();
+
+        let process = container
+            .execute(
+                vec!["/rlua-54", "violate","syscall"],
+                Limit {
+                    cpu_us: 1000 * 1000 * 1000,
+                    rt_us: 1000 * 1000 * 1000,
+                    total_us: 20 * 1000,
+                    swap_user: 0,
+                    kernel_mem: 64 * 1024 * 1024,
+                    user_mem: 64 * 1024 * 1024,
                     lockdown: false,
                 },
             )

@@ -78,6 +78,7 @@ dependencies = [
 name = "rlua-54"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "rlua",
 ]
 

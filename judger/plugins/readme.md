@@ -1,6 +1,6 @@
 # Develop a module for new language support
 
-`lua-5.2` is the example plugin
+`rlua-54` and `rlua-54` is the example plugin
 
 ## How it works?
 
@@ -44,7 +44,7 @@ finish spec.toml like this
 ```ini
 description = "LuaJIT 5.2"
 extension = "lua" # same extension means same language
-name = "lua-5.2" # must be same as dictionary name
+name = "rlua-54" # must be same as dictionary name
 uuid = "f060f3c5-b2b2-46be-97ba-a128e5922aee" # be sure it's unique
 
 [compile]
