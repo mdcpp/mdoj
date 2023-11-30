@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::BTreeMap, path::Path};
 
@@ -11,7 +12,6 @@ use crate::{init::config::CONFIG, langs::RequestError};
 use super::{spec::LangSpec, Error, InternalError};
 
 static TRACING_ID: AtomicUsize = AtomicUsize::new(0);
-
 // Artifact factory, load module from disk to compile code
 // Rely on container daemon to create container
 pub struct ArtifactFactory {
@@ -95,15 +95,19 @@ impl ArtifactFactory {
 
         if !process.succeed() {
             #[cfg(debug_assertions)]
-            log::debug!("stdout: {}", String::from_utf8_lossy(&process.stdout));
-            dbg!(process.status);
+            log::warn!("{}", process.status);
             return Err(Error::Report(JudgerCode::Ce));
         }
+
+        process.stdout.split(|x| *x == b'\n').for_each(|x| {
+            CompileLog::from_raw(x).log();
+        });
 
         Ok(CompiledArtifact {
             container,
             spec,
             tracing_id,
+            stdout: process.stdout,
         })
     }
 }
@@ -117,11 +121,43 @@ impl Default for ArtifactFactory {
         }
     }
 }
+
+pub struct CompileLog<'a> {
+    pub level: usize,
+    pub message: Cow<'a, str>,
+}
+
+impl<'a> CompileLog<'a> {
+    pub fn from_raw(raw: &'a [u8]) -> Self {
+        let raw: Vec<&[u8]> = raw.splitn(2, |x| *x == b':').collect();
+        if raw.len() == 1 {
+            Self {
+                level: 4,
+                message: String::from_utf8_lossy(raw[0]),
+            }
+        } else {
+            Self {
+                level: String::from_utf8_lossy(raw[0]).parse().unwrap_or(4),
+                message: String::from_utf8_lossy(raw[1]),
+            }
+        }
+    }
+    pub fn log(&self) {
+        match self.level {
+            0 => log::trace!("{}", self.message),
+            1 => log::debug!("{}", self.message),
+            2 => log::info!("{}", self.message),
+            3 => log::warn!("{}", self.message),
+            _ => log::error!("{}", self.message),
+        }
+    }
+}
 // Wrapper for container which contain compiled program in its volume
 pub struct CompiledArtifact<'a> {
     container: Container<'a>,
     spec: &'a LangSpec,
     tracing_id: usize,
+    stdout: Vec<u8>,
 }
 
 impl<'a> CompiledArtifact<'a> {
@@ -164,8 +200,64 @@ impl<'a> CompiledArtifact<'a> {
             tracing_id: self.tracing_id,
         })
     }
+    pub async fn exec(
+        &mut self,
+        input: &[u8],
+        time: u64,
+        memory: u64,
+    ) -> Result<ExecResult, Error> {
+        log::trace!("Running program -trace:{}", self.tracing_id);
+        let mut limit = self.spec.judge_limit.clone().apply_platform();
+
+        limit.cpu_us *= time;
+        limit.user_mem *= memory;
+
+        let mut process = self
+            .container
+            .execute(
+                self.spec
+                    .judge_args
+                    .iter()
+                    .map(|x| x.as_str())
+                    .collect::<Vec<&str>>(),
+                limit,
+            )
+            .await?;
+
+        process.write_all(input).await?;
+
+        let process = process.wait().await?;
+
+        Ok(ExecResult {
+            process,
+            _tracing_id: self.tracing_id,
+        })
+    }
+
+    pub fn to_log(&self) -> impl Iterator<Item = CompileLog> {
+        self.stdout
+            .split(|&x| x == b'\n')
+            .map(CompileLog::from_raw)
+    }
 }
-// Wrapper for result of process(ended process)
+
+pub struct ExecResult {
+    process: ExitProc,
+    _tracing_id: usize,
+}
+
+impl ExecResult {
+    pub fn time(&self) -> &CpuStatistics {
+        &self.process.cpu
+    }
+    pub fn mem(&self) -> &MemStatistics {
+        &self.process.mem
+    }
+    pub fn stdout(&self) -> &[u8] {
+        &self.process.stdout
+    }
+}
+// Wrapper for result of process(ended judge process)
 // provide information about process's exitcode, resource usage, stdout, stderr
 pub struct TaskResult {
     process: ExitProc,
@@ -193,7 +285,7 @@ impl TaskResult {
     pub fn assert(&self, input: &[u8], mode: JudgeMatchRule) -> bool {
         let newline = b'\n';
         let space = b' ';
-        log::trace!("Ssserting program -trace:{}", self.tracing_id);
+        log::trace!("Asserting program -trace:{}", self.tracing_id);
         let stdout = &self.process.stdout;
 
         match mode {

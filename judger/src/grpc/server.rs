@@ -11,7 +11,10 @@ use uuid::Uuid;
 use crate::{
     grpc::proto::prelude::judge_response,
     init::config::CONFIG,
-    langs::{prelude::Error as LangError, prelude::*},
+    langs::{
+        prelude::{ArtifactFactory, CompileLog, Error as LangError},
+        RequestError,
+    },
 };
 
 use super::proto::prelude::{judger_server::Judger, *};
@@ -23,56 +26,70 @@ fn accuracy() -> u64 {
     (1000 * 1000 / config.kernel.kernel_hz) as u64
 }
 
+impl From<LangError> for Result<JudgeResponse, Status> {
+    fn from(value: LangError) -> Self {
+        match value {
+            LangError::Internal(err) => {
+                log::warn!("{}", err);
+                #[cfg(debug_assertions)]
+                return Err(Status::with_details(
+                    Code::Internal,
+                    "Lanuage internal error: see debug info",
+                    Bytes::from(format!("{}", err)),
+                ));
+                #[cfg(not(debug_assertions))]
+                Err(Status::internal("See log for more details"))
+            }
+            LangError::BadRequest(err) => match err {
+                RequestError::LangNotFound(uid) => Err(Status::with_details(
+                    Code::FailedPrecondition,
+                    "language with such uuid does not exist on this judger",
+                    Bytes::from(format!("lang_uid: {}", uid)),
+                )),
+            },
+            LangError::Report(res) => Ok(JudgeResponse {
+                task: Some(judge_response::Task::Result(JudgeResult {
+                    status: res as i32,
+                    time: 0,
+                    memory: 0,
+                    accuracy: accuracy(),
+                })),
+            }),
+        }
+    }
+}
+
 macro_rules! report {
     ($result:expr,$tx:expr) => {
         match $result {
             Ok(x) => x,
-            Err(err) => match err {
-                LangError::Internal(err) => {
-                    log::warn!("{}", err);
-                    #[cfg(debug_assertions)]
-                    $tx.send(Err(Status::with_details(
-                        Code::Internal,
-                        "Lanuage internal error: see debug info",
-                        Bytes::from(format!("{}", err)),
-                    )))
-                    .await
-                    .ok();
-                    #[cfg(not(debug_assertions))]
-                    $tx.send(Err(Status::internal("See log for more details")))
-                        .await
-                        .ok();
-                    return ();
-                }
-                LangError::BadRequest(err) => {
-                    match err {
-                        RequestError::LangNotFound(uid) => $tx
-                            .send(Err(Status::with_details(
-                                Code::FailedPrecondition,
-                                "language with such uuid does not exist on this judger",
-                                Bytes::from(format!("lang_uid: {}", uid)),
-                            )))
-                            .await
-                            .ok(),
-                    };
-                    return ();
-                }
-                LangError::Report(res) => {
-                    $tx.send(Ok(JudgeResponse {
-                        task: Some(judge_response::Task::Result(JudgeResult {
-                            status: res as i32,
-                            time: 0,
-                            memory: 0,
-                            accuracy: accuracy(),
-                        })),
-                    }))
-                    .await
-                    .ok();
-                    return ();
-                }
-            },
+            Err(err) => {
+                $tx.send(err.into()).await.ok();
+                return ();
+            }
         }
     };
+}
+
+macro_rules! resud {
+    ($result:expr) => {
+        match $result {
+            Ok(x) => x,
+            Err(err) => {
+                log::trace!("{}", err);
+                return;
+            }
+        }
+    };
+}
+
+impl From<CompileLog<'_>> for Log {
+    fn from(value: CompileLog<'_>) -> Self {
+        Log {
+            level: value.level as u32,
+            msg: value.message.into_owned(),
+        }
+    }
 }
 
 // Adapter and abstraction for tonic to serve
@@ -174,7 +191,6 @@ impl Judger for Server {
         &'a self,
         request: tonic::Request<()>,
     ) -> Result<Response<JudgeInfo>, Status> {
-        log::trace!("Query judger info");
         let config = CONFIG.get().unwrap();
 
         let (meta, _, _) = request.into_parts();
@@ -188,6 +204,56 @@ impl Judger for Server {
             accuracy: accuracy(),
             cpu_factor: config.platform.cpu_time_multiplier as f32,
         }))
+    }
+
+    #[doc = " Server streaming response type for the Exec method."]
+    type ExecStream = Pin<Box<dyn futures::Stream<Item = Result<ExecResult, Status>> + Send>>;
+
+    #[instrument(skip_all, name = "grpc_exec")]
+    async fn exec(
+        &self,
+        req: tonic::Request<ExecRequest>,
+    ) -> Result<Response<Self::ExecStream>, tonic::Status> {
+        let (meta, _, payload) = req.into_parts();
+        check_secret(&meta)?;
+
+        let (tx, rx) = mpsc::channel(2);
+
+        let factory = self.factory.clone();
+
+        let lang_uid = Uuid::parse_str(payload.lang_uid.as_str()).map_err(|e| {
+            log::warn!("Invalid uuid: {}", e);
+            Status::failed_precondition("Invalid uuid")
+        })?;
+
+        tokio::spawn(async move {
+            let input = payload.input;
+            let time = payload.time;
+            let memory = payload.memory;
+
+            let mut compiled = resud!(factory.compile(&lang_uid, &payload.code).await);
+
+            while let Some(x) = compiled
+                .to_log()
+                .map(|x| ExecResult {
+                    result: Some(exec_result::Result::Log(x.into())),
+                })
+                .next()
+            {
+                resud!(tx.send(Ok(x)).await);
+            }
+
+            let exec = resud!(compiled.exec(&input, time, memory).await);
+
+            resud!(
+                tx.send(Ok(ExecResult {
+                    result: Some(exec_result::Result::Output(exec.stdout().to_vec()))
+                }))
+                .await
+            );
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }
 

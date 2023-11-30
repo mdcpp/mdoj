@@ -47,7 +47,7 @@ async fn cgroup_cpu() {
 
         let process = container
             .execute(
-                vec!["/rlua-54", "violate","cpu"],
+                vec!["/rlua-54", "violate", "cpu"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -81,7 +81,7 @@ async fn network() {
 
         let process = container
             .execute(
-                vec!["/rlua-54", "violate","net"],
+                vec!["/rlua-54", "violate", "net"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -114,7 +114,7 @@ async fn memory() {
 
         let process = container
             .execute(
-                vec!["/rlua-54", "violate","mem"],
+                vec!["/rlua-54", "violate", "mem"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -147,7 +147,7 @@ async fn disk() {
 
         let process = container
             .execute(
-                vec!["/rlua-54", "violate","disk"],
+                vec!["/rlua-54", "violate", "disk"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,
@@ -181,7 +181,7 @@ async fn syscall() {
 
         let process = container
             .execute(
-                vec!["/rlua-54", "violate","syscall"],
+                vec!["/rlua-54", "violate", "syscall"],
                 Limit {
                     cpu_us: 1000 * 1000 * 1000,
                     rt_us: 1000 * 1000 * 1000,

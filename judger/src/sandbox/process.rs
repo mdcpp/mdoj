@@ -86,22 +86,25 @@ impl RunningProc {
         }
 
         let (cpu, mem) = self.limiter.status().await;
+        let output_limit = config.platform.output_limit as u64;
 
+        let _memory_holder = self._memory_holder.downgrade(output_limit);
         Ok(ExitProc {
             status,
             stdout: buf.to_vec(),
             cpu,
             mem,
+            _memory_holder,
         })
     }
 }
 
-#[derive(Debug)]
 pub struct ExitProc {
     pub status: ExitStatus,
     pub stdout: Vec<u8>,
     pub cpu: CpuStatistics,
     pub mem: MemStatistics,
+    _memory_holder: MemoryPermit,
 }
 
 impl ExitProc {

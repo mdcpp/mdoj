@@ -137,6 +137,11 @@ impl MemoryPermit {
             counter: counter.clone(),
         }
     }
+    pub fn downgrade(mut self, target: u64) -> Self {
+        self.counter.deallocate(self.memory - target);
+        self.memory = target;
+        self
+    }
 }
 
 impl Drop for MemoryPermit {

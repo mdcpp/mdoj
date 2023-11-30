@@ -16,6 +16,30 @@ message JudgeRequest {
   repeated TestIO tests = 6;
 }
 
+message ExecRequest {
+  required string lang_uid = 1;
+  required bytes code = 2;
+  // memory limit in byte
+  required uint64 memory = 3;
+  // time limit in nanosecond
+  required uint64 time = 4;
+  // len must > 0
+  required bytes input = 5;
+}
+
+message Log{
+  required uint32 level = 1;
+  required string msg = 2;
+}
+
+message ExecResult {
+  oneof result {
+    // number of test case running(or finished)
+    bytes output = 1;
+    Log log = 2;
+  }
+}
+
 message TestIO {
   required bytes input = 1;
   required bytes output = 2;
@@ -101,4 +125,6 @@ service Judger {
   rpc Judge(JudgeRequest) returns (stream JudgeResponse);
   // Get judger info, useful for getting supported language and load balancing
   rpc JudgerInfo(google.protobuf.Empty) returns (JudgeInfo);
+  // Execute the sandbox once, OLE also apply
+  rpc Exec(ExecRequest) returns (stream ExecResult);
 }
