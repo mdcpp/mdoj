@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use futures::Future;
+use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
@@ -7,9 +9,12 @@ use tonic::Status;
 use uuid::Uuid;
 
 use crate::{
+    endpoint::util::{error, stream::TonicStream},
     grpc::{
-        backend::{submit_status, JudgeResult as BackendResult, SubmitStatus},
-        judger::{judge_response, JudgeRequest, JudgeResponse, JudgeResult, JudgerCode, TestIo},
+        backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
+        judger::{
+            judge_response, JudgeRequest, JudgeResponse, JudgeResult, JudgerCode, LangInfo, TestIo,
+        },
     },
     init::{config::CONFIG, db::DB},
 };
@@ -21,7 +26,26 @@ use super::util::{
 };
 use entity::*;
 
-type TonicStream<T> = std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, Status>> + Send>>;
+struct Waker;
+
+impl std::task::Wake for Waker {
+    fn wake(self: Arc<Self>) {
+        log::error!("waker wake");
+    }
+}
+
+macro_rules! check_rate_limit {
+    ($s:expr) => {{
+        let waker = Arc::new(Waker).into();
+        let mut cx = std::task::Context::from_waker(&waker);
+
+        let ac = $s.limiter.clone().acquire_owned(1);
+        tokio::pin!(ac);
+        if ac.as_mut().poll(&mut cx).is_pending() {
+            return Err(Error::RateLimit);
+        }
+    }};
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -39,8 +63,8 @@ pub enum Error {
     Tonic(#[from] tonic::transport::Error),
     #[error("`{0}`")]
     Internal(&'static str),
-    // #[error("judger tls error")]
-    // TlsError,
+    #[error("Rate limit exceeded")]
+    RateLimit,
 }
 
 impl From<Error> for super::Error {
@@ -58,6 +82,9 @@ impl From<Error> for super::Error {
             Error::Tonic(x) => super::Error::Tonic(x),
             Error::Internal(x) => super::Error::Internal(x),
             Error::GrpcReport(x) => super::Error::GrpcReport(x),
+            Error::RateLimit => super::Error::GrpcReport(tonic::Status::resource_exhausted(
+                "judge rate limit exceeded",
+            )),
         }
     }
 }
@@ -93,10 +120,10 @@ impl From<JudgeResult> for SubmitStatus {
     }
 }
 
-#[derive(Clone)]
 pub struct SubmitController {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
+    limiter: Arc<RateLimiter>,
 }
 
 impl SubmitController {
@@ -105,6 +132,14 @@ impl SubmitController {
         Ok(SubmitController {
             router: Router::new(&config.judger).await?,
             pubsub: Arc::new(PubSub::default()),
+            limiter: Arc::new(
+                RateLimiter::builder()
+                    .max(25)
+                    .initial(10)
+                    .refill(2)
+                    .interval(std::time::Duration::from_millis(100))
+                    .build(),
+            ),
         })
     }
     async fn stream(
@@ -170,6 +205,7 @@ impl SubmitController {
         }
     }
     pub async fn submit(&self, submit: Submit) -> Result<i32, Error> {
+        check_rate_limit!(self);
         let db = DB.get().unwrap();
 
         let mut conn = self.router.get(&submit.lang).await?;
@@ -224,6 +260,13 @@ impl SubmitController {
     }
     pub async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
         self.pubsub.subscribe(&submit_id)
+    }
+    pub fn list_lang(&self) -> Vec<LangInfo> {
+        self.router.langs()
+    }
+    pub async fn playground(&self) -> Result<TonicStream<PlaygroundResult>, Error> {
+        check_rate_limit!(self);
+        todo!()
     }
 }
 

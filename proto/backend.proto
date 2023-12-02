@@ -152,6 +152,13 @@ message RejudgeRequest {
   required string request_id = 2;
 }
 
+message Language {
+  required string lang_uid = 1;
+  required string lang_name = 2;
+  required string info = 3;
+  required string lang_ext = 4;
+}
+
 service SubmitSet {
   rpc List(ListRequest) returns (ListSubmitResponse);
   rpc Info(SubmitId) returns (SubmitInfo);
@@ -164,6 +171,8 @@ service SubmitSet {
   // are not guarantee to yield status
   rpc Follow(SubmitId) returns (stream SubmitStatus);
   rpc Rejudge(RejudgeRequest) returns (google.protobuf.Empty);
+
+  rpc ListLangs(google.protobuf.Empty) returns (stream Language);
 }
 
 // Announcements
@@ -614,4 +623,26 @@ service TokenSet {
   rpc Refresh(google.protobuf.Empty) returns (TokenInfo);
 
   rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+message PlaygroundRequest{
+  required bytes code=1;
+  required string lang=2;
+  required bytes input=3;
+}
+
+message CompileLog{
+  required uint32 level = 1;
+  required string msg = 2;
+}
+
+message PlaygroundResult{
+  oneof result{
+    CompileLog compile=1;
+    bytes output=2;
+  }
+}
+
+service PlaygroundSet{
+  rpc Run(PlaygroundRequest) returns (stream PlaygroundResult);
 }

@@ -7,6 +7,7 @@ use std::{
     },
 };
 
+use itertools::Itertools;
 use spin::{Mutex, RwLock};
 use tonic::*;
 use uuid::Uuid;
@@ -148,6 +149,9 @@ impl Upstream {
 
         self_
     }
+    fn langs(&self) -> Vec<LangInfo> {
+        self.langs.read().values().cloned().collect()
+    }
     async fn health_check(&self) -> Result<(), Error> {
         macro_rules! health {
             ($e:expr) => {
@@ -207,6 +211,14 @@ impl Router {
             upstreams,
             next_entry: AtomicUsize::new(0),
         }))
+    }
+    pub fn langs(&self) -> Vec<LangInfo> {
+        self.upstreams
+            .iter()
+            .map(|x| x.langs())
+            .flatten()
+            .unique_by(|x| x.lang_uid.clone())
+            .collect()
     }
     pub async fn get(&self, uid: &Uuid) -> Result<ConnGuard, Error> {
         let server_count = self.upstreams.len();

@@ -8,6 +8,7 @@ use crate::controller::util::code::Code;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;
+use crate::grpc::judger::LangInfo;
 
 use entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
@@ -248,5 +249,27 @@ impl SubmitSet for Arc<Server> {
         self.dup.store(user_id, uuid, submit_id);
 
         Ok(Response::new(()))
+    }
+
+    #[doc = " Server streaming response type for the ListLangs method."]
+    type ListLangsStream = TonicStream<Language>;
+
+    async fn list_langs(&self, _: Request<()>) -> Result<Response<Self::ListLangsStream>, Status> {
+        let langs = self.submit.list_lang().into_iter().map(|x| Ok(x.into()));
+
+        Ok(Response::new(
+            Box::pin(tokio_stream::iter(langs)) as TonicStream<_>
+        ))
+    }
+}
+
+impl From<LangInfo> for Language {
+    fn from(value: LangInfo) -> Self {
+        Language {
+            lang_uid: value.lang_uid,
+            lang_name: value.lang_name,
+            info: value.info,
+            lang_ext: value.lang_ext,
+        }
     }
 }
