@@ -1,9 +1,7 @@
 use super::endpoints::*;
 use super::tools::*;
-use super::util::hash::hash_eq;
 
 use crate::controller::token::UserPermBytes;
-use crate::endpoint::util::hash;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
@@ -174,7 +172,8 @@ impl UserSet for Arc<Server> {
 
         fill_active_model!(model, req.info, username);
 
-        model.password = ActiveValue::set(hash::hash(req.info.password.as_str()));
+        let hash = self.crypto.hash(req.info.password.as_str()).into();
+        model.password = ActiveValue::set(hash);
         let new_perm = Into::<UserPermBytes>::into(req.info.permission);
 
         if new_perm != UserPermBytes::default() && !perm.can_root() {
@@ -214,7 +213,8 @@ impl UserSet for Arc<Server> {
             model.username = ActiveValue::set(username);
         }
         if let Some(password) = req.info.password {
-            model.password = ActiveValue::set(hash::hash(password.as_str()));
+            let hash = self.crypto.hash(password.as_str()).into();
+            model.password = ActiveValue::set(hash);
         }
         if let Some(permission) = req.info.permission {
             if !perm.can_root() {
@@ -255,7 +255,7 @@ impl UserSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("user"))?;
 
-        if !hash_eq(req.password.as_str(), &model.password) {
+        if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
             return Err(Error::PremissionDeny("password").into());
         }
 
@@ -267,10 +267,7 @@ impl UserSet for Arc<Server> {
                 .await
                 .map_err(Into::<Error>::into)?;
 
-            self.token
-                .remove_by_user_id(user_id, &txn)
-                .await
-                .map_err(Into::<Error>::into)?;
+            self.token.remove_by_user_id(user_id, &txn).await?;
 
             if txn.commit().await.map_err(Into::<Error>::into).is_ok() {
                 return Ok(Response::new(()));

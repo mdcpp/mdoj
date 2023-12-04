@@ -1,9 +1,5 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Upstream: `{0}`")]
-    Upstream(#[from] crate::controller::Error),
     #[error("Premission deny: `{0}`")]
     PremissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
@@ -27,12 +23,6 @@ pub enum Error {
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::Upstream(x) => {
-                log::error!("{}", x);
-                #[cfg(feature = "unsecured-log")]
-                return tonic::Status::internal(format!("{}", x));
-                tonic::Status::unavailable("")
-            }
             Error::PremissionDeny(x) => {
                 log::debug!("Client request inaccessible resource, hint: {}", x);
                 tonic::Status::permission_denied(x)

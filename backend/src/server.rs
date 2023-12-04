@@ -4,7 +4,7 @@ use tokio::fs;
 use tonic::transport;
 
 use crate::{
-    controller::{duplicate::DupController, *},
+    controller::*,
     grpc::backend::{
         contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
         problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
@@ -19,7 +19,8 @@ const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 pub struct Server {
     pub token: Arc<token::TokenController>,
     pub submit: submit::SubmitController,
-    pub dup: DupController,
+    pub dup: duplicate::DupController,
+    pub crypto: crypto::CryptoController,
 }
 
 impl Server {
@@ -35,8 +36,9 @@ impl Server {
 
         let server = Arc::new(Server {
             token: token::TokenController::new(),
-            submit: submit::SubmitController::new().await.unwrap(),
-            dup: DupController::default(),
+            submit: submit::SubmitController::new(config).await.unwrap(),
+            dup: duplicate::DupController::default(),
+            crypto: crypto::CryptoController::new(config),
         });
 
         transport::Server::builder()

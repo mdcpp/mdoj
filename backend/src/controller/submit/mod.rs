@@ -1,5 +1,8 @@
+mod pubsub;
+mod router;
 use std::sync::Arc;
 
+use crate::{grpc::TonicStream, report_internal};
 use futures::Future;
 use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
@@ -9,21 +12,18 @@ use tonic::Status;
 use uuid::Uuid;
 
 use crate::{
-    endpoint::util::{error, stream::TonicStream},
     grpc::{
         backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
-        judger::{
-            judge_response, JudgeRequest, JudgeResponse, JudgeResult, JudgerCode, LangInfo, TestIo,
-        },
+        judger::*,
     },
-    init::{config::CONFIG, db::DB},
+    init::{config::GlobalConfig, db::DB},
 };
 
-use super::util::{
-    code::Code,
+use self::{
     pubsub::{PubGuard, PubSub},
     router::*,
 };
+use super::code::Code;
 use entity::*;
 
 struct Waker;
@@ -54,37 +54,27 @@ pub enum Error {
     #[error("judger health check failed")]
     HealthCheck,
     #[error("`{0}`")]
-    GrpcReport(#[from] Status),
+    JudgerGrpc(#[from] Status),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("`{0}`")]
     Database(#[from] sea_orm::error::DbErr),
     #[error("`{0}`")]
     Tonic(#[from] tonic::transport::Error),
-    #[error("`{0}`")]
-    Internal(&'static str),
     #[error("Rate limit exceeded")]
     RateLimit,
 }
 
-impl From<Error> for super::Error {
+impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::JudgerUnavailable => {
-                super::Error::Internal("no judger available(for such lang)")
-            }
-            Error::HealthCheck => super::Error::Internal("judger health check failed"),
-            Error::BadArgument(x) => {
-                Status::invalid_argument(format!("Client sent invaild argument: payload.{}", x))
-                    .into()
-            }
-            Error::Database(x) => super::Error::Database(x),
-            Error::Tonic(x) => super::Error::Tonic(x),
-            Error::Internal(x) => super::Error::Internal(x),
-            Error::GrpcReport(x) => super::Error::GrpcReport(x),
-            Error::RateLimit => super::Error::GrpcReport(tonic::Status::resource_exhausted(
-                "judge rate limit exceeded",
-            )),
+            Error::JudgerUnavailable => report_internal!(error, "judger temporarily unavailable"),
+            Error::HealthCheck => report_internal!(error, "judger health check failed"),
+            Error::JudgerGrpc(x) => report_internal!(error, "`{}`", x),
+            Error::BadArgument(x) => report_internal!(trace, "`{}`", x),
+            Error::Database(x) => report_internal!(error, "`{}`", x),
+            Error::Tonic(x) => report_internal!(error, "judger transport layer failure: `{}`", x),
+            Error::RateLimit => tonic::Status::resource_exhausted("rate limit exceeded"),
         }
     }
 }
@@ -127,8 +117,7 @@ pub struct SubmitController {
 }
 
 impl SubmitController {
-    pub async fn new() -> Result<Self, Error> {
-        let config = CONFIG.get().unwrap();
+    pub async fn new(config: &GlobalConfig) -> Result<Self, Error> {
         Ok(SubmitController {
             router: Router::new(&config.judger).await?,
             pubsub: Arc::new(PubSub::default()),
@@ -266,21 +255,7 @@ impl SubmitController {
     }
     pub async fn playground(&self) -> Result<TonicStream<PlaygroundResult>, Error> {
         check_rate_limit!(self);
-        todo!()
-    }
-}
 
-impl From<Error> for Status {
-    fn from(value: Error) -> Self {
-        match value {
-            Error::JudgerUnavailable | Error::HealthCheck => {
-                Status::unavailable("no judger available(for such lang)")
-            }
-            Error::GrpcReport(x) => x,
-            _ => {
-                let err = crate::endpoint::util::error::Error::Upstream(super::Error::from(value));
-                err.into()
-            }
-        }
+        todo!()
     }
 }

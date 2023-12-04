@@ -1,19 +1,26 @@
 #[macro_export]
-macro_rules! impl_id {
-    ($name:ident) => {
-        paste::paste! {
-            impl Transform<i32> for [<$name Id>] {
-                fn into(self) -> i32 {
-                    self.id
-                }
-            }
-            impl Transform<[<$name Id>]> for i32 {
-                fn into(self) -> [<$name Id>] {
-                    [<$name Id>] { id: self }
-                }
-            }
-        }
-    };
+#[cfg(feature = "unsecured-log")]
+macro_rules! report_internal {
+    ($level:ident,$pattern:literal) => {{
+        log::$level!($pattern);
+        tonic::Status::internal($error.to_string())
+    }};
+    ($level:ident,$pattern:literal, $error:expr) => {{
+        log::$level!($pattern, $error);
+        tonic::Status::internal($error.to_string())
+    }};
+}
+
+#[macro_export]
+macro_rules! report_internal {
+    ($level:ident,$pattern:literal) => {{
+        log::$level!($pattern);
+        tonic::Status::unknown("unknown error")
+    };};
+    ($level:ident,$pattern:literal, $error:expr) => {{
+        log::$level!($pattern, $error);
+        tonic::Status::unknown("unknown error")
+    };};
 }
 
 #[macro_export]

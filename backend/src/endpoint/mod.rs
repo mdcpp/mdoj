@@ -11,6 +11,7 @@ pub mod util;
 pub mod tools {
     pub use super::util::auth::Auth;
     pub use super::util::error::Error;
+    pub use crate::grpc::TonicStream;
     pub use crate::init::db::DB;
 }
 pub mod endpoints {

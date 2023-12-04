@@ -9,22 +9,35 @@ use std::sync::Arc;
 use tokio::time;
 use tracing::instrument;
 
-use crate::init::db::DB;
-
-use super::Error;
+use crate::{init::db::DB, report_internal};
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type Rand = [u8; 18];
 
-macro_rules! report {
-    ($e:expr) => {
-        match $e {
-            Some(x) => x,
-            None => {
-                return Ok(None);
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("`{0}`")]
+    Database(#[from] sea_orm::error::DbErr),
+    #[error("expired")]
+    Expired,
+    #[error("length of token is not 18")]
+    InvalidTokenLength,
+    #[error("`{0}`")]
+    Base64(#[from] base64::DecodeError),
+    #[error("token not exist")]
+    NonExist,
+}
+
+impl From<Error> for tonic::Status {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::Database(x) => report_internal!(error, "`{}`", x),
+            Error::NonExist | Error::Expired | Error::InvalidTokenLength => {
+                tonic::Status::invalid_argument("invaild token")
             }
+            Error::Base64(_) => tonic::Status::invalid_argument("token should be base64"),
         }
-    };
+    }
 }
 
 #[derive(Clone)]
@@ -106,30 +119,15 @@ impl TokenController {
             expiry,
         ))
     }
-    // pub async fn verify_throttle(&self, token:&str, ip:Option<IpAddr>)-> Result<Option<(i32, UserPermBytes)>, Error>{
-    //     let reverse_proxy=self.reverse_proxy.read();
-    //     if reverse_proxy.len()==0{
-    //         return  self.verify(token).await;
-    //     }else{
-    //         if let Some(ip)=ip{
-    //             if !reverse_proxy.contains(&ip){
-    //                 return self.verify(token).await;
-    //             }
-    //         }
-    //     }
-    //     return Ok(None);
-    // }
+
     #[instrument(skip_all, name = "token_verify")]
-    pub async fn verify(&self, token: &str) -> Result<Option<(i32, UserPermBytes)>, Error> {
+    pub async fn verify(&self, token: &str) -> Result<(i32, UserPermBytes), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
-        let rand = report!(base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD_NO_PAD,
-            token
-        )
-        .ok());
-        let rand: Rand = report!(rand.try_into().ok());
+        let rand =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
+        let rand: Rand = rand.try_into().map_err(|_| Error::InvalidTokenLength)?;
 
         let token: CachedToken;
 
@@ -155,16 +153,15 @@ impl TokenController {
                 token = token_;
             }
             None => {
-                token = report!(
-                    token::Entity::find()
-                        .filter(token::Column::Rand.eq(rand.to_vec()))
-                        .one(db)
-                        .await?
-                )
+                token = (token::Entity::find()
+                    .filter(token::Column::Rand.eq(rand.to_vec()))
+                    .one(db)
+                    .await?
+                    .ok_or(Error::NonExist)?)
                 .into();
 
                 if token.expiry < now {
-                    return Ok(None);
+                    return Err(Error::Expired);
                 }
 
                 #[cfg(feature = "single-instance")]
@@ -172,18 +169,15 @@ impl TokenController {
             }
         }
 
-        Ok(Some((token.user_id, UserPermBytes(token.permission))))
+        Ok((token.user_id, UserPermBytes(token.permission)))
     }
     #[instrument(skip_all, name="token_removal", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
 
-        let rand = report!(base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD_NO_PAD,
-            token
-        )
-        .ok());
-        let rand: Rand = report!(rand.try_into().ok());
+        let rand =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
+        let rand: Rand = rand.try_into().map_err(|_| Error::InvalidTokenLength)?;
 
         token::Entity::delete_many()
             .filter(token::Column::Rand.eq(rand.to_vec()))

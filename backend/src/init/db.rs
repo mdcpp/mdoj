@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
+use ring::digest;
 use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection};
 use tokio::fs;
 use tokio::sync::OnceCell;
 
 use super::config::CONFIG;
 use crate::controller::token::UserPermBytes;
-use crate::endpoint::util::hash;
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -33,6 +33,15 @@ pub async fn init() {
         }
     }
 }
+fn hash(src: &str) -> Vec<u8> {
+    let config = CONFIG.get().unwrap();
+    digest::digest(
+        &digest::SHA256,
+        &[src.as_bytes(), config.database.salt.as_bytes()].concat(),
+    )
+    .as_ref()
+    .to_vec()
+}
 
 pub async fn first_migration() {
     let db = DB.get().unwrap();
@@ -50,7 +59,7 @@ pub async fn first_migration() {
     entity::user::ActiveModel {
         permission: ActiveValue::Set(perm.0),
         username: ActiveValue::Set("admin".to_owned()),
-        password: ActiveValue::Set(hash::hash("admin")),
+        password: ActiveValue::Set(hash("admin")),
         ..Default::default()
     }
     .save(db)

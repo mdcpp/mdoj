@@ -23,12 +23,6 @@ const PIPELINE: usize = 8;
 const JUDGER_QUE_MAX: usize = 16;
 const HEALTHCHECK_DURATION: std::time::Duration = std::time::Duration::from_secs(60);
 
-pub struct RouteRequest {
-    pub match_rule: JudgeMatchRule,
-    pub code: Vec<u8>,
-    pub language: Uuid,
-}
-
 type AuthIntercept = JudgerClient<
     service::interceptor::InterceptedService<
         transport::Channel,

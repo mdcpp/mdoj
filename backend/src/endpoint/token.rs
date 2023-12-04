@@ -2,11 +2,10 @@ use std::time::Duration;
 
 use super::endpoints::*;
 use super::tools::*;
-use super::util::time::into_prost;
 
-use crate::endpoint::util::hash::hash_eq;
 use crate::grpc::backend::token_set_server::*;
 use crate::grpc::backend::*;
+use crate::grpc::into_prost;
 
 use entity::token::*;
 use entity::*;
@@ -56,18 +55,14 @@ impl TokenSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("user"))?;
 
-        if hash_eq(req.password.as_str(), &model.password) {
+        if self.crypto.hash_eq(req.password.as_str(), &model.password) {
             let dur =
                 chrono::Duration::from_std(Duration::from_secs(req.expiry.unwrap_or(60 * 60 * 12)))
                     .map_err(|err| {
                         log::trace!("{}", err);
                         Error::BadArgument("expiry")
                     })?;
-            let (token, expiry) = self
-                .token
-                .add(&model, dur)
-                .await
-                .map_err(Into::<Error>::into)?;
+            let (token, expiry) = self.token.add(&model, dur).await?;
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
@@ -84,13 +79,8 @@ impl TokenSet for Arc<Server> {
 
         if let Some(x) = meta.get("token") {
             let token = x.to_str().unwrap();
-            let pack = self
-                .token
-                .verify(token)
-                .await
-                .map_err(Into::<Error>::into)?;
 
-            let (user_id, perm) = pack.ok_or(Error::Unauthenticated)?;
+            let (user_id, perm) = self.token.verify(token).await?;
             let user = user::Entity::find_by_id(user_id)
                 .one(db)
                 .await
@@ -98,16 +88,9 @@ impl TokenSet for Arc<Server> {
                 .ok_or(Error::NotInDB("user"))?;
 
             let dur = chrono::Duration::from_std(Duration::from_secs(60 * 60 * 12)).unwrap();
-            self.token
-                .remove(token.to_string())
-                .await
-                .map_err(Into::<Error>::into)?;
+            self.token.remove(token.to_string()).await?;
 
-            let (token, expiry) = self
-                .token
-                .add(&user, dur)
-                .await
-                .map_err(Into::<Error>::into)?;
+            let (token, expiry) = self.token.add(&user, dur).await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
                 permission: perm.0,
@@ -123,10 +106,7 @@ impl TokenSet for Arc<Server> {
         if let Some(x) = meta.get("token") {
             let token = x.to_str().unwrap();
 
-            self.token
-                .remove(token.to_string())
-                .await
-                .map_err(Into::<Error>::into)?;
+            self.token.remove(token.to_string()).await?;
         }
 
         Err(Error::Unauthenticated.into())

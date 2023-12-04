@@ -1,12 +1,10 @@
 use super::endpoints::*;
 use super::tools::*;
-use super::util::time::into_prost;
 
-use crate::endpoint::util::hash::hash;
-use crate::endpoint::util::hash::hash_eq;
-use crate::endpoint::util::time::into_chrono;
 use crate::grpc::backend::contest_set_server::*;
 use crate::grpc::backend::*;
+use crate::grpc::into_chrono;
+use crate::grpc::into_prost;
 use entity::{contest::*, *};
 use sea_orm::QueryOrder;
 
@@ -187,7 +185,13 @@ impl ContestSet for Arc<Server> {
 
         fill_active_model!(model, req.info, title, content, tags);
 
-        model.password = ActiveValue::Set(req.info.password.map(|a| hash(&a)));
+        let password: Vec<u8> = req
+            .info
+            .password
+            .map(|a| self.crypto.hash(&a))
+            .ok_or(Error::NotInPayload("password"))?
+            .into();
+        model.password = ActiveValue::Set(Some(password));
 
         model.begin = ActiveValue::Set(into_chrono(req.info.begin));
         model.end = ActiveValue::Set(into_chrono(req.info.end));
@@ -221,8 +225,9 @@ impl ContestSet for Arc<Server> {
 
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
-                if auth.is_root() || hash_eq(&src, tar) {
-                    model.password = Some(hash(&src));
+                if auth.is_root() || self.crypto.hash_eq(&src, tar) {
+                    let hash = self.crypto.hash(&src).into();
+                    model.password = Some(hash);
                 } else {
                     return Err(Error::PremissionDeny(
                         "password should match in order to update password!",
@@ -274,7 +279,9 @@ impl ContestSet for Arc<Server> {
         let empty_password = "".to_string();
         if let Some(tar) = model.password {
             if (!auth.is_root())
-                && (!hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
+                && (!self
+                    .crypto
+                    .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
                 && model.public
             {
                 return Err(Error::PremissionDeny("contest password mismatch").into());

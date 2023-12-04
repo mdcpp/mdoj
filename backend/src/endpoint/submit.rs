@@ -1,13 +1,12 @@
 use super::endpoints::*;
 use super::tools::*;
 
-use super::util::stream::*;
-use super::util::time::into_prost;
+use crate::controller::code::Code;
 use crate::controller::submit::SubmitBuilder;
-use crate::controller::util::code::Code;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;
+use crate::grpc::into_prost;
 use crate::grpc::judger::LangInfo;
 
 use entity::{submit::*, *};

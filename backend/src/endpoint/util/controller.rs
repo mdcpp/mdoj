@@ -2,13 +2,13 @@ use tracing::{span, Level};
 
 use crate::server::Server;
 
-use super::{auth::Auth, error::Error};
+use super::auth::Auth;
 
 impl Server {
     pub async fn parse_request<T: Send>(
         &self,
         request: tonic::Request<T>,
-    ) -> Result<(Auth, T), Error> {
+    ) -> Result<(Auth, T), tonic::Status> {
         let span = span!(Level::INFO,"token_verify",addr=?request.remote_addr());
         let _ = span.enter();
 
@@ -17,13 +17,7 @@ impl Server {
         if let Some(x) = meta.get("token") {
             let token = x.to_str().unwrap();
 
-            match self.token.verify(token).await.map_err(|x| {
-                log::error!("Token verification failed: {}", x);
-                Error::Unauthenticated
-            })? {
-                Some(x) => Ok((Auth::User(x), payload)),
-                None => Err(Error::Unauthenticated),
-            }
+            Ok((Auth::User(self.token.verify(token).await?), payload))
         } else {
             Ok((Auth::Guest, payload))
         }
