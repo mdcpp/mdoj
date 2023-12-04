@@ -1,10 +1,8 @@
 use tracing::Level;
 
-use super::config::CONFIG;
+use super::config::GlobalConfig;
 
-pub fn init() {
-    let config = CONFIG.get().unwrap();
-
+pub fn init(config: &GlobalConfig) {
     let level = match config.log_level {
         0 => Level::TRACE,
         1 => Level::DEBUG,

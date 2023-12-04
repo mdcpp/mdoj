@@ -5,13 +5,12 @@ use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection};
 use tokio::fs;
 use tokio::sync::OnceCell;
 
-use super::config::CONFIG;
+use super::config::GlobalConfig;
 use crate::controller::token::UserPermBytes;
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
-pub async fn init() {
-    let config = CONFIG.get().unwrap();
+pub async fn init(config: &GlobalConfig) {
     let uri = format!("sqlite://{}", config.database.path.clone());
 
     match Database::connect(&uri).await {
@@ -24,7 +23,7 @@ pub async fn init() {
             fs::File::create(PathBuf::from(config.database.path.clone()))
                 .await
                 .unwrap();
-            first_migration().await;
+            first_migration(config).await;
 
             let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
 
@@ -33,8 +32,7 @@ pub async fn init() {
         }
     }
 }
-fn hash(src: &str) -> Vec<u8> {
-    let config = CONFIG.get().unwrap();
+fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     digest::digest(
         &digest::SHA256,
         &[src.as_bytes(), config.database.salt.as_bytes()].concat(),
@@ -43,7 +41,7 @@ fn hash(src: &str) -> Vec<u8> {
     .to_vec()
 }
 
-pub async fn first_migration() {
+pub async fn first_migration(config: &GlobalConfig) {
     let db = DB.get().unwrap();
     let mut perm = UserPermBytes::default();
 
@@ -59,7 +57,7 @@ pub async fn first_migration() {
     entity::user::ActiveModel {
         permission: ActiveValue::Set(perm.0),
         username: ActiveValue::Set("admin".to_owned()),
-        password: ActiveValue::Set(hash("admin")),
+        password: ActiveValue::Set(hash(config, "admin")),
         ..Default::default()
     }
     .save(db)

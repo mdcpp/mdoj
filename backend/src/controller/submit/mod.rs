@@ -7,6 +7,7 @@ use futures::Future;
 use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
+use tokio::sync::OnceCell;
 use tokio_stream::StreamExt;
 use tonic::Status;
 use uuid::Uuid;
@@ -25,6 +26,8 @@ use self::{
 };
 use super::code::Code;
 use entity::*;
+
+pub static SECRET: OnceCell<&'static str> = OnceCell::const_new();
 
 struct Waker;
 
@@ -118,6 +121,10 @@ pub struct SubmitController {
 
 impl SubmitController {
     pub async fn new(config: &GlobalConfig) -> Result<Self, Error> {
+        if let Some(secret) = &config.judger_secret {
+            let secret = Box::new(secret.clone()).leak();
+            SECRET.set(secret).unwrap();
+        };
         Ok(SubmitController {
             router: Router::new(&config.judger).await?,
             pubsub: Arc::new(PubSub::default()),

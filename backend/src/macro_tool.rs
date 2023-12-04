@@ -16,11 +16,11 @@ macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         log::$level!($pattern);
         tonic::Status::unknown("unknown error")
-    };};
+    }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         log::$level!($pattern, $error);
         tonic::Status::unknown("unknown error")
-    };};
+    }};
 }
 
 #[macro_export]

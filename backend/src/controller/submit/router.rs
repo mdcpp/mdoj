@@ -1,3 +1,4 @@
+// TODO: we need docker swarm in dns setup, so we need to accept dns round robin
 use std::{
     collections::{BTreeMap, VecDeque},
     ops::DerefMut,
@@ -14,10 +15,10 @@ use uuid::Uuid;
 
 use crate::{
     grpc::judger::{judger_client::*, *},
-    init::config::{self, CONFIG},
+    init::config::{self},
 };
 
-use super::super::submit::Error;
+use super::{super::submit::Error, SECRET};
 
 const PIPELINE: usize = 8;
 const JUDGER_QUE_MAX: usize = 16;
@@ -30,8 +31,7 @@ type AuthIntercept = JudgerClient<
     >,
 >;
 fn auth_middleware(mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
-    let config = CONFIG.get().unwrap();
-    match &config.judger_secret {
+    match &SECRET.get() {
         Some(secret) => {
             let token: metadata::MetadataValue<_> = format!("basic {}", secret).parse().unwrap();
             req.metadata_mut().insert("Authorization", token);
@@ -189,15 +189,6 @@ impl Router {
                 Ok(_) => upstreams.push(upstream),
             }
         }
-        // let futs: Box<dyn Future<Output = Arc<Upstream>>> = configs
-        //     .iter()
-        //     .map(|x| async {
-        //         let upstream = Upstream::new(Arc::new(x.clone()));
-        //         upstream.health_check().await;
-        //         upstream
-        //     })
-        //     .collect();
-        // tokio::join!(futs);
         if upstreams.is_empty() {
             return Err(Error::JudgerUnavailable);
         }
@@ -209,8 +200,7 @@ impl Router {
     pub fn langs(&self) -> Vec<LangInfo> {
         self.upstreams
             .iter()
-            .map(|x| x.langs())
-            .flatten()
+            .flat_map(|x| x.langs())
             .unique_by(|x| x.lang_uid.clone())
             .collect()
     }

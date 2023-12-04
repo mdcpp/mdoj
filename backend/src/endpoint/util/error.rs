@@ -1,3 +1,5 @@
+use crate::report_internal;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Premission deny: `{0}`")]
@@ -27,19 +29,12 @@ impl From<Error> for tonic::Status {
                 log::debug!("Client request inaccessible resource, hint: {}", x);
                 tonic::Status::permission_denied(x)
             }
-            Error::DBErr(x) => {
-                log::error!("{}", x);
-                #[cfg(feature = "unsecured-log")]
-                return tonic::Status::internal(format!("{}", x));
-                tonic::Status::unavailable("")
-            }
+            Error::DBErr(x) => report_internal!(error, "{}", x),
             // all argument should be checked before processing,
             // so this error is considered as internal error
             Error::BadArgument(x) => {
-                log::warn!("Client sent invaild argument: payload.{}", x);
-                #[cfg(feature = "unsecured-log")]
-                return tonic::Status::invalid_argument(format!("Bad Argument {}", x));
-                tonic::Status::invalid_argument("")
+                log::debug!("Client sent invaild argument: payload.{}", x);
+                tonic::Status::invalid_argument(x)
             }
             Error::NotInPayload(x) => {
                 log::trace!("{} is not found in client payload", x);
@@ -63,12 +58,7 @@ impl From<Error> for tonic::Status {
                     "Invaild request_id(should be a client generated UUIDv4)",
                 )
             }
-            Error::Unreachable(x) => {
-                log::error!("Function should be unreachable: {}", x);
-                #[cfg(feature = "unsecured-log")]
-                return tonic::Status::internal(format!("Function should be unreachable: {}", x));
-                tonic::Status::aborted("")
-            }
+            Error::Unreachable(x) => report_internal!(error, "{}", x),
         }
     }
 }

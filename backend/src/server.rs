@@ -11,7 +11,7 @@ use crate::{
         testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
         user_set_server::UserSetServer,
     },
-    init::config::CONFIG,
+    init::config::{self},
 };
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
@@ -25,8 +25,7 @@ pub struct Server {
 
 impl Server {
     pub async fn start() {
-        let config = CONFIG.get().unwrap();
-
+        let config = config::init().await;
         log::info!("Loading TLS certificate...");
         let cert = fs::read_to_string(&config.grpc.public_pem).await.unwrap();
         let key = fs::read_to_string(&config.grpc.private_pem).await.unwrap();
@@ -36,9 +35,9 @@ impl Server {
 
         let server = Arc::new(Server {
             token: token::TokenController::new(),
-            submit: submit::SubmitController::new(config).await.unwrap(),
+            submit: submit::SubmitController::new(&config).await.unwrap(),
             dup: duplicate::DupController::default(),
-            crypto: crypto::CryptoController::new(config),
+            crypto: crypto::CryptoController::new(&config),
         });
 
         transport::Server::builder()

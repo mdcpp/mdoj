@@ -1,9 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use serde::{Deserialize, Serialize};
-use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
-
-pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
+use tokio::{fs, io::AsyncReadExt};
 
 static CONFIG_PATH: &str = "config/config.toml";
 
@@ -66,7 +64,7 @@ impl Default for Database {
     }
 }
 
-pub async fn init() {
+pub async fn init() -> GlobalConfig {
     if fs::metadata(CONFIG_PATH).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)
@@ -76,14 +74,13 @@ pub async fn init() {
         let config =
             std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
         let config: GlobalConfig = toml::from_str(config).unwrap();
-        CONFIG.set(config).ok();
+        config
     } else {
         println!("Unable to find {}, generating default config", CONFIG_PATH);
         let config: GlobalConfig = toml::from_str("").unwrap();
 
         let config_txt = toml::to_string(&config).unwrap();
         fs::write(CONFIG_PATH, config_txt).await.unwrap();
-        CONFIG.set(config).ok();
 
         println!(
             "Config generated, please edit {} before restart",
@@ -96,11 +93,10 @@ pub async fn init() {
 
 #[cfg(test)]
 mod test {
-    use super::{init, CONFIG};
+    use super::init;
 
     #[tokio::test]
     async fn default() {
         init().await;
-        assert!(CONFIG.get().is_some());
     }
 }
