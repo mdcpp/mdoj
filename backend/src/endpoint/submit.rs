@@ -2,7 +2,7 @@ use super::endpoints::*;
 use super::tools::*;
 
 use crate::controller::code::Code;
-use crate::controller::submit::SubmitBuilder;
+use crate::controller::judger::SubmitBuilder;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;

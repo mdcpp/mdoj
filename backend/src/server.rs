@@ -18,7 +18,7 @@ const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
 pub struct Server {
     pub token: Arc<token::TokenController>,
-    pub submit: submit::SubmitController,
+    pub submit: judger::SubmitController,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
 }
@@ -35,7 +35,7 @@ impl Server {
 
         let server = Arc::new(Server {
             token: token::TokenController::new(),
-            submit: submit::SubmitController::new(&config).await.unwrap(),
+            submit: judger::SubmitController::new(&config).await.unwrap(),
             dup: duplicate::DupController::default(),
             crypto: crypto::CryptoController::new(&config),
         });

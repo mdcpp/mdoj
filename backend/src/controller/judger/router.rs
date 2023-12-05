@@ -18,7 +18,7 @@ use crate::{
     init::config::{self},
 };
 
-use super::{super::submit::Error, SECRET};
+use super::{super::judger::Error, SECRET};
 
 const PIPELINE: usize = 8;
 const JUDGER_QUE_MAX: usize = 16;
