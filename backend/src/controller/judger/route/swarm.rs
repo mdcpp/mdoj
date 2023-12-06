@@ -1,4 +1,4 @@
-use std::{collections::HashSet, net::IpAddr, sync::Arc, time::Duration};
+use std::{collections::HashSet, net::IpAddr, time::Duration};
 
 use super::{ConnectionDetail, Error};
 use crate::init::config;
