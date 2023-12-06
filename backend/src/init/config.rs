@@ -15,7 +15,6 @@ pub struct GlobalConfig {
     pub log_level: usize,
     #[serde(default = "default_judger")]
     pub judger: Vec<Judger>,
-    pub judger_secret: Option<String>,
     #[serde(default)]
     pub grpc: GrpcOption,
 }
@@ -35,6 +34,12 @@ fn default_judger() -> Vec<Judger> {
 pub enum JudgerType {
     Docker,
     Static,
+}
+
+impl Default for JudgerType {
+    fn default() -> Self {
+        Self::Static
+    }
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judger {

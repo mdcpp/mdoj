@@ -27,8 +27,6 @@ use self::{
 use super::code::Code;
 use entity::*;
 
-pub static SECRET: OnceCell<&'static str> = OnceCell::const_new();
-
 struct Waker;
 
 impl std::task::Wake for Waker {
@@ -124,10 +122,6 @@ pub struct SubmitController {
 
 impl SubmitController {
     pub async fn new(config: &GlobalConfig) -> Result<Self, Error> {
-        if let Some(secret) = &config.judger_secret {
-            let secret = Box::new(secret.clone()).leak();
-            SECRET.set(secret).unwrap();
-        };
         Ok(SubmitController {
             router: Router::new(config.judger.clone()).await?,
             pubsub: Arc::new(PubSub::default()),
