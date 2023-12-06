@@ -1,5 +1,5 @@
 mod pubsub;
-mod router;
+mod route;
 use std::sync::Arc;
 
 use crate::{grpc::TonicStream, report_internal};
@@ -22,7 +22,7 @@ use crate::{
 
 use self::{
     pubsub::{PubGuard, PubSub},
-    router::*,
+    route::*,
 };
 use super::code::Code;
 use entity::*;
@@ -54,8 +54,6 @@ macro_rules! check_rate_limit {
 pub enum Error {
     #[error("judger temporarily unavailable")]
     JudgerUnavailable,
-    #[error("judger health check failed")]
-    HealthCheck,
     #[error("`{0}`")]
     JudgerGrpc(#[from] Status),
     #[error("payload.`{0}` is not a vaild argument")]
@@ -63,21 +61,26 @@ pub enum Error {
     #[error("`{0}`")]
     Database(#[from] sea_orm::error::DbErr),
     #[error("`{0}`")]
-    Tonic(#[from] tonic::transport::Error),
+    TransportLayer(#[from] tonic::transport::Error),
     #[error("Rate limit exceeded")]
     RateLimit,
+    #[error("Dns resolve failed: `{0}`")]
+    DnsResolve(#[from] hickory_resolver::error::ResolveError),
+    #[error("uri parse failed: should be in format of `http://ip:port`")]
+    UriParse,
 }
 
-impl From<Error> for tonic::Status {
+impl From<Error> for Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::JudgerUnavailable => report_internal!(error, "judger temporarily unavailable"),
-            Error::HealthCheck => report_internal!(error, "judger health check failed"),
-            Error::JudgerGrpc(x) => report_internal!(error, "`{}`", x),
-            Error::BadArgument(x) => report_internal!(trace, "`{}`", x),
-            Error::Database(x) => report_internal!(error, "`{}`", x),
-            Error::Tonic(x) => report_internal!(error, "judger transport layer failure: `{}`", x),
-            Error::RateLimit => tonic::Status::resource_exhausted("rate limit exceeded"),
+            Error::JudgerUnavailable => Status::resource_exhausted("no available judger"),
+            Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
+            Error::JudgerGrpc(x) => report_internal!(info, "`{}`", x),
+            Error::Database(x) => report_internal!(warn, "{}", x),
+            Error::TransportLayer(x) => report_internal!(info, "{}", x),
+            Error::RateLimit => Status::resource_exhausted("resource limit imposed by backend"),
+            Error::DnsResolve(x) => report_internal!(warn, "{}", x),
+            Error::UriParse => report_internal!(warn, "uri parse failed"),
         }
     }
 }
@@ -126,7 +129,7 @@ impl SubmitController {
             SECRET.set(secret).unwrap();
         };
         Ok(SubmitController {
-            router: Router::new(&config.judger).await?,
+            router: Router::new(config.judger.clone()).await?,
             pubsub: Arc::new(PubSub::default()),
             limiter: Arc::new(
                 RateLimiter::builder()
@@ -204,8 +207,6 @@ impl SubmitController {
         check_rate_limit!(self);
         let db = DB.get().unwrap();
 
-        let mut conn = self.router.get(&submit.lang).await?;
-
         let mut binding = problem::Entity::find_by_id(submit.problem)
             .find_with_related(test::Entity)
             .order_by_asc(test::Column::Score)
@@ -239,6 +240,8 @@ impl SubmitController {
             })
             .collect::<Vec<_>>();
 
+        let mut conn = self.router.get(&submit.lang).await?;
+
         let res = conn
             .judge(JudgeRequest {
                 lang_uid: submit.lang.to_string(),
@@ -250,6 +253,8 @@ impl SubmitController {
             })
             .await?;
 
+        conn.report_success();
+
         tokio::spawn(Self::stream(tx, res.into_inner(), submit_model, scores));
 
         Ok(submit_id)
@@ -258,7 +263,7 @@ impl SubmitController {
         self.pubsub.subscribe(&submit_id)
     }
     pub fn list_lang(&self) -> Vec<LangInfo> {
-        self.router.langs()
+        self.router.langs.iter().map(|x| x.clone()).collect()
     }
     pub async fn playground(&self) -> Result<TonicStream<PlaygroundResult>, Error> {
         check_rate_limit!(self);

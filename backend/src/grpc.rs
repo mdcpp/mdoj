@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 pub mod judger {
     tonic::include_proto!("oj.judger");
 }
@@ -25,3 +27,23 @@ pub fn into_chrono(time: prost_types::Timestamp) -> chrono::NaiveDateTime {
 
 pub type TonicStream<T> =
     std::pin::Pin<Box<dyn tokio_stream::Stream<Item = Result<T, tonic::Status>> + Send>>;
+
+impl Hash for judger::LangInfo {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.lang_uid.hash(state);
+    }
+}
+
+impl PartialOrd for judger::LangInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.lang_uid.partial_cmp(&other.lang_uid)
+    }
+}
+
+impl Ord for judger::LangInfo {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.lang_uid.cmp(&other.lang_uid)
+    }
+}
+
+impl Eq for judger::LangInfo {}

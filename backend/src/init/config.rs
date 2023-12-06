@@ -14,7 +14,7 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub log_level: usize,
     #[serde(default = "default_judger")]
-    pub judger: Vec<Arc<Judger>>,
+    pub judger: Vec<Judger>,
     pub judger_secret: Option<String>,
     #[serde(default)]
     pub grpc: GrpcOption,
@@ -22,14 +22,26 @@ pub struct GlobalConfig {
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
 }
-fn default_judger() -> Vec<Arc<Judger>> {
-    vec![Arc::new(Judger {
-        uri: "http://127.0.0.1:8080".to_owned(),
-    })]
+fn default_judger() -> Vec<Judger> {
+    vec![Judger {
+        name: "http://127.0.0.1:8080".to_owned(),
+        secret: None,
+        judger_type: JudgerType::Static,
+    }]
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum JudgerType {
+    Docker,
+    Static,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Judger {
-    pub uri: String,
+    pub name: String,
+    pub secret: Option<String>,
+    #[serde(rename = "type")]
+    pub judger_type: JudgerType,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
