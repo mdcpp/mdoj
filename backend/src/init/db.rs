@@ -23,11 +23,12 @@ pub async fn init(config: &GlobalConfig) {
             fs::File::create(PathBuf::from(config.database.path.clone()))
                 .await
                 .unwrap();
-            first_migration(config).await;
 
             let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
 
+            first_migration(config,&db).await;
             DB.set(db).unwrap();
+
             println!("Database created");
         }
     }
@@ -41,8 +42,7 @@ fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     .to_vec()
 }
 
-pub async fn first_migration(config: &GlobalConfig) {
-    let db = DB.get().unwrap();
+pub async fn first_migration(config: &GlobalConfig,db:&DatabaseConnection) {
     let mut perm = UserPermBytes::default();
 
     perm.grant_link(true);

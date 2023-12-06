@@ -20,8 +20,8 @@ services:
     container_name: mdoj-backend
     image: ghcr.io/mdcpp/mdoj:backend
     volumes:
-      - ./database/:/database/
-      - ./config/:/config/
+      - ./judger/:/config/
+      - ./judger/:/database/
     networks:
       - backend
       - judger
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/mdcpp/mdoj:judger
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
-      - ./config/:/config/
+      - ./judger/:/config/
     networks:
       - judger
 networks:
