@@ -187,7 +187,7 @@ impl SubmitController {
         }
         model.committed = ActiveValue::Set(true);
         model.score = ActiveValue::Set(result);
-        model.status = ActiveValue::Set(Into::<Code>::into(status) as u32);
+        model.status = ActiveValue::Set(Some(Into::<Code>::into(status) as u32));
         model.pass_case = ActiveValue::Set(running_case);
         model.time = ActiveValue::Set(Some(time));
         model.memory = ActiveValue::Set(Some(mem));

@@ -15,7 +15,7 @@ pub struct Model {
     pub upload_at: DateTime,
     #[sea_orm(nullable, indexed)]
     pub time: Option<u64>,
-    #[sea_orm(nullable)]
+    #[sea_orm(nullable)] 
     pub accuracy: Option<u64>,
     #[sea_orm(default_value = "false")]
     pub committed: bool,
@@ -25,7 +25,8 @@ pub struct Model {
     pub memory: Option<u64>,
     #[sea_orm(default_value = 0, indexed)]
     pub pass_case: i32,
-    pub status: u32,
+    #[sea_orm(nullable)]
+    pub status: Option<u32>,
     #[sea_orm(default_value = false)]
     pub accept: bool,
     #[sea_orm(default_value = 0, indexed)]

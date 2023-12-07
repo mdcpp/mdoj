@@ -42,7 +42,7 @@ impl From<SubmitId> for i32 {
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
         // TODO: solve devation aand uncommitted submit!
-        let db_code: Code = value.status.try_into().unwrap();
+        let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
             id: value.id.into(),
             upload_time: into_prost(value.upload_at),

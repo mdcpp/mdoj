@@ -11,3 +11,4 @@ async fn main() {
     log::info!("starting server");
     server::Server::start().await;
 }
+ 
