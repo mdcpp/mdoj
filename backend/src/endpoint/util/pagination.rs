@@ -155,8 +155,7 @@ where
                 let sort = match pager.sort {
                     RawSearchDep::Text(x) => SearchDep::Text(x),
                     RawSearchDep::Column(sort_by, reverse) => {
-                        let sort_by = SortBy::from_i32(sort_by)
-                            .ok_or(Error::PaginationError("Pager reconstruction failed"))?;
+                        let sort_by = sort_by.try_into()     .map_err(|_|Error::PaginationError("Pager reconstruction failed"))?;
                         SearchDep::Column(sort_by, reverse)
                     }
                     RawSearchDep::Parent(x) => SearchDep::Parent(x),
@@ -285,8 +284,7 @@ where
                 let sort = match pager.sort {
                     RawSearchDep::Text(x) => SearchDep::Text(x),
                     RawSearchDep::Column(sort_by, reverse) => {
-                        let sort_by = SortBy::from_i32(sort_by)
-                            .ok_or(Error::PaginationError("Pager reconstruction failed"))?;
+                        let sort_by = sort_by.try_into()                          .map_err(|_|Error::PaginationError("Pager reconstruction failed"))?;
                         SearchDep::Column(sort_by, reverse)
                     }
                     RawSearchDep::Parent(_) => {
