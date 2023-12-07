@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use ring::digest;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-    Schema,
+    PaginatorTrait, Schema,
 };
 use tokio::fs;
 use tokio::sync::OnceCell;
@@ -14,28 +14,13 @@ use crate::controller::token::UserPermBytes;
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
 pub async fn init(config: &GlobalConfig) {
+    // sqlite://database/backend.sqlite?mode=rwc
     let uri = format!("sqlite://{}", config.database.path.clone());
 
-    match Database::connect(&uri).await {
-        Ok(db) => {
-            DB.set(db).unwrap();
-        }
-        Err(_) => {
-            log::info!("Database connection failed, creating database");
-
-            fs::File::create(PathBuf::from(config.database.path.clone()))
-                .await
-                .unwrap();
-
-            let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
-
-            first_migration(config, &db).await;
-
-            DB.set(db).unwrap();
-
-            log::info!("Database created");
-        }
-    }
+    let db = Database::connect(&uri)
+        .await
+        .expect("fail connecting to database");
+    init_user(config, &db).await;
 }
 fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     digest::digest(
@@ -46,38 +31,12 @@ fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     .to_vec()
 }
 
-async fn create_table<E>(db: &DatabaseConnection, entity: E)
-where
-    E: EntityTrait,
-{
-    log::info!("Creating table: {}", entity.table_name());
-    let builder = db.get_database_backend();
-    let stmt = builder.build(
-        Schema::new(builder)
-            .create_table_from_entity(entity)
-            .if_not_exists(),
-    );
-
-    match db.execute(stmt).await {
-        Ok(_) => log::info!("Migrated {}", entity.table_name()),
-        Err(e) => log::info!("Error: {}", e),
+pub async fn init_user(config: &GlobalConfig, db: &DatabaseConnection) {
+    if entity::user::Entity::find().count(db).await.unwrap() != 0 {
+        return;
     }
-}
 
-pub async fn first_migration(config: &GlobalConfig, db: &DatabaseConnection) {
-    log::info!("Start migration");
-    // create tables
-    create_table(db, entity::user::Entity).await;
-    create_table(db, entity::token::Entity).await;
-    create_table(db, entity::announcement::Entity).await;
-    create_table(db, entity::contest::Entity).await;
-    create_table(db, entity::education::Entity).await;
-    create_table(db, entity::problem::Entity).await;
-    create_table(db, entity::submit::Entity).await;
-    create_table(db, entity::test::Entity).await;
-    create_table(db, entity::user_contest::Entity).await;
-
-    // generate admin@admin
+    log::info!("Setting up admin@admin");
     let mut perm = UserPermBytes::default();
 
     perm.grant_link(true);

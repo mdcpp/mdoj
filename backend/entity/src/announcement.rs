@@ -9,9 +9,9 @@ pub struct Model {
     pub id: i32,
     pub title: String,
     pub content: String,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
-    #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
 }
 

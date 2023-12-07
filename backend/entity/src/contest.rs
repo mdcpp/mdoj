@@ -8,18 +8,18 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub hoster: i32,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub begin: chrono::NaiveDateTime,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub end: chrono::NaiveDateTime,
     pub title: String,
     pub content: String,
     pub tags: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))", nullable)]
     pub password: Option<Vec<u8>>,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
-    #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
     pub public: bool,
 }
@@ -28,10 +28,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::user_contest::Entity")]
     UserContest,
-    #[sea_orm(
-        has_one = "super::problem::Entity"
-    )]
-    Problem
+    #[sea_orm(has_one = "super::problem::Entity")]
+    Problem,
 }
 
 impl Related<super::user_contest::Entity> for Entity {

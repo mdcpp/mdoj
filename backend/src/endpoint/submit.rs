@@ -49,9 +49,9 @@ impl From<Model> for SubmitInfo {
             score: value.score,
             state: JudgeResult {
                 code: Into::<BackendCode>::into(db_code).into(),
-                accuracy: value.accuracy,
-                time: value.time,
-                memory: value.memory,
+                accuracy: value.accuracy.map(|x| x as u64),
+                time: value.time.map(|x| x as u64),
+                memory: value.memory.map(|x| x as u64),
             },
         }
     }

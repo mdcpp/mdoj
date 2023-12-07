@@ -7,12 +7,12 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub permission: u64,
+    pub permission: u32,
     pub score: u32,
     pub username: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub password: Vec<u8>,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
 }
 

@@ -2,7 +2,7 @@ mod pubsub;
 mod route;
 use std::sync::Arc;
 
-use crate::{grpc::TonicStream, report_internal};
+use crate::{grpc::TonicStream, ofl, report_internal};
 use futures::Future;
 use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
@@ -86,8 +86,8 @@ impl From<Error> for Status {
 pub struct Submit {
     user: i32,
     problem: i32,
-    time_limit: u64,
-    memory_limit: u64,
+    time_limit: i64,
+    memory_limit: i64,
     lang: Uuid,
     code: Vec<u8>,
 }
@@ -189,8 +189,8 @@ impl SubmitController {
         model.score = ActiveValue::Set(result);
         model.status = ActiveValue::Set(Some(Into::<Code>::into(status) as u32));
         model.pass_case = ActiveValue::Set(running_case);
-        model.time = ActiveValue::Set(Some(time));
-        model.memory = ActiveValue::Set(Some(mem));
+        model.time = ActiveValue::Set(Some(time.try_into().unwrap_or(i64::MAX)));
+        model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
 
         if let Err(err) = model.update(DB.get().unwrap()).await {
             log::warn!("failed to commit the judge result: {}", err);
@@ -223,7 +223,11 @@ impl SubmitController {
         let submit_id = submit_model.id.as_ref().to_owned();
         let tx = self.pubsub.publish(submit_id);
 
-        let scores = testcases.iter().rev().map(|x| x.score as u32).collect::<Vec<_>>();
+        let scores = testcases
+            .iter()
+            .rev()
+            .map(|x| x.score as u32)
+            .collect::<Vec<_>>();
 
         let tests = testcases
             .into_iter()
@@ -239,8 +243,8 @@ impl SubmitController {
             .judge(JudgeRequest {
                 lang_uid: submit.lang.to_string(),
                 code: submit.code,
-                memory: submit.memory_limit,
-                time: submit.time_limit,
+                memory: submit.memory_limit as u64,
+                time: submit.time_limit as u64,
                 rule: problem.match_rule,
                 tests,
             })

@@ -89,8 +89,8 @@ impl From<Model> for ProblemFullInfo {
             tags: value.tags.clone(),
             difficulty: value.difficulty,
             public: value.public,
-            time: value.time,
-            memory: value.memory,
+            time: value.time as u64,
+            memory: value.memory as u64,
             info: value.into(),
         }
     }

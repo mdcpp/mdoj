@@ -10,8 +10,8 @@ pub struct Model {
     pub user_id: i32,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub rand: Vec<u8>,
-    pub permission: u64,
-    #[sea_orm(column_type = "Timestamp")]
+    pub permission: u32,
+    #[sea_orm(column_type = "Time")]
     pub expiry: chrono::NaiveDateTime,
 }
 

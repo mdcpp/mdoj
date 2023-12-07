@@ -13,16 +13,16 @@ pub struct Model {
     pub submit_count: u32,
     #[sea_orm(column_type = "Float")]
     pub ac_rate: f32,
-    pub memory: u64,
-    pub time: u64,
+    pub memory: i64,
+    pub time: i64,
     pub difficulty: u32,
     pub public: bool,
     pub tags: String,
     pub title: String,
     pub content: String,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
-    #[sea_orm(column_type = "Timestamp", on_update = "current_timestamp")]
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
     pub match_rule: i32,
 }
@@ -48,7 +48,7 @@ pub enum Relation {
         from = "Column::ContestId",
         to = "super::contest::Column::Id"
     )]
-    Contest
+    Contest,
 }
 
 impl Related<super::education::Entity> for Entity {

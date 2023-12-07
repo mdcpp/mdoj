@@ -20,6 +20,8 @@ pub enum Error {
     InvaildUUID(#[from] uuid::Error),
     #[error("Function should be unreachable!")]
     Unreachable(&'static str),
+    #[error("Number too large(or small)")]
+    NumberTooLarge,
 }
 
 impl From<Error> for tonic::Status {
@@ -59,6 +61,7 @@ impl From<Error> for tonic::Status {
                 )
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
+            Error::NumberTooLarge => tonic::Status::failed_precondition("number too large"),
         }
     }
 }

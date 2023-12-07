@@ -9,15 +9,15 @@ pub struct Model {
     pub id: i32,
     pub user_id: Option<i32>,
     pub problem_id: i32,
-    #[sea_orm(column_type = "Timestamp")]
+    #[sea_orm(column_type = "Time")]
     pub upload_at: chrono::NaiveDateTime,
-    pub time: Option<u64>,
-    pub accuracy: Option<u64>,
+    pub time: Option<i64>,
+    pub accuracy: Option<i64>,
     pub committed: bool,
     pub lang: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub code: Vec<u8>,
-    pub memory: Option<u64>,
+    pub memory: Option<i64>,
     pub pass_case: i32,
     pub status: Option<u32>,
     pub accept: bool,

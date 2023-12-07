@@ -43,7 +43,7 @@ impl From<Error> for tonic::Status {
 #[derive(Clone)]
 struct CachedToken {
     user_id: i32,
-    permission: u64,
+    permission: u32,
     expiry: NaiveDateTime,
 }
 
@@ -217,11 +217,11 @@ macro_rules! set_bit_value {
         paste::paste! {
             impl $item{
                 pub fn [<can_ $name>](&self)->bool{
-                    let filter = 1_u64<<($pos);
+                    let filter = 1_u32<<($pos);
                     (self.0&filter) == filter
                 }
                 pub fn [<grant_ $name>](&mut self,value:bool){
-                    let filter = 1_u64<<($pos);
+                    let filter = 1_u32<<($pos);
                     if (self.0&filter == filter) ^ value{
                         self.0 ^= filter;
                     }
@@ -232,7 +232,7 @@ macro_rules! set_bit_value {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct UserPermBytes(pub u64);
+pub struct UserPermBytes(pub u32);
 
 impl UserPermBytes {
     pub fn strict_ge(&self, other: Self) -> bool {
