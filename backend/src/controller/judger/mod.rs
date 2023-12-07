@@ -223,7 +223,7 @@ impl SubmitController {
         let submit_id = submit_model.id.as_ref().to_owned();
         let tx = self.pubsub.publish(submit_id);
 
-        let scores = testcases.iter().rev().map(|x| x.score).collect::<Vec<_>>();
+        let scores = testcases.iter().rev().map(|x| x.score as u32).collect::<Vec<_>>();
 
         let tests = testcases
             .into_iter()

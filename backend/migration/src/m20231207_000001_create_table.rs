@@ -114,6 +114,7 @@ enum UserContest {
     UserId,
     ContestId,
     Score,
+    Id,
 }
 
 #[derive(DeriveMigrationName)]
@@ -135,14 +136,14 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Announcement::Title).string().not_null())
-                    .col(ColumnDef::new(Announcement::Content).string().default(""))
+                    .col(ColumnDef::new(Announcement::Content).string().not_null().default(""))
                     .col(
-                        ColumnDef::new(Announcement::CreateAt)
+                        ColumnDef::new(Announcement::CreateAt).date_time()
                             .not_null()
                             .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Announcement::UpdateAt)
+                        ColumnDef::new(Announcement::UpdateAt).date_time()
                             .not_null()
                             .extra(UPDATE_AT.to_string()),
                     )
@@ -164,29 +165,29 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Contest::Hoster).integer().not_null())
                     .col(
                         ColumnDef::new(Contest::Begin)
-                            .timestamp_with_time_zone()
+                            .date_time()
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(Contest::End)
-                            .timestamp_with_time_zone()
+                            .date_time()
                             .not_null(),
                     )
                     .col(ColumnDef::new(Contest::Title).text().not_null())
-                    .col(ColumnDef::new(Contest::Content).text().default(""))
-                    .col(ColumnDef::new(Contest::Tags).text().default(""))
+                    .col(ColumnDef::new(Contest::Content).text().not_null().default(""))
+                    .col(ColumnDef::new(Contest::Tags).text().not_null().default(""))
                     .col(ColumnDef::new(Contest::Password).binary().null())
                     .col(
-                        ColumnDef::new(Contest::CreateAt)
+                        ColumnDef::new(Contest::CreateAt).date_time()
                             .not_null()
                             .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Contest::UpdateAt)
+                        ColumnDef::new(Contest::UpdateAt).date_time()
                             .not_null()
                             .extra(UPDATE_AT.to_string()),
                     )
-                    .col(ColumnDef::new(Contest::Public).boolean().default(false))
+                    .col(ColumnDef::new(Contest::Public).boolean().not_null().default(false))
                     .to_owned(),
             )
             .await?;
@@ -209,16 +210,16 @@ impl MigrationTrait for Migration {
                             .from(Education::Table, Education::ProblemId)
                             .to(Problem::Table, Problem::Id),
                     )
-                    .col(ColumnDef::new(Education::UserId).integer().null())
+                    .col(ColumnDef::new(Education::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-education-user")
                             .from(Education::Table, Education::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(Education::Tags).text().default(""))
+                    .col(ColumnDef::new(Education::Tags).text().not_null().default(""))
                     .col(ColumnDef::new(Education::Title).text().not_null())
-                    .col(ColumnDef::new(Education::Content).text().default(""))
+                    .col(ColumnDef::new(Education::Content).text().not_null().default(""))
                     .to_owned(),
             )
             .await?;
@@ -242,23 +243,23 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::Id),
                     )
                     .col(ColumnDef::new(Problem::ContestId).integer().null())
-                    .col(ColumnDef::new(Problem::AcceptCount).integer().default(0))
-                    .col(ColumnDef::new(Problem::SubmitCount).integer().default(0))
-                    .col(ColumnDef::new(Problem::AcRate).float().default(0.0))
+                    .col(ColumnDef::new(Problem::AcceptCount).integer().not_null().default(0))
+                    .col(ColumnDef::new(Problem::SubmitCount).integer().not_null().default(0))
+                    .col(ColumnDef::new(Problem::AcRate).float().not_null().default(0.0))
                     .col(ColumnDef::new(Problem::Memory).big_unsigned().not_null())
                     .col(ColumnDef::new(Problem::Time).big_unsigned().not_null())
-                    .col(ColumnDef::new(Problem::Difficulty).unsigned().default(512))
-                    .col(ColumnDef::new(Problem::Public).boolean().default(false))
-                    .col(ColumnDef::new(Problem::Tags).text().default(""))
+                    .col(ColumnDef::new(Problem::Difficulty).unsigned().not_null().default(512))
+                    .col(ColumnDef::new(Problem::Public).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Problem::Tags).text().not_null().default(""))
                     .col(ColumnDef::new(Problem::Title).text().not_null())
-                    .col(ColumnDef::new(Problem::Content).text().default(""))
+                    .col(ColumnDef::new(Problem::Content).text().not_null().default(""))
                     .col(
-                        ColumnDef::new(Problem::CreateAt)
+                        ColumnDef::new(Problem::CreateAt).date_time()
                             .not_null()
                             .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Problem::UpdateAt)
+                        ColumnDef::new(Problem::UpdateAt).date_time()
                             .not_null()
                             .extra(UPDATE_AT.to_string()),
                     )
@@ -299,14 +300,14 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Submit::Time).big_unsigned().null())
                     .col(ColumnDef::new(Submit::Accuracy).big_unsigned().null())
-                    .col(ColumnDef::new(Submit::Committed).default(false))
+                    .col(ColumnDef::new(Submit::Committed).boolean().not_null().default(false))
                     .col(ColumnDef::new(Submit::Lang).text().not_null())
-                    .col(ColumnDef::new(Submit::Code).binary())
+                    .col(ColumnDef::new(Submit::Code).not_null().binary())
                     .col(ColumnDef::new(Submit::Memory).big_unsigned().null())
-                    .col(ColumnDef::new(Submit::PassCase).integer().default(0))
+                    .col(ColumnDef::new(Submit::PassCase).integer().not_null().default(0))
                     .col(ColumnDef::new(Submit::Status).unsigned().null())
-                    .col(ColumnDef::new(Submit::Accept).boolean().default(false))
-                    .col(ColumnDef::new(Submit::Score).unsigned().default(0))
+                    .col(ColumnDef::new(Submit::Accept).boolean().not_null().default(false))
+                    .col(ColumnDef::new(Submit::Score).unsigned().not_null().default(0))
                     .to_owned(),
             )
             .await?;
@@ -338,7 +339,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Test::Input).binary().not_null())
                     .col(ColumnDef::new(Test::Output).binary().not_null())
-                    .col(ColumnDef::new(Test::Score).unsigned().default(0))
+                    .col(ColumnDef::new(Test::Score).unsigned().not_null().default(0))
                     .to_owned(),
             )
             .await?;
@@ -362,10 +363,10 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::Id),
                     )
                     .col(ColumnDef::new(Token::Rand).binary().not_null())
-                    .col(ColumnDef::new(Token::Permission).big_unsigned().default(0))
+                    .col(ColumnDef::new(Token::Permission).big_unsigned().not_null().default(0))
                     .col(
                         ColumnDef::new(Token::Expiry)
-                            .timestamp_with_time_zone()
+                            .date_time()
                             .not_null(),
                     )
                     .to_owned(),
@@ -383,12 +384,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(User::Permission).big_unsigned().default(0))
-                    .col(ColumnDef::new(User::Score).unsigned().default(0))
+                    .col(ColumnDef::new(User::Permission).big_unsigned().not_null().default(0))
+                    .col(ColumnDef::new(User::Score).unsigned().not_null().default(0))
                     .col(ColumnDef::new(User::Username).text().not_null())
                     .col(ColumnDef::new(User::Password).binary().not_null())
                     .col(
-                        ColumnDef::new(User::CreateAt)
+                        ColumnDef::new(User::CreateAt).date_time()
                             .not_null()
                             .extra(CREATE_AT.to_string()),
                     )
@@ -400,6 +401,13 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserContest::Table)
                     .if_not_exists()
+                    .col(
+                        ColumnDef::new(UserContest::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(UserContest::ContestId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
@@ -414,7 +422,7 @@ impl MigrationTrait for Migration {
                             .from(UserContest::Table, UserContest::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(UserContest::Score).integer().default(0))
+                    .col(ColumnDef::new(UserContest::Score).integer().not_null().default(0))
                     .to_owned(),
             )
             .await?;

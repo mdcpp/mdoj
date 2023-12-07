@@ -857,6 +857,7 @@ name = "entity"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "chrono",
  "sea-orm",
  "serde",
 ]

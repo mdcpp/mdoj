@@ -9,11 +9,21 @@ prepare:
     mkdir -p config
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
+entity-codegen:
+    sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o entity/src
+    rm entity/src/mod.rs
+    rm entity/src/prelude.rs
+
 release-docker:
     just prepare
     cp ../proto/*.proto .
     cp ../cert/*.pem .
     docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
+
+refresh:
+    rm database/backend.sqlite
+    sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
+    just entity-codegen
 
 run:
     cargo run
