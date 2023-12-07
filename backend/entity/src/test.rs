@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::problem;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Deserialize, Serialize)]
-#[sea_orm(table_name = "testcase")]
+#[sea_orm(table_name = "test")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
