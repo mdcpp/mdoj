@@ -50,7 +50,7 @@ async fn create_table<E>(db: &DatabaseConnection, entity: E)
 where
     E: EntityTrait,
 {
-    log::info!("Creating table: {}",entity.table_name());
+    log::info!("Creating table: {}", entity.table_name());
     let builder = db.get_database_backend();
     let stmt = builder.build(
         Schema::new(builder)

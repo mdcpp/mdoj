@@ -40,7 +40,7 @@ features =["json"]
 
 [dependencies.tracing]
 version = "0.1.40"
-features =["async-await", "log"]
+features = ["async-await", "log"]
 
 [dependencies.tokio]
 version = "1.34.0"

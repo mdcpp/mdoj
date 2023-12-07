@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
     pub permission: u64,
-    #[sea_orm(indexed, default_value="0")]
+    #[sea_orm(indexed, default_value = "0")]
     pub score: u32,
     pub username: String,
     pub password: Vec<u8>,

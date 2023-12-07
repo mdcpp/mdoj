@@ -2,6 +2,10 @@ use std::ptr::null;
 
 use sea_orm_migration::{prelude::*, seaql_migrations::PrimaryKey};
 
+// static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
+static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP";
+static CREATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP";
+
 #[derive(Iden)]
 enum Announcement {
     Table,
@@ -107,7 +111,6 @@ enum User {
 #[derive(Iden)]
 enum UserContest {
     Table,
-    Id,
     UserId,
     ContestId,
     Score,
@@ -136,12 +139,12 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Announcement::CreateAt)
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                            .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Announcement::UpdateAt).not_null().extra(
-                            "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string(),
-                        ),
+                        ColumnDef::new(Announcement::UpdateAt)
+                            .not_null()
+                            .extra(UPDATE_AT.to_string()),
                     )
                     .to_owned(),
             )
@@ -159,8 +162,16 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Contest::Hoster).integer().not_null())
-                    .col(ColumnDef::new(Contest::Begin).time().not_null())
-                    .col(ColumnDef::new(Contest::End).time().not_null())
+                    .col(
+                        ColumnDef::new(Contest::Begin)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Contest::End)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Contest::Title).text().not_null())
                     .col(ColumnDef::new(Contest::Content).text().default(""))
                     .col(ColumnDef::new(Contest::Tags).text().default(""))
@@ -168,12 +179,12 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Contest::CreateAt)
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                            .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Contest::UpdateAt).not_null().extra(
-                            "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string(),
-                        ),
+                        ColumnDef::new(Contest::UpdateAt)
+                            .not_null()
+                            .extra(UPDATE_AT.to_string()),
                     )
                     .col(ColumnDef::new(Contest::Public).boolean().default(false))
                     .to_owned(),
@@ -220,7 +231,8 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Problem::Id)
                             .integer()
                             .not_null()
-                            .auto_increment(),
+                            .auto_increment()
+                            .primary_key(),
                     )
                     .col(ColumnDef::new(Problem::UserId).integer().not_null())
                     .foreign_key(
@@ -243,12 +255,12 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Problem::CreateAt)
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                            .extra(CREATE_AT.to_string()),
                     )
                     .col(
-                        ColumnDef::new(Problem::UpdateAt).not_null().extra(
-                            "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP".to_string(),
-                        ),
+                        ColumnDef::new(Problem::UpdateAt)
+                            .not_null()
+                            .extra(UPDATE_AT.to_string()),
                     )
                     .col(ColumnDef::new(Problem::MatchRule).integer().not_null())
                     .to_owned(),
@@ -262,9 +274,9 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Submit::Id)
                             .integer()
-                            .primary_key()
+                            .not_null()
                             .auto_increment()
-                            .not_null(),
+                            .primary_key(),
                     )
                     .col(ColumnDef::new(Submit::UserId).integer().null())
                     .foreign_key(
@@ -283,7 +295,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Submit::UploadAt)
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                            .extra(CREATE_AT.to_string()),
                     )
                     .col(ColumnDef::new(Submit::Time).big_unsigned().null())
                     .col(ColumnDef::new(Submit::Accuracy).big_unsigned().null())
@@ -305,10 +317,10 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Test::Id)
-                            .primary_key()
+                            .integer()
                             .not_null()
                             .auto_increment()
-                            .integer(),
+                            .primary_key(),
                     )
                     .col(ColumnDef::new(Test::UserId).integer().not_null())
                     .foreign_key(
@@ -337,10 +349,10 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Token::Id)
-                            .primary_key()
+                            .integer()
                             .not_null()
                             .auto_increment()
-                            .integer(),
+                            .primary_key(),
                     )
                     .col(ColumnDef::new(Token::UserId).integer().not_null())
                     .foreign_key(
@@ -351,7 +363,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Token::Rand).binary().not_null())
                     .col(ColumnDef::new(Token::Permission).big_unsigned().default(0))
-                    .col(ColumnDef::new(Token::Expiry).time().not_null())
+                    .col(
+                        ColumnDef::new(Token::Expiry)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -362,10 +378,10 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(User::Id)
+                            .integer()
                             .not_null()
-                            .primary_key()
                             .auto_increment()
-                            .integer(),
+                            .primary_key(),
                     )
                     .col(ColumnDef::new(User::Permission).big_unsigned().default(0))
                     .col(ColumnDef::new(User::Score).unsigned().default(0))
@@ -374,7 +390,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(User::CreateAt)
                             .not_null()
-                            .extra("DEFAULT CURRENT_TIMESTAMP".to_string()),
+                            .extra(CREATE_AT.to_string()),
                     )
                     .to_owned(),
             )
@@ -398,6 +414,7 @@ impl MigrationTrait for Migration {
                             .from(UserContest::Table, UserContest::UserId)
                             .to(User::Table, User::Id),
                     )
+                    .col(ColumnDef::new(UserContest::Score).integer().default(0))
                     .to_owned(),
             )
             .await?;

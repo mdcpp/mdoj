@@ -15,7 +15,7 @@ pub struct Model {
     pub upload_at: DateTime,
     #[sea_orm(nullable, indexed)]
     pub time: Option<u64>,
-    #[sea_orm(nullable)] 
+    #[sea_orm(nullable)]
     pub accuracy: Option<u64>,
     #[sea_orm(default_value = "false")]
     pub committed: bool,

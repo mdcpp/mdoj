@@ -98,9 +98,7 @@ impl std::ops::Deref for ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         self.upstream.healthy.fetch_add(-2, Ordering::Acquire);
-        self.upstream
-            .clients
-            .push(self.conn.take().unwrap());
+        self.upstream.clients.push(self.conn.take().unwrap());
     }
 }
 
@@ -172,8 +170,10 @@ impl Router {
         Ok(self_)
     }
     pub async fn get(&self, lang: &Uuid) -> Result<ConnGuard, Error> {
-
-        let queue = self.routing_table.get(lang).ok_or(Error::BadArgument("lang"))?;
+        let queue = self
+            .routing_table
+            .get(lang)
+            .ok_or(Error::BadArgument("lang"))?;
 
         loop {
             match queue.pop() {

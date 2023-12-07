@@ -7,8 +7,10 @@
 prepare:
     mkdir -p database
     mkdir -p config
+    sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
 release-docker:
+    just prepare
     cp ../proto/*.proto .
     cp ../cert/*.pem .
     docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
