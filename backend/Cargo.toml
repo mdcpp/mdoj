@@ -42,7 +42,7 @@ version = "0.1.40"
 features =["async-await", "log"]
 
 [dependencies.tokio]
-version = "1.28.0"
+version = "1.34.0"
 features =["macros", "rt-multi-thread", "full","time"]
 
 [dependencies.sea-orm]

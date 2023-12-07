@@ -1,10 +1,10 @@
-// TODO!: health check, circular reference counter
 pub mod direct;
 pub mod swarm;
 
 use super::Error;
 use std::{
     collections::VecDeque,
+    mem::MaybeUninit,
     ops::DerefMut,
     sync::{
         atomic::{AtomicIsize, Ordering},
@@ -26,19 +26,19 @@ use crate::{
 // introduce routing layer error
 
 const HEALTHY_THRESHOLD: isize = 100;
-type JudgerIntercept =
-    JudgerClient<service::interceptor::InterceptedService<transport::Channel, AuthInterceptor>>;
+type JudgerIntercept = JudgerClient<
+    service::interceptor::InterceptedService<transport::Channel, BasicAuthInterceptor>,
+>;
 
-pub struct AuthInterceptor {
+pub struct BasicAuthInterceptor {
     secret: Option<String>,
 }
 
-impl Interceptor for AuthInterceptor {
+impl Interceptor for BasicAuthInterceptor {
     fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, Status> {
         match &self.secret {
             Some(secret) => {
-                let token: metadata::MetadataValue<_> =
-                    format!("basic {}", secret).parse().unwrap();
+                let token = secret.parse().unwrap();
                 req.metadata_mut().insert("Authorization", token);
                 Ok(req)
             }
@@ -60,8 +60,8 @@ impl ConnectionDetail {
             .connect()
             .await?;
 
-        let interceptor = AuthInterceptor {
-            secret: self.secret.clone(),
+        let interceptor = BasicAuthInterceptor {
+            secret: self.secret.as_ref().map(|x| ["basic ", x].concat()),
         };
 
         Ok(JudgerClient::with_interceptor(channel, interceptor))
@@ -145,7 +145,7 @@ pub struct Router {
 
 impl Router {
     // skip because config contain basic auth secret
-    #[tracing::instrument(level = "debug",skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: Map::new(),
@@ -206,10 +206,11 @@ pub struct Upstream {
 impl Upstream {
     async fn new(detail: ConnectionDetail) -> Result<(Arc<Self>, Vec<(Uuid, LangInfo)>), Error> {
         let mut client = detail.connect().await?;
-        let info = client.judger_info(()).await?.into_inner();
+        let info = client.judger_info(()).await?;
+        let langs = info.into_inner().langs.list;
 
         let mut result = Vec::new();
-        for lang in info.langs.list.into_iter() {
+        for lang in langs.into_iter() {
             let uuid = match Uuid::parse_str(&lang.lang_uid) {
                 Ok(x) => x,
                 Err(err) => {
@@ -219,10 +220,14 @@ impl Upstream {
             };
             result.push((uuid, lang));
         }
+
+        let clients = Queue::new();
+        clients.push(client);
+        
         Ok((
             Arc::new(Self {
                 healthy: AtomicIsize::new(HEALTHY_THRESHOLD),
-                clients: Queue::new(),
+                clients,
                 connection: detail,
             }),
             result,
