@@ -3,8 +3,6 @@ pub mod swarm;
 
 use super::Error;
 use std::{
-    collections::VecDeque,
-    mem::MaybeUninit,
     ops::DerefMut,
     sync::{
         atomic::{AtomicIsize, Ordering},
@@ -13,8 +11,8 @@ use std::{
     time::Duration,
 };
 
-use lockfree::{map::Map, queue::Queue, set::Set};
-use spin::Mutex;
+use crossbeam_queue::SegQueue;
+use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
 use uuid::Uuid;
 
@@ -24,7 +22,9 @@ use crate::{
 };
 
 // introduce routing layer error
-
+// type Map<K, V> = Mutex<HashMap<K, V>>;
+// type Queue<V> = Mutex<VecDeque<V>>;
+// type Set<V> = Mutex<HashSet<V>>;
 const HEALTHY_THRESHOLD: isize = 100;
 type JudgerIntercept = JudgerClient<
     service::interceptor::InterceptedService<transport::Channel, BasicAuthInterceptor>,
@@ -98,7 +98,9 @@ impl std::ops::Deref for ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         self.upstream.healthy.fetch_add(-2, Ordering::Acquire);
-        self.upstream.clients.push(self.conn.take().unwrap());
+        self.upstream
+            .clients
+            .push(self.conn.take().unwrap());
     }
 }
 
@@ -117,11 +119,11 @@ async fn discover<I: Routable + Send>(
                 };
                 let (upstream, langs) = Upstream::new(detail).await?;
                 for (uuid, lang) in langs.into_iter() {
-                    router.langs.insert(lang).ok();
+                    router.langs.insert(lang);
                     loop {
                         match router.routing_table.get(&uuid) {
                             Some(x) => {
-                                x.1.lock().push_back(upstream.clone());
+                                x.push(upstream.clone());
                                 break;
                             }
                             None => {
@@ -139,8 +141,8 @@ async fn discover<I: Routable + Send>(
 }
 
 pub struct Router {
-    routing_table: Map<Uuid, Mutex<VecDeque<Arc<Upstream>>>>,
-    pub langs: Set<LangInfo>,
+    routing_table: DashMap<Uuid, SegQueue<Arc<Upstream>>>,
+    pub langs: DashSet<LangInfo>,
 }
 
 impl Router {
@@ -148,8 +150,8 @@ impl Router {
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
-            routing_table: Map::new(),
-            langs: Set::new(),
+            routing_table: DashMap::default(),
+            langs: DashSet::default(),
         });
         for config in config.into_iter() {
             match config.judger_type {
@@ -170,25 +172,19 @@ impl Router {
         Ok(self_)
     }
     pub async fn get(&self, lang: &Uuid) -> Result<ConnGuard, Error> {
-        let queue = self
-            .routing_table
-            .get(lang)
-            .ok_or(Error::BadArgument("lang"))?;
-        let (uuid, queue) = queue.as_ref();
 
-        let mut queue = queue.lock();
+        let queue = self.routing_table.get(lang).ok_or(Error::BadArgument("lang"))?;
 
         loop {
-            match queue.pop_front() {
+            match queue.pop() {
                 Some(upstream) => {
                     if upstream.is_healthy() {
-                        queue.push_back(upstream.clone());
-                        drop(queue);
+                        queue.push(upstream.clone());
                         return upstream.get().await;
                     }
                 }
                 None => {
-                    self.routing_table.remove(uuid);
+                    self.routing_table.remove(lang);
                     return Err(Error::BadArgument("lang"));
                 }
             }
@@ -199,7 +195,7 @@ impl Router {
 // abstraction for pipelining
 pub struct Upstream {
     healthy: AtomicIsize,
-    clients: Queue<JudgerIntercept>,
+    clients: SegQueue<JudgerIntercept>,
     connection: ConnectionDetail,
 }
 
@@ -221,9 +217,9 @@ impl Upstream {
             result.push((uuid, lang));
         }
 
-        let clients = Queue::new();
+        let clients = SegQueue::default();
         clients.push(client);
-        
+
         Ok((
             Arc::new(Self {
                 healthy: AtomicIsize::new(HEALTHY_THRESHOLD),

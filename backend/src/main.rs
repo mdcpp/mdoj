@@ -8,5 +8,6 @@ pub mod server;
 #[tokio::main]
 async fn main() {
     init::new().await;
+    log::info!("starting server");
     server::Server::start().await;
 }

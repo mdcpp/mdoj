@@ -57,6 +57,7 @@ where
             .if_not_exists(),
     );
 
+    log::info!("Creating table: {}",entity.table_name());
     match db.execute(stmt).await {
         Ok(_) => log::info!("Migrated {}", entity.table_name()),
         Err(e) => log::info!("Error: {}", e),
@@ -64,6 +65,7 @@ where
 }
 
 pub async fn first_migration(config: &GlobalConfig, db: &DatabaseConnection) {
+    log::info!("Start migration");
     // create tables
     create_table(db, entity::user::Entity).await;
     create_table(db, entity::token::Entity).await;
