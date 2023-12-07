@@ -50,6 +50,7 @@ async fn create_table<E>(db: &DatabaseConnection, entity: E)
 where
     E: EntityTrait,
 {
+    log::info!("Creating table: {}",entity.table_name());
     let builder = db.get_database_backend();
     let stmt = builder.build(
         Schema::new(builder)
@@ -57,7 +58,6 @@ where
             .if_not_exists(),
     );
 
-    log::info!("Creating table: {}",entity.table_name());
     match db.execute(stmt).await {
         Ok(_) => log::info!("Migrated {}", entity.table_name()),
         Err(e) => log::info!("Error: {}", e),
@@ -95,7 +95,7 @@ pub async fn first_migration(config: &GlobalConfig, db: &DatabaseConnection) {
         password: ActiveValue::Set(hash(config, "admin")),
         ..Default::default()
     }
-    .save(db)
+    .insert(db)
     .await
     .unwrap();
 }

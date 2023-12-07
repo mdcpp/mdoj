@@ -55,10 +55,10 @@ impl Related<problem::Entity> for Entity {
 
 impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_contest::Relation::User.def()
+        super::user_contest::Relation::Contest.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_contest::Relation::Contest.def().rev())
+        Some(super::user_contest::Relation::User.def().rev())
     }
 }
 

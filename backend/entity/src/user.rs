@@ -9,17 +9,16 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = true)]
     pub id: i32,
     pub permission: u64,
-    #[sea_orm(indexed)]
+    #[sea_orm(indexed, default_value="0")]
     pub score: u32,
     pub username: String,
     pub password: Vec<u8>,
-    #[sea_orm(column_type = "Timestamp", on_insert = "current_timestamp")]
+    #[sea_orm(on_insert = "current_timestamp")]
     pub create_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    // Contest,
     Contests,
     Problems,
     Tokens,
@@ -29,7 +28,6 @@ pub enum Relation {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            // Self::Contest => Entity::has_many(contest::Entity).into(),
             Self::Contests => Entity::has_many(contest::Entity).into(),
             Self::Problems => Entity::has_many(problem::Entity).into(),
             Self::Tokens => Entity::has_many(token::Entity).into(),
@@ -37,12 +35,6 @@ impl RelationTrait for Relation {
         }
     }
 }
-
-// impl Related<contest::Entity> for Entity {
-//     fn to() -> RelationDef {
-//         Relation::Contest.def()
-//     }
-// }
 
 impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
@@ -63,10 +55,10 @@ impl Related<education::Entity> for Entity {
 
 impl Related<contest::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_contest::Relation::Contest.def()
+        super::user_contest::Relation::User.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_contest::Relation::User.def().rev())
+        Some(super::user_contest::Relation::Contest.def().rev())
     }
 }
 
