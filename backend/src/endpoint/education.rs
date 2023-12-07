@@ -90,6 +90,7 @@ impl From<Model> for EducationInfo {
 
 #[async_trait]
 impl EducationSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateEducationRequest>,
@@ -118,6 +119,7 @@ impl EducationSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -148,6 +150,7 @@ impl EducationSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -159,6 +162,7 @@ impl EducationSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn link(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -183,6 +187,7 @@ impl EducationSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn unlink(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -208,6 +213,7 @@ impl EducationSet for Arc<Server> {
         Ok(Response::new(()))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn list_by_problem(
         &self,
         req: Request<ListByRequest>,
@@ -234,6 +240,7 @@ impl EducationSet for Arc<Server> {
 
         Ok(Response::new(ListEducationResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
         req: Request<EducationLink>,

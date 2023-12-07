@@ -94,6 +94,7 @@ impl From<Permission> for UserPermBytes {
 
 #[async_trait]
 impl UserSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
@@ -119,6 +120,7 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -145,6 +147,7 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
         let (auth, _) = self.parse_request(req).await?;
 
@@ -154,6 +157,7 @@ impl UserSet for Arc<Server> {
 
         Err(Status::cancelled("deprecated"))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -187,6 +191,7 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -229,6 +234,7 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -240,6 +246,7 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update_password(
         &self,
         req: Request<UpdatePasswordRequest>,

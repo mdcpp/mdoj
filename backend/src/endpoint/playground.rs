@@ -9,6 +9,7 @@ impl PlaygroundSet for Arc<Server> {
     #[doc = " Server streaming response type for the Run method."]
     type RunStream = TonicStream<PlaygroundResult>;
 
+    #[instrument(skip_all, level = "debug")]
     async fn run(
         &self,
         req: Request<PlaygroundRequest>,

@@ -76,7 +76,9 @@ pub struct ConnGuard {
 impl ConnGuard {
     pub fn report_success(&mut self) {
         self.upstream.healthy.fetch_add(3, Ordering::Acquire);
-        self.upstream.healthy.fetch_min(HEALTHY_THRESHOLD, Ordering::Acquire);
+        self.upstream
+            .healthy
+            .fetch_min(HEALTHY_THRESHOLD, Ordering::Acquire);
     }
 }
 
@@ -108,6 +110,7 @@ async fn discover<I: Routable + Send>(
     loop {
         match instance.discover().await {
             RouteStatus::NewConnection(detail) => {
+                log::info!("new upstream found: {}", detail.uri);
                 let router = match router.upgrade() {
                     Some(x) => x,
                     None => break,
@@ -141,6 +144,8 @@ pub struct Router {
 }
 
 impl Router {
+    // skip because config contain basic auth secret
+    #[tracing::instrument(level = "debug",skip_all)]
     pub async fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: Map::new(),

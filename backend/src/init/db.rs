@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use ring::digest;
-use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection, Schema, EntityTrait, ConnectionTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
+    Schema,
+};
 use tokio::fs;
 use tokio::sync::OnceCell;
 
@@ -26,8 +29,8 @@ pub async fn init(config: &GlobalConfig) {
 
             let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
 
-            first_migration(config,&db).await;
-            
+            first_migration(config, &db).await;
+
             DB.set(db).unwrap();
 
             log::info!("Database created");
@@ -48,7 +51,11 @@ where
     E: EntityTrait,
 {
     let builder = db.get_database_backend();
-    let stmt = builder.build(Schema::new(builder).create_table_from_entity(entity).if_not_exists());
+    let stmt = builder.build(
+        Schema::new(builder)
+            .create_table_from_entity(entity)
+            .if_not_exists(),
+    );
 
     match db.execute(stmt).await {
         Ok(_) => log::info!("Migrated {}", entity.table_name()),
@@ -56,7 +63,7 @@ where
     }
 }
 
-pub async fn first_migration(config: &GlobalConfig,db:&DatabaseConnection) {
+pub async fn first_migration(config: &GlobalConfig, db: &DatabaseConnection) {
     // create tables
     create_table(db, entity::user::Entity).await;
     create_table(db, entity::token::Entity).await;

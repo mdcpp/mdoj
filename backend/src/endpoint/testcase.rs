@@ -81,6 +81,7 @@ impl From<Model> for TestcaseInfo {
 
 #[async_trait]
 impl TestcaseSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListRequest>,
@@ -109,6 +110,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateTestcaseRequest>,
@@ -137,6 +139,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -166,6 +169,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -177,6 +181,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn link(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -201,6 +206,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn unlink(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -260,6 +266,7 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn list_by_problem(
         &self,
         req: Request<ListByRequest>,

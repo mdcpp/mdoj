@@ -98,6 +98,7 @@ impl From<Model> for ProblemFullInfo {
 
 #[async_trait]
 impl ProblemSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListRequest>,
@@ -126,6 +127,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -152,6 +154,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info(
         &self,
         req: Request<ProblemId>,
@@ -168,6 +171,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateProblemRequest>,
@@ -198,6 +202,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -240,6 +245,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -251,6 +257,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn link(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -275,6 +282,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn unlink(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -299,6 +307,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -320,6 +329,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -341,6 +351,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info_by_contest(
         &self,
         req: Request<ProblemLink>,
@@ -368,6 +379,7 @@ impl ProblemSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn list_by_contest(
         &self,
         req: Request<ListByRequest>,

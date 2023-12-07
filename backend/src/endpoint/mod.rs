@@ -13,6 +13,7 @@ pub mod tools {
     pub use super::util::error::Error;
     pub use crate::grpc::TonicStream;
     pub use crate::init::db::DB;
+    pub use tracing::instrument;
 }
 pub mod endpoints {
     pub use super::util::{

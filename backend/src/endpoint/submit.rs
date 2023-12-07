@@ -59,6 +59,7 @@ impl From<Model> for SubmitInfo {
 
 #[async_trait]
 impl SubmitSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListRequest>,
@@ -88,6 +89,7 @@ impl SubmitSet for Arc<Server> {
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn list_by_problem(
         &self,
         req: Request<ListByRequest>,
@@ -115,6 +117,7 @@ impl SubmitSet for Arc<Server> {
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -128,6 +131,7 @@ impl SubmitSet for Arc<Server> {
         Ok(Response::new(model.into()))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateSubmitRequest>,
@@ -173,6 +177,7 @@ impl SubmitSet for Arc<Server> {
         Ok(Response::new(self.submit.submit(submit).await?.into()))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -193,6 +198,7 @@ impl SubmitSet for Arc<Server> {
     type FollowStream = TonicStream<SubmitStatus>;
 
     #[doc = " are not guarantee to yield status"]
+    #[instrument(skip_all, level = "debug")]
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
         let (_, req) = self.parse_request(req).await?;
 
@@ -204,6 +210,7 @@ impl SubmitSet for Arc<Server> {
         ))
     }
 
+    #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -253,6 +260,7 @@ impl SubmitSet for Arc<Server> {
     #[doc = " Server streaming response type for the ListLangs method."]
     type ListLangsStream = TonicStream<Language>;
 
+    #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, _: Request<()>) -> Result<Response<Self::ListLangsStream>, Status> {
         let langs = self.submit.list_lang().into_iter().map(|x| Ok(x.into()));
 

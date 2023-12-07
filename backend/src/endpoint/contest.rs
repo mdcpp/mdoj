@@ -92,6 +92,7 @@ impl From<Model> for ContestInfo {
 
 #[async_trait]
 impl ContestSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListRequest>,
@@ -120,6 +121,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -146,6 +148,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info(
         &self,
         req: Request<ContestId>,
@@ -162,6 +165,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateContestRequest>,
@@ -202,6 +206,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(model.id.unwrap().into()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -253,6 +258,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -264,6 +270,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -298,6 +305,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -314,6 +322,7 @@ impl ContestSet for Arc<Server> {
     }
 
     #[doc = " return up to 10 user"]
+    #[instrument(skip_all, level = "debug")]
     async fn rank(&self, req: Request<ContestId>) -> Result<Response<Users>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;

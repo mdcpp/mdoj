@@ -27,8 +27,12 @@ impl Server {
     pub async fn start() {
         let config = config::init().await;
         log::info!("Loading TLS certificate...");
-        let cert = fs::read_to_string(&config.grpc.public_pem).await.expect("public key.pem not found");
-        let key = fs::read_to_string(&config.grpc.private_pem).await.expect("privite key.pem not found");
+        let cert = fs::read_to_string(&config.grpc.public_pem)
+            .await
+            .expect("public key.pem not found");
+        let key = fs::read_to_string(&config.grpc.private_pem)
+            .await
+            .expect("privite key.pem not found");
         let identity = transport::Identity::from_pem(cert, key);
 
         log::info!("Constructing server...");

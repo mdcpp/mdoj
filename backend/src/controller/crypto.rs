@@ -46,6 +46,7 @@ impl From<HashValue> for Vec<u8> {
 }
 
 impl CryptoController {
+    #[tracing::instrument(level = "info")]
     pub fn new(config: &GlobalConfig) -> Self {
         let rng = rand::SystemRandom::new();
         let pkcs8_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
@@ -73,9 +74,11 @@ impl CryptoController {
         .to_vec();
         HashValue(hashed)
     }
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn sign(&self, src: &str) -> Vec<u8> {
         self.signer.sign(src.as_bytes()).as_ref().to_vec()
     }
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn verify(&self, src: &[u8], signature: &[u8]) -> bool {
         let peer_public_key = signature::UnparsedPublicKey::new(
             &signature::ED25519,
@@ -83,6 +86,7 @@ impl CryptoController {
         );
         peer_public_key.verify(src, signature).is_ok()
     }
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<Vec<u8>> {
         let mut raw = bincode::serialize(&obj)?;
         let signature = self.signer.sign(&raw);
@@ -91,6 +95,7 @@ impl CryptoController {
 
         Ok(raw)
     }
+    #[tracing::instrument(level = "trace", skip_all)]
     pub fn decode<M: DeserializeOwned>(&self, raw: &[u8]) -> Result<M> {
         let (raw, signature) = raw.split_at(raw.len() - 64);
         if !self.verify(raw, signature) {

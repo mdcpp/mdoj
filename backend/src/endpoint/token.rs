@@ -29,6 +29,7 @@ impl From<Model> for Token {
 
 #[async_trait]
 impl TokenSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
         let db = DB.get().unwrap();
         let (auth, _) = self.parse_request(req).await?;
@@ -44,6 +45,7 @@ impl TokenSet for Arc<Server> {
             list: tokens.into_iter().map(Into::into).collect(),
         }))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
@@ -73,6 +75,7 @@ impl TokenSet for Arc<Server> {
             Err(Error::PremissionDeny("password").into())
         }
     }
+    #[instrument(skip_all, level = "debug")]
     async fn refresh(&self, req: Request<()>) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();
         let (meta, _, _) = req.into_parts();
@@ -100,6 +103,7 @@ impl TokenSet for Arc<Server> {
 
         Err(Error::Unauthenticated.into())
     }
+    #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
         let meta = req.metadata();
 

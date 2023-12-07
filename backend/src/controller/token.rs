@@ -189,6 +189,7 @@ impl TokenController {
 
         Ok(Some(()))
     }
+    #[instrument(skip_all, name="token_removal", fields(uid = user_id))]
     pub async fn remove_by_user_id(
         &self,
         user_id: i32,
