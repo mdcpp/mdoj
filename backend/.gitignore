@@ -5,3 +5,4 @@
 *.sqlite
 /key.pem
 /cert.pem
+/a.log

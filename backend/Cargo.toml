@@ -18,7 +18,7 @@ entity = { path = "./entity" }
 chrono = "0.4.26"
 thiserror = "1.0.44"
 ring = "^0.17"
-lockfree = "0.5.1"
+lockfree = "0.5.1" 
 derive_builder = "0.12.0"
 futures = "0.3.29"
 bincode = "1.3.3"

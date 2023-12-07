@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use ring::digest;
-use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection};
+use sea_orm::{ActiveModelTrait, ActiveValue, Database, DatabaseConnection, Schema, EntityTrait, ConnectionTrait};
 use tokio::fs;
 use tokio::sync::OnceCell;
 
@@ -18,7 +18,7 @@ pub async fn init(config: &GlobalConfig) {
             DB.set(db).unwrap();
         }
         Err(_) => {
-            println!("Database connection failed, creating database");
+            log::info!("Database connection failed, creating database");
 
             fs::File::create(PathBuf::from(config.database.path.clone()))
                 .await
@@ -27,9 +27,10 @@ pub async fn init(config: &GlobalConfig) {
             let db: DatabaseConnection = Database::connect(&uri).await.unwrap();
 
             first_migration(config,&db).await;
+            
             DB.set(db).unwrap();
 
-            println!("Database created");
+            log::info!("Database created");
         }
     }
 }
@@ -42,7 +43,32 @@ fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     .to_vec()
 }
 
+async fn create_table<E>(db: &DatabaseConnection, entity: E)
+where
+    E: EntityTrait,
+{
+    let builder = db.get_database_backend();
+    let stmt = builder.build(Schema::new(builder).create_table_from_entity(entity).if_not_exists());
+
+    match db.execute(stmt).await {
+        Ok(_) => log::info!("Migrated {}", entity.table_name()),
+        Err(e) => log::info!("Error: {}", e),
+    }
+}
+
 pub async fn first_migration(config: &GlobalConfig,db:&DatabaseConnection) {
+    // create tables
+    create_table(db, entity::user::Entity).await;
+    create_table(db, entity::token::Entity).await;
+    create_table(db, entity::announcement::Entity).await;
+    create_table(db, entity::contest::Entity).await;
+    create_table(db, entity::education::Entity).await;
+    create_table(db, entity::problem::Entity).await;
+    create_table(db, entity::submit::Entity).await;
+    create_table(db, entity::test::Entity).await;
+    create_table(db, entity::user_contest::Entity).await;
+
+    // generate admin@admin
     let mut perm = UserPermBytes::default();
 
     perm.grant_link(true);
