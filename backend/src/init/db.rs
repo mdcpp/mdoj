@@ -21,6 +21,7 @@ pub async fn init(config: &GlobalConfig) {
         .await
         .expect("fail connecting to database");
     init_user(config, &db).await;
+    DB.set(db).ok();
 }
 fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
     digest::digest(
