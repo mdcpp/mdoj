@@ -17,6 +17,8 @@ pub struct GlobalConfig {
     pub judger: Vec<Judger>,
     #[serde(default)]
     pub grpc: GrpcOption,
+    #[serde(default)]
+    pub opentelemetry: Option<bool>,
 }
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()

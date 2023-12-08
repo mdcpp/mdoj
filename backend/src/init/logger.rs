@@ -51,20 +51,7 @@ fn init_tracer() -> Tracer {
         .unwrap()
 }
 
-fn init_meter_provider() -> MeterProvider {
-    #[cfg(debug_assertions)]
-    let exporter = opentelemetry_otlp::new_exporter()
-        .tonic()
-        .build_metrics_exporter(
-            Box::new(DefaultAggregationSelector::new()),
-            Box::new(DefaultTemporalitySelector::new()),
-        )
-        .unwrap();
-    #[cfg(debug_assertions)]
-    let otlp_reader = PeriodicReader::builder(exporter, runtime::Tokio)
-        .with_interval(std::time::Duration::from_secs(30))
-        .build();
-
+fn init_meter_provider(opentelemetry: bool) -> MeterProvider {
     // For debugging in development
     let stdout_reader = PeriodicReader::builder(
         opentelemetry_stdout::MetricsExporter::default(),
@@ -72,12 +59,25 @@ fn init_meter_provider() -> MeterProvider {
     )
     .build();
 
-    let meter_provider = MeterProvider::builder()
+    let mut meter_provider = MeterProvider::builder()
         .with_resource(resource())
         .with_reader(stdout_reader);
 
-    #[cfg(debug_assertions)]
-    let meter_provider = meter_provider.with_reader(otlp_reader);
+    if opentelemetry {
+        let exporter = opentelemetry_otlp::new_exporter()
+            .tonic()
+            .build_metrics_exporter(
+                Box::new(DefaultAggregationSelector::new()),
+                Box::new(DefaultTemporalitySelector::new()),
+            )
+            .unwrap();
+
+        let otlp_reader = PeriodicReader::builder(exporter, runtime::Tokio)
+            .with_interval(std::time::Duration::from_secs(30))
+            .build();
+
+        meter_provider = meter_provider.with_reader(otlp_reader);
+    }
 
     let meter_provider = meter_provider.build();
 
@@ -98,8 +98,8 @@ impl Drop for OtelGuard {
         opentelemetry::global::shutdown_tracer_provider();
     }
 }
-fn init_tracing_subscriber(level: Level) -> OtelGuard {
-    let meter_provider = init_meter_provider();
+fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
+    let meter_provider = init_meter_provider(opentelemetry);
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(level))
@@ -134,5 +134,7 @@ pub fn init(config: &GlobalConfig) -> OtelGuard {
         _ => Level::INFO,
     };
 
-    init_tracing_subscriber(level)
+    let opentelemetry = config.opentelemetry == Some(true);
+
+    init_tracing_subscriber(level, opentelemetry)
 }

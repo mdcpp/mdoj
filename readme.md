@@ -10,7 +10,7 @@ Performance-oriented contest management system for IOI like contest
 
 ## Highlights
 
-- :feather:Lightweight: Only 20MB for the binary(~~plugin is very large~~)
+- :feather:Lightweight: Only 50MB for the binary(~~plugin is very large~~)
 - :zap:Lighting fast: Using `Rust`+`Grpc-Web` and correct implementation/algorithm
 - :rocket:Easy to use: By using docker compose, you can setup the system in minutes
 - :stopwatch:Accurate: Directly use cgroupv2(no docker in judger), Report time deviation to frontend
@@ -20,6 +20,7 @@ Performance-oriented contest management system for IOI like contest
 
 - :whale:Scalable: By using judger cluster, you can scale the system to any size you want
 - :file_cabinet:Extensible: By using plugin system, you can add any language you want
+- :telescope: Powerful logging using `Open-Telemetry``
 
 ## Quick Start
 
