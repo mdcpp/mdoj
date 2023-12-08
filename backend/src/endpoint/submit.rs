@@ -162,8 +162,6 @@ impl SubmitSet for Arc<Server> {
                 .ok_or(Error::NotInDB("user"))?;
         }
 
-        // if problem
-
         let submit = SubmitBuilder::default()
             .code(req.info.code)
             .lang(lang)

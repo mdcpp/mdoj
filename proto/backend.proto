@@ -556,7 +556,6 @@ message CreateUserRequest {
     required Permission permission = 3;
   }
   required Info info = 1;
-  required UserId id = 2;
   required string request_id = 3;
 }
 

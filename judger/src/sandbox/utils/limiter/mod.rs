@@ -146,7 +146,6 @@ impl Limiter {
 
         (stat.cpu.clone(), stat.mem.clone())
     }
-    #[tracing::instrument(skip(self),level = tracing::Level::DEBUG)]
     pub fn wait_exhausted(&mut self) -> Receiver<LimitReason> {
         self.limit_oneshot
             .take()

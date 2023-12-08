@@ -20,6 +20,7 @@ prost = "0.11.9"
 prost-types = "0.11.9"
 thiserror = "1.0.40"
 toml = "0.7.4"
+simple_logger="4.3.0"
 
 [dependencies.uuid]
 version = "1.6.1"
@@ -44,14 +45,6 @@ features = ["net"]
 [dependencies.spin]
 version = "0.9.8"
 features = ["mutex","spin_mutex"]
-
-[dependencies.tracing-subscriber]
-version = "0.3.17"
-features =["json"]
-
-[dependencies.tracing]
-version = "0.1.40"
-features =["async-await", "log"]
 
 [dev-dependencies]
 tempfile = "3.8.0"

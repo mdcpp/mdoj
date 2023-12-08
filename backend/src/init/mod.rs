@@ -1,12 +1,12 @@
-use self::config::GlobalConfig;
+use self::{config::GlobalConfig, logger::OtelGuard};
 
 pub mod config;
 pub mod db;
 pub mod logger;
 
-pub async fn new() -> GlobalConfig {
+pub async fn new() -> (GlobalConfig, OtelGuard) {
     let config = config::init().await;
-    logger::init(&config);
+    let olp_guard = logger::init(&config);
     db::init(&config).await;
-    config
+    (config, olp_guard)
 }

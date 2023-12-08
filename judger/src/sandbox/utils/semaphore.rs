@@ -26,7 +26,6 @@ pub struct MemoryStatistic {
 pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);
 
 impl MemorySemaphore {
-    #[tracing::instrument]
     pub fn new(memory: u64) -> Self {
         Self(Arc::new(Mutex::new(MemorySemaphoreInner {
             memory,
@@ -43,7 +42,6 @@ impl MemorySemaphore {
             tasks: self_.tasks,
         }
     }
-    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
     pub async fn allocate(&self, memory: u64) -> Result<MemoryPermit, Error> {
         log::trace!("preserve {}B memory", memory);
         let config = CONFIG.get().unwrap();
@@ -75,7 +73,6 @@ impl MemorySemaphore {
 
         Ok(MemoryPermit::new(self, memory))
     }
-    #[tracing::instrument(skip(self),level = tracing::Level::TRACE)]
     fn deallocate(&self, released_memory: u64) {
         let self_ = &mut *self.0.lock();
 

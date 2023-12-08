@@ -106,6 +106,11 @@ async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
 ) -> Result<(), Error> {
+    let span = tracing::span!(
+        tracing::Level::DEBUG,
+        "service discover",
+        name = config.name
+    );
     let mut instance = I::new(config)?;
     loop {
         match instance.discover().await {
@@ -131,10 +136,14 @@ async fn discover<I: Routable + Send>(
                     }
                 }
             }
-            RouteStatus::Wait(dur) => tokio::time::sleep(dur).await,
+            RouteStatus::Wait(dur) => {
+                log::trace!("Service Discovery halt for {} seconds", dur.as_secs());
+                tokio::time::sleep(dur).await
+            }
             _ => break,
         }
     }
+    drop(span);
     Ok(())
 }
 
@@ -197,6 +206,7 @@ pub struct Upstream {
     healthy: AtomicIsize,
     clients: SegQueue<JudgerIntercept>,
     connection: ConnectionDetail,
+    _live_span: tracing::Span,
 }
 
 impl Upstream {
@@ -217,6 +227,8 @@ impl Upstream {
             result.push((uuid, lang));
         }
 
+        let live_span = tracing::span!(tracing::Level::INFO, "judger livetime", uri = detail.uri);
+
         let clients = SegQueue::default();
         clients.push(client);
 
@@ -225,6 +237,7 @@ impl Upstream {
                 healthy: AtomicIsize::new(HEALTHY_THRESHOLD),
                 clients,
                 connection: detail,
+                _live_span: live_span,
             }),
             result,
         ))

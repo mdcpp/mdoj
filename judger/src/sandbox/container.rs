@@ -43,7 +43,6 @@ impl<'a> Container<'a> {
 
         Ok(Container { id, daemon, root })
     }
-    #[tracing::instrument(skip(self, limit))]
     pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 

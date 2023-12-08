@@ -174,6 +174,8 @@ impl UserSet for Arc<Server> {
 
         let mut model: ActiveModel = Default::default();
 
+        log::info!("creating user({})", req.info.username);
+
         fill_active_model!(model, req.info, username);
 
         let hash = self.crypto.hash(req.info.password.as_str()).into();
