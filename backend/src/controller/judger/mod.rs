@@ -17,7 +17,7 @@ use crate::{
         backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
         judger::*,
     },
-    init::{db::DB},
+    init::db::DB,
 };
 
 use self::{
@@ -228,11 +228,7 @@ impl JudgerController {
         let submit_id = submit_model.id.as_ref().to_owned();
         let tx = self.pubsub.publish(submit_id);
 
-        let scores = testcases
-            .iter()
-            .rev()
-            .map(|x| x.score)
-            .collect::<Vec<_>>();
+        let scores = testcases.iter().rev().map(|x| x.score).collect::<Vec<_>>();
 
         let tests = testcases
             .into_iter()

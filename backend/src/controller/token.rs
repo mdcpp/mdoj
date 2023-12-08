@@ -7,7 +7,7 @@ use sea_orm::{
 };
 use std::sync::Arc;
 use tokio::time;
-use tracing::{instrument, Span};
+use tracing::{instrument, Instrument, Span};
 
 use crate::{init::db::DB, report_internal};
 
@@ -149,25 +149,32 @@ impl TokenController {
         #[cfg(not(feature = "single-instance"))]
         let cache_result: Option<CachedToken> = None;
 
-        match cache_result {
-            Some(token_) => {
-                token = token_;
+        let token = match cache_result {
+            Some(token) => {
+                tracing::trace!(user_id = token.user_id, "cache_hit");
+                token
             }
             None => {
                 token = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
                     .one(db)
+                    .in_current_span()
                     .await?
                     .ok_or(Error::NonExist)?)
                 .into();
 
-                if token.expiry < now {
-                    return Err(Error::Expired);
-                }
+                tracing::trace!(user_id = token.user_id, "cache_missed");
 
                 #[cfg(feature = "single-instance")]
                 self.cache.insert(rand, token.clone());
+
+                token
             }
+        };
+
+        if token.expiry < now {
+            tracing::debug!(user_id = token.user_id, "token expired");
+            return Err(Error::Expired);
         }
 
         Ok((token.user_id, UserPermBytes(token.permission)))

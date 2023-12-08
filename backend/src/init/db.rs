@@ -1,10 +1,6 @@
-
-
-
 use ring::digest;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait,
-    PaginatorTrait,
+    ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
 
 use tokio::sync::OnceCell;

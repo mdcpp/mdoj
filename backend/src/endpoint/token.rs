@@ -9,6 +9,9 @@ use crate::grpc::into_prost;
 
 use entity::token::*;
 use entity::*;
+use tracing::Level;
+
+const TOKEN_LIMIT: u64 = 32;
 
 impl From<String> for Token {
     fn from(value: String) -> Self {
@@ -37,6 +40,7 @@ impl TokenSet for Arc<Server> {
 
         let tokens = Entity::find()
             .filter(Column::UserId.eq(user_id))
+            .limit(TOKEN_LIMIT)
             .all(db)
             .await
             .map_err(Into::<Error>::into)?;
@@ -111,6 +115,9 @@ impl TokenSet for Arc<Server> {
             let token = x.to_str().unwrap();
 
             self.token.remove(token.to_string()).await?;
+            tracing::event!(Level::TRACE, token = token);
+
+            return Ok(Response::new(()));
         }
 
         Err(Error::Unauthenticated.into())
