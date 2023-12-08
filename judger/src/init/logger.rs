@@ -14,5 +14,5 @@ pub fn init() {
         _ => Level::Info,
     };
 
-    simple_logger::init_with_level(level).unwrap();
+    simple_logger::init_with_level(level).ok();
 }

@@ -8,12 +8,10 @@ use entity::{education::*, *};
 
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            return Ok(query);
-        }
-        if perm.can_manage_education() {
-            return Ok(query.filter(education::Column::UserId.eq(user_id)));
+        if let Some(perm) = auth.user_perm() {
+            if perm.can_root() || perm.can_manage_education() {
+                return Ok(query);
+            }
         }
         Err(Error::Unauthenticated)
     }

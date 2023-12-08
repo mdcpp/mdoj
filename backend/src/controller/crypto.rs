@@ -3,6 +3,7 @@ use ring::{
     signature::{self, KeyPair},
 };
 use serde::{de::DeserializeOwned, Serialize};
+use tracing::Span;
 
 use crate::{init::config::GlobalConfig, report_internal};
 
@@ -46,8 +47,8 @@ impl From<HashValue> for Vec<u8> {
 }
 
 impl CryptoController {
-    #[tracing::instrument(level = "info")]
-    pub fn new(config: &GlobalConfig) -> Self {
+    #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
+    pub fn new(config: &GlobalConfig, span: &Span) -> Self {
         let rng = rand::SystemRandom::new();
         let pkcs8_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
         let signer = signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref()).unwrap();

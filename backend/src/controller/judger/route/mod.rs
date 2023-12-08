@@ -14,6 +14,7 @@ use std::{
 use crossbeam_queue::SegQueue;
 use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
+use tracing::{instrument, span, Instrument, Level, Span};
 use uuid::Uuid;
 
 use crate::{
@@ -106,21 +107,23 @@ async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
 ) -> Result<(), Error> {
-    let span = tracing::span!(
-        tracing::Level::DEBUG,
-        "service discover",
-        name = config.name
-    );
-    let mut instance = I::new(config)?;
+    let mut instance = I::new(config.clone())?;
+    let span = span!(Level::INFO, "service_discover", config_name = config.name);
     loop {
-        match instance.discover().await {
+        match instance
+            .discover()
+            .instrument(span!(parent:span.clone(),Level::DEBUG, "try advance"))
+            .in_current_span()
+            .await
+        {
             RouteStatus::NewConnection(detail) => {
-                log::info!("new upstream found: {}", detail.uri);
+                let span =
+                    span!(parent:span.clone(),Level::DEBUG,"upstream_connect",uri=detail.uri);
                 let router = match router.upgrade() {
                     Some(x) => x,
                     None => break,
                 };
-                let (upstream, langs) = Upstream::new(detail).await?;
+                let (upstream, langs) = Upstream::new(detail).in_current_span().await?;
                 for (uuid, lang) in langs.into_iter() {
                     router.langs.insert(lang);
                     loop {
@@ -136,14 +139,10 @@ async fn discover<I: Routable + Send>(
                     }
                 }
             }
-            RouteStatus::Wait(dur) => {
-                log::trace!("Service Discovery halt for {} seconds", dur.as_secs());
-                tokio::time::sleep(dur).await
-            }
+            RouteStatus::Wait(dur) => tokio::time::sleep(dur).in_current_span().await,
             _ => break,
         }
     }
-    drop(span);
     Ok(())
 }
 
@@ -154,8 +153,8 @@ pub struct Router {
 
 impl Router {
     // skip because config contain basic auth secret
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub async fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
+    #[instrument(name="router_construct",level = "info",skip_all, follows_from = [span])]
+    pub async fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: DashMap::default(),
             langs: DashSet::default(),
@@ -206,7 +205,7 @@ pub struct Upstream {
     healthy: AtomicIsize,
     clients: SegQueue<JudgerIntercept>,
     connection: ConnectionDetail,
-    _live_span: tracing::Span,
+    // live_span: tracing::span::EnteredSpan,
 }
 
 impl Upstream {
@@ -227,8 +226,6 @@ impl Upstream {
             result.push((uuid, lang));
         }
 
-        let live_span = tracing::span!(tracing::Level::INFO, "judger livetime", uri = detail.uri);
-
         let clients = SegQueue::default();
         clients.push(client);
 
@@ -237,7 +234,6 @@ impl Upstream {
                 healthy: AtomicIsize::new(HEALTHY_THRESHOLD),
                 clients,
                 connection: detail,
-                _live_span: live_span,
             }),
             result,
         ))

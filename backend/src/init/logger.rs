@@ -107,6 +107,19 @@ fn init_tracing_subscriber(level: Level) -> OtelGuard {
         .with(MetricsLayer::new(meter_provider.clone()))
         .with(OpenTelemetryLayer::new(init_tracer()))
         .init();
+    
+    std::panic::set_hook(Box::new(|panic| {
+        if let Some(location) = panic.location() {
+            tracing::error!(
+                message = %panic,
+                panic.file = location.file(),
+                panic.line = location.line(),
+                panic.column = location.column(),
+            );
+        } else {
+            tracing::error!(message = %panic);
+        }
+    }));
 
     OtelGuard { meter_provider }
 }

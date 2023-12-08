@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use tokio::fs;
 use tonic::transport;
+use tracing::{instrument, span, Instrument, Level};
 
 use crate::{
     controller::*,
@@ -22,7 +23,7 @@ const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
 pub struct Server {
     pub token: Arc<token::TokenController>,
-    pub submit: judger::SubmitController,
+    pub submit: judger::JudgerController,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     config: GlobalConfig,
@@ -34,25 +35,35 @@ impl Server {
     pub async fn new() -> Arc<Self> {
         let config = config::init().await;
 
-        init::db::init(&config).await;
         let otp_guard = logger::init(&config);
 
-        log::info!("Loading TLS certificate...");
+        let span = span!(Level::INFO, "construct_server");
+
+        init::db::init(&config)
+            .instrument(span!(parent:span.clone(),Level::INFO,"construct_database"))
+            .await;
+
+        tracing::info!("Loading TLS certificate...");
         let cert = fs::read_to_string(&config.grpc.public_pem)
+            .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
             .await
             .expect("public key.pem not found");
         let key = fs::read_to_string(&config.grpc.private_pem)
+            .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
             .await
             .expect("privite key.pem not found");
+
         let identity = transport::Identity::from_pem(cert, key);
 
-        log::info!("Constructing server...");
+        tracing::info!("Constructing server...");
+
+        let submit = judger::JudgerController::new(&config, &span).await.unwrap();
 
         Arc::new(Server {
-            token: token::TokenController::new(),
-            submit: judger::SubmitController::new(&config).await.unwrap(),
-            dup: duplicate::DupController::default(),
-            crypto: crypto::CryptoController::new(&config),
+            token: token::TokenController::new(&span),
+            submit: submit,
+            dup: duplicate::DupController::new(&span),
+            crypto: crypto::CryptoController::new(&config, &span),
             config,
             identity,
             _otp_guard: otp_guard,

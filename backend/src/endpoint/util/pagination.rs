@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use ::entity::*;
 use sea_orm::*;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{grpc::backend::SortBy, init::db::DB};
 
@@ -361,6 +362,7 @@ where
 }
 
 impl<E: PagerTrait> Pager<E> {
+    #[instrument(level = "debug")]
     pub fn sort_search(sort: SortBy, reverse: bool) -> Self {
         Self {
             ppk: None,
@@ -368,6 +370,7 @@ impl<E: PagerTrait> Pager<E> {
             _entity: PhantomData,
         }
     }
+    #[instrument(level = "debug")]
     pub fn text_search(sort: String) -> Self {
         Self {
             ppk: None,

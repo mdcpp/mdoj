@@ -1,4 +1,5 @@
 use quick_cache::sync::Cache;
+use tracing::Span;
 use uuid::Uuid;
 
 pub struct DupController {
@@ -6,17 +7,14 @@ pub struct DupController {
     dups: Cache<(i32, Uuid), i32>,
 }
 
-impl Default for DupController {
-    fn default() -> Self {
-        log::debug!("Setup DupController");
+impl DupController {
+    #[tracing::instrument(parent=span, name="duplicate_construct",level = "info",skip_all)]
+    pub fn new(span: &Span) -> Self {
         Self {
             #[cfg(feature = "single-instance")]
             dups: Cache::new(300),
         }
     }
-}
-
-impl DupController {
     pub fn store(&self, user_id: i32, uuid: Uuid, result: i32) {
         #[cfg(feature = "single-instance")]
         self.dups.insert((user_id, uuid), result);

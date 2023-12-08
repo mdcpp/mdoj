@@ -7,7 +7,7 @@ use sea_orm::{
 };
 use std::sync::Arc;
 use tokio::time;
-use tracing::instrument;
+use tracing::{instrument, Span};
 
 use crate::{init::db::DB, report_internal};
 
@@ -65,7 +65,8 @@ pub struct TokenController {
 }
 
 impl TokenController {
-    pub fn new() -> Arc<Self> {
+    #[tracing::instrument(parent = span,name="token_construct",level = "info",skip_all)]
+    pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
         let cache = Cache::new(300);

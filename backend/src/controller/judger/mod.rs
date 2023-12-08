@@ -9,6 +9,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tonic::Status;
+use tracing::{instrument, span, Instrument, Level, Span};
 use uuid::Uuid;
 
 use crate::{
@@ -113,16 +114,18 @@ impl From<JudgeResult> for SubmitStatus {
     }
 }
 
-pub struct SubmitController {
+pub struct JudgerController {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
     limiter: Arc<RateLimiter>,
 }
 
-impl SubmitController {
-    pub async fn new(config: &GlobalConfig) -> Result<Self, Error> {
-        Ok(SubmitController {
-            router: Router::new(config.judger.clone()).await?,
+impl JudgerController {
+    #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
+    pub async fn new(config: &GlobalConfig, span: &Span) -> Result<Self, Error> {
+        let router = Router::new(config.judger.clone(), span).await?;
+        Ok(JudgerController {
+            router,
             pubsub: Arc::new(PubSub::default()),
             limiter: Arc::new(
                 RateLimiter::builder()
@@ -134,11 +137,13 @@ impl SubmitController {
             ),
         })
     }
+    #[instrument(skip(ps_guard, stream, model, scores))]
     async fn stream(
         ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
         mut scores: Vec<u32>,
+        submit_id: i32,
     ) {
         let mut result = 0;
         let mut running_case = 0;
@@ -252,7 +257,13 @@ impl SubmitController {
 
         conn.report_success();
 
-        tokio::spawn(Self::stream(tx, res.into_inner(), submit_model, scores));
+        tokio::spawn(Self::stream(
+            tx,
+            res.into_inner(),
+            submit_model,
+            scores,
+            submit_id,
+        ));
 
         Ok(submit_id)
     }
