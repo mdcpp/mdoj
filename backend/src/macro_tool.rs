@@ -27,7 +27,7 @@ macro_rules! report_internal {
 macro_rules! fill_exist_active_model {
     ($target:expr,$src:expr , $field:ident) => {
         if let Some(x) = $src.$field {
-            $target.$field = ActiveValue::Set(crate::ofl!(x));
+            $target.$field = ActiveValue::Set($crate::ofl!(x));
         }
     };
     ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
@@ -39,7 +39,7 @@ macro_rules! fill_exist_active_model {
 #[macro_export]
 macro_rules! fill_active_model {
     ($target:expr,$src:expr , $field:ident) => {
-        $target.$field = ActiveValue::Set(crate::ofl!($src.$field));
+        $target.$field = ActiveValue::Set($crate::ofl!($src.$field));
     };
     ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
         fill_active_model!($target,$src, $field);

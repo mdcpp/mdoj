@@ -117,7 +117,7 @@ async fn discover<I: Routable + Send>(
             .await
         {
             RouteStatus::NewConnection(detail) => {
-                let span =
+                let _span =
                     span!(parent:span.clone(),Level::DEBUG,"upstream_connect",uri=detail.uri);
                 let router = match router.upgrade() {
                     Some(x) => x,

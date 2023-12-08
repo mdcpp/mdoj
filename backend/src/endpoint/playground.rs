@@ -12,7 +12,7 @@ impl PlaygroundSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn run(
         &self,
-        req: Request<PlaygroundRequest>,
+        _req: Request<PlaygroundRequest>,
     ) -> Result<Response<Self::RunStream>, Status> {
         Err(Status::unimplemented("Not implemented"))
     }

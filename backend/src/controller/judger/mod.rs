@@ -2,14 +2,14 @@ mod pubsub;
 mod route;
 use std::sync::Arc;
 
-use crate::{grpc::TonicStream, init::config, ofl, report_internal};
+use crate::{grpc::TonicStream, init::config, report_internal};
 use futures::Future;
 use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tonic::Status;
-use tracing::{instrument, span, Instrument, Level, Span};
+use tracing::{instrument, Span};
 use uuid::Uuid;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
         judger::*,
     },
-    init::{config::GlobalConfig, db::DB},
+    init::{db::DB},
 };
 
 use self::{
@@ -231,7 +231,7 @@ impl JudgerController {
         let scores = testcases
             .iter()
             .rev()
-            .map(|x| x.score as u32)
+            .map(|x| x.score)
             .collect::<Vec<_>>();
 
         let tests = testcases
