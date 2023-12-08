@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::fs;
 use tonic::transport;
-use tracing::{instrument, span, Instrument, Level};
+use tracing::{span, Instrument, Level};
 
 use crate::{
     controller::*,
@@ -34,34 +34,41 @@ pub struct Server {
 impl Server {
     pub async fn new() -> Arc<Self> {
         let config = config::init().await;
-
         let otp_guard = logger::init(&config);
 
-        let span = span!(Level::INFO, "construct_server");
+        let config1 = config.database.clone();
+        let config2 = config.grpc.public_pem.clone();
+        let config3 = config.grpc.private_pem.clone();
+        let config4 = config.judger.clone();
 
-        init::db::init(&config)
-            .instrument(span!(parent:span.clone(),Level::INFO,"construct_database"))
-            .await;
+        let span = span!(Level::INFO, "server_construct");
+        let span1 = span.clone();
 
-        tracing::info!("Loading TLS certificate...");
-        let cert = fs::read_to_string(&config.grpc.public_pem)
-            .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
-            .await
-            .expect("public key.pem not found");
-        let key = fs::read_to_string(&config.grpc.private_pem)
-            .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
-            .await
-            .expect("privite key.pem not found");
+        let (_, cert, key, submit) = tokio::try_join!(
+            tokio::spawn(
+                async move { init::db::init(&config1).await }
+                    .instrument(span!(parent:span.clone(),Level::INFO,"construct_database"))
+            ),
+            tokio::spawn(
+                async move { fs::read_to_string(&config2).await }
+                    .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
+            ),
+            tokio::spawn(
+                async move { fs::read_to_string(&config3).await }
+                    .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
+            ),
+            tokio::spawn(async move { judger::JudgerController::new(config4, &span1).await })
+        )
+        .unwrap();
 
-        let identity = transport::Identity::from_pem(cert, key);
-
-        tracing::info!("Constructing server...");
-
-        let submit = judger::JudgerController::new(&config, &span).await.unwrap();
+        let identity = transport::Identity::from_pem(
+            cert.expect("public key.pem not found"),
+            key.expect("privite key.pem not found"),
+        );
 
         Arc::new(Server {
             token: token::TokenController::new(&span),
-            submit: submit,
+            submit: submit.unwrap(),
             dup: duplicate::DupController::new(&span),
             crypto: crypto::CryptoController::new(&config, &span),
             config,

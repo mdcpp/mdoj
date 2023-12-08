@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ring::digest;
 use sea_orm::{
@@ -8,14 +9,14 @@ use sea_orm::{
 use tokio::fs;
 use tokio::sync::OnceCell;
 
-use super::config::GlobalConfig;
+use super::config::{self, GlobalConfig};
 use crate::controller::token::UserPermBytes;
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
-pub async fn init(config: &GlobalConfig) {
+pub async fn init(config: &config::Database) {
     // sqlite://database/backend.sqlite?mode=rwc
-    let uri = format!("sqlite://{}", config.database.path.clone());
+    let uri = format!("sqlite://{}", config.path.clone());
 
     let db = Database::connect(&uri)
         .await
@@ -23,16 +24,16 @@ pub async fn init(config: &GlobalConfig) {
     init_user(config, &db).await;
     DB.set(db).ok();
 }
-fn hash(config: &GlobalConfig, src: &str) -> Vec<u8> {
+fn hash(config: &config::Database, src: &str) -> Vec<u8> {
     digest::digest(
         &digest::SHA256,
-        &[src.as_bytes(), config.database.salt.as_bytes()].concat(),
+        &[src.as_bytes(), config.salt.as_bytes()].concat(),
     )
     .as_ref()
     .to_vec()
 }
 
-pub async fn init_user(config: &GlobalConfig, db: &DatabaseConnection) {
+pub async fn init_user(config: &config::Database, db: &DatabaseConnection) {
     if entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;
     }

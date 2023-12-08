@@ -5,7 +5,7 @@ use tokio::{fs, io::AsyncReadExt};
 
 static CONFIG_PATH: &str = "config/config.toml";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
     #[serde(default = "default_bind_address")]
     pub bind_address: String,
@@ -49,7 +49,7 @@ pub struct Judger {
     pub judger_type: JudgerType,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GrpcOption {
     pub trust_x_forwarded_for: bool,
     pub public_pem: PathBuf,
@@ -66,7 +66,7 @@ impl Default for GrpcOption {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Database {
     pub path: String,
     pub salt: String,

@@ -2,7 +2,7 @@ mod pubsub;
 mod route;
 use std::sync::Arc;
 
-use crate::{grpc::TonicStream, ofl, report_internal};
+use crate::{grpc::TonicStream, init::config, ofl, report_internal};
 use futures::Future;
 use leaky_bucket::RateLimiter;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
@@ -122,8 +122,8 @@ pub struct JudgerController {
 
 impl JudgerController {
     #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
-    pub async fn new(config: &GlobalConfig, span: &Span) -> Result<Self, Error> {
-        let router = Router::new(config.judger.clone(), span).await?;
+    pub async fn new(config: Vec<config::Judger>, span: &Span) -> Result<Self, Error> {
+        let router = Router::new(config, span).await?;
         Ok(JudgerController {
             router,
             pubsub: Arc::new(PubSub::default()),
