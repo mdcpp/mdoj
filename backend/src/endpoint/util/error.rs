@@ -22,46 +22,50 @@ pub enum Error {
     Unreachable(&'static str),
     #[error("Number too large(or small)")]
     NumberTooLarge,
+    #[error("Already exist")]
+    AlreadyExist(&'static str),
 }
 
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
             Error::PremissionDeny(x) => {
-                log::debug!("Client request inaccessible resource, hint: {}", x);
+                tracing::debug!(hint = x, "premission_invaild");
                 tonic::Status::permission_denied(x)
             }
             Error::DBErr(x) => report_internal!(error, "{}", x),
-            // all argument should be checked before processing,
-            // so this error is considered as internal error
             Error::BadArgument(x) => {
-                log::debug!("Client sent invaild argument: payload.{}", x);
+                tracing::trace!(miss_type = x, "argument_invaild");
                 tonic::Status::invalid_argument(x)
             }
             Error::NotInPayload(x) => {
-                log::trace!("{} is not found in client payload", x);
+                tracing::trace!(miss_type = x, "argument_missing");
                 tonic::Status::invalid_argument(format!("payload.{} is not found", x))
             }
             Error::Unauthenticated => {
-                log::debug!("Client sent invaild or no token");
+                tracing::trace!("Client sent invaild or no token");
                 tonic::Status::unauthenticated("")
             }
             Error::NotInDB(x) => {
-                log::debug!("{} is not found in database", x);
+                tracing::trace!(entity = x, "database_notfound");
                 tonic::Status::not_found("")
             }
             Error::PaginationError(x) => {
-                log::debug!("{} is not a vaild pager", x);
+                tracing::debug!(hint = x, "pager_invaild");
                 tonic::Status::failed_precondition(x)
             }
             Error::InvaildUUID(err) => {
-                log::trace!("Fail parsing request_id: {}", err);
+                tracing::trace!(reason=?err,"requestid_invaild");
                 tonic::Status::invalid_argument(
                     "Invaild request_id(should be a client generated UUIDv4)",
                 )
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
-            Error::NumberTooLarge => tonic::Status::failed_precondition("number too large"),
+            Error::NumberTooLarge => tonic::Status::invalid_argument("number too large"),
+            Error::AlreadyExist(x) => {
+                tracing::trace!(hint = x, "entity_exist");
+                tonic::Status::already_exists(x)
+            }
         }
     }
 }

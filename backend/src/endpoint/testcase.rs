@@ -137,6 +137,8 @@ impl TestcaseSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
+        tracing::debug!(id = model.id.clone().unwrap(), "testcase_created");
+
         Ok(Response::new(model.id.unwrap().into()))
     }
     #[instrument(skip_all, level = "debug")]
@@ -153,6 +155,8 @@ impl TestcaseSet for Arc<Server> {
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(Error::PremissionDeny("Can't update test").into());
         }
+
+        tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
@@ -178,6 +182,8 @@ impl TestcaseSet for Arc<Server> {
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        tracing::debug!(id = req.id);
 
         Ok(Response::new(()))
     }
@@ -231,12 +237,18 @@ impl TestcaseSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
+    #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
         req: Request<TestcaseLink>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+
+        tracing::debug!(
+            problem_id = req.problem_id.id,
+            testcase_id = req.testcase_id.id
+        );
 
         let (_, perm) = auth.ok_or_default()?;
 
@@ -275,7 +287,10 @@ impl TestcaseSet for Arc<Server> {
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::ParentId(ppk) => {
+                tracing::debug!(id = ppk);
+                Pager::parent_search(ppk)
+            }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?

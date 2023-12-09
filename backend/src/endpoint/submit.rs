@@ -98,7 +98,9 @@ impl SubmitSet for Arc<Server> {
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::ParentId(ppk) => {
+                tracing::debug!(id = ppk);
+                Pager::parent_search(ppk)},
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?
@@ -121,6 +123,8 @@ impl SubmitSet for Arc<Server> {
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+
+        tracing::debug!(id=req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
@@ -172,7 +176,11 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        Ok(Response::new(self.submit.submit(submit).await?.into()))
+        let id=self.submit.submit(submit).await?;
+
+        tracing::debug!(id = id, "submit_created");
+
+        Ok(Response::new(id.into()))
     }
 
     #[instrument(skip_all, level = "debug")]
@@ -189,6 +197,8 @@ impl SubmitSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
+        tracing::debug!(id = req.id);
+
         Ok(Response::new(()))
     }
 
@@ -199,6 +209,8 @@ impl SubmitSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
         let (_, req) = self.parse_request(req).await?;
+
+        tracing::trace!(id=req.id);
 
         Ok(Response::new(
             self.submit.follow(req.id).await.unwrap_or_else(|| {
@@ -217,13 +229,15 @@ impl SubmitSet for Arc<Server> {
         let submit_id = req.id.id;
 
         if !(perm.can_root() || perm.can_manage_submit()) {
-            return Err(Error::PremissionDeny("Can't update problem").into());
+            return Err(Error::PremissionDeny("Can't rejudge").into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
+
+        tracing::debug!(req.id=submit_id);
 
         let submit = submit::Entity::find_by_id(submit_id)
             .one(db)

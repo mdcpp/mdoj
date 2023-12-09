@@ -1,4 +1,4 @@
-use tracing::{instrument, span, Level};
+use tracing::{instrument, Level};
 
 use crate::server::Server;
 

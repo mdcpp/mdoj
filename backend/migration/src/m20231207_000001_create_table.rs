@@ -1,6 +1,4 @@
-use std::ptr::null;
-
-use sea_orm_migration::{prelude::*, seaql_migrations::PrimaryKey};
+use sea_orm_migration::prelude::*;
 
 // static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
 static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP";

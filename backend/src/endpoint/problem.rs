@@ -136,7 +136,10 @@ impl ProblemSet for Arc<Server> {
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => Pager::text_search(create),
+            text_search_request::Request::Text(create) => {
+                tracing::trace!(search = create);
+                Pager::text_search(create)
+            }
             text_search_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
@@ -161,6 +164,8 @@ impl ProblemSet for Arc<Server> {
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
+
+        tracing::debug!(problem_id = req.id);
 
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
@@ -200,6 +205,8 @@ impl ProblemSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
+        tracing::debug!(id = model.id.clone().unwrap(), "problem_created");
+
         Ok(Response::new(model.id.unwrap().into()))
     }
     #[instrument(skip_all, level = "debug")]
@@ -217,6 +224,8 @@ impl ProblemSet for Arc<Server> {
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(Error::PremissionDeny("Can't update problem").into());
         }
+
+        tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
@@ -254,6 +263,8 @@ impl ProblemSet for Arc<Server> {
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        tracing::debug!(id = req.id);
 
         Ok(Response::new(()))
     }
@@ -314,6 +325,8 @@ impl ProblemSet for Arc<Server> {
 
         auth.ok_or_default()?;
 
+        tracing::debug!(id = req.id);
+
         let mut problem =
             Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
                 .columns([Column::Id, Column::ContestId])
@@ -335,6 +348,8 @@ impl ProblemSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
 
         auth.ok_or_default()?;
+
+        tracing::debug!(id = req.id);
 
         let mut problem =
             Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
@@ -388,7 +403,10 @@ impl ProblemSet for Arc<Server> {
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::ParentId(ppk) => {
+                tracing::debug!(id = ppk);
+                Pager::parent_search(ppk)
+            }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?

@@ -174,7 +174,16 @@ impl UserSet for Arc<Server> {
 
         let mut model: ActiveModel = Default::default();
 
-        tracing::debug!(username= req.info.username);
+        tracing::debug!(username = req.info.username);
+
+        let same_name = Entity::find()
+            .filter(Column::Username.eq(req.info.username.clone()))
+            .count(db)
+            .await
+            .map_err(Into::<Error>::into)?;
+        if same_name != 0 {
+            return Err(Error::AlreadyExist("").into());
+        }
 
         fill_active_model!(model, req.info, username);
 

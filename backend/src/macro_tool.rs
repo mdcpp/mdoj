@@ -2,11 +2,11 @@
 #[cfg(feature = "unsecured-log")]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
-        log::$level!($pattern);
+        tracing::$level!($pattern);
         tonic::Status::internal($error.to_string())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
-        log::$level!($pattern, $error);
+        tracing::$level!($pattern, $error);
         tonic::Status::internal($error.to_string())
     }};
 }
@@ -14,11 +14,11 @@ macro_rules! report_internal {
 #[macro_export]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
-        log::$level!($pattern);
+        tracing::$level!($pattern);
         tonic::Status::unknown("unknown error")
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
-        log::$level!($pattern, $error);
+        tracing::$level!($pattern, $error);
         tonic::Status::unknown("unknown error")
     }};
 }

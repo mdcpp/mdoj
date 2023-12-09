@@ -115,6 +115,8 @@ impl EducationSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
+        tracing::debug!(id = model.id.clone().unwrap());
+
         Ok(Response::new(model.id.unwrap().into()))
     }
     #[instrument(skip_all, level = "debug")]
@@ -132,6 +134,8 @@ impl EducationSet for Arc<Server> {
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(Error::PremissionDeny("Can't update problem").into());
         }
+
+        tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
@@ -157,6 +161,8 @@ impl EducationSet for Arc<Server> {
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        tracing::debug!(id = req.id);
 
         Ok(Response::new(()))
     }
@@ -220,7 +226,10 @@ impl EducationSet for Arc<Server> {
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => Pager::parent_search(ppk),
+            list_by_request::Request::ParentId(ppk) => {
+                tracing::debug!(id = ppk);
+                Pager::parent_search(ppk)
+            }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?

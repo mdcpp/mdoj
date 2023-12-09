@@ -9,6 +9,8 @@ use crate::{grpc::backend::SortBy, init::db::DB};
 
 use super::{auth::Auth, error::Error, filter::Filter};
 
+const PAGE_MAX_SIZE: u64 = 64;
+
 #[tonic::async_trait]
 pub trait ParentalTrait<P>
 where
@@ -44,7 +46,7 @@ where
         select
     }
     fn get_id(model: &Self::Model) -> i32;
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -61,14 +63,14 @@ struct RawPager {
     sort: RawSearchDep,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SearchDep {
     Text(String),
     Column(SortBy, bool),
     Parent(i32),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Pager<E: PagerTrait> {
     ppk: Option<i32>,
     sort: SearchDep,
@@ -115,6 +117,7 @@ where
     <E as PagerTrait>::ParentMarker: ParentalTrait<P>,
     P: Related<E>,
 {
+    #[instrument]
     fn parent_search(ppk: i32) -> Self {
         Self {
             ppk: None,
@@ -122,6 +125,7 @@ where
             _entity: PhantomData,
         }
     }
+    #[instrument(name = "pagination_deserialize", level = "trace")]
     fn into_raw(self) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
@@ -141,15 +145,16 @@ where
             byte.unwrap(),
         )
     }
+    #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String) -> Result<Pager<E>, Error> {
         let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
             .map_err(|e| {
-                log::trace!("Pager base64 deserialize error: {}", e);
-                Error::PaginationError("Invaild pager")
+                tracing::trace!(err=?e,"base64_deserialize");
+                Error::PaginationError("Not base64")
             })?;
         let pager = bincode::deserialize::<RawPager>(&byte).map_err(|e| {
-            log::trace!("Pager bincode deserialize error: {}", e);
-            Error::PaginationError("Invaild pager")
+            tracing::debug!(err=?e,"bincode_deserialize");
+            Error::PaginationError("Malformated pager")
         })?;
         match pager.type_number == E::TYPE_NUMBER {
             true => {
@@ -172,6 +177,7 @@ where
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
     }
+    #[instrument(skip(self, auth))]
     async fn fetch(
         &mut self,
         limit: u64,
@@ -179,6 +185,9 @@ where
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
+        if limit > PAGE_MAX_SIZE {
+            return Err(Error::NumberTooLarge);
+        }
         macro_rules! order_by_pk {
             ($src:expr,$reverse: expr) => {
                 if $reverse {
@@ -196,7 +205,7 @@ where
         }
         let query = match self.sort.clone() {
             SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth).await?;
+                let mut query = E::query_filter(E::find(), auth)?;
                 order_by_pk!(query, reverse);
                 let mut condition = E::COL_TEXT[0].like(&txt);
                 for col in E::COL_TEXT[1..].iter() {
@@ -206,7 +215,7 @@ where
                 query
             }
             SearchDep::Column(sort_by, inner_reverse) => {
-                let mut query = E::query_filter(E::find(), auth).await?;
+                let mut query = E::query_filter(E::find(), auth)?;
                 order_by_pk!(query, reverse ^ inner_reverse);
                 E::sort(query, sort_by, reverse)
             }
@@ -226,7 +235,7 @@ where
 
                 let mut query = query.unwrap().find_related(E::default());
 
-                query = E::query_filter(query, auth).await?;
+                query = E::query_filter(query, auth)?;
 
                 order_by_pk!(query, reverse);
                 query
@@ -253,6 +262,7 @@ impl<E> NoParentPager<E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = NoParent>,
 {
+    #[instrument(name = "pagination_deserialize", level = "trace")]
     fn into_raw(self) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
@@ -272,15 +282,16 @@ where
             byte.unwrap(),
         )
     }
+    #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String) -> Result<Pager<E>, Error> {
         let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
             .map_err(|e| {
-                log::trace!("Pager base64 deserialize error: {}", e);
-                Error::PaginationError("Invaild pager")
+                tracing::trace!(err=?e,"base64_deserialize");
+                Error::PaginationError("Not base64")
             })?;
         let pager = bincode::deserialize::<RawPager>(&byte).map_err(|e| {
-            log::trace!("Pager bincode deserialize error: {}", e);
-            Error::PaginationError("Invaild pager")
+            tracing::debug!(err=?e,"bincode_deserialize");
+            Error::PaginationError("Malformated pager")
         })?;
         match pager.type_number == E::TYPE_NUMBER {
             true => {
@@ -305,6 +316,7 @@ where
             false => Err(Error::PaginationError("Pager type number mismatch")),
         }
     }
+    #[instrument(skip(self, auth))]
     async fn fetch(
         &mut self,
         limit: u64,
@@ -312,6 +324,9 @@ where
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
+        if limit > PAGE_MAX_SIZE {
+            return Err(Error::NumberTooLarge);
+        }
         macro_rules! order_by_pk {
             ($src:expr,$reverse: expr) => {
                 if $reverse {
@@ -329,7 +344,7 @@ where
         }
         let query = match self.sort.clone() {
             SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth).await?;
+                let mut query = E::query_filter(E::find(), auth)?;
                 order_by_pk!(query, reverse);
                 let mut condition = E::COL_TEXT[0].like(&txt);
                 for col in E::COL_TEXT[1..].iter() {
@@ -339,7 +354,7 @@ where
                 query
             }
             SearchDep::Column(sort_by, inner_reverse) => {
-                let mut query = E::query_filter(E::find(), auth).await?;
+                let mut query = E::query_filter(E::find(), auth)?;
                 order_by_pk!(query, reverse ^ inner_reverse);
                 E::sort(query, sort_by, reverse)
             }
@@ -426,7 +441,7 @@ impl PagerTrait for problem::Entity {
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         problem::Entity::read_filter(select, auth)
     }
 }
@@ -458,7 +473,7 @@ impl PagerTrait for test::Entity {
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         test::Entity::read_filter(select, auth)
     }
 }
@@ -492,7 +507,7 @@ impl PagerTrait for contest::Entity {
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         contest::Entity::read_filter(select, auth)
     }
 }
@@ -518,7 +533,7 @@ impl PagerTrait for user::Entity {
         model.id
     }
 
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         user::Entity::read_filter(select, auth)
     }
 }
@@ -545,7 +560,7 @@ impl PagerTrait for submit::Entity {
         model.id
     }
 
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         submit::Entity::read_filter(select, auth)
     }
 }
@@ -566,7 +581,7 @@ impl PagerTrait for education::Entity {
         model.id
     }
 
-    async fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         education::Entity::read_filter(select, auth)
     }
 }

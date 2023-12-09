@@ -125,6 +125,7 @@ async fn discover<I: Routable + Send>(
                 };
                 let (upstream, langs) = Upstream::new(detail).in_current_span().await?;
                 for (uuid, lang) in langs.into_iter() {
+                    let _=tracing::span!(parent:&_span,Level::DEBUG,"lang_insert",uuid=?&uuid).entered();
                     router.langs.insert(lang);
                     loop {
                         match router.routing_table.get(&uuid) {

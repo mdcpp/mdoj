@@ -45,7 +45,7 @@ impl TokenSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-            tracing::trace!(token_count=tokens.len(),"retrieve_token");
+        tracing::trace!(token_count = tokens.len(), "retrieve_token");
 
         Ok(Response::new(Tokens {
             list: tokens.into_iter().map(Into::into).collect(),
@@ -56,7 +56,7 @@ impl TokenSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
 
-        tracing::debug!(username=req.username);
+        tracing::debug!(username = req.username);
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))

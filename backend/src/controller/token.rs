@@ -12,7 +12,7 @@ use tracing::{instrument, Instrument, Span};
 use crate::{init::db::DB, report_internal};
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
-type Rand = [u8; 28];
+type Rand = [u8; 20];
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -20,7 +20,7 @@ pub enum Error {
     Database(#[from] sea_orm::error::DbErr),
     #[error("expired")]
     Expired,
-    #[error("length of token is not 28")]
+    #[error("length of token is not 20")]
     InvalidTokenLength,
     #[error("`{0}`")]
     Base64(#[from] base64::DecodeError),
@@ -121,7 +121,7 @@ impl TokenController {
         ))
     }
 
-    #[instrument(skip_all, name = "token_verify_controller",level="debug")]
+    #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
     pub async fn verify(&self, token: &str) -> Result<(i32, UserPermBytes), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
