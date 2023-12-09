@@ -18,10 +18,12 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use super::config::GlobalConfig;
 
+pub static PACKAGE_NAME: &str = "mdoj-backend";
+
 fn resource() -> Resource {
     Resource::from_schema_url(
         [
-            KeyValue::new(SERVICE_NAME, "mdoj-backend"),
+            KeyValue::new(SERVICE_NAME, PACKAGE_NAME),
             KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
             #[cfg(debug_assertions)]
             KeyValue::new(DEPLOYMENT_ENVIRONMENT, "develop"),
@@ -103,7 +105,7 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::filter::LevelFilter::from_level(level))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_thread_ids(false))
         .with(MetricsLayer::new(meter_provider.clone()))
         .with(OpenTelemetryLayer::new(init_tracer()))
         .init();

@@ -204,7 +204,8 @@ impl ContestSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
-        tracing::debug!(id=model.id.clone().unwrap());
+        self.metrics.contest.add(1, &[]);
+        tracing::debug!(id = model.id.clone().unwrap());
 
         Ok(Response::new(model.id.unwrap().into()))
     }
@@ -270,7 +271,8 @@ impl ContestSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        tracing::debug!(id=req.id,"contest_remove");
+        self.metrics.contest.add(-1, &[]);
+        tracing::debug!(id = req.id, "contest_remove");
 
         Ok(Response::new(()))
     }
@@ -307,7 +309,7 @@ impl ContestSet for Arc<Server> {
 
         pivot.save(db).await.map_err(Into::<Error>::into)?;
 
-        tracing::debug!(user_id=user_id,contest_id=req.id.id);
+        tracing::debug!(user_id = user_id, contest_id = req.id.id);
 
         Ok(Response::new(()))
     }
@@ -324,7 +326,7 @@ impl ContestSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        tracing::debug!(user_id=user_id,contest_id=req.id,"user_exit");
+        tracing::debug!(user_id = user_id, contest_id = req.id, "user_exit");
 
         Ok(Response::new(()))
     }

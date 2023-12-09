@@ -116,6 +116,7 @@ impl EducationSet for Arc<Server> {
         self.dup.store(user_id, uuid, model.id.clone().unwrap());
 
         tracing::debug!(id = model.id.clone().unwrap());
+        self.metrics.education.add(1, &[]);
 
         Ok(Response::new(model.id.unwrap().into()))
     }
@@ -163,6 +164,7 @@ impl EducationSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         tracing::debug!(id = req.id);
+        self.metrics.education.add(-1, &[]);
 
         Ok(Response::new(()))
     }

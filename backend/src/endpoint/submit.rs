@@ -100,7 +100,8 @@ impl SubmitSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)},
+                Pager::parent_search(ppk)
+            }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?
@@ -124,7 +125,7 @@ impl SubmitSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        tracing::debug!(id=req.id);
+        tracing::debug!(id = req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
@@ -176,9 +177,10 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        let id=self.submit.submit(submit).await?;
+        let id = self.submit.submit(submit).await?;
 
         tracing::debug!(id = id, "submit_created");
+        self.metrics.submit.add(1, &[]);
 
         Ok(Response::new(id.into()))
     }
@@ -198,6 +200,7 @@ impl SubmitSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         tracing::debug!(id = req.id);
+        self.metrics.submit.add(-1, &[]);
 
         Ok(Response::new(()))
     }
@@ -210,7 +213,7 @@ impl SubmitSet for Arc<Server> {
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
         let (_, req) = self.parse_request(req).await?;
 
-        tracing::trace!(id=req.id);
+        tracing::trace!(id = req.id);
 
         Ok(Response::new(
             self.submit.follow(req.id).await.unwrap_or_else(|| {
@@ -237,7 +240,7 @@ impl SubmitSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        tracing::debug!(req.id=submit_id);
+        tracing::debug!(req.id = submit_id);
 
         let submit = submit::Entity::find_by_id(submit_id)
             .one(db)

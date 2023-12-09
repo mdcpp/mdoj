@@ -7,6 +7,7 @@ use crate::grpc::backend::*;
 
 use entity::user;
 use entity::user::*;
+use opentelemetry::KeyValue;
 
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
@@ -198,9 +199,12 @@ impl UserSet for Arc<Server> {
 
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
-        self.dup.store(user_id, uuid, model.id.clone().unwrap());
+        self.metrics.user.add(1, &[]);
+        
+        let id=model.id.unwrap();
+        self.dup.store(user_id, uuid, id);
 
-        Ok(Response::new(model.id.unwrap().into()))
+        Ok(Response::new(id.into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
@@ -254,6 +258,8 @@ impl UserSet for Arc<Server> {
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        self.metrics.user.add(-1, &[]);
 
         Ok(Response::new(()))
     }

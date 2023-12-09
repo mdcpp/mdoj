@@ -1,5 +1,6 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
+use opentelemetry::{global, metrics::ObservableGauge};
 use quick_cache::sync::Cache;
 use ring::rand::*;
 use sea_orm::{
@@ -9,7 +10,10 @@ use std::sync::Arc;
 use tokio::time;
 use tracing::{instrument, Instrument, Span};
 
-use crate::{init::db::DB, report_internal};
+use crate::{
+    init::{db::DB, logger::PACKAGE_NAME},
+    report_internal,
+};
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type Rand = [u8; 20];
@@ -61,7 +65,7 @@ pub struct TokenController {
     #[cfg(feature = "single-instance")]
     cache: Cache<Rand, CachedToken>,
     rand: SystemRandom,
-    // reverse_proxy:Arc<RwLock<BTreeSet<IpAddr>>>,
+    cache_meter: ObservableGauge<u64>,
 }
 
 impl TokenController {
@@ -69,11 +73,14 @@ impl TokenController {
     pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
-        let cache = Cache::new(300);
+        let cache = Cache::new(500);
         let self_ = Arc::new(Self {
             #[cfg(feature = "single-instance")]
             cache,
             rand: SystemRandom::new(),
+            cache_meter: global::meter(PACKAGE_NAME)
+                .u64_observable_gauge("cached_token")
+                .init(),
         });
         tokio::spawn(async move {
             let db = DB.get().unwrap();
@@ -166,7 +173,10 @@ impl TokenController {
                 tracing::trace!(user_id = token.user_id, "cache_missed");
 
                 #[cfg(feature = "single-instance")]
-                self.cache.insert(rand, token.clone());
+                {
+                    self.cache.insert(rand, token.clone());
+                    self.cache_meter.observe(self.cache.weight(), &[]);
+                }
 
                 token
             }

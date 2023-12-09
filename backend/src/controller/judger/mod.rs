@@ -1,10 +1,18 @@
 mod pubsub;
 mod route;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicI64, Ordering},
+    Arc,
+};
 
-use crate::{grpc::TonicStream, init::config, report_internal};
+use crate::{
+    grpc::TonicStream,
+    init::{config, logger::PACKAGE_NAME},
+    report_internal,
+};
 use futures::Future;
 use leaky_bucket::RateLimiter;
+use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
@@ -114,10 +122,20 @@ impl From<JudgeResult> for SubmitStatus {
     }
 }
 
+struct MeterGuard<'a>(&'a JudgerController);
+
+impl<'a> Drop for MeterGuard<'a> {
+    fn drop(&mut self) {
+        let (num, meter) = &self.0.running_meter;
+        meter.observe(num.fetch_sub(1, Ordering::Acquire) - 1, &[]);
+    }
+}
+
 pub struct JudgerController {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
     limiter: Arc<RateLimiter>,
+    running_meter: (AtomicI64, ObservableGauge<i64>),
 }
 
 impl JudgerController {
@@ -135,16 +153,30 @@ impl JudgerController {
                     .interval(std::time::Duration::from_millis(100))
                     .build(),
             ),
+            running_meter: (
+                AtomicI64::new(0),
+                global::meter(PACKAGE_NAME)
+                    .i64_observable_gauge("running_judge")
+                    .init(),
+            ),
         })
     }
-    #[instrument(skip(ps_guard, stream, model, scores))]
+    fn record(&self) -> MeterGuard {
+        let (num, meter) = &self.running_meter;
+        meter.observe(num.fetch_add(1, Ordering::Acquire) + 1, &[]);
+
+        MeterGuard(self)
+    }
+    #[instrument(skip(self,ps_guard, stream, model, scores))]
     async fn stream(
+        self:Arc<Self>,
         ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
         mut scores: Vec<u32>,
         submit_id: i32,
     ) {
+        let _=self.record();
         let mut result = 0;
         let mut running_case = 0;
         let mut time = 0;
@@ -201,7 +233,7 @@ impl JudgerController {
             log::warn!("failed to commit the judge result: {}", err);
         }
     }
-    pub async fn submit(&self, submit: Submit) -> Result<i32, Error> {
+    pub async fn submit(self:&Arc<Self>, submit: Submit) -> Result<i32, Error> {
         check_rate_limit!(self);
         let db = DB.get().unwrap();
 
@@ -253,7 +285,7 @@ impl JudgerController {
 
         conn.report_success();
 
-        tokio::spawn(Self::stream(
+        tokio::spawn(self.clone().stream(
             tx,
             res.into_inner(),
             submit_model,
