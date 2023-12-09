@@ -31,7 +31,7 @@ crossbeam-queue = "0.3.8"
 dashmap = "5.5.3"
 tracing-opentelemetry = "0.22.0"
 # a lot of opentelemetry dependencies
-opentelemetry = "0.21.0"
+opentelemetry = {version="0.21.0", features = ["metrics"]}
 opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio","metrics"] }
 opentelemetry-stdout = { version = "0.2.0", features = ["metrics"] }
 opentelemetry-semantic-conventions = "0.13.0"

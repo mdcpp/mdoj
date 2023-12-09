@@ -29,13 +29,13 @@ pub struct Server {
     pub metrics: metrics::MetricsController,
     config: GlobalConfig,
     identity: transport::Identity,
-    _otp_guard: OtelGuard,
+    otel_guard: OtelGuard,
 }
 
 impl Server {
     pub async fn new() -> Arc<Self> {
         let config = config::init().await;
-        let otp_guard = logger::init(&config);
+        let otel_guard = logger::init(&config);
 
         let config1 = config.database.clone();
         let config2 = config.grpc.public_pem.clone();
@@ -72,17 +72,17 @@ impl Server {
             submit: Arc::new(submit.unwrap()),
             dup: duplicate::DupController::new(&span),
             crypto: crypto::CryptoController::new(&config, &span),
-            metrics: metrics::MetricsController::new(),
+            metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
             config,
             identity,
-            _otp_guard: otp_guard,
+            otel_guard,
         })
     }
     pub async fn start(self: Arc<Self>) {
         transport::Server::builder()
             .accept_http1(true)
-            .tls_config(transport::ServerTlsConfig::new().identity(self.identity.clone()))
-            .unwrap()
+            // .tls_config(transport::ServerTlsConfig::new().identity(self.identity.clone()))
+            // .unwrap()
             .max_frame_size(Some(MAX_FRAME_SIZE))
             .add_service(tonic_web::enable(ProblemSetServer::new(self.clone())))
             .add_service(tonic_web::enable(EducationSetServer::new(self.clone())))

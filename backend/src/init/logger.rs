@@ -1,4 +1,10 @@
-use opentelemetry::{global, KeyValue};
+use opentelemetry::KeyValue;
+use opentelemetry_sdk::Resource;
+use opentelemetry_semantic_conventions::{
+    resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
+    SCHEMA_URL,
+};
+use opentelemetry::global;
 use opentelemetry_sdk::{
     metrics::{
         reader::{DefaultAggregationSelector, DefaultTemporalitySelector},
@@ -6,17 +12,12 @@ use opentelemetry_sdk::{
     },
     runtime,
     trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
-    Resource,
-};
-use opentelemetry_semantic_conventions::{
-    resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
-    SCHEMA_URL,
 };
 use tracing::Level;
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use super::config::GlobalConfig;
+use crate::init::config::GlobalConfig;
 
 pub static PACKAGE_NAME: &str = "mdoj-backend";
 
@@ -26,13 +27,14 @@ fn resource() -> Resource {
             KeyValue::new(SERVICE_NAME, PACKAGE_NAME),
             KeyValue::new(SERVICE_VERSION, env!("CARGO_PKG_VERSION")),
             #[cfg(debug_assertions)]
-            KeyValue::new(DEPLOYMENT_ENVIRONMENT, "develop"),
+            KeyValue::new(DEPLOYMENT_ENVIRONMENT, "development"),
             #[cfg(not(debug_assertions))]
             KeyValue::new(DEPLOYMENT_ENVIRONMENT, "production"),
         ],
         SCHEMA_URL,
     )
 }
+
 
 fn init_tracer() -> Tracer {
     opentelemetry_otlp::new_pipeline()
@@ -89,7 +91,7 @@ fn init_meter_provider(opentelemetry: bool) -> MeterProvider {
 }
 
 pub struct OtelGuard {
-    meter_provider: MeterProvider,
+    pub meter_provider: MeterProvider,
 }
 
 impl Drop for OtelGuard {

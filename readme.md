@@ -20,13 +20,13 @@ Performance-oriented contest management system for IOI like contest
 
 - :whale:Scalable: By using judger cluster, you can scale the system to any size you want
 - :file_cabinet:Extensible: By using plugin system, you can add any language you want
-- :telescope: Powerful logging using `Open-Telemetry``
+- :telescope: Powerful logging using ``Open-Telemetry``
 
 ## Quick Start
 
-> do not use `docker/docker-compose.yml` file, it is for development only
+Copy ``docker/quickstart`` file to your server and run `docker compose up -d`, then open `https://localhost` in your browser.
 
-Copy ``docker/simple/docker-compose.yml`` file to your server and run `docker compose up -d`, then open `http://localhost:80` in your browser.
+> Because we use grpc-web(server-side stream), HTTP2 is required, you can ignore it or place cert and key in `./cert` folder.
 
 login as `admin@admin` and start play arounds.
 
@@ -36,10 +36,13 @@ See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
 
 > For details of config.toml, please follow the document in ``./backend`` and ``./judger``. 
 
-1. Copy ``docker/production/docker-compose.yml`` to your folder
+1. Copy ``docker/production`` to your folder
 2. generate config for judger by starting the judger once, and edit config
 3. generate config for backend by starting the backend once
 4. download and extract plugin(language support) of your choice to `./plugins`
+5. get a certificate and key for backend, and place them in `./cert`
+
+If you prefer to use default config, you can skip step 2 and 3.
 
 ## Full Setup(Standalone)
 

@@ -1,5 +1,6 @@
 bind_address = "0.0.0.0:8081"
 log_level = 0
+opentelemetry = true
 
 [database]
 path = "database/backend.sqlite"
@@ -11,5 +12,5 @@ type = "static"
 
 [grpc]
 trust_x_forwarded_for = false
-public_pem = "cert.pem"
-private_pem = "key.pem"
+public_pem = "../cert/cert.pem"
+private_pem = "../cert/key.pem"

@@ -1,8 +1,5 @@
 version: '3.9'
 services:
-  # jaeger:
-  #   image: jaegertracing/all-in-one
-  #   ports:
   gateway: 
     container_name: mdoj-gateway
     build: ../../frontend
@@ -14,20 +11,23 @@ services:
     #   - "traefik.http.middlewares.mdoj-grpcweb.grpcweb.allowOrigins=*"
     #   - "traefik.http.routers.mdoj.middlewares=mdoj-grpc"
     volumes:
-      - ../frontend/build:/usr/share/nginx/html
+      - ./certs:/certs
     ports:
-      - "80:80"
+      - "443:443"
     networks:
       - backend
   backend:
     container_name: mdoj-backend
     image: ghcr.io/mdcpp/mdoj:backend
     volumes:
-      - ./judger/:/config/
-      - ./judger/:/database/
+      - ./backend.toml:/config/config.toml
+      - ./backend.sqlite:/database/backend.sqlite
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
     networks:
       - backend
       - judger
+      - otel
   judger:
     container_name: mdoj-judger
     # you can actually turn this off if you setup the cgroup properly(user of the container should own the cgroup)
@@ -35,9 +35,36 @@ services:
     image: ghcr.io/mdcpp/mdoj:judger
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
-      - ./judger/:/config/
+      - ./judger.toml:/config/config.toml
     networks:
       - judger
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: always
+    ports:
+      - "16686:16686"
+  otel-collector:
+    image: otel/opentelemetry-collector
+    restart: always
+    command: ["--config=/etc/otel-collector-config.yaml", "${OTELCOL_ARGS}"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+    depends_on:
+      - jaeger
+      - prometheus
+      networks:
+      - otel
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - otel
 networks:
   judger:
   backend:
+  otel:

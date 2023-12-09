@@ -3,8 +3,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crossbeam_queue::SegQueue;
 use opentelemetry::{
     global,
-    metrics::{ObservableGauge, UpDownCounter},
+    metrics::{ObservableGauge, UpDownCounter, MeterProvider},
 };
+use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
 
 use crate::init::logger::PACKAGE_NAME;
 
@@ -16,19 +17,19 @@ pub struct MetricsController {
 }
 
 impl MetricsController {
-    pub fn new() -> Self {
+    pub fn new(meter:&SdkMeterProvider) -> Self {
         Self {
-            user: global::meter(PACKAGE_NAME)
-                .i64_up_down_counter("user_counts")
+            user: meter.meter(PACKAGE_NAME)
+                .i64_up_down_counter("counts_user")
                 .init(),
-            submit: global::meter(PACKAGE_NAME)
-                .i64_up_down_counter("submit_counts")
+            submit: meter.meter(PACKAGE_NAME)
+                .i64_up_down_counter("counts_submit")
                 .init(),
-            education: global::meter(PACKAGE_NAME)
-                .i64_up_down_counter("education_counts")
+            education: meter.meter(PACKAGE_NAME)
+                .i64_up_down_counter("counts_education")
                 .init(),
-            contest: global::meter(PACKAGE_NAME)
-                .i64_up_down_counter("contest_counts")
+            contest: meter.meter(PACKAGE_NAME)
+                .i64_up_down_counter("counts_contest")
                 .init(),
         }
     }

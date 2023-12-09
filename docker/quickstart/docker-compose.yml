@@ -11,17 +11,17 @@ services:
     #   - "traefik.http.middlewares.mdoj-grpcweb.grpcweb.allowOrigins=*"
     #   - "traefik.http.routers.mdoj.middlewares=mdoj-grpc"
     volumes:
-      - ../frontend/build:/usr/share/nginx/html
+      - ./certs:/certs
     ports:
-      - "80:80"
+      - "443:443"
     networks:
       - backend
   backend:
     container_name: mdoj-backend
     image: ghcr.io/mdcpp/mdoj:backend
     volumes:
-      - ./judger/:/config/
-      - ./judger/:/database/
+      - ./backend.toml:/config/config.toml
+      - ./backend.sqlite:/database/backend.sqlite
     networks:
       - backend
       - judger
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/mdcpp/mdoj:judger
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
-      - ./judger/:/config/
+      - ./judger.toml:/config/config.toml
     networks:
       - judger
 networks:
