@@ -78,7 +78,7 @@ impl Server {
     }
     pub async fn start(self: Arc<Self>) {
         transport::Server::builder()
-            // .accept_http1(true)
+            .accept_http1(true)
             .tls_config(transport::ServerTlsConfig::new().identity(self.identity.clone()))
             .unwrap()
             .max_frame_size(Some(MAX_FRAME_SIZE))
@@ -90,6 +90,7 @@ impl Server {
             .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
             .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
             .serve(self.config.bind_address.clone().parse().unwrap())
+            .instrument(tracing::info_span!("server_serve"))
             .await
             .unwrap();
     }

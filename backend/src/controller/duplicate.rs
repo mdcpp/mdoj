@@ -16,11 +16,13 @@ impl DupController {
         }
     }
     pub fn store(&self, user_id: i32, uuid: Uuid, result: i32) {
+        tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
         self.dups.insert((user_id, uuid), result);
     }
     #[tracing::instrument(level = "debug", skip(self))]
     pub fn check(&self, user_id: i32, uuid: &Uuid) -> Option<i32> {
+        tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
         if let Some(x) = self.dups.get(&(user_id, *uuid)) {
             log::debug!("duplicated request_id: {}, result: {}", uuid, x);

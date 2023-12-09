@@ -65,7 +65,7 @@ pub struct TokenController {
 }
 
 impl TokenController {
-    #[tracing::instrument(parent = span,name="token_construct",level = "info",skip_all)]
+    #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
     pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
         #[cfg(feature = "single-instance")]
@@ -92,7 +92,7 @@ impl TokenController {
         });
         self_
     }
-    #[instrument(skip_all, name="token_create",fields(user = user.id))]
+    #[instrument(skip_all, name="token_create_controller",level="debug",fields(user = user.id))]
     pub async fn add(
         &self,
         user: &entity::user::Model,
@@ -121,7 +121,7 @@ impl TokenController {
         ))
     }
 
-    #[instrument(skip_all, name = "token_verify")]
+    #[instrument(skip_all, name = "token_verify_controller",level="debug")]
     pub async fn verify(&self, token: &str) -> Result<(i32, UserPermBytes), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
@@ -179,7 +179,7 @@ impl TokenController {
 
         Ok((token.user_id, UserPermBytes(token.permission)))
     }
-    #[instrument(skip_all, name="token_removal", fields(token = token))]
+    #[instrument(skip_all, name="token_remove_controller",level="debug", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
         let db = DB.get().unwrap();
 
@@ -197,7 +197,7 @@ impl TokenController {
 
         Ok(Some(()))
     }
-    #[instrument(skip_all, name="token_removal", fields(uid = user_id))]
+    #[instrument(skip_all, name="token_removal",level="debug", fields(uid = user_id))]
     pub async fn remove_by_user_id(
         &self,
         user_id: i32,

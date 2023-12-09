@@ -1,6 +1,6 @@
 use ring::digest;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
+    ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait, PaginatorTrait, DbBackend, Statement, ConnectionTrait,
 };
 
 use tokio::sync::OnceCell;
@@ -12,12 +12,13 @@ pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
 pub async fn init(config: &config::Database) {
     // sqlite://database/backend.sqlite?mode=rwc
-    let uri = format!("sqlite://{}", config.path.clone());
+    let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
     let db = Database::connect(&uri)
         .await
         .expect("fail connecting to database");
     init_user(config, &db).await;
+
     DB.set(db).ok();
 }
 fn hash(config: &config::Database, src: &str) -> Vec<u8> {

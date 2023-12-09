@@ -45,6 +45,8 @@ impl TokenSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
+            tracing::trace!(token_count=tokens.len(),"retrieve_token");
+
         Ok(Response::new(Tokens {
             list: tokens.into_iter().map(Into::into).collect(),
         }))
@@ -53,6 +55,8 @@ impl TokenSet for Arc<Server> {
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
+
+        tracing::debug!(username=req.username);
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
@@ -76,6 +80,7 @@ impl TokenSet for Arc<Server> {
                 expiry: into_prost(expiry),
             }))
         } else {
+            tracing::trace!("password_mismatch");
             Err(Error::PremissionDeny("password").into())
         }
     }

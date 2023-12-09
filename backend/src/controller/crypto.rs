@@ -56,6 +56,7 @@ impl CryptoController {
         let salt = config.database.salt.as_bytes().to_vec();
         Self { signer, salt }
     }
+    #[tracing::instrument(name="crypto_hasheq_controller",level = "debug",skip_all)]
     pub fn hash_eq(&self, src: &str, tar: &[u8]) -> bool {
         let hashed: Vec<u8> = self.hash(src).into();
         let mut result = true;
@@ -66,6 +67,7 @@ impl CryptoController {
         }
         result
     }
+    #[tracing::instrument(name="crypto_hash_controller",level = "debug",skip_all)]
     pub fn hash(&self, src: &str) -> HashValue {
         let hashed = digest::digest(
             &digest::SHA256,
