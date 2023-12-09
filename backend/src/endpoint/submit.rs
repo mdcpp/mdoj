@@ -261,6 +261,7 @@ impl SubmitSet for Arc<Server> {
             .memory_limit(problem.memory)
             .time_limit(problem.time)
             .code(submit.code)
+            .user(user_id)
             .lang(Uuid::parse_str(&submit.lang).map_err(Error::InvaildUUID)?)
             .build()
             .unwrap();

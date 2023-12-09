@@ -17,7 +17,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tonic::Status;
-use tracing::{instrument, Span};
+use tracing::{instrument, Span, Instrument};
 use uuid::Uuid;
 
 use crate::{
@@ -183,30 +183,30 @@ impl JudgerController {
         let mut mem = 0;
         let mut status = JudgerCode::Ac;
         scores.reverse();
-        while let Some(res) = stream.next().await {
+        while let Some(res) = stream.next().in_current_span().await {
             if res.is_err() {
                 break;
             }
             let res = res.unwrap();
             if res.task.is_none() {
-                log::warn!("mismatch proto(judger)");
+                tracing::warn!("judger_mismatch_proto");
                 continue;
             }
             let task = res.task.unwrap();
             match task {
                 judge_response::Task::Case(case) => {
                     if ps_guard.send(Ok(case.into())).is_err() {
-                        log::trace!("client disconnected");
+                        tracing::trace!("client_disconnected");
                     }
                     if case != (running_case + 1) {
-                        log::warn!("mismatch proto(judger)");
+                        tracing::warn!("judger_mismatch_proto");
                     }
                     running_case += 1;
                 }
                 judge_response::Task::Result(case) => {
                     if let Some(score) = scores.pop() {
                         if ps_guard.send(Ok(case.clone().into())).is_err() {
-                            log::trace!("client disconnected");
+                            tracing::trace!("client_disconnected");
                         }
                         if case.status() == JudgerCode::Ac {
                             result += score;
@@ -217,7 +217,7 @@ impl JudgerController {
                             break;
                         }
                     } else {
-                        log::warn!("mismatch proto(judger), too many cases");
+                        tracing::warn!("judger_mismatch_proto");
                     }
                 }
             }
@@ -229,8 +229,10 @@ impl JudgerController {
         model.time = ActiveValue::Set(Some(time.try_into().unwrap_or(i64::MAX)));
         model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
 
-        if let Err(err) = model.update(DB.get().unwrap()).await {
-            log::warn!("failed to commit the judge result: {}", err);
+        if let Err(err) = model.update(DB.get().unwrap()).in_current_span().await {
+            tracing::warn!(err=?err,"database_disconnect");
+        }else{
+            tracing::debug!("submit_committed");
         }
     }
     pub async fn submit(self: &Arc<Self>, submit: Submit) -> Result<i32, Error> {

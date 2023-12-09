@@ -163,11 +163,11 @@ impl ProblemSet for Arc<Server> {
         req: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let db = DB.get().unwrap();
-        let (_, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request(req).await?;
 
         tracing::debug!(problem_id = req.id);
 
-        let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
+        let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
         let model = query
             .one(db)
             .await

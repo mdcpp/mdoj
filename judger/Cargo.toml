@@ -12,7 +12,7 @@ panic = 'abort'
 
 [dependencies]
 cgroups-rs = "0.3.2"
-error = "0.1.9"
+env_logger = "0.10.1"
 futures = "0.3.28"
 libc = "0.2.142"
 log = "0.4.17"
@@ -20,7 +20,6 @@ prost = "0.11.9"
 prost-types = "0.11.9"
 thiserror = "1.0.40"
 toml = "0.7.4"
-simple_logger="4.3.0"
 
 [dependencies.uuid]
 version = "1.6.1"
@@ -28,7 +27,14 @@ features = ["serde"]
 
 [dependencies.tokio]
 version = "1.28.0"
-features = ["rt-multi-thread", "process", "macros", "fs", "io-util","parking_lot"]
+features = [
+    "rt-multi-thread",
+    "process",
+    "macros",
+    "fs",
+    "io-util",
+    "parking_lot",
+]
 
 [dependencies.tonic]
 version = "0.9.2"
@@ -44,7 +50,7 @@ features = ["net"]
 
 [dependencies.spin]
 version = "0.9.8"
-features = ["mutex","spin_mutex"]
+features = ["mutex", "spin_mutex"]
 
 [dev-dependencies]
 tempfile = "3.8.0"

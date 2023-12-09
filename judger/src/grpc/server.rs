@@ -138,7 +138,11 @@ impl Judger for Server {
             let time = request.time;
             let memory = request.memory;
 
+            log::debug!("start compiling uuid:{}",&lang_uid);
+
             let mut compiled = report!(factory.compile(&lang_uid, &request.code).await, tx);
+
+            log::debug!("start executing uuid:{}",&lang_uid);
 
             let mut running_task = 1;
 
@@ -149,6 +153,7 @@ impl Judger for Server {
                 .await
                 .ok();
 
+                log::trace!("start {}th task",running_task);
                 let result = report!(compiled.judge(&task.input, time, memory).await, tx);
 
                 if let Some(x) = result.get_expection() {

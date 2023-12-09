@@ -148,7 +148,8 @@ impl<'a> CompileLog<'a> {
             1 => log::debug!("{}", self.message),
             2 => log::info!("{}", self.message),
             3 => log::warn!("{}", self.message),
-            _ => log::error!("{}", self.message),
+            4 => log::error!("{}", self.message),
+            _ => {}
         }
     }
 }
@@ -186,7 +187,7 @@ impl<'a> CompiledArtifact<'a> {
             )
             .await?;
 
-        process.write_all(input).await?;
+        process.write_all(input).await.ok();
 
         let process = process.wait().await?;
 

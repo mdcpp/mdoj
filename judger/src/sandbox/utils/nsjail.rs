@@ -187,7 +187,6 @@ impl Drop for NsJail {
 
 impl NsJail {
     pub fn builder(root: impl AsRef<Path>) -> LimitBuilder {
-        dbg!(&root.as_ref());
         let root = root.as_ref().canonicalize().unwrap();
         let root = root.to_str().unwrap();
         LimitBuilder {

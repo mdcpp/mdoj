@@ -19,7 +19,6 @@ entity-codegen:
 release-docker:
     just prepare
     cp ../proto/*.proto .
-    cp ../cert/*.pem .
     docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
 
 run:

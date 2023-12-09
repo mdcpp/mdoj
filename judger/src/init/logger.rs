@@ -1,18 +1,30 @@
-use log::Level;
+use log::LevelFilter;
 use super::config::CONFIG;
+use std::io::Write;
 
 // logger
 pub fn init() {
     let config = CONFIG.get().unwrap();
 
     let level = match config.log_level {
-        0 => Level::Trace,
-        1 => Level::Debug,
-        2 => Level::Info,
-        3 => Level::Warn,
-        4 => Level::Error,
-        _ => Level::Info,
+        0 => LevelFilter::Trace,
+        1 => LevelFilter::Debug,
+        2 => LevelFilter::Info,
+        3 => LevelFilter::Warn,
+        4 => LevelFilter::Error,
+        _ => LevelFilter::Info,
     };
-
-    simple_logger::init_with_level(level).ok();
+    env_logger::Builder::new()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{}:{} [{}] - {}",
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.level(),
+                record.args()
+            )
+        })
+        .filter(Some("judger"), level)
+        .init();
 }
