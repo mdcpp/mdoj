@@ -1,5 +1,5 @@
 bind_address = "0.0.0.0:8081"
-log_level = 0
+log_level = 2
 opentelemetry = true
 
 [database]
@@ -7,10 +7,10 @@ path = "database/backend.sqlite"
 salt = "be sure to change it"
 
 [[judger]]
-name = "http://127.0.0.1:8080"
-type = "static"
+name = "mdoj-judger"
+type = "swarm"
 
 [grpc]
-trust_x_forwarded_for = false
+trust_x_forwarded_for = true
 public_pem = "../cert/cert.pem"
 private_pem = "../cert/key.pem"

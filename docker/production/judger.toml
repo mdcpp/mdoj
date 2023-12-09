@@ -1,8 +1,8 @@
-log_level = 0
+log_level = 2
 
 [runtime]
 temp = ".temp"
-bind = "0.0.0.0:8080"
+bind = "0.0.0.0:80"
 accuracy = 50000
 root_cgroup = "mdoj/c."
 

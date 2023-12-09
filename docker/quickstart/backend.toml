@@ -6,10 +6,10 @@ path = "database/backend.sqlite"
 salt = "be sure to change it"
 
 [[judger]]
-name = "http://127.0.0.1:8080"
+name = "http://mdoj-judger:8080"
 type = "static"
 
 [grpc]
-trust_x_forwarded_for = false
+trust_x_forwarded_for = true
 public_pem = "../cert/cert.pem"
 private_pem = "../cert/key.pem"
