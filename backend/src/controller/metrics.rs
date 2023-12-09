@@ -1,4 +1,10 @@
-use opentelemetry::{global, metrics::UpDownCounter};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use crossbeam_queue::SegQueue;
+use opentelemetry::{
+    global,
+    metrics::{ObservableGauge, UpDownCounter},
+};
 
 use crate::init::logger::PACKAGE_NAME;
 
@@ -24,6 +30,42 @@ impl MetricsController {
             contest: global::meter(PACKAGE_NAME)
                 .i64_up_down_counter("contest_counts")
                 .init(),
+        }
+    }
+}
+
+pub struct RateMetrics<const S: usize> {
+    meter: ObservableGauge<f64>,
+    record: SegQueue<bool>,
+    sets: AtomicUsize,
+}
+
+impl<const S: usize> RateMetrics<S> {
+    pub fn new(name: &'static str) -> Self {
+        let record = SegQueue::new();
+        for _ in 0..S {
+            record.push(true);
+        }
+        Self {
+            meter: global::meter(PACKAGE_NAME)
+                .f64_observable_gauge(name)
+                .init(),
+            record,
+            sets: AtomicUsize::new(S),
+        }
+    }
+    pub fn set(&self) {
+        self.record.push(true);
+        if !self.record.pop().unwrap() {
+            let sets = self.sets.fetch_sub(1, Ordering::Acquire);
+            self.meter.observe((sets as f64) / (S as f64), &[])
+        }
+    }
+    pub fn unset(&self) {
+        self.record.push(false);
+        if self.record.pop().unwrap() {
+            let sets = self.sets.fetch_add(1, Ordering::Acquire);
+            self.meter.observe((sets as f64) / (S as f64), &[])
         }
     }
 }

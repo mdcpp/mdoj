@@ -167,16 +167,16 @@ impl JudgerController {
 
         MeterGuard(self)
     }
-    #[instrument(skip(self,ps_guard, stream, model, scores))]
+    #[instrument(skip(self, ps_guard, stream, model, scores))]
     async fn stream(
-        self:Arc<Self>,
+        self: Arc<Self>,
         ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
         mut scores: Vec<u32>,
         submit_id: i32,
     ) {
-        let _=self.record();
+        let _ = self.record();
         let mut result = 0;
         let mut running_case = 0;
         let mut time = 0;
@@ -233,7 +233,7 @@ impl JudgerController {
             log::warn!("failed to commit the judge result: {}", err);
         }
     }
-    pub async fn submit(self:&Arc<Self>, submit: Submit) -> Result<i32, Error> {
+    pub async fn submit(self: &Arc<Self>, submit: Submit) -> Result<i32, Error> {
         check_rate_limit!(self);
         let db = DB.get().unwrap();
 
@@ -285,13 +285,10 @@ impl JudgerController {
 
         conn.report_success();
 
-        tokio::spawn(self.clone().stream(
-            tx,
-            res.into_inner(),
-            submit_model,
-            scores,
-            submit_id,
-        ));
+        tokio::spawn(
+            self.clone()
+                .stream(tx, res.into_inner(), submit_model, scores, submit_id),
+        );
 
         Ok(submit_id)
     }

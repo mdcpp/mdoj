@@ -1,6 +1,5 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
-use opentelemetry::{global, metrics::ObservableGauge};
 use quick_cache::sync::Cache;
 use ring::rand::*;
 use sea_orm::{
@@ -10,10 +9,9 @@ use std::sync::Arc;
 use tokio::time;
 use tracing::{instrument, Instrument, Span};
 
-use crate::{
-    init::{db::DB, logger::PACKAGE_NAME},
-    report_internal,
-};
+use crate::{init::db::DB, report_internal};
+
+use super::metrics::RateMetrics;
 
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type Rand = [u8; 20];
@@ -65,7 +63,7 @@ pub struct TokenController {
     #[cfg(feature = "single-instance")]
     cache: Cache<Rand, CachedToken>,
     rand: SystemRandom,
-    cache_meter: ObservableGauge<u64>,
+    cache_meter: RateMetrics<30>,
 }
 
 impl TokenController {
@@ -78,9 +76,7 @@ impl TokenController {
             #[cfg(feature = "single-instance")]
             cache,
             rand: SystemRandom::new(),
-            cache_meter: global::meter(PACKAGE_NAME)
-                .u64_observable_gauge("cached_token")
-                .init(),
+            cache_meter: RateMetrics::new("hitrate_token"),
         });
         tokio::spawn(async move {
             let db = DB.get().unwrap();
@@ -159,6 +155,7 @@ impl TokenController {
         let token = match cache_result {
             Some(token) => {
                 tracing::trace!(user_id = token.user_id, "cache_hit");
+                self.cache_meter.set();
                 token
             }
             None => {
@@ -171,12 +168,10 @@ impl TokenController {
                 .into();
 
                 tracing::trace!(user_id = token.user_id, "cache_missed");
+                self.cache_meter.unset();
 
                 #[cfg(feature = "single-instance")]
-                {
-                    self.cache.insert(rand, token.clone());
-                    self.cache_meter.observe(self.cache.weight(), &[]);
-                }
+                self.cache.insert(rand, token.clone());
 
                 token
             }

@@ -200,8 +200,8 @@ impl UserSet for Arc<Server> {
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
         self.metrics.user.add(1, &[]);
-        
-        let id=model.id.unwrap();
+
+        let id = model.id.unwrap();
         self.dup.store(user_id, uuid, id);
 
         Ok(Response::new(id.into()))
