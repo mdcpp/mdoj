@@ -116,6 +116,7 @@ impl TokenController {
             ..Default::default()
         }
         .insert(db)
+        .in_current_span()
         .await?;
 
         Ok((

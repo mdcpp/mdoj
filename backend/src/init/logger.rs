@@ -1,10 +1,6 @@
+use opentelemetry::global;
 use opentelemetry::KeyValue;
 use opentelemetry_sdk::Resource;
-use opentelemetry_semantic_conventions::{
-    resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
-    SCHEMA_URL,
-};
-use opentelemetry::global;
 use opentelemetry_sdk::{
     metrics::{
         reader::{DefaultAggregationSelector, DefaultTemporalitySelector},
@@ -12,6 +8,10 @@ use opentelemetry_sdk::{
     },
     runtime,
     trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
+};
+use opentelemetry_semantic_conventions::{
+    resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
+    SCHEMA_URL,
 };
 use tracing::Level;
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
@@ -34,7 +34,6 @@ fn resource() -> Resource {
         SCHEMA_URL,
     )
 }
-
 
 fn init_tracer() -> Tracer {
     opentelemetry_otlp::new_pipeline()

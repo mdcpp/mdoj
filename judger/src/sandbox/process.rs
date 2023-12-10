@@ -79,7 +79,7 @@ impl RunningProc {
 
         let mut buf = Vec::with_capacity(256);
 
-        stdout.read_to_end(&mut buf).await?;
+        stdout.read_to_end(&mut buf).await.unwrap();
 
         if stdout.into_inner().read_u8().await.is_ok() {
             return Err(Error::BufferFull);

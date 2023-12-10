@@ -57,7 +57,11 @@ impl Server {
             //     async move { fs::read_to_string(&config3).await }
             //         .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
             // ),
-            tokio::spawn(async move { judger::JudgerController::new(config4, &span1).await })
+            tokio::spawn(async move {
+                judger::JudgerController::new(config4, &span1)
+                    .in_current_span()
+                    .await
+            })
         )
         .unwrap();
 

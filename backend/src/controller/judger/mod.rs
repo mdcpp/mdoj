@@ -17,7 +17,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tonic::Status;
-use tracing::{instrument, Span, Instrument};
+use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
 use crate::{
@@ -231,7 +231,7 @@ impl JudgerController {
 
         if let Err(err) = model.update(DB.get().unwrap()).in_current_span().await {
             tracing::warn!(err=?err,"database_disconnect");
-        }else{
+        } else {
             tracing::debug!("submit_committed");
         }
     }
