@@ -2,7 +2,7 @@
 // TODO: error handling
 use std::{pin::Pin, sync::Arc};
 
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::*;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{codegen::Bytes, metadata, Code, Response, Status};
 use uuid::Uuid;
@@ -10,10 +10,7 @@ use uuid::Uuid;
 use crate::{
     grpc::proto::prelude::judge_response,
     init::config::CONFIG,
-    langs::{
-        prelude::{ArtifactFactory, CompileLog, Error as LangError},
-        RequestError,
-    },
+    langs::prelude::{ArtifactFactory, CompileLog, CompiledArtifact},
 };
 
 use super::proto::prelude::{judger_server::Judger, *};
@@ -25,69 +22,58 @@ fn accuracy() -> u64 {
     (1000 * 1000 / config.kernel.kernel_hz) as u64
 }
 
-impl From<LangError> for Result<JudgeResponse, Status> {
-    fn from(value: LangError) -> Self {
-        match value {
-            LangError::Internal(err) => {
-                log::warn!("{}", err);
-                #[cfg(debug_assertions)]
-                return Err(Status::with_details(
-                    Code::Internal,
-                    "Lanuage internal error: see debug info",
-                    Bytes::from(format!("{}", err)),
-                ));
-                #[cfg(not(debug_assertions))]
-                Err(Status::internal("See log for more details"))
-            }
-            LangError::BadRequest(err) => match err {
-                RequestError::LangNotFound(uid) => Err(Status::with_details(
-                    Code::FailedPrecondition,
-                    "language with such uuid does not exist on this judger",
-                    Bytes::from(format!("lang_uid: {}", uid)),
-                )),
-            },
-            LangError::Report(res) => Ok(JudgeResponse {
-                task: Some(judge_response::Task::Result(JudgeResult {
-                    status: res as i32,
-                    time: 0,
-                    memory: 0,
-                    accuracy: accuracy(),
-                })),
-            }),
-        }
-    }
-}
-
-macro_rules! report {
-    ($result:expr,$tx:expr) => {
-        match $result {
-            Ok(x) => x,
-            Err(err) => {
-                $tx.send(err.into()).await.ok();
-                return ();
-            }
-        }
-    };
-}
-
-macro_rules! resud {
-    ($result:expr) => {
-        match $result {
-            Ok(x) => x,
-            Err(err) => {
-                log::trace!("{}", err);
-                return;
-            }
-        }
-    };
-}
-
 impl From<CompileLog<'_>> for Log {
     fn from(value: CompileLog<'_>) -> Self {
         Log {
             level: value.level as u32,
             msg: value.message.into_owned(),
         }
+    }
+}
+
+fn parse_uid(uid: &str) -> Result<Uuid, Status> {
+    Uuid::parse_str(uid).map_err(|e| {
+        log::warn!("Invalid uuid: {}", e);
+        Status::failed_precondition("Invalid uuid")
+    })
+}
+
+async fn force_stream<T>(tx: &mut Sender<Result<T, Status>>, item: T) -> Result<(), Status> {
+    match tx.send(Ok(item)).await {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            log::debug!("client disconnected: {}", err);
+            Err(Status::cancelled("client disconnect durning operation!"))
+        }
+    }
+}
+
+fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
+    let (meta, _, payload) = req.into_parts();
+    let config = CONFIG.get().unwrap();
+    if config.secret.is_none() {
+        return Ok(payload);
+    }
+    if let Some(header) = meta.get("Authorization") {
+        let secret = ["basic ", config.secret.as_ref().unwrap()]
+            .concat()
+            .into_bytes();
+        let vaild = header
+            .as_bytes()
+            .iter()
+            .zip(secret.iter())
+            .map(|(&a, &b)| a == b)
+            .reduce(|a, b| a && b);
+        if vaild.unwrap_or(false) {
+            return Ok(payload);
+        }
+    }
+    Err(Status::permission_denied("Invalid secret"))
+}
+
+impl From<judge_response::Task> for JudgeResponse {
+    fn from(value: judge_response::Task) -> Self {
+        Self { task: Some(value) }
     }
 }
 
@@ -110,93 +96,112 @@ impl Server {
     }
 }
 
+async fn judger_stream(
+    factory: Arc<ArtifactFactory>,
+    payload: JudgeRequest,
+    tx: &mut Sender<Result<JudgeResponse, Status>>,
+) -> Result<(), Status> {
+    log::debug!("start streaming");
+
+    let mode = JudgeMatchRule::from_i32(payload.rule)
+        .ok_or(Status::failed_precondition("Invaild judge matching rule"))?;
+    let lang = parse_uid(&payload.lang_uid)?;
+
+    let mut compile = factory.compile(&lang, &payload.code).await?;
+
+    if let Some(code) = compile.get_expection() {
+        force_stream(
+            tx,
+            judge_response::Task::Result(JudgeResult {
+                status: code.into(),
+                ..Default::default()
+            })
+            .into(),
+        )
+        .await?;
+    }
+
+    for (running_task, test) in payload.tests.into_iter().enumerate() {
+        log::trace!("running at {} task", running_task);
+        force_stream(
+            tx,
+            JudgeResponse {
+                task: Some(judge_response::Task::Case(running_task.try_into().unwrap())),
+            },
+        )
+        .await?;
+
+        let mut result = compile
+            .judge(&test.input, payload.time, payload.memory)
+            .await?;
+
+        if let Some(code) = result.get_expection() {
+            log::trace!("yield result: {}", code);
+            force_stream(
+                tx,
+                judge_response::Task::Result(JudgeResult {
+                    status: code.into(),
+                    ..Default::default()
+                })
+                .into(),
+            )
+            .await?;
+            break;
+        }
+
+        let code = match result.assert(&test.input, mode) {
+            true => JudgerCode::Ac,
+            false => JudgerCode::Wa,
+        };
+
+        let time = result.time().total_us;
+        let memory = result.mem().peak;
+        log::trace!(
+            "yield result: {}, take memory {}B, total_us: {}ns",
+            code,
+            time,
+            memory
+        );
+        force_stream(
+            tx,
+            judge_response::Task::Result(JudgeResult {
+                status: code.into(),
+                time,
+                memory,
+                accuracy: accuracy(),
+            })
+            .into(),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 #[tonic::async_trait]
 impl Judger for Server {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
-    async fn judge<'a>(
-        &'a self,
-        request: tonic::Request<JudgeRequest>,
+    async fn judge(
+        &self,
+        req: tonic::Request<JudgeRequest>,
     ) -> Result<Response<Self::JudgeStream>, Status> {
-        let (meta, _, request) = request.into_parts();
-        check_secret(&meta)?;
+        let payload = check_secret(req)?;
+        log::debug!("start judging");
 
-        let (tx, rx) = mpsc::channel(2);
+        let (mut tx, rx) = channel(8);
 
         let factory = self.factory.clone();
-
-        // precondidtion
-        let mode = JudgeMatchRule::from_i32(request.rule)
-            .ok_or(Status::failed_precondition("Invaild judge matching rule"))?;
-
-        let lang_uid = Uuid::parse_str(request.lang_uid.as_str()).map_err(|e| {
-            log::warn!("Invalid uuid: {}", e);
-            Status::failed_precondition("Invalid uuid")
-        })?;
-
         tokio::spawn(async move {
-            let time = request.time;
-            let memory = request.memory;
-
-            log::debug!("start compiling uuid:{}",&lang_uid);
-
-            let mut compiled = report!(factory.compile(&lang_uid, &request.code).await, tx);
-
-            log::debug!("start executing uuid:{}",&lang_uid);
-
-            let mut running_task = 1;
-
-            for task in request.tests {
-                tx.send(Ok(JudgeResponse {
-                    task: Some(judge_response::Task::Case(running_task)),
-                }))
-                .await
-                .ok();
-
-                log::trace!("start {}th task",running_task);
-                let result = report!(compiled.judge(&task.input, time, memory).await, tx);
-
-                if let Some(x) = result.get_expection() {
-                    tx.send(Ok(JudgeResponse {
-                        task: Some(judge_response::Task::Result(JudgeResult {
-                            status: x as i32,
-                            time: result.time().total_us,
-                            memory: result.mem().peak,
-                            accuracy: accuracy(),
-                        })),
-                    }))
-                    .await
-                    .ok();
-                    return;
-                }
-
-                tx.send(Ok(JudgeResponse {
-                    task: Some(judge_response::Task::Result(JudgeResult {
-                        status: match result.assert(&task.output, mode) {
-                            true => JudgerCode::Ac,
-                            false => JudgerCode::Wa,
-                        } as i32,
-                        time: result.time().total_us,
-                        memory: result.mem().peak,
-                        accuracy: accuracy(),
-                    })),
-                }))
-                .await
-                .ok();
-                running_task += 1;
+            if let Err(err) = judger_stream(factory, payload, &mut tx).await {
+                tx.send(Err(err)).await.ok();
             }
         });
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
-    async fn judger_info<'a>(
-        &'a self,
-        request: tonic::Request<()>,
-    ) -> Result<Response<JudgeInfo>, Status> {
+    async fn judger_info(&self, req: tonic::Request<()>) -> Result<Response<JudgeInfo>, Status> {
         let config = CONFIG.get().unwrap();
-
-        let (meta, _, _) = request.into_parts();
-        check_secret(&meta)?;
+        check_secret(req)?;
 
         let modules = self.factory.list_module();
 
@@ -215,67 +220,8 @@ impl Judger for Server {
         &self,
         req: tonic::Request<ExecRequest>,
     ) -> Result<Response<Self::ExecStream>, tonic::Status> {
-        let (meta, _, payload) = req.into_parts();
-        check_secret(&meta)?;
+        let payload = check_secret(req)?;
 
-        let (tx, rx) = mpsc::channel(2);
-
-        let factory = self.factory.clone();
-
-        let lang_uid = Uuid::parse_str(payload.lang_uid.as_str()).map_err(|e| {
-            log::warn!("Invalid uuid: {}", e);
-            Status::failed_precondition("Invalid uuid")
-        })?;
-
-        tokio::spawn(async move {
-            let input = payload.input;
-            let time = payload.time;
-            let memory = payload.memory;
-
-            let mut compiled = resud!(factory.compile(&lang_uid, &payload.code).await);
-
-            while let Some(x) = compiled
-                .to_log()
-                .map(|x| ExecResult {
-                    result: Some(exec_result::Result::Log(x.into())),
-                })
-                .next()
-            {
-                resud!(tx.send(Ok(x)).await);
-            }
-
-            let exec = resud!(compiled.exec(&input, time, memory).await);
-
-            resud!(
-                tx.send(Ok(ExecResult {
-                    result: Some(exec_result::Result::Output(exec.stdout().to_vec()))
-                }))
-                .await
-            );
-        });
-
-        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
+        todo!()
     }
-}
-
-fn check_secret(meta: &metadata::MetadataMap) -> Result<(), Status> {
-    let config = CONFIG.get().unwrap();
-    if config.secret.is_none() {
-        return Ok(());
-    }
-    if let Some(header) = meta.get("Authorization") {
-        let secret = ["basic ", config.secret.as_ref().unwrap()]
-            .concat()
-            .into_bytes();
-        let vaild = header
-            .as_bytes()
-            .iter()
-            .zip(secret.iter())
-            .map(|(&a, &b)| a == b)
-            .reduce(|a, b| a && b);
-        if vaild.unwrap_or(false) {
-            return Ok(());
-        }
-    }
-    Err(Status::permission_denied("Invalid secret"))
 }

@@ -12,7 +12,7 @@ async fn rlua(factory: &mut ArtifactFactory) {
         .await
         .unwrap();
 
-    let result = compiled
+    let mut result = compiled
         .judge(b"", 1000 * 1000, 1024 * 1024 * 128)
         .await
         .unwrap();
@@ -28,7 +28,7 @@ async fn lua(factory: &mut ArtifactFactory) {
         .await
         .unwrap();
 
-    let result = compiled
+    let mut result = compiled
         .judge(b"", 1000 * 1000, 1024 * 1024 * 128)
         .await
         .unwrap();
@@ -47,7 +47,7 @@ async fn cpp(factory: &mut ArtifactFactory) {
         .await
         .unwrap();
 
-    let result = compiled
+    let mut result = compiled
         .judge(b"", 10 * 1000 * 1000, 1024 * 1024 * 128)
         .await
         .unwrap();

@@ -53,6 +53,8 @@ message JudgeResponse {
   }
 }
 
+// according to our requirement, judger should return resource usage even CE
+// but judger don't follow this strictly for now.
 message JudgeResult {
   // assertion code
   required JudgerCode status = 1;

@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::sandbox::Limit;
 
-use super::InternalError;
+use super::InitError;
 
 // Language specification
 pub struct LangSpec {
@@ -23,18 +23,18 @@ pub struct LangSpec {
 
 impl LangSpec {
     // load a module from spec.toml
-    pub async fn from_file(path: impl AsRef<Path>) -> Result<Self, InternalError> {
+    pub async fn from_file(path: impl AsRef<Path>) -> Result<Self, InitError> {
         log::trace!("Loading module from {}", path.as_ref().to_string_lossy());
 
         let mut buf = Vec::new();
         let mut spec = fs::File::open(path.as_ref().join("spec.toml"))
             .await
-            .map_err(|_| InternalError::FileNotExist)?;
+            .map_err(|_| InitError::FileNotExist)?;
         spec.read_to_end(&mut buf).await.unwrap();
 
         let spec = std::str::from_utf8(&buf).unwrap();
 
-        let spec: RawLangSpec = toml::from_str(spec).map_err(|_| InternalError::FileMalFormat)?;
+        let spec: RawLangSpec = toml::from_str(spec).map_err(|_| InitError::FileMalFormat)?;
 
         let compile_limit = Limit {
             lockdown: spec.compile.lockdown,

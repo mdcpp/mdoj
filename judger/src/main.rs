@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::grpc::server::Server;
 use grpc::proto::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;

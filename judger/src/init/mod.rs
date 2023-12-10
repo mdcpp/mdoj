@@ -17,5 +17,5 @@ pub enum Error {
     #[error("unmeet system requirements")]
     SystemIncapable,
     #[error("Fail to load Langs `{0}`")]
-    Langs(#[from] crate::langs::InternalError),
+    Langs(#[from] crate::langs::InitError),
 }

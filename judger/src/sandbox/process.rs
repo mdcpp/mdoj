@@ -47,9 +47,11 @@ impl RunningProc {
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let stdin = child.stdin.as_mut().ok_or(Error::CapturedPipe)?;
 
-        stdin.write_all(buf).await?;
-
-        stdin.shutdown().await?;
+        if let Err(err) = stdin.write_all(buf).await {
+            #[cfg(debug_assertions)]
+            log::trace!("cannot write process's stdin:{}", err);
+        }
+        stdin.shutdown().await.ok();
 
         Ok(())
     }

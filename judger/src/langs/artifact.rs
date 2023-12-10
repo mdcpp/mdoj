@@ -6,10 +6,11 @@ use tokio::fs;
 use uuid::Uuid;
 
 use crate::grpc::proto::prelude::*;
+use crate::init::config::CONFIG;
 use crate::sandbox::prelude::*;
-use crate::{init::config::CONFIG, langs::RequestError};
 
-use super::{spec::LangSpec, Error, InternalError};
+use super::InitError;
+use super::{spec::LangSpec, Error};
 
 static TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 // Artifact factory, load module from disk to compile code
@@ -44,7 +45,7 @@ impl ArtifactFactory {
         }
     }
     // adaptor, load a module from spec.toml
-    pub async fn load_module(&mut self, spec: impl AsRef<Path>) -> Result<(), InternalError> {
+    pub async fn load_module(&mut self, spec: impl AsRef<Path>) -> Result<(), InitError> {
         let spec = LangSpec::from_file(spec).await?;
 
         assert!(self.langs.insert(spec.uid, spec).is_none());
@@ -65,17 +66,9 @@ impl ArtifactFactory {
     }
     // compile code with sepcfication and container deamon
     pub async fn compile(&self, uid: &Uuid, code: &[u8]) -> Result<CompiledArtifact, Error> {
-        let tracing_id = TRACING_ID.fetch_add(1, Ordering::Relaxed);
-        log::trace!(
-            "Compiling program with module {} -trace:{}",
-            uid,
-            tracing_id
-        );
+        log::trace!("Compiling program with module {}", uid,);
 
-        let spec = self
-            .langs
-            .get(uid)
-            .ok_or(RequestError::LangNotFound(uid.to_string()))?;
+        let spec = self.langs.get(uid).ok_or(Error::LangNotFound)?;
 
         let container = self.runtime.create(&spec.path).await.unwrap();
 
@@ -96,19 +89,18 @@ impl ArtifactFactory {
         if !process.succeed() {
             #[cfg(debug_assertions)]
             log::warn!("{}", process.status);
-            return Err(Error::Report(JudgerCode::Ce));
+            return Ok(CompiledArtifact::Fail(JudgerCode::Ce));
         }
 
         process.stdout.split(|x| *x == b'\n').for_each(|x| {
             CompileLog::from_raw(x).log();
         });
 
-        Ok(CompiledArtifact {
+        Ok(CompiledArtifact::Success(CompiledInner {
             container,
             spec,
-            tracing_id,
             stdout: process.stdout,
-        })
+        }))
     }
 }
 
@@ -154,10 +146,28 @@ impl<'a> CompileLog<'a> {
     }
 }
 // Wrapper for container which contain compiled program in its volume
-pub struct CompiledArtifact<'a> {
+pub enum CompiledArtifact<'a> {
+    Fail(JudgerCode),
+    Success(CompiledInner<'a>),
+}
+
+impl<'a> CompiledArtifact<'a> {
+    pub fn get_expection(&self) -> Option<JudgerCode> {
+        match self {
+            CompiledArtifact::Fail(x) => Some(*x),
+            CompiledArtifact::Success(_) => None,
+        }
+    }
+    fn inner(&mut self) -> Option<&mut CompiledInner<'a>> {
+        match self {
+            CompiledArtifact::Fail(x) => None,
+            CompiledArtifact::Success(x) => Some(x),
+        }
+    }
+}
+pub struct CompiledInner<'a> {
     container: Container<'a>,
     spec: &'a LangSpec,
-    tracing_id: usize,
     stdout: Vec<u8>,
 }
 
@@ -169,16 +179,17 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<TaskResult, Error> {
-        log::trace!("Running program -trace:{}", self.tracing_id);
-        let mut limit = self.spec.judge_limit.clone().apply_platform();
+        let inner = self.inner().unwrap();
+        let mut limit = inner.spec.judge_limit.clone().apply_platform();
 
         limit.cpu_us *= time;
         limit.user_mem *= memory;
 
-        let mut process = self
+        let mut process = inner
             .container
             .execute(
-                self.spec
+                inner
+                    .spec
                     .judge_args
                     .iter()
                     .map(|x| x.as_str())
@@ -193,13 +204,10 @@ impl<'a> CompiledArtifact<'a> {
 
         if !process.succeed() {
             // log::debug!("process status: {:?}", process.status);
-            return Err(Error::Report(JudgerCode::Re));
+            return Ok(TaskResult::Fail(JudgerCode::Re));
         }
 
-        Ok(TaskResult {
-            process,
-            tracing_id: self.tracing_id,
-        })
+        Ok(TaskResult::Success(process))
     }
     pub async fn exec(
         &mut self,
@@ -207,16 +215,17 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<ExecResult, Error> {
-        log::trace!("Running program -trace:{}", self.tracing_id);
-        let mut limit = self.spec.judge_limit.clone().apply_platform();
+        let inner = self.inner().unwrap();
+        let mut limit = inner.spec.judge_limit.clone().apply_platform();
 
         limit.cpu_us *= time;
         limit.user_mem *= memory;
 
-        let mut process = self
+        let mut process = inner
             .container
             .execute(
-                self.spec
+                inner
+                    .spec
                     .judge_args
                     .iter()
                     .map(|x| x.as_str())
@@ -229,14 +238,13 @@ impl<'a> CompiledArtifact<'a> {
 
         let process = process.wait().await?;
 
-        Ok(ExecResult {
-            process,
-            _tracing_id: self.tracing_id,
-        })
+        Ok(ExecResult { process })
     }
 
-    pub fn to_log(&self) -> impl Iterator<Item = CompileLog> {
-        self.stdout
+    pub fn to_log(&mut self) -> impl Iterator<Item = CompileLog> {
+        let inner = self.inner().unwrap();
+        inner
+            .stdout
             .split(|&x| x == b'\n')
             .map(CompileLog::from_raw)
     }
@@ -244,7 +252,6 @@ impl<'a> CompiledArtifact<'a> {
 
 pub struct ExecResult {
     process: ExitProc,
-    _tracing_id: usize,
 }
 
 impl ExecResult {
@@ -260,34 +267,53 @@ impl ExecResult {
 }
 // Wrapper for result of process(ended judge process)
 // provide information about process's exitcode, resource usage, stdout, stderr
-pub struct TaskResult {
-    process: ExitProc,
-    tracing_id: usize,
+pub enum TaskResult {
+    Fail(JudgerCode),
+    Success(ExitProc),
 }
 
 impl TaskResult {
-    pub fn get_expection(&self) -> Option<JudgerCode> {
-        match self.process.status {
-            ExitStatus::SigExit(sig) => match sig {
-                11 => Some(JudgerCode::Re),
-                _ => Some(JudgerCode::Rf),
-            },
-            ExitStatus::Code(code) => match code {
-                125 => Some(JudgerCode::Mle),
-                126 | 127 | 129..=192 => Some(JudgerCode::Rf),
-                255 | 0..=124 => None,
-                _ => Some(JudgerCode::Na),
-            },
-            ExitStatus::MemExhausted => Some(JudgerCode::Mle),
-            ExitStatus::CpuExhausted => Some(JudgerCode::Tle),
-            ExitStatus::SysError => Some(JudgerCode::Na),
+    fn process_mut(&mut self) -> Option<&mut ExitProc> {
+        match self {
+            TaskResult::Fail(_) => None,
+            TaskResult::Success(x) => Some(x),
         }
     }
-    pub fn assert(&self, input: &[u8], mode: JudgeMatchRule) -> bool {
+}
+
+impl TaskResult {
+    fn process(&self) -> Option<&ExitProc> {
+        match self {
+            TaskResult::Fail(x) => None,
+            TaskResult::Success(x) => Some(x),
+        }
+    }
+}
+impl TaskResult {
+    pub fn get_expection(&mut self) -> Option<JudgerCode> {
+        match self{
+            TaskResult::Fail(x) => Some(*x),
+            TaskResult::Success(process) => match process.status {
+                ExitStatus::SigExit(sig) => match sig {
+                    11 => Some(JudgerCode::Re),
+                    _ => Some(JudgerCode::Rf),
+                },
+                ExitStatus::Code(code) => match code {
+                    125 => Some(JudgerCode::Mle),
+                    126 | 127 | 129..=192 => Some(JudgerCode::Rf),
+                    255 | 0..=124 => None,
+                    _ => Some(JudgerCode::Na),
+                },
+                ExitStatus::MemExhausted => Some(JudgerCode::Mle),
+                ExitStatus::CpuExhausted => Some(JudgerCode::Tle),
+                ExitStatus::SysError => Some(JudgerCode::Na),
+            }
+        }
+    }
+    pub fn assert(&mut self, input: &[u8], mode: JudgeMatchRule) -> bool {
         let newline = b'\n';
         let space = b' ';
-        log::trace!("Asserting program -trace:{}", self.tracing_id);
-        let stdout = &self.process.stdout;
+        let stdout = &self.process_mut().unwrap().stdout;
 
         match mode {
             JudgeMatchRule::ExactSame => stdout.iter().zip(input.iter()).all(|(f, s)| f == s),
@@ -310,10 +336,10 @@ impl TaskResult {
         }
     }
     pub fn time(&self) -> &CpuStatistics {
-        &self.process.cpu
+        &self.process().unwrap().cpu
     }
     pub fn mem(&self) -> &MemStatistics {
-        &self.process.mem
+        &self.process().unwrap().mem
     }
 }
 
