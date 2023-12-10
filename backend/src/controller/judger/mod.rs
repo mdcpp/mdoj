@@ -178,7 +178,7 @@ impl JudgerController {
     ) {
         let _ = self.record();
         let mut result = 0;
-        let mut running_case = 0;
+        let mut running_case = 1;
         let mut time = 0;
         let mut mem = 0;
         let mut status = JudgerCode::Ac;
