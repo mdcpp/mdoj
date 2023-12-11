@@ -1,4 +1,3 @@
-use ring::digest;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
 };
@@ -6,31 +5,35 @@ use sea_orm::{
 use tokio::sync::OnceCell;
 
 use super::config::{self};
-use crate::controller::token::UserPermBytes;
+use crate::controller::{crypto::CryptoController, token::UserPermBytes};
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
-pub async fn init(config: &config::Database) {
+pub async fn init(config: &config::Database, crypto: &CryptoController) {
     // sqlite://database/backend.sqlite?mode=rwc
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
     let db = Database::connect(&uri)
         .await
         .expect("fail connecting to database");
-    init_user(config, &db).await;
+    init_user(config, &db, crypto).await;
 
     DB.set(db).ok();
 }
-fn hash(config: &config::Database, src: &str) -> Vec<u8> {
-    digest::digest(
-        &digest::SHA256,
-        &[src.as_bytes(), config.salt.as_bytes()].concat(),
-    )
-    .as_ref()
-    .to_vec()
-}
+// fn hash(config: &config::Database, src: &str) -> Vec<u8> {
+//     digest::digest(
+//         &digest::SHA256,
+//         &[src.as_bytes(), config.salt.as_bytes()].concat(),
+//     )
+//     .as_ref()
+//     .to_vec()
+// }
 
-pub async fn init_user(config: &config::Database, db: &DatabaseConnection) {
+pub async fn init_user(
+    config: &config::Database,
+    db: &DatabaseConnection,
+    crypto: &CryptoController,
+) {
     if entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;
     }
@@ -50,7 +53,7 @@ pub async fn init_user(config: &config::Database, db: &DatabaseConnection) {
     entity::user::ActiveModel {
         permission: ActiveValue::Set(perm.0),
         username: ActiveValue::Set("admin".to_owned()),
-        password: ActiveValue::Set(hash(config, "admin")),
+        password: ActiveValue::Set(crypto.hash("admin").into()),
         ..Default::default()
     }
     .insert(db)

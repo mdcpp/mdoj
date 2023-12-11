@@ -1,10 +1,12 @@
 use chrono::{Duration, Local, NaiveDateTime};
 use entity::token;
 use quick_cache::sync::Cache;
-use ring::rand::*;
+use rand::{Rng, SeedableRng};
+use rand_hc::Hc128Rng;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter,
 };
+use spin::Mutex;
 use std::sync::Arc;
 use tokio::time;
 use tracing::{instrument, Instrument, Span};
@@ -62,7 +64,7 @@ impl From<token::Model> for CachedToken {
 pub struct TokenController {
     #[cfg(feature = "single-instance")]
     cache: Cache<Rand, CachedToken>,
-    rand: SystemRandom,
+    rng: Mutex<Hc128Rng>,
     cache_meter: RateMetrics<30>,
 }
 
@@ -75,7 +77,7 @@ impl TokenController {
         let self_ = Arc::new(Self {
             #[cfg(feature = "single-instance")]
             cache,
-            rand: SystemRandom::new(),
+            rng: Mutex::new(Hc128Rng::from_entropy()),
             cache_meter: RateMetrics::new("hitrate_token"),
         });
         tokio::spawn(async move {
@@ -103,8 +105,7 @@ impl TokenController {
     ) -> Result<(String, NaiveDateTime), Error> {
         let db = DB.get().unwrap();
 
-        let rand = generate(&self.rand).unwrap();
-        let rand: Rand = rand.expose();
+        let rand: Rand = { self.rng.lock().gen() };
 
         let expiry = (Local::now() + dur).naive_local();
 

@@ -12,7 +12,6 @@ use crate::{
         user_set_server::UserSetServer,
     },
     init::{
-        self,
         config::{self, GlobalConfig},
         logger::{self, OtelGuard},
     },
@@ -27,54 +26,32 @@ pub struct Server {
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
     config: GlobalConfig,
-    // identity: transport::Identity,
     otel_guard: OtelGuard,
 }
 
 impl Server {
     pub async fn new() -> Arc<Self> {
+        let span = span!(Level::INFO, "server_construct");
+
         let config = config::init().await;
+
+        let crypto = crypto::CryptoController::new(&config, &span);
+        crate::init::db::init(&config.database, &crypto).await;
+
         let otel_guard = logger::init(&config);
 
-        let config1 = config.database.clone();
-        // let config2 = config.grpc.public_pem.clone();
-        // let config3 = config.grpc.private_pem.clone();
         let config4 = config.judger.clone();
 
-        let span = span!(Level::INFO, "server_construct");
-        let span1 = span.clone();
-
-        let (_, submit) = tokio::try_join!(
-            tokio::spawn(
-                async move { init::db::init(&config1).await }
-                    .instrument(span!(parent:span.clone(),Level::INFO,"construct_database"))
-            ),
-            // tokio::spawn(
-            //     async move { fs::read_to_string(&config2).await }
-            //         .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
-            // ),
-            // tokio::spawn(
-            //     async move { fs::read_to_string(&config3).await }
-            //         .instrument(span!(parent:span.clone(),Level::INFO,"load_tls"))
-            // ),
-            tokio::spawn(async move {
-                judger::JudgerController::new(config4, &span1)
-                    .in_current_span()
-                    .await
-            })
-        )
-        .unwrap();
-
-        // let identity = transport::Identity::from_pem(
-        //     cert.expect("public key.pem not found"),
-        //     key.expect("privite key.pem not found"),
-        // );
+        let submit = judger::JudgerController::new(config4, &span)
+            .in_current_span()
+            .await
+            .unwrap();
 
         Arc::new(Server {
             token: token::TokenController::new(&span),
-            judger: Arc::new(submit.unwrap()),
+            judger: Arc::new(submit),
             dup: duplicate::DupController::new(&span),
-            crypto: crypto::CryptoController::new(&config, &span),
+            crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
             config,
             // identity,
