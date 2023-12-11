@@ -12,6 +12,8 @@ use crate::grpc::judger::LangInfo;
 use entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
 
+const SUBMIT_CODE_LEN: usize = 32 * 1024;
+
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
@@ -145,6 +147,10 @@ impl SubmitSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
+        if req.info.code.len() > SUBMIT_CODE_LEN {
+            return Err(Error::BufferTooLarge("info.code").into());
+        }
+
         let lang = Uuid::parse_str(req.info.lang.as_str()).map_err(Into::<Error>::into)?;
 
         let problem = problem::Entity::find_by_id(req.info.problem_id)
@@ -177,7 +183,7 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        let id = self.submit.submit(submit).await?;
+        let id = self.judger.submit(submit).await?;
 
         tracing::debug!(id = id, "submit_created");
         self.metrics.submit.add(1, &[]);
@@ -216,7 +222,7 @@ impl SubmitSet for Arc<Server> {
         tracing::trace!(id = req.id);
 
         Ok(Response::new(
-            self.submit.follow(req.id).await.unwrap_or_else(|| {
+            self.judger.follow(req.id).await.unwrap_or_else(|| {
                 Box::pin(ReceiverStream::new(tokio::sync::mpsc::channel(16).1))
                     as Self::FollowStream
             }),
@@ -266,7 +272,7 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        self.submit.submit(rejudge).await?;
+        self.judger.submit(rejudge).await?;
 
         self.dup.store(user_id, uuid, submit_id);
 
@@ -278,7 +284,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, _: Request<()>) -> Result<Response<Self::ListLangsStream>, Status> {
-        let langs = self.submit.list_lang().into_iter().map(|x| Ok(x.into()));
+        let langs = self.judger.list_lang().into_iter().map(|x| Ok(x.into()));
 
         Ok(Response::new(
             Box::pin(tokio_stream::iter(langs)) as TonicStream<_>

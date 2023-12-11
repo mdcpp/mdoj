@@ -630,14 +630,14 @@ message PlaygroundRequest{
   required bytes input=3;
 }
 
-message CompileLog{
+message Log{
   required uint32 level = 1;
   required string msg = 2;
 }
 
 message PlaygroundResult{
   oneof result{
-    CompileLog compile=1;
+    Log compile=1;
     bytes output=2;
   }
 }

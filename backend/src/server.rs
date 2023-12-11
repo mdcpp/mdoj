@@ -22,7 +22,7 @@ const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
 pub struct Server {
     pub token: Arc<token::TokenController>,
-    pub submit: Arc<judger::JudgerController>,
+    pub judger: Arc<judger::JudgerController>,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
@@ -72,7 +72,7 @@ impl Server {
 
         Arc::new(Server {
             token: token::TokenController::new(&span),
-            submit: Arc::new(submit.unwrap()),
+            judger: Arc::new(submit.unwrap()),
             dup: duplicate::DupController::new(&span),
             crypto: crypto::CryptoController::new(&config, &span),
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),

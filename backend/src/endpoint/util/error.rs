@@ -22,6 +22,8 @@ pub enum Error {
     Unreachable(&'static str),
     #[error("Number too large(or small)")]
     NumberTooLarge,
+    #[error("Buffer `{0}` too large")]
+    BufferTooLarge(&'static str),
     #[error("Already exist")]
     AlreadyExist(&'static str),
 }
@@ -62,6 +64,9 @@ impl From<Error> for tonic::Status {
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
             Error::NumberTooLarge => tonic::Status::invalid_argument("number too large"),
+            Error::BufferTooLarge(x) => {
+                tonic::Status::invalid_argument(format!("buffer {} too large", x))
+            }
             Error::AlreadyExist(x) => {
                 tracing::trace!(hint = x, "entity_exist");
                 tonic::Status::already_exists(x)

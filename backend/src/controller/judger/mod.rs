@@ -1,9 +1,14 @@
 mod pubsub;
 mod route;
-use std::sync::{
-    atomic::{AtomicI64, Ordering},
-    Arc,
+
+use std::{
+    pin::Pin,
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Arc,
+    },
 };
+use tokio_stream::{Stream, StreamExt, StreamMap};
 
 use crate::{
     grpc::TonicStream,
@@ -15,7 +20,6 @@ use leaky_bucket::RateLimiter;
 use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
 use thiserror::Error;
-use tokio_stream::StreamExt;
 use tonic::Status;
 use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
@@ -35,16 +39,17 @@ use self::{
 use super::code::Code;
 use entity::*;
 
-struct Waker;
-
-impl std::task::Wake for Waker {
-    fn wake(self: Arc<Self>) {
-        log::error!("waker wake");
-    }
-}
+const PALYGROUND_TIME: u64 = 500 * 1000;
+const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
 
 macro_rules! check_rate_limit {
     ($s:expr) => {{
+        struct Waker;
+        impl std::task::Wake for Waker {
+            fn wake(self: Arc<Self>) {
+                log::error!("waker wake");
+            }
+        }
         let waker = Arc::new(Waker).into();
         let mut cx = std::task::Context::from_waker(&waker);
 
@@ -138,6 +143,12 @@ impl<'a> Drop for MeterGuard<'a> {
         let (num, meter) = &self.0.running_meter;
         meter.observe(num.fetch_sub(1, Ordering::Acquire) - 1, &[]);
     }
+}
+
+pub struct PlaygroundPayload {
+    pub input: Vec<u8>,
+    pub code: Vec<u8>,
+    pub lang: Uuid,
 }
 
 pub struct JudgerController {
@@ -309,9 +320,30 @@ impl JudgerController {
     pub fn list_lang(&self) -> Vec<LangInfo> {
         self.router.langs.iter().map(|x| x.clone()).collect()
     }
-    pub async fn playground(&self) -> Result<TonicStream<PlaygroundResult>, Error> {
+    // endpoint should check uuid exist
+    pub async fn playground(
+        &self,
+        payload: PlaygroundPayload,
+    ) -> Result<TonicStream<PlaygroundResult>, Error> {
         check_rate_limit!(self);
 
-        todo!()
+        let mut conn = self.router.get(&payload.lang).await?;
+
+        let res = conn
+            .exec(ExecRequest {
+                lang_uid: payload.lang.to_string(),
+                code: payload.code,
+                memory: PALYGROUND_MEM,
+                time: PALYGROUND_TIME,
+                input: payload.input,
+            })
+            .await?;
+
+        conn.report_success();
+
+        Ok(Box::pin(
+            res.into_inner()
+                .map(|x| x.map(Into::<PlaygroundResult>::into)),
+        ))
     }
 }

@@ -7,7 +7,6 @@ use crate::grpc::backend::*;
 
 use entity::user;
 use entity::user::*;
-use opentelemetry::KeyValue;
 
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
