@@ -619,7 +619,7 @@ service TokenSet {
   rpc List(UserId) returns (Tokens);
 
   rpc Create(LoginRequest) returns (TokenInfo);
-  rpc Refresh(google.protobuf.Empty) returns (TokenInfo);
+  rpc Refresh(google.protobuf.Timestamp) returns (TokenInfo);
 
   rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
