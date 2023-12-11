@@ -39,6 +39,8 @@ pub fn init() {
         {
             log::warn!("Subsystem Mem(Memory) is unavailable.");
         };
+        log::error!("cgroup v1 is not supported, it fail at cpu task");
+        std::process::exit(1);
     } else {
         let hier = hierarchies::V2::new();
         let subsystems = hier.subsystems();
@@ -65,8 +67,8 @@ pub fn init() {
     }
 
     if !config.nsjail.rootless {
-        let uid = unsafe { libc::getuid() };
-        if uid != 0 {
+        let uid = rustix::process::getuid();
+        if !uid.is_root() {
             log::warn!("config.rootless is set to false, require root to run");
         }
     } else {
@@ -84,10 +86,8 @@ pub fn init() {
 
     if config.platform.output_limit >= config.platform.available_memory.try_into().unwrap() {
         log::error!("config.platform.output_limit is too larget or config.platform.available_memory is too low");
-        unsafe {
-            libc::abort();
+        std::process::exit(1);
         }
-    }
 
     if config.platform.output_limit * 8 >= config.platform.available_memory.try_into().unwrap() {
         log::warn!("config.platform.output_limit is consider too high");

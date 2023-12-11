@@ -14,7 +14,6 @@ panic = 'abort'
 cgroups-rs = "0.3.2"
 env_logger = "0.10.1"
 futures = "0.3.28"
-libc = "0.2.142"
 log = "0.4.17"
 prost = "0.11.9"
 prost-types = "0.11.9"
@@ -22,6 +21,9 @@ thiserror = "1.0.40"
 toml = "0.7.4"
 derive_builder = "0.12.0"
 
+[dependencies.rustix]
+version = "0.38.28"
+features = ["process","thread"]
 [dependencies.uuid]
 version = "1.6.1"
 features = ["serde"]
