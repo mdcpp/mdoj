@@ -234,7 +234,10 @@ impl EducationSet for Arc<Server> {
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(old.session)?
+                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
+                    old.session,
+                    &self,
+                )?
             }
         };
 
@@ -245,7 +248,7 @@ impl EducationSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListEducationResponse { list, next_session }))
     }

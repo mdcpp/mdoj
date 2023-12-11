@@ -106,7 +106,7 @@ impl ContestSet for Arc<Server> {
             }
             list_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session)?
+                <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session, &self)?
             }
         };
 
@@ -117,7 +117,7 @@ impl ContestSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
@@ -133,7 +133,7 @@ impl ContestSet for Arc<Server> {
             text_search_request::Request::Text(create) => Pager::text_search(create),
             text_search_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<_> as NoParentPager<Entity>>::from_raw(old.session)?
+                <Pager<_> as NoParentPager<Entity>>::from_raw(old.session, &self)?
             }
         };
 
@@ -144,7 +144,7 @@ impl ContestSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }

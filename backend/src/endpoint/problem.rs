@@ -112,7 +112,10 @@ impl ProblemSet for Arc<Server> {
             }
             list_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
+                    old.session,
+                    &self,
+                )?
             }
         };
 
@@ -123,7 +126,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -142,7 +145,7 @@ impl ProblemSet for Arc<Server> {
             }
             text_search_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session, &self)?
             }
         };
 
@@ -153,7 +156,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -409,7 +412,10 @@ impl ProblemSet for Arc<Server> {
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session)?
+                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
+                    old.session,
+                    &self,
+                )?
             }
         };
 
@@ -420,7 +426,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw();
+        let next_session = pager.into_raw(&self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }

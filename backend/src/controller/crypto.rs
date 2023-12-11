@@ -1,11 +1,14 @@
-use rand::SeedableRng;
+use k256::ecdsa::{
+    signature::{Signer, Verifier},
+    Signature, SigningKey, VerifyingKey,
+};
+use rand::{rngs::OsRng, SeedableRng};
 use rand_hc::Hc128Rng;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use spin::Mutex;
 use tracing::Span;
-use k256::{SecretKey, Secp256k1, PublicKey};
 
-use crate::{init::config::GlobalConfig, report_internal};
+use crate::init::config::GlobalConfig;
 use blake2::{Blake2b512, Digest};
 
 type Result<T> = std::result::Result<T, Error>;
@@ -16,28 +19,12 @@ pub enum Error {
     Bincode(#[from] bincode::Error),
     #[error("Invalid signature")]
     InvalidSignature,
-    #[error("Encode error")]
-    Encode,
-    #[error("Decode error")]
-    Decode,
 }
 
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
-        match value {
-            Error::Bincode(_) => report_internal!(debug, "`{}`", value),
-            Error::InvalidSignature => report_internal!(trace, "`{}`", value),
-            Error::Encode => report_internal!(trace, "`{}`", value),
-            Error::Decode => tonic::Status::invalid_argument("signature is invalid"),
-        }
+        tonic::Status::invalid_argument("Invalid signature")
     }
-}
-
-pub struct CryptoController {
-    salt: Vec<u8>,
-    rng: Mutex<Hc128Rng>,
-    secret:SecretKey,
-    public:PublicKey,
 }
 
 #[derive(PartialEq, Eq)]
@@ -55,18 +42,30 @@ impl From<HashValue> for Vec<u8> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Signed {
+    data: Vec<u8>,
+    signature: Signature,
+}
+pub struct CryptoController {
+    salt: Vec<u8>,
+    signing_key: SigningKey,
+    verifying_key: VerifyingKey,
+}
+
 impl CryptoController {
     #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
     pub fn new(config: &GlobalConfig, span: &Span) -> Self {
         let salt = config.database.salt.as_bytes().to_vec();
 
-        let mut rng = Hc128Rng::from_entropy();
-        let secret=SecretKey::random(&mut rng);
-        let public=secret.public_key();
+        let signing_key = SigningKey::random(&mut OsRng);
+
+        let verifying_key = signing_key.verifying_key().clone();
+
         Self {
             salt,
-            rng: Mutex::new(rng),
-            secret,public
+            signing_key,
+            verifying_key,
         }
     }
     #[tracing::instrument(name = "crypto_hasheq_controller", level = "debug", skip_all)]
@@ -90,13 +89,27 @@ impl CryptoController {
     }
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<Vec<u8>> {
-        let mut raw = bincode::serialize(&obj)?;
+        let raw = bincode::serialize(&obj)?;
 
-        todo!()
+        let signature: Signature = self.signing_key.sign(&raw);
+
+        let signed = Signed {
+            data: raw,
+            signature,
+        };
+        Ok(bincode::serialize(&signed)?)
     }
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn decode<M: DeserializeOwned>(&self, raw: Vec<u8>) -> Result<M> {
-        todo!()
+        let raw: Signed = bincode::deserialize(&raw)?;
+        let signature = raw.signature;
+
+        self.verifying_key
+            .verify(&raw.data, &signature)
+            .map_err(|_| Error::InvalidSignature)?;
+
+        let obj = bincode::deserialize(&raw.data)?;
+        Ok(obj)
     }
 }
 

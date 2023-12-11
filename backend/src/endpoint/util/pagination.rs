@@ -5,7 +5,7 @@ use sea_orm::*;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
-use crate::{grpc::backend::SortBy, init::db::DB};
+use crate::{grpc::backend::SortBy, init::db::DB, server::Server};
 
 use super::{auth::Auth, error::Error, filter::Filter};
 
@@ -83,8 +83,8 @@ where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
 {
     fn parent_search(ppk: i32) -> Self;
-    fn from_raw(s: String) -> Result<Pager<E>, Error>;
-    fn into_raw(self) -> String;
+    fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
+    fn into_raw(self, server: &Server) -> String;
     async fn fetch(
         &mut self,
         limit: u64,
@@ -99,8 +99,8 @@ pub trait NoParentPager<E>
 where
     E: EntityTrait + PagerTrait<ParentMarker = NoParent>,
 {
-    fn from_raw(s: String) -> Result<Pager<E>, Error>;
-    fn into_raw(self) -> String;
+    fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
+    fn into_raw(self, server: &Server) -> String;
     async fn fetch(
         &mut self,
         limit: u64,
@@ -125,8 +125,8 @@ where
             _entity: PhantomData,
         }
     }
-    #[instrument(name = "pagination_deserialize", level = "trace")]
-    fn into_raw(self) -> String {
+    #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
+    fn into_raw(self, server: &Server) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
             ppk: self.ppk.unwrap_or(0),
@@ -138,7 +138,7 @@ where
                 SearchDep::Parent(x) => RawSearchDep::Parent(x),
             },
         };
-        let byte = bincode::serialize(&raw);
+        let byte = server.crypto.encode(&raw);
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
@@ -146,13 +146,13 @@ where
         )
     }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
-    fn from_raw(s: String) -> Result<Pager<E>, Error> {
+    fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
         let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
             .map_err(|e| {
                 tracing::trace!(err=?e,"base64_deserialize");
                 Error::PaginationError("Not base64")
             })?;
-        let pager = bincode::deserialize::<RawPager>(&byte).map_err(|e| {
+        let pager = server.crypto.decode::<RawPager>(byte).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
@@ -262,8 +262,8 @@ impl<E> NoParentPager<E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = NoParent>,
 {
-    #[instrument(name = "pagination_deserialize", level = "trace")]
-    fn into_raw(self) -> String {
+    #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
+    fn into_raw(self, server: &Server) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
             ppk: self.ppk.unwrap_or(0),
@@ -275,7 +275,7 @@ where
                 SearchDep::Parent(x) => RawSearchDep::Parent(x),
             },
         };
-        let byte = bincode::serialize(&raw);
+        let byte = server.crypto.encode(&raw);
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
@@ -283,13 +283,13 @@ where
         )
     }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
-    fn from_raw(s: String) -> Result<Pager<E>, Error> {
+    fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
         let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
             .map_err(|e| {
                 tracing::trace!(err=?e,"base64_deserialize");
                 Error::PaginationError("Not base64")
             })?;
-        let pager = bincode::deserialize::<RawPager>(&byte).map_err(|e| {
+        let pager = server.crypto.decode::<RawPager>(byte).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
