@@ -59,9 +59,9 @@ macro_rules! check_rate_limit {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("judger temporarily unavailable")]
-    JudgerUnavailable,
+    JudgerResourceExhausted,
     #[error("`{0}`")]
-    JudgerGrpc(#[from] Status),
+    JudgerError(Status),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("`{0}`")]
@@ -76,12 +76,21 @@ pub enum Error {
     UriParse,
 }
 
+impl From<Status> for Error {
+    fn from(value: Status) -> Self {
+        match value.code() {
+            tonic::Code::ResourceExhausted => Error::JudgerResourceExhausted,
+            _ => Error::JudgerError(value),
+        }
+    }
+}
+
 impl From<Error> for Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::JudgerUnavailable => Status::resource_exhausted("no available judger"),
+            Error::JudgerResourceExhausted => Status::resource_exhausted("no available judger"),
             Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
-            Error::JudgerGrpc(x) => report_internal!(info, "`{}`", x),
+            Error::JudgerError(x) => report_internal!(info, "`{}`", x),
             Error::Database(x) => report_internal!(warn, "{}", x),
             Error::TransportLayer(x) => report_internal!(info, "{}", x),
             Error::RateLimit => Status::resource_exhausted("resource limit imposed by backend"),

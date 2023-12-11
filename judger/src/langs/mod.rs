@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{grpc::proto::prelude::JudgerCode, sandbox};
+use crate::sandbox;
 
 pub mod artifact;
 pub mod spec;

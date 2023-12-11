@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::BTreeMap, path::Path};
 
 use tokio::fs;
@@ -12,7 +10,6 @@ use crate::sandbox::prelude::*;
 use super::InitError;
 use super::{spec::LangSpec, Error};
 
-static TRACING_ID: AtomicUsize = AtomicUsize::new(0);
 // Artifact factory, load module from disk to compile code
 // Rely on container daemon to create container
 pub struct ArtifactFactory {
@@ -89,12 +86,8 @@ impl ArtifactFactory {
         if !process.succeed() {
             #[cfg(debug_assertions)]
             log::warn!("{}", process.status);
-            return Ok(CompiledArtifact::Fail(JudgerCode::Ce));
+            return Ok(CompiledArtifact::Fail(process));
         }
-
-        process.stdout.split(|x| *x == b'\n').for_each(|x| {
-            CompileLog::from_raw(x).log();
-        });
 
         Ok(CompiledArtifact::Success(CompiledInner {
             container,
@@ -114,24 +107,17 @@ impl Default for ArtifactFactory {
     }
 }
 
-pub struct CompileLog<'a> {
+pub struct CompileLog {
     pub level: usize,
-    pub message: Cow<'a, str>,
+    pub message: String,
 }
 
-impl<'a> CompileLog<'a> {
-    pub fn from_raw(raw: &'a [u8]) -> Self {
+impl CompileLog {
+    pub fn from_raw(raw: &[u8]) -> Self {
         let raw: Vec<&[u8]> = raw.splitn(2, |x| *x == b':').collect();
-        if raw.len() == 1 {
-            Self {
-                level: 4,
-                message: String::from_utf8_lossy(raw[0]),
-            }
-        } else {
-            Self {
-                level: String::from_utf8_lossy(raw[0]).parse().unwrap_or(4),
-                message: String::from_utf8_lossy(raw[1]),
-            }
+        Self {
+            level: String::from_utf8_lossy(raw[0]).parse().unwrap_or(4),
+            message: String::from_utf8_lossy(raw[1]).to_string(),
         }
     }
     pub fn log(&self) {
@@ -147,20 +133,41 @@ impl<'a> CompileLog<'a> {
 }
 // Wrapper for container which contain compiled program in its volume
 pub enum CompiledArtifact<'a> {
-    Fail(JudgerCode),
+    Fail(ExitProc),
     Success(CompiledInner<'a>),
 }
 
 impl<'a> CompiledArtifact<'a> {
     pub fn get_expection(&self) -> Option<JudgerCode> {
         match self {
-            CompiledArtifact::Fail(x) => Some(*x),
+            CompiledArtifact::Fail(_) => Some(JudgerCode::Ce),
             CompiledArtifact::Success(_) => None,
+        }
+    }
+    pub fn log(&'a self) -> Box<dyn Iterator<Item = CompileLog> + 'a + Send> {
+        match self {
+            CompiledArtifact::Fail(proc) => Box::new(
+                proc.stdout
+                    .split(|x| *x == b'\n')
+                    .filter_map(|x| match x.is_empty() {
+                        true => None,
+                        false => Some(CompileLog::from_raw(x)),
+                    }),
+            ),
+            CompiledArtifact::Success(inner) => Box::new(
+                inner
+                    .stdout
+                    .split(|x| *x == b'\n')
+                    .filter_map(|x| match x.is_empty() {
+                        true => None,
+                        false => Some(CompileLog::from_raw(x)),
+                    }),
+            ),
         }
     }
     fn inner(&mut self) -> Option<&mut CompiledInner<'a>> {
         match self {
-            CompiledArtifact::Fail(x) => None,
+            CompiledArtifact::Fail(_) => None,
             CompiledArtifact::Success(x) => Some(x),
         }
     }
@@ -240,14 +247,6 @@ impl<'a> CompiledArtifact<'a> {
 
         Ok(ExecResult { process })
     }
-
-    pub fn to_log(&mut self) -> impl Iterator<Item = CompileLog> {
-        let inner = self.inner().unwrap();
-        inner
-            .stdout
-            .split(|&x| x == b'\n')
-            .map(CompileLog::from_raw)
-    }
 }
 
 pub struct ExecResult {
@@ -282,16 +281,16 @@ impl TaskResult {
 }
 
 impl TaskResult {
-    fn process(&self) -> Option<&ExitProc> {
+    pub fn process(&self) -> Option<&ExitProc> {
         match self {
-            TaskResult::Fail(x) => None,
+            TaskResult::Fail(_) => None,
             TaskResult::Success(x) => Some(x),
         }
     }
 }
 impl TaskResult {
     pub fn get_expection(&mut self) -> Option<JudgerCode> {
-        match self{
+        match self {
             TaskResult::Fail(x) => Some(*x),
             TaskResult::Success(process) => match process.status {
                 ExitStatus::SigExit(sig) => match sig {
@@ -307,7 +306,7 @@ impl TaskResult {
                 ExitStatus::MemExhausted => Some(JudgerCode::Mle),
                 ExitStatus::CpuExhausted => Some(JudgerCode::Tle),
                 ExitStatus::SysError => Some(JudgerCode::Na),
-            }
+            },
         }
     }
     pub fn assert(&mut self, input: &[u8], mode: JudgeMatchRule) -> bool {

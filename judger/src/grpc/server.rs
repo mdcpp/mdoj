@@ -2,18 +2,22 @@
 // TODO: error handling
 use std::{pin::Pin, sync::Arc};
 
+use spin::Mutex;
 use tokio::sync::mpsc::*;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{codegen::Bytes, metadata, Code, Response, Status};
+use tonic::{Response, Status};
 use uuid::Uuid;
 
 use crate::{
     grpc::proto::prelude::judge_response,
     init::config::CONFIG,
-    langs::prelude::{ArtifactFactory, CompileLog, CompiledArtifact},
+    langs::prelude::{ArtifactFactory, CompileLog},
 };
 
 use super::proto::prelude::{judger_server::Judger, *};
+
+const PENDING_LIMIT: usize = 128;
+const STREAM_CHUNK: usize = 1024 * 16;
 
 pub type UUID = String;
 
@@ -22,11 +26,13 @@ fn accuracy() -> u64 {
     (1000 * 1000 / config.kernel.kernel_hz) as u64
 }
 
-impl From<CompileLog<'_>> for Log {
-    fn from(value: CompileLog<'_>) -> Self {
-        Log {
-            level: value.level as u32,
-            msg: value.message.into_owned(),
+impl From<CompileLog> for ExecResult {
+    fn from(value: CompileLog) -> Self {
+        ExecResult {
+            result: Some(exec_result::Result::Log(Log {
+                level: value.level as u32,
+                msg: value.message,
+            })),
         }
     }
 }
@@ -80,7 +86,8 @@ impl From<judge_response::Task> for JudgeResponse {
 // Adapter and abstraction for tonic to serve
 // utilize artifact factory and other components(in module `langs``)
 pub struct Server {
-    factory: Arc<ArtifactFactory>,
+    factory: ArtifactFactory,
+    running: Mutex<usize>,
 }
 
 impl Server {
@@ -91,13 +98,31 @@ impl Server {
         factory.load_dir(config.plugin.path.clone()).await;
 
         Self {
-            factory: Arc::new(factory),
+            factory: factory,
+            running: Mutex::new(PENDING_LIMIT),
+        }
+    }
+    fn check_pending(self: &Arc<Self>) -> Result<PendingGuard, Status> {
+        let mut running = self.running.lock();
+        if *running > 0 {
+            *running -= 1;
+            Ok(PendingGuard(self.clone()))
+        } else {
+            Err(Status::resource_exhausted(""))
         }
     }
 }
 
+struct PendingGuard(Arc<Server>);
+
+impl Drop for PendingGuard {
+    fn drop(&mut self) {
+        *self.0.running.lock() -= 1;
+    }
+}
+
 async fn judger_stream(
-    factory: Arc<ArtifactFactory>,
+    factory: &ArtifactFactory,
     payload: JudgeRequest,
     tx: &mut Sender<Result<JudgeResponse, Status>>,
 ) -> Result<(), Status> {
@@ -108,6 +133,8 @@ async fn judger_stream(
     let lang = parse_uid(&payload.lang_uid)?;
 
     let mut compile = factory.compile(&lang, &payload.code).await?;
+
+    compile.log().for_each(|x| x.log());
 
     if let Some(code) = compile.get_expection() {
         force_stream(
@@ -177,8 +204,65 @@ async fn judger_stream(
     Ok(())
 }
 
+async fn exec_stream(
+    factory: &ArtifactFactory,
+    payload: ExecRequest,
+    tx: &mut Sender<Result<ExecResult, Status>>,
+) -> Result<(), Status> {
+    log::debug!("start streaming");
+
+    let lang = parse_uid(&payload.lang_uid)?;
+
+    let mut compile = factory.compile(&lang, &payload.code).await?;
+
+    for log in compile.log() {
+        force_stream(tx, log.into()).await?;
+    }
+
+    if let Some(_) = compile.get_expection() {
+        force_stream(
+            tx,
+            CompileLog {
+                level: 4,
+                message: "Compile Error, non-zero return code(signal)".to_string(),
+            }
+            .into(),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let mut judge = compile
+        .judge(&payload.input, payload.time, payload.memory)
+        .await?;
+
+    if let Some(x) = judge.get_expection() {
+        force_stream(
+            tx,
+            CompileLog {
+                level: 4,
+                message: format!("Judge Fail with {}", x),
+            }
+            .into(),
+        )
+        .await?;
+    } else {
+        for chunk in judge.process().unwrap().stdout.chunks(STREAM_CHUNK) {
+            force_stream(
+                tx,
+                ExecResult {
+                    result: Some(exec_result::Result::Output(chunk.to_vec())),
+                },
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
 #[tonic::async_trait]
-impl Judger for Server {
+impl Judger for Arc<Server> {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
     async fn judge(
@@ -186,15 +270,19 @@ impl Judger for Server {
         req: tonic::Request<JudgeRequest>,
     ) -> Result<Response<Self::JudgeStream>, Status> {
         let payload = check_secret(req)?;
+        let permit = self.check_pending()?;
+
         log::debug!("start judging");
 
         let (mut tx, rx) = channel(8);
 
-        let factory = self.factory.clone();
+        let self_ = self.clone();
+
         tokio::spawn(async move {
-            if let Err(err) = judger_stream(factory, payload, &mut tx).await {
+            if let Err(err) = judger_stream(&self_.factory, payload, &mut tx).await {
                 tx.send(Err(err)).await.ok();
-            }
+            };
+            drop(permit);
         });
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
@@ -221,7 +309,21 @@ impl Judger for Server {
         req: tonic::Request<ExecRequest>,
     ) -> Result<Response<Self::ExecStream>, tonic::Status> {
         let payload = check_secret(req)?;
+        let permit = self.check_pending()?;
 
-        todo!()
+        log::debug!("start exec");
+
+        let (mut tx, rx) = channel(8);
+
+        let self_ = self.clone();
+
+        tokio::spawn(async move {
+            if let Err(err) = exec_stream(&self_.factory, payload, &mut tx).await {
+                tx.send(Err(err)).await.ok();
+            };
+            drop(permit);
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }

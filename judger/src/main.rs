@@ -4,7 +4,6 @@ use crate::grpc::server::Server;
 use grpc::proto::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;
 use tonic::transport;
-// use crate::plugin::proto::prelude::judge_service_server::JudgeServiceServer;
 
 pub mod grpc;
 pub mod init;
@@ -24,7 +23,7 @@ async fn main() {
     let server = Server::new().await;
 
     transport::Server::builder()
-        .add_service(JudgerServer::new(server))
+        .add_service(JudgerServer::new(Arc::new(server)))
         .serve(addr)
         .await
         .unwrap();
