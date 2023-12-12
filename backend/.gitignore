@@ -6,3 +6,5 @@
 /key.pem
 /cert.pem
 /a.log
+/judger.proto
+/backend.proto
