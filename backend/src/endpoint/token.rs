@@ -51,7 +51,7 @@ impl TokenSet for Arc<Server> {
         Ok(Response::new(Tokens {
             list: tokens.into_iter().map(Into::into).collect(),
         }))
-    } 
+    }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();
@@ -86,7 +86,10 @@ impl TokenSet for Arc<Server> {
         }
     }
     #[instrument(skip_all, level = "debug")]
-    async fn refresh(&self, req: Request<prost_types::Timestamp>) -> Result<Response<TokenInfo>, Status> {
+    async fn refresh(
+        &self,
+        req: Request<prost_types::Timestamp>,
+    ) -> Result<Response<TokenInfo>, Status> {
         let db = DB.get().unwrap();
         let (meta, _, payload) = req.into_parts();
 
@@ -100,13 +103,13 @@ impl TokenSet for Arc<Server> {
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("user"))?;
 
-            let time=into_chrono(payload);
-            let now=chrono::Utc::now().naive_utc();
-            if time<now{
+            let time = into_chrono(payload);
+            let now = chrono::Utc::now().naive_utc();
+            if time < now {
                 return Err(Error::BadArgument("").into());
             }
-            
-            let dur = time-now;
+
+            let dur = time - now;
             self.token.remove(token.to_string()).await?;
 
             let (token, expiry) = self.token.add(&user, dur).await?;

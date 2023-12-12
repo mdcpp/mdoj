@@ -2,10 +2,8 @@ use k256::ecdsa::{
     signature::{Signer, Verifier},
     Signature, SigningKey, VerifyingKey,
 };
-use rand::{rngs::OsRng, SeedableRng};
-use rand_hc::Hc128Rng;
+use rand::rngs::OsRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use spin::Mutex;
 use tracing::Span;
 
 use crate::init::config::GlobalConfig;
@@ -23,6 +21,7 @@ pub enum Error {
 
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
+        tracing::trace!(reason = ?value, "crypto_error");
         tonic::Status::invalid_argument("Invalid signature")
     }
 }
@@ -87,7 +86,7 @@ impl CryptoController {
         let hashed = hasher.finalize();
         HashValue(hashed.to_vec())
     }
-    #[tracing::instrument(level = "trace", skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<Vec<u8>> {
         let raw = bincode::serialize(&obj)?;
 
@@ -99,7 +98,7 @@ impl CryptoController {
         };
         Ok(bincode::serialize(&signed)?)
     }
-    #[tracing::instrument(level = "trace", skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn decode<M: DeserializeOwned>(&self, raw: Vec<u8>) -> Result<M> {
         let raw: Signed = bincode::deserialize(&raw)?;
         let signature = raw.signature;

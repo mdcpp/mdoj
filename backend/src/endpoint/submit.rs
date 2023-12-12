@@ -248,7 +248,7 @@ impl SubmitSet for Arc<Server> {
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check(user_id, &uuid).is_some() {
+        if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
 
@@ -280,7 +280,7 @@ impl SubmitSet for Arc<Server> {
 
         self.judger.submit(rejudge).await?;
 
-        self.dup.store(user_id, uuid, submit_id);
+        self.dup.store_i32(user_id, uuid, submit_id);
 
         Ok(Response::new(()))
     }

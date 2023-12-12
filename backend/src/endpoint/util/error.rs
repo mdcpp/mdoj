@@ -70,7 +70,7 @@ impl From<Error> for tonic::Status {
             Error::AlreadyExist(x) => {
                 tracing::trace!(hint = x, "entity_exist");
                 tonic::Status::already_exists(x)
-            },
+            }
         }
     }
 }

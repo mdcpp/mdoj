@@ -16,7 +16,7 @@ pub async fn init(config: &config::Database, crypto: &CryptoController) {
     let db = Database::connect(&uri)
         .await
         .expect("fail connecting to database");
-    init_user(config, &db, crypto).await;
+    init_user(&db, crypto).await;
 
     DB.set(db).ok();
 }
@@ -29,11 +29,7 @@ pub async fn init(config: &config::Database, crypto: &CryptoController) {
 //     .to_vec()
 // }
 
-pub async fn init_user(
-    config: &config::Database,
-    db: &DatabaseConnection,
-    crypto: &CryptoController,
-) {
+pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     if entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;
     }

@@ -1,14 +1,11 @@
 mod pubsub;
 mod route;
 
-use std::{
-    pin::Pin,
-    sync::{
-        atomic::{AtomicI64, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicI64, Ordering},
+    Arc,
 };
-use tokio_stream::{Stream, StreamExt, StreamMap};
+use tokio_stream::StreamExt;
 
 use crate::{
     grpc::TonicStream,

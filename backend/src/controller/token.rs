@@ -264,3 +264,4 @@ set_bit_value!(UserPermBytes, publish, 5);
 set_bit_value!(UserPermBytes, link, 6);
 set_bit_value!(UserPermBytes, manage_contest, 7);
 set_bit_value!(UserPermBytes, manage_user, 8);
+set_bit_value!(UserPermBytes, imgur, 9);

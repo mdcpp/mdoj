@@ -25,8 +25,9 @@ pub struct Server {
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
+    pub imgur: imgur::ImgurController,
     config: GlobalConfig,
-    otel_guard: OtelGuard,
+    _otel_guard: OtelGuard,
 }
 
 impl Server {
@@ -53,9 +54,9 @@ impl Server {
             dup: duplicate::DupController::new(&span),
             crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
+            imgur: imgur::ImgurController::new(&config.imgur),
             config,
-            // identity,
-            otel_guard,
+            _otel_guard: otel_guard,
         })
     }
     pub async fn start(self: Arc<Self>) {

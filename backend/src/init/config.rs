@@ -19,6 +19,8 @@ pub struct GlobalConfig {
     pub grpc: GrpcOption,
     #[serde(default)]
     pub opentelemetry: Option<bool>,
+    #[serde(default)]
+    pub imgur: Imgur,
 }
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
@@ -32,6 +34,28 @@ fn default_judger() -> Vec<Judger> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Database {
+    pub path: String,
+    pub salt: String,
+}
+
+impl Default for Database {
+    fn default() -> Self {
+        Self {
+            path: "database/backend.sqlite".to_owned(),
+            salt: "be sure to change it".to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Judger {
+    pub name: String,
+    pub secret: Option<String>,
+    #[serde(rename = "type")]
+    pub judger_type: JudgerType,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum JudgerType {
     Docker,
@@ -42,13 +66,6 @@ impl Default for JudgerType {
     fn default() -> Self {
         Self::Static
     }
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Judger {
-    pub name: String,
-    pub secret: Option<String>,
-    #[serde(rename = "type")]
-    pub judger_type: JudgerType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,16 +86,16 @@ impl Default for GrpcOption {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Database {
-    pub path: String,
-    pub salt: String,
+pub struct Imgur {
+    pub client_id: String,
+    pub client_secret: String,
 }
 
-impl Default for Database {
+impl Default for Imgur {
     fn default() -> Self {
         Self {
-            path: "database/backend.sqlite".to_owned(),
-            salt: "be sure to change it".to_owned(),
+            client_id: "fffffffffffffff".to_owned(),
+            client_secret: "ffffffffffffffffffffffffffffffffffffffff".to_owned(),
         }
     }
 }

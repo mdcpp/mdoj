@@ -645,3 +645,16 @@ message PlaygroundResult{
 service PlaygroundSet{
   rpc Run(PlaygroundRequest) returns (stream PlaygroundResult);
 }
+
+message UploadRequest{
+  required bytes data=1;
+  required string request_id=2;
+}
+
+message UploadResponse{
+  required string url=1;
+}
+
+service ImgurSet{
+  rpc Upload(UploadRequest) returns (UploadResponse);
+}

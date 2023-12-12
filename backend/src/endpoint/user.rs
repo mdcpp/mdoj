@@ -164,7 +164,7 @@ impl UserSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check(user_id, &uuid) {
+        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
 
@@ -201,7 +201,7 @@ impl UserSet for Arc<Server> {
         self.metrics.user.add(1, &[]);
 
         let id = model.id.unwrap();
-        self.dup.store(user_id, uuid, id);
+        self.dup.store_i32(user_id, uuid, id);
 
         Ok(Response::new(id.into()))
     }
@@ -213,7 +213,7 @@ impl UserSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check(user_id, &uuid).is_some() {
+        if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
 
@@ -244,7 +244,7 @@ impl UserSet for Arc<Server> {
 
         let model = model.update(db).await.map_err(Into::<Error>::into)?;
 
-        self.dup.store(user_id, uuid, model.id);
+        self.dup.store_i32(user_id, uuid, model.id);
 
         Ok(Response::new(()))
     }
