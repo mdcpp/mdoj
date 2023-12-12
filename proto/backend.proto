@@ -32,8 +32,13 @@ enum SortBy {
   SubmitCount = 2;
   Score = 3;
   Difficulty = 4;
-  Rank = 5;
-  UserCount = 6;
+  AcceptCount = 7;
+  CreateDate = 8;
+  Begin =9;
+  End=10;
+  Committed=11;
+  Time=12;
+  Memory=13;
 }
 
 // paginator is used to paginate list

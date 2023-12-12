@@ -42,9 +42,7 @@ where
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
 
-    fn sort(select: Select<Self>, _: SortBy, _: bool) -> Select<Self> {
-        select
-    }
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self>;
     fn get_id(model: &Self::Model) -> i32;
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
@@ -431,7 +429,8 @@ impl PagerTrait for problem::Entity {
             false => Order::Asc,
         };
         match sort {
-            SortBy::UploadDate => select.order_by(problem::Column::CreateAt, desc),
+            SortBy::UploadDate => select.order_by(problem::Column::UpdateAt, desc),
+            SortBy::CreateDate => select.order_by(problem::Column::CreateAt, desc),
             SortBy::AcRate => select.order_by(problem::Column::AcRate, desc),
             SortBy::SubmitCount => select.order_by(problem::Column::SubmitCount, desc),
             SortBy::Difficulty => select.order_by(problem::Column::Difficulty, asc),
@@ -470,6 +469,16 @@ impl PagerTrait for test::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        match sort {
+            SortBy::Score => select.order_by(test::Column::Score, desc),
+            _ => select,
+        }
+    }
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
@@ -494,19 +503,23 @@ impl PagerTrait for contest::Entity {
     type ParentMarker = NoParent;
 
     fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        // TODO: difficulty should be an option
         let desc = match reverse {
             true => Order::Asc,
             false => Order::Desc,
         };
         match sort {
-            SortBy::UploadDate => select.order_by(contest::Column::CreateAt, desc),
+            SortBy::CreateDate => select.order_by(contest::Column::CreateAt, desc),
+            SortBy::UploadDate => select.order_by(contest::Column::UpdateAt, desc),
+            SortBy::Begin => select.order_by(contest::Column::Begin, desc),
+            SortBy::End => select.order_by(contest::Column::End, desc),
             _ => select,
         }
     }
+
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
+
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         contest::Entity::read_filter(select, auth)
     }
@@ -528,6 +541,18 @@ impl PagerTrait for user::Entity {
     ];
 
     type ParentMarker = NoParent;
+
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        match sort {
+            SortBy::CreateDate => select.order_by(user::Column::CreateAt, desc),
+            SortBy::Score => select.order_by(user::Column::Score, desc),
+            _ => select,
+        }
+    }
 
     fn get_id(model: &Self::Model) -> i32 {
         model.id
@@ -556,6 +581,21 @@ impl PagerTrait for submit::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
+    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        match sort {
+            SortBy::Committed => select.order_by(submit::Column::Committed, desc),
+            SortBy::Score => select.order_by(submit::Column::Score, desc),
+            SortBy::Time => select.order_by(submit::Column::Time, desc),
+            SortBy::Memory => select.order_by(submit::Column::Memory, desc),
+            SortBy::UploadDate|SortBy::CreateDate => select.order_by(submit::Column::UploadAt, desc),
+            _ => select,
+        }
+    }
+
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
@@ -577,6 +617,9 @@ impl PagerTrait for education::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
+    fn sort(select: Select<Self>, _: SortBy, _: bool) -> Select<Self> {
+        select
+    }
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
