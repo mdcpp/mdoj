@@ -5,9 +5,6 @@
 #include <spawn.h>
 #include <errno.h>
 #include <sys/wait.h>
-// #define CC "/usr/lib64/ccache/g++"
-// #define SRC "src.cpp"
-// #define OUT "src.out"
 #define CC "/usr/local/bin/g++"
 #define SRC "/src/src.cpp"
 #define OUT "/src/src.out"

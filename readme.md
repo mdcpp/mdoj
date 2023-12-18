@@ -63,10 +63,10 @@ If you prefer to use default config, you can skip step 2 and 3.
 
 1. install following package:
 
-- From system package manager: `protobuf-devel`, `autoconf` ,`gettext`, `libtool`, `gcc`, `libcap-devel`, `systemd-devel`, `yajl-devel`, `libgcrypt-devel` ,`glibc-static`, `libseccomp-devel`, `python36`, `git`
+- From system package manager: `protobuf-devel`, `gcc`
 - From rustup: `rustup`, `cargo`, `just`
 - From their website: `docker`, `docker-compose`
 
 Then start reading documents in subfolder of your interest.
 
-> you may need to run ``just prepare`` again in each subfolder, follow the doucment in each subfolder.
+> you may need to run ``just prepare`` in ``judger``, ``backend`` subfolder.
