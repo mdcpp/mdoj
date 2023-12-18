@@ -10,9 +10,6 @@ opt-level = "s"
 panic = 'abort'
 tlo = true
 
-[workspace]
-members = ["entity", "migration"]
-
 [dependencies]
 tikv-jemallocator = "0.5"
 log = "0.4.18"
