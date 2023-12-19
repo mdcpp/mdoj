@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 use crate::{
-    grpc::proto::prelude::JudgeMatchRule, init::config::CONFIG, langs::prelude::ArtifactFactory,
+    grpc::prelude::JudgeMatchRule, init::config::CONFIG, langs::prelude::ArtifactFactory,
 };
 
 async fn rlua(factory: &mut ArtifactFactory) {

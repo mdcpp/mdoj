@@ -5,7 +5,7 @@
 // use tonic::transport::{self, Endpoint, Uri};
 // use tower::service_fn;
 
-// use crate::grpc::proto::prelude::{
+// use crate::grpc::prelude::{
 //     judge_response::Task, judger_client::JudgerClient, judger_server::JudgerServer, *,
 // };
 // use crate::grpc::server::Server;

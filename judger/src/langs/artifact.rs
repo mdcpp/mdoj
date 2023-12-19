@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, path::Path};
 use tokio::fs;
 use uuid::Uuid;
 
-use crate::grpc::proto::prelude::*;
+use crate::grpc::prelude::*;
 use crate::init::config::CONFIG;
 use crate::sandbox::prelude::*;
 
@@ -107,12 +107,24 @@ impl Default for ArtifactFactory {
     }
 }
 
+/// Log generate from language plugin
 pub struct CompileLog {
     pub level: usize,
     pub message: String,
 }
 
 impl CompileLog {
+    /// parse log from raw string, slient error(generate blank message) when malformatted
+    ///
+    /// according to plugin specification, log should be in following format
+    /// 
+    /// ```text
+    /// 0:trace message
+    /// 1:debug message
+    /// 2:info message
+    /// 3:warn message
+    /// 4:error message
+    /// ````
     pub fn from_raw(raw: &[u8]) -> Self {
         let raw: Vec<&[u8]> = raw.splitn(2, |x| *x == b':').collect();
         Self {
@@ -120,6 +132,7 @@ impl CompileLog {
             message: String::from_utf8_lossy(raw[1]).to_string(),
         }
     }
+    /// log it to the console
     pub fn log(&self) {
         match self.level {
             0 => log::trace!("{}", self.message),
@@ -131,13 +144,18 @@ impl CompileLog {
         }
     }
 }
-// Wrapper for container which contain compiled program in its volume
+
+/// Wrapper for container which contain compiled program in its volume
+/// 
+/// TODO: CompiledInner<'a> was actually derive from ExitProc, consider remove CompiledInner<'a>
+/// and replace it with ExitProc
 pub enum CompiledArtifact<'a> {
     Fail(ExitProc),
     Success(CompiledInner<'a>),
 }
 
 impl<'a> CompiledArtifact<'a> {
+    /// get JudgerCode if the task is surely at state neither AC or WA
     pub fn get_expection(&self) -> Option<JudgerCode> {
         match self {
             CompiledArtifact::Fail(_) => Some(JudgerCode::Ce),
@@ -289,6 +307,7 @@ impl TaskResult {
     }
 }
 impl TaskResult {
+    /// get JudgerCode if the task is surely at state neither AC or WA
     pub fn get_expection(&mut self) -> Option<JudgerCode> {
         match self {
             TaskResult::Fail(x) => Some(*x),
