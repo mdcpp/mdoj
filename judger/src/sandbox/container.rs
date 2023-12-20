@@ -12,6 +12,9 @@ use crate::{
 
 use super::{daemon::ContainerDaemon, process::RunningProc, Error, Limit};
 
+/// cgroup counter
+///
+/// The first container would be mount at /sys/fs/cgroup/mdoj/0
 static CG_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 // Container abstraction, call nsjail to execute process, limiter to limit resources
@@ -31,19 +34,7 @@ impl<'a> Drop for Container<'a> {
 }
 
 impl<'a> Container<'a> {
-    pub async fn new(
-        id: String,
-        daemon: &'a ContainerDaemon,
-        root: PathBuf,
-    ) -> Result<Container<'a>, Error> {
-        let container_root = daemon.tmp.join(id.clone());
-
-        fs::create_dir(container_root.clone()).await?;
-        fs::create_dir(container_root.clone().join("src")).await?;
-
-        Ok(Container { id, daemon, root })
-    }
-    pub async fn execute(&self, args: Vec<&str>, limit: Limit) -> Result<RunningProc, Error> {
+    pub async fn execute(&self, args: &[&str], limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
         log::trace!("Preparing container with id :{} for new process", self.id);
@@ -71,7 +62,7 @@ impl<'a> Container<'a> {
             .done()
             .common()
             .cmds(args)
-            .build()?; 
+            .build()?;
 
         let limiter = Limiter::new(&cg_name, limit)?;
 

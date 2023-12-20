@@ -71,10 +71,11 @@ impl ArtifactFactory {
 
         let mut process = container
             .execute(
-                spec.compile_args
+                &spec
+                    .compile_args
                     .iter()
                     .map(|x| x.as_str())
-                    .collect::<Vec<&str>>(),
+                    .collect::<Vec<_>>(),
                 spec.compile_limit.clone().apply_platform(),
             )
             .await?;
@@ -83,17 +84,21 @@ impl ArtifactFactory {
 
         let process = process.wait().await?;
 
-        if !process.succeed() {
-            #[cfg(debug_assertions)]
-            log::warn!("{}", process.status);
-            return Ok(CompiledArtifact::Fail(process));
-        }
+        // if !process.succeed() {
+        //     #[cfg(debug_assertions)]
+        //     log::warn!("{}", process.status);
+        //     return Ok(CompiledArtifact{
+        //         process,
+        //         spec,
+        //         container:None
+        //     });
+        // }
 
-        Ok(CompiledArtifact::Success(CompiledInner {
-            container,
+        Ok(CompiledArtifact {
+            process,
             spec,
-            stdout: process.stdout,
-        }))
+            container,
+        })
     }
 }
 
@@ -117,7 +122,7 @@ impl CompileLog {
     /// parse log from raw string, slient error(generate blank message) when malformatted
     ///
     /// according to plugin specification, log should be in following format
-    /// 
+    ///
     /// ```text
     /// 0:trace message
     /// 1:debug message
@@ -146,54 +151,35 @@ impl CompileLog {
 }
 
 /// Wrapper for container which contain compiled program in its volume
-/// 
+///
 /// TODO: CompiledInner<'a> was actually derive from ExitProc, consider remove CompiledInner<'a>
 /// and replace it with ExitProc
-pub enum CompiledArtifact<'a> {
-    Fail(ExitProc),
-    Success(CompiledInner<'a>),
+pub struct CompiledArtifact<'a> {
+    process: ExitProc,
+    container: Container<'a>,
+    spec: &'a LangSpec,
 }
 
 impl<'a> CompiledArtifact<'a> {
     /// get JudgerCode if the task is surely at state neither AC or WA
     pub fn get_expection(&self) -> Option<JudgerCode> {
-        match self {
-            CompiledArtifact::Fail(_) => Some(JudgerCode::Ce),
-            CompiledArtifact::Success(_) => None,
+        if !self.process.succeed() {
+            Some(JudgerCode::Ce)
+        } else {
+            None
         }
     }
     pub fn log(&'a self) -> Box<dyn Iterator<Item = CompileLog> + 'a + Send> {
-        match self {
-            CompiledArtifact::Fail(proc) => Box::new(
-                proc.stdout
-                    .split(|x| *x == b'\n')
-                    .filter_map(|x| match x.is_empty() {
-                        true => None,
-                        false => Some(CompileLog::from_raw(x)),
-                    }),
-            ),
-            CompiledArtifact::Success(inner) => Box::new(
-                inner
-                    .stdout
-                    .split(|x| *x == b'\n')
-                    .filter_map(|x| match x.is_empty() {
-                        true => None,
-                        false => Some(CompileLog::from_raw(x)),
-                    }),
-            ),
-        }
+        Box::new(
+            self.process
+                .stdout
+                .split(|x| *x == b'\n')
+                .filter_map(|x| match x.is_empty() {
+                    true => None,
+                    false => Some(CompileLog::from_raw(x)),
+                }),
+        )
     }
-    fn inner(&mut self) -> Option<&mut CompiledInner<'a>> {
-        match self {
-            CompiledArtifact::Fail(_) => None,
-            CompiledArtifact::Success(x) => Some(x),
-        }
-    }
-}
-pub struct CompiledInner<'a> {
-    container: Container<'a>,
-    spec: &'a LangSpec,
-    stdout: Vec<u8>,
 }
 
 impl<'a> CompiledArtifact<'a> {
@@ -204,21 +190,21 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<TaskResult, Error> {
-        let inner = self.inner().unwrap();
-        let mut limit = inner.spec.judge_limit.clone().apply_platform();
+        debug_assert!(self.process.succeed());
+        let spec = self.spec;
+        let mut limit = spec.judge_limit.clone().apply_platform();
 
         limit.cpu_us *= time;
         limit.user_mem *= memory;
 
-        let mut process = inner
+        let mut process = self
             .container
             .execute(
-                inner
-                    .spec
+                &spec
                     .judge_args
                     .iter()
                     .map(|x| x.as_str())
-                    .collect::<Vec<&str>>(),
+                    .collect::<Vec<_>>(),
                 limit,
             )
             .await?;
@@ -227,6 +213,7 @@ impl<'a> CompiledArtifact<'a> {
 
         let process = process.wait().await?;
 
+        // TODO: We should handle SysError here
         if !process.succeed() {
             // log::debug!("process status: {:?}", process.status);
             return Ok(TaskResult::Fail(JudgerCode::Re));
@@ -240,21 +227,21 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<ExecResult, Error> {
-        let inner = self.inner().unwrap();
-        let mut limit = inner.spec.judge_limit.clone().apply_platform();
+        debug_assert!(self.process.succeed());
+        let spec = self.spec;
+        let mut limit = spec.judge_limit.clone().apply_platform();
 
         limit.cpu_us *= time;
         limit.user_mem *= memory;
 
-        let mut process = inner
+        let mut process = self
             .container
             .execute(
-                inner
-                    .spec
+                &spec
                     .judge_args
                     .iter()
                     .map(|x| x.as_str())
-                    .collect::<Vec<&str>>(),
+                    .collect::<Vec<_>>(),
                 limit,
             )
             .await?;
@@ -263,27 +250,29 @@ impl<'a> CompiledArtifact<'a> {
 
         let process = process.wait().await?;
 
-        Ok(ExecResult { process })
+        Ok(ExecResult(process))
     }
 }
 
-pub struct ExecResult {
-    process: ExitProc,
-}
+/// Wrapper for result of process(ended exec process)
+/// 
+/// provide information about process's exitcode, stdout, stderr
+pub struct ExecResult(ExitProc);
 
 impl ExecResult {
     pub fn time(&self) -> &CpuStatistics {
-        &self.process.cpu
+        &self.0.cpu
     }
     pub fn mem(&self) -> &MemStatistics {
-        &self.process.mem
+        &self.0.mem
     }
     pub fn stdout(&self) -> &[u8] {
-        &self.process.stdout
+        &self.0.stdout
     }
 }
-// Wrapper for result of process(ended judge process)
-// provide information about process's exitcode, resource usage, stdout, stderr
+/// Wrapper for result of process(ended judge process)
+///
+/// provide abliity to report resource usage, exit status, AC or WA
 pub enum TaskResult {
     Fail(JudgerCode),
     Success(ExitProc),
@@ -296,17 +285,12 @@ impl TaskResult {
             TaskResult::Success(x) => Some(x),
         }
     }
-}
-
-impl TaskResult {
     pub fn process(&self) -> Option<&ExitProc> {
         match self {
             TaskResult::Fail(_) => None,
             TaskResult::Success(x) => Some(x),
         }
     }
-}
-impl TaskResult {
     /// get JudgerCode if the task is surely at state neither AC or WA
     pub fn get_expection(&mut self) -> Option<JudgerCode> {
         match self {
@@ -328,6 +312,7 @@ impl TaskResult {
             },
         }
     }
+    // determine whether the output(stdout) match
     pub fn assert(&mut self, input: &[u8], mode: JudgeMatchRule) -> bool {
         let newline = b'\n';
         let space = b' ';
@@ -353,9 +338,11 @@ impl TaskResult {
             }
         }
     }
-    pub fn time(&self) -> &CpuStatistics {
+    /// get cpu statistics
+    pub fn cpu(&self) -> &CpuStatistics {
         &self.process().unwrap().cpu
     }
+    /// get memory statistics
     pub fn mem(&self) -> &MemStatistics {
         &self.process().unwrap().mem
     }

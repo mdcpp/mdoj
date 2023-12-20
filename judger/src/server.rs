@@ -183,7 +183,7 @@ async fn judger_stream(
             false => JudgerCode::Wa,
         };
 
-        let time = result.time().total_us;
+        let time = result.cpu().total_us;
         let memory = result.mem().peak;
         log::trace!(
             "yield result: {}, take memory {}B, total_us: {}ns",
@@ -206,8 +206,8 @@ async fn judger_stream(
     Ok(())
 }
 
-/// start compile and execute the program 
-/// 
+/// start compile and execute the program
+///
 /// In future, we should stream the output to eliminate OLE
 async fn exec_stream(
     factory: &ArtifactFactory,
@@ -224,7 +224,7 @@ async fn exec_stream(
         force_send(tx, log.into()).await?;
     }
 
-    if let Some(_) = compile.get_expection() {
+    if compile.get_expection().is_some() {
         force_send(
             tx,
             CompileLog {

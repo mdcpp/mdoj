@@ -43,10 +43,12 @@ pub struct RunningProc {
 }
 
 impl RunningProc {
+    /// attempt to write entire buffer into process inside container
     pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), Error> {
         let mut child = self.nsjail.process.as_ref().unwrap().lock().await;
         let stdin = child.stdin.as_mut().ok_or(Error::CapturedPipe)?;
 
+        // if the process fclose(stdin), we do slient error
         if let Err(err) = stdin.write_all(buf).await {
             #[cfg(debug_assertions)]
             log::trace!("cannot write process's stdin:{}", err);
@@ -55,13 +57,17 @@ impl RunningProc {
 
         Ok(())
     }
+    /// wait until the container exit(with any reason)
+    /// 
+    /// reason of exit: process exit, kill by signal, kill by limiter, process stall
     pub async fn wait(mut self) -> Result<ExitProc, Error> {
         let config = CONFIG.get().unwrap();
 
         let mut status: ExitStatus = select! {
             reason = self.limiter.wait_exhausted()=>reason.unwrap().into(),
             code = self.nsjail.wait()=> code.into(),
-            _ = time::sleep(time::Duration::from_secs(3600))=>{
+            _ = time::sleep(time::Duration::from_secs(300))=>{
+                // it refuse to continue(keep parking itself, dead ticket lock..ext)
                 return Err(Error::Stall);
             }
         };
@@ -101,6 +107,7 @@ impl RunningProc {
     }
 }
 
+/// a exited process
 pub struct ExitProc {
     pub status: ExitStatus,
     pub stdout: Vec<u8>,
@@ -110,14 +117,17 @@ pub struct ExitProc {
 }
 
 impl ExitProc {
+    /// determine whether a process exit successfully
     pub fn succeed(&self) -> bool {
         match self.status {
+            // people tend to forget writing `return 0`, so we treat 255 as vaild
             ExitStatus::Code(x) => x == 0 || x == 255,
             _ => false,
         }
     }
 }
 
+/// exit reason
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ExitStatus {
     SigExit(i32), // RuntimeError

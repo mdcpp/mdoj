@@ -4,10 +4,10 @@ use grpc::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;
 
 pub mod grpc;
-pub mod server;
 pub mod init;
 pub mod langs;
 pub mod sandbox;
+pub mod server;
 pub mod test;
 
 #[tokio::main]

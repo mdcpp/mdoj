@@ -3,6 +3,8 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use tokio::fs;
+
 use crate::init::config::CONFIG;
 
 use super::{container::Container, utils::semaphore::MemorySemaphore, Error};
@@ -16,6 +18,7 @@ pub struct ContainerDaemon {
 }
 
 impl ContainerDaemon {
+    /// create container daemon
     pub fn new(tmp: impl AsRef<Path>) -> Self {
         let config = CONFIG.get().unwrap();
         Self {
@@ -24,19 +27,28 @@ impl ContainerDaemon {
             tmp: tmp.as_ref().to_path_buf(),
         }
     }
-    #[cfg(test)]
+    /// create container daemon with id, useful in parallel test
     pub fn new_with_id(tmp: impl AsRef<Path>, id: u64) -> Self {
-        let config = CONFIG.get().unwrap();
-        Self {
-            id_counter: AtomicU64::new(id),
-            memory_counter: MemorySemaphore::new(config.platform.available_memory),
-            tmp: tmp.as_ref().to_path_buf(),
-        }
+        let mut self_ = Self::new(tmp);
+        *self_.id_counter.get_mut() = id;
+        self_
     }
+    /// create container controlled by daemon
+    ///
+    /// delete daemon require all container to end task first
     pub async fn create(&self, root: impl AsRef<Path>) -> Result<Container<'_>, Error> {
         let id = self.id_counter.fetch_add(1, Ordering::Acquire).to_string();
         log::trace!("Creating new container: {}", id);
 
-        Container::new(id, self, root.as_ref().to_path_buf()).await
+        let container_root = self.tmp.join(id.clone());
+
+        fs::create_dir(container_root.clone()).await?;
+        fs::create_dir(container_root.clone().join("src")).await?;
+
+        Ok(Container {
+            id,
+            daemon: self,
+            root: root.as_ref().to_path_buf(),
+        })
     }
 }
