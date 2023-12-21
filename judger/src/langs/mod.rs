@@ -9,6 +9,7 @@ pub mod prelude {
     pub use super::artifact::*;
 }
 
+// Error incur from server setup
 #[derive(Error, Debug)]
 pub enum InitError {
     #[error("`{0}`")]

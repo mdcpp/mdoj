@@ -17,12 +17,18 @@ use crate::init::config::CONFIG;
 pub mod cpu;
 pub mod mem;
 
+/// reason for a process terminate by limiter
 pub enum LimitReason {
     Cpu,
     Mem,
     SysMem,
 }
 
+/// object for limit resource usage and report it
+/// 
+/// resource monitoring start immediately after the initialized
+// be aware that cgroup-rs reset all number of the cgroup to zero,
+// so limiter should be initialize after `cgroup_rs::Cgroup`
 pub struct Limiter {
     task: JoinHandle<()>,
     state: Arc<AtomicPtr<LimiterState>>,
@@ -31,6 +37,9 @@ pub struct Limiter {
     cg: Cgroup,
 }
 
+/// state for CpuStatistics, MemStatistics
+// why not just make cpu and mem a object and make those own its state?
+// because monitoring take time, and we expect cpu and mem not to spawn its own tokio thread 
 #[derive(Default)]
 struct LimiterState {
     cpu: CpuStatistics,
@@ -47,6 +56,7 @@ impl Drop for Limiter {
 }
 
 impl Limiter {
+    /// create limiter with limit
     pub fn new(cg_name: &str, limit: Limit) -> Result<Self, Error> {
         log::trace!("Creating new limiter for {}", cg_name);
         let (tx, rx) = oneshot::channel();
@@ -128,10 +138,14 @@ impl Limiter {
             cg: cg2,
         })
     }
+    /// check if oom
+    /// 
+    /// It expose its internal state(use with care), callee should have explaination for usage
     pub fn check_oom(&mut self) -> bool {
         MemStatistics::from_cgroup(&self.cg).oom
     }
-    pub async fn status(self) -> (CpuStatistics, MemStatistics) {
+    /// yield statistics, consume self
+    pub async fn statistics(self) -> (CpuStatistics, MemStatistics) {
         let config = CONFIG.get().unwrap();
 
         if !config.kernel.tickless {
@@ -146,6 +160,8 @@ impl Limiter {
 
         (stat.cpu.clone(), stat.mem.clone())
     }
+    /// wait for resouce exhausted
+    // it's reverse control flow, subject to change
     pub fn wait_exhausted(&mut self) -> Receiver<LimitReason> {
         self.limit_oneshot
             .take()

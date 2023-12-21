@@ -72,8 +72,8 @@ impl RunningProc {
             }
         };
         // because in the senario of out of memory, process will be either exit with code
-        // 11(unable to allocate memory) or kill by signal(if oom killer is enable)
-        // , so we need to check if it is oom
+        // 11(unable to allocate memory) or kill by signal, whichever comes first,
+        // so we need to check if it is oom
         if self.limiter.check_oom() {
             status = ExitStatus::MemExhausted;
         }
@@ -93,7 +93,7 @@ impl RunningProc {
             return Err(Error::BufferFull);
         }
 
-        let (cpu, mem) = self.limiter.status().await;
+        let (cpu, mem) = self.limiter.statistics().await;
         let output_limit = config.platform.output_limit as u64;
 
         let _memory_holder = self._memory_holder.downgrade(output_limit);

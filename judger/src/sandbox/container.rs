@@ -34,6 +34,7 @@ impl<'a> Drop for Container<'a> {
 }
 
 impl<'a> Container<'a> {
+    /// execute command inisde container
     pub async fn execute(&self, args: &[&str], limit: Limit) -> Result<RunningProc, Error> {
         let config = CONFIG.get().unwrap();
 
