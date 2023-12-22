@@ -52,6 +52,7 @@ impl Interceptor for BasicAuthInterceptor {
 pub struct ConnectionDetail {
     pub uri: String,
     pub secret: Option<String>,
+    pub reuse: bool,
 }
 
 impl ConnectionDetail {
@@ -72,6 +73,7 @@ impl ConnectionDetail {
 pub struct ConnGuard {
     upstream: Arc<Upstream>,
     conn: Option<JudgerIntercept>,
+    reuse: bool,
 }
 
 impl ConnGuard {
@@ -99,7 +101,9 @@ impl std::ops::Deref for ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         self.upstream.healthy.fetch_add(-2, Ordering::Acquire);
-        self.upstream.clients.push(self.conn.take().unwrap());
+        if self.reuse{
+            self.upstream.clients.push(self.conn.take().unwrap());
+        }
     }
 }
 
@@ -170,7 +174,13 @@ impl Router {
                     ));
                 }
                 config::JudgerType::Static => {
-                    tokio::spawn(discover::<direct::StaticRouter>(
+                    tokio::spawn(discover::<direct::StaticRouter<true>>(
+                        config,
+                        Arc::downgrade(&self_),
+                    ));
+                }
+                config::JudgerType::LoadBalanced => {
+                    tokio::spawn(discover::<direct::StaticRouter<false>>(
                         config,
                         Arc::downgrade(&self_),
                     ));
@@ -250,6 +260,7 @@ impl Upstream {
         };
 
         Ok(ConnGuard {
+            reuse: self.connection.reuse,
             upstream: self,
             conn: Some(conn),
         })

@@ -59,7 +59,7 @@ impl CryptoController {
 
         let signing_key = SigningKey::random(&mut OsRng);
 
-        let verifying_key = signing_key.verifying_key().clone();
+        let verifying_key = *signing_key.verifying_key();
 
         Self {
             salt,

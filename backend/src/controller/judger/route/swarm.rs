@@ -36,6 +36,7 @@ impl Routable for DockerRouter {
                 return Ok(RouteStatus::NewConnection(ConnectionDetail {
                     uri,
                     secret: self.secret.clone(),
+                    reuse:true,
                 }));
             }
         }
