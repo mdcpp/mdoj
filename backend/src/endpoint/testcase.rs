@@ -97,7 +97,7 @@ impl TestcaseSet for Arc<Server> {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
                     old.session,
-                    &self,
+                    self,
                 )?
             }
         };
@@ -109,7 +109,7 @@ impl TestcaseSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw(&self);
+        let next_session = pager.into_raw(self);
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }
@@ -298,7 +298,7 @@ impl TestcaseSet for Arc<Server> {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
                     old.session,
-                    &self,
+                    self,
                 )?
             }
         };
@@ -310,7 +310,7 @@ impl TestcaseSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw(&self);
+        let next_session = pager.into_raw(self);
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }

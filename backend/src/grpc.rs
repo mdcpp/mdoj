@@ -36,7 +36,7 @@ impl Hash for judger::LangInfo {
 
 impl PartialOrd for judger::LangInfo {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.lang_uid.partial_cmp(&other.lang_uid)
+        Some(self.lang_uid.cmp(&other.lang_uid))
     }
 }
 

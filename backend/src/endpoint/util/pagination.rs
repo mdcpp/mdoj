@@ -136,7 +136,7 @@ where
                 SearchDep::Parent(x) => RawSearchDep::Parent(x),
             },
         };
-        let byte = server.crypto.encode(&raw);
+        let byte = server.crypto.encode(raw);
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
@@ -273,7 +273,7 @@ where
                 SearchDep::Parent(x) => RawSearchDep::Parent(x),
             },
         };
-        let byte = server.crypto.encode(&raw);
+        let byte = server.crypto.encode(raw);
 
         base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD_NO_PAD,
