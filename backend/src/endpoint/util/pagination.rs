@@ -591,7 +591,9 @@ impl PagerTrait for submit::Entity {
             SortBy::Score => select.order_by(submit::Column::Score, desc),
             SortBy::Time => select.order_by(submit::Column::Time, desc),
             SortBy::Memory => select.order_by(submit::Column::Memory, desc),
-            SortBy::UploadDate|SortBy::CreateDate => select.order_by(submit::Column::UploadAt, desc),
+            SortBy::UploadDate | SortBy::CreateDate => {
+                select.order_by(submit::Column::UploadAt, desc)
+            }
             _ => select,
         }
     }

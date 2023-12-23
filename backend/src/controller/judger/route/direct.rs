@@ -2,19 +2,19 @@ use super::{ConnectionDetail, Error, Routable, RouteStatus};
 use crate::init::config::Judger;
 use tonic::transport::Uri;
 
-pub struct StaticRouter<const REUSE:bool> {
+pub struct StaticRouter<const REUSE: bool> {
     uri: Option<String>,
     secret: Option<String>,
 }
 
 #[tonic::async_trait]
-impl<const REUSE:bool> Routable for StaticRouter<REUSE> {
+impl<const REUSE: bool> Routable for StaticRouter<REUSE> {
     async fn route(&mut self) -> Result<RouteStatus, Error> {
         Ok(match self.uri.take() {
             Some(x) => RouteStatus::NewConnection(ConnectionDetail {
                 uri: x,
                 secret: self.secret.clone(),
-                reuse:  REUSE,
+                reuse: REUSE,
             }),
             None => RouteStatus::Never,
         })

@@ -101,7 +101,7 @@ impl std::ops::Deref for ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         self.upstream.healthy.fetch_add(-2, Ordering::Acquire);
-        if self.reuse{
+        if self.reuse {
             self.upstream.clients.push(self.conn.take().unwrap());
         }
     }

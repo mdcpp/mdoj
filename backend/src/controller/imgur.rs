@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use reqwest::Client;
 use serde::Serialize;
+use tracing::instrument;
 
 use crate::init::config;
 
@@ -44,6 +45,7 @@ impl ImgurController {
             config: config.clone(),
         }
     }
+    #[instrument(skip_all, level = "debug")]
     pub async fn upload(&self, image: Vec<u8>) -> Result<String, Error> {
         let res = self
             .client
