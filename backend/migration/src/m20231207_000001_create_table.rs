@@ -1,4 +1,5 @@
 use paste::paste;
+use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 // static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
@@ -569,6 +570,21 @@ impl MigrationTrait for Migration {
         index!(manager, User, Score);
         index!(manager, User, Username);
         index!(manager, Token, Rand);
+
+        manager
+            .get_connection()
+            .execute(
+                Statement::from_string(DatabaseBackend::Sqlite, "PRAGMA journal_mode = WAL")
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .get_connection()
+            .execute(
+                Statement::from_string(DatabaseBackend::Sqlite, "PRAGMA synchronous = NORMAL")
+                    .to_owned(),
+            )
+            .await?;
 
         Ok(())
     }
