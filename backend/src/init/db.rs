@@ -1,5 +1,6 @@
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, Database, DatabaseConnection, EntityTrait, PaginatorTrait,
+    ActiveModelTrait, ActiveValue, ConnectionTrait, Database, DatabaseBackend, DatabaseConnection,
+    EntityTrait, PaginatorTrait, Statement,
 };
 
 use tokio::sync::OnceCell;
@@ -16,6 +17,14 @@ pub async fn init(config: &config::Database, crypto: &CryptoController) {
     let db = Database::connect(&uri)
         .await
         .expect("fail connecting to database");
+
+    db.execute(Statement::from_string(
+        DatabaseBackend::Sqlite,
+        "PRAGMA cache_size = -65536",// 64MiB cache
+    ))
+    .await
+    .unwrap();
+
     init_user(&db, crypto).await;
 
     DB.set(db).ok();
