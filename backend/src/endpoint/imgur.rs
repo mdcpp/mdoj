@@ -29,7 +29,7 @@ impl ImgurSet for Arc<Server> {
         self.dup.store_str(user_id, uuid, url.to_owned());
 
         tracing::debug!(request_id = uuid.to_string(), uri = url, "image_uploaded");
-        
+
         self.metrics.image.observe(1, &[]);
 
         Ok(Response::new(UploadResponse { url }))

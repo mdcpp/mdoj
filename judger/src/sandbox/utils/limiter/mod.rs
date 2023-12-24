@@ -25,7 +25,7 @@ pub enum LimitReason {
 }
 
 /// object for limit resource usage and report it
-/// 
+///
 /// resource monitoring start immediately after the initialized
 // be aware that cgroup-rs reset all number of the cgroup to zero,
 // so limiter should be initialize after `cgroup_rs::Cgroup`
@@ -39,7 +39,7 @@ pub struct Limiter {
 
 /// state for CpuStatistics, MemStatistics
 // why not just make cpu and mem a object and make those own its state?
-// because monitoring take time, and we expect cpu and mem not to spawn its own tokio thread 
+// because monitoring take time, and we expect cpu and mem not to spawn its own tokio thread
 #[derive(Default)]
 struct LimiterState {
     cpu: CpuStatistics,
@@ -139,7 +139,7 @@ impl Limiter {
         })
     }
     /// check if oom
-    /// 
+    ///
     /// It expose its internal state(use with care), callee should have explaination for usage
     pub fn check_oom(&mut self) -> bool {
         MemStatistics::from_cgroup(&self.cg).oom

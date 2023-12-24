@@ -58,7 +58,7 @@ impl RunningProc {
         Ok(())
     }
     /// wait until the container exit(with any reason)
-    /// 
+    ///
     /// reason of exit: process exit, kill by signal, kill by limiter, process stall
     pub async fn wait(mut self) -> Result<ExitProc, Error> {
         let config = CONFIG.get().unwrap();

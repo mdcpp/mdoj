@@ -29,5 +29,6 @@ pub fn init() {
             )
         })
         .filter(Some("judger"), level)
-        .try_init().ok();
+        .try_init()
+        .ok();
 }

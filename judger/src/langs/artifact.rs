@@ -255,7 +255,7 @@ impl<'a> CompiledArtifact<'a> {
 }
 
 /// Wrapper for result of process(ended exec process)
-/// 
+///
 /// provide information about process's exitcode, stdout, stderr
 pub struct ExecResult(ExitProc);
 

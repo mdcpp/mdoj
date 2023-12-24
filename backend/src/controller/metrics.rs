@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crossbeam_queue::SegQueue;
 use opentelemetry::{
     global,
-    metrics::{MeterProvider, ObservableGauge, UpDownCounter, ObservableCounter},
+    metrics::{MeterProvider, ObservableCounter, ObservableGauge, UpDownCounter},
 };
 use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
 
