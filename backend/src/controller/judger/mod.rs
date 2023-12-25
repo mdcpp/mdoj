@@ -66,6 +66,8 @@ pub enum Error {
     JudgerError(Status),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
+    #[error("language not found")]
+    LangNotFound,
     #[error("`{0}`")]
     Database(#[from] sea_orm::error::DbErr),
     #[error("`{0}`")]
@@ -92,6 +94,7 @@ impl From<Error> for Status {
         match value {
             Error::JudgerResourceExhausted => Status::resource_exhausted("no available judger"),
             Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
+            Error::LangNotFound=>Status::not_found("languaue not found"),
             Error::JudgerError(x) => report_internal!(info, "`{}`", x),
             Error::Database(x) => report_internal!(warn, "{}", x),
             Error::TransportLayer(x) => report_internal!(info, "{}", x),
@@ -212,15 +215,21 @@ impl JudgerController {
             let task = res.task.unwrap();
             match task {
                 judge_response::Task::Case(case) => {
+                    tracing::debug!(case = case, "recv_case");
                     if ps_guard.send(Ok(case.into())).is_err() {
                         tracing::trace!("client_disconnected");
                     }
                     if case != (running_case + 1) {
-                        tracing::warn!("judger_mismatch_proto");
+                        tracing::warn!(
+                            skip_case = running_case + 1,
+                            recv_case = case,
+                            "judger_mismatch_proto"
+                        );
                     }
                     running_case += 1;
                 }
                 judge_response::Task::Result(case) => {
+                    tracing::debug!(status = case.status().as_str_name(), "recv_result");
                     if let Some(score) = scores.pop() {
                         if ps_guard.send(Ok(case.clone().into())).is_err() {
                             tracing::trace!("client_disconnected");
@@ -246,10 +255,9 @@ impl JudgerController {
         model.time = ActiveValue::Set(Some(time.try_into().unwrap_or(i64::MAX)));
         model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
 
-        if let Err(err) = model.update(DB.get().unwrap()).in_current_span().await {
-            tracing::warn!(err=?err,"database_disconnect");
-        } else {
-            tracing::debug!("submit_committed");
+        match model.update(DB.get().unwrap()).in_current_span().await {
+            Err(err) => tracing::warn!(err=?err,"database_disconnect"),
+            _ => tracing::debug!("submit_committed"),
         }
     }
     pub async fn submit(self: &Arc<Self>, submit: Submit) -> Result<i32, Error> {

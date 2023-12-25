@@ -39,11 +39,11 @@ impl Server {
         let span = span!(Level::INFO, "server_construct");
 
         let crypto = crypto::CryptoController::new(&config, &span);
-        crate::init::db::init(&config.database, &crypto).in_current_span().await;
+        crate::init::db::init(&config.database, &crypto, &span)
+            .in_current_span()
+            .await;
 
-        let config4 = config.judger.clone();
-
-        let judger = judger::JudgerController::new(config4, &span)
+        let judger = judger::JudgerController::new(config.judger.clone(), &span)
             .in_current_span()
             .await
             .unwrap();

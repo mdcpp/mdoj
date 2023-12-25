@@ -22,16 +22,24 @@ use crate::{
     init::config::{self, Judger as JudgerConfig},
 };
 
-// introduce routing layer error
-// type Map<K, V> = Mutex<HashMap<K, V>>;
-// type Queue<V> = Mutex<VecDeque<V>>;
-// type Set<V> = Mutex<HashSet<V>>;
-const HEALTHY_THRESHOLD: isize = 100;
-type JudgerIntercept = JudgerClient<
+// TODO: add tracing
+
+// about health score:
+//
+// health score is a number in range [-1,HEALTH_MAX_SCORE)
+// Upstream with negitive health score is consider unhealthy, and should disconnect immediately
+
+/// Max score a health Upstream can reach
+const HEALTH_MAX_SCORE: isize = 100;
+
+/// Judger Client intercepted by BasicAuthInterceptor
+type AuthJudgerClient = JudgerClient<
     service::interceptor::InterceptedService<transport::Channel, BasicAuthInterceptor>,
 >;
 
+/// tower interceptor for Basic Auth
 pub struct BasicAuthInterceptor {
+    // Some if secret is set
     secret: Option<String>,
 }
 
@@ -49,14 +57,17 @@ impl Interceptor for BasicAuthInterceptor {
 }
 
 #[derive(Clone)]
+/// Info necessary to create connection, implement reuse logic
 pub struct ConnectionDetail {
     pub uri: String,
     pub secret: Option<String>,
+    // TODO: reuse logic shouldn't be binded with connection creation logic
     pub reuse: bool,
 }
 
 impl ConnectionDetail {
-    async fn connect(&self) -> Result<JudgerIntercept, Error> {
+    /// create a new connection
+    async fn connect(&self) -> Result<AuthJudgerClient, Error> {
         let channel = transport::Channel::from_shared(self.uri.clone())
             .unwrap()
             .connect()
@@ -70,18 +81,25 @@ impl ConnectionDetail {
     }
 }
 
+/// Deref Guard for Upstream
+/// 
+/// Be aware that you need to call report_success() to use ConnGuard 
+/// without minus healthy score
+/// 
+/// The guard is needed because we need to store used connection back to Upstream
 pub struct ConnGuard {
     upstream: Arc<Upstream>,
-    conn: Option<JudgerIntercept>,
+    conn: Option<AuthJudgerClient>,
     reuse: bool,
 }
 
 impl ConnGuard {
+    /// any
     pub fn report_success(&mut self) {
         self.upstream.healthy.fetch_add(3, Ordering::Acquire);
         self.upstream
             .healthy
-            .fetch_min(HEALTHY_THRESHOLD, Ordering::Acquire);
+            .fetch_min(HEALTH_MAX_SCORE, Ordering::Acquire);
     }
 }
 
@@ -92,7 +110,7 @@ impl DerefMut for ConnGuard {
 }
 
 impl std::ops::Deref for ConnGuard {
-    type Target = JudgerIntercept;
+    type Target = AuthJudgerClient;
     fn deref(&self) -> &Self::Target {
         self.conn.as_ref().unwrap()
     }
@@ -107,6 +125,9 @@ impl Drop for ConnGuard {
     }
 }
 
+/// keep discovering new Upstream from config(IE: docker swarm, static address)
+/// 
+/// occupy future, should generally be spawn in a green thread 
 async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
@@ -152,6 +173,10 @@ async fn discover<I: Routable + Send>(
     Ok(())
 }
 
+/// Router offer interface for user to manage languages and load balancing
+/// 
+/// Basically it's a thick client and also provide ability to list supported languages
+/// and get judger client correspond to the chosen languages
 pub struct Router {
     routing_table: DashMap<Uuid, SegQueue<Arc<Upstream>>>,
     pub langs: DashSet<LangInfo>,
@@ -189,6 +214,9 @@ impl Router {
         }
         Ok(self_)
     }
+    /// get judger client correspond to the chosen languages
+    /// 
+    /// fail if language not found(maybe the judger become unhealthy)
     pub async fn get(&self, lang: &Uuid) -> Result<ConnGuard, Error> {
         let queue = self
             .routing_table
@@ -215,7 +243,7 @@ impl Router {
 // abstraction for pipelining
 pub struct Upstream {
     healthy: AtomicIsize,
-    clients: SegQueue<JudgerIntercept>,
+    clients: SegQueue<AuthJudgerClient>,
     connection: ConnectionDetail,
     // live_span: tracing::span::EnteredSpan,
 }
@@ -243,7 +271,7 @@ impl Upstream {
 
         Ok((
             Arc::new(Self {
-                healthy: AtomicIsize::new(HEALTHY_THRESHOLD),
+                healthy: AtomicIsize::new(HEALTH_MAX_SCORE),
                 clients,
                 connection: detail,
             }),

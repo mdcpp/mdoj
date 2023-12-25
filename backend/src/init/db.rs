@@ -4,15 +4,15 @@ use sea_orm::{
 };
 
 use tokio::sync::OnceCell;
-use tracing::{debug_span, instrument, Instrument};
+use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
 use crate::controller::{crypto::CryptoController, token::UserPermBytes};
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
-#[instrument(skip_all, name = "construct_db")]
-pub async fn init(config: &config::Database, crypto: &CryptoController) {
+#[instrument(skip_all, name = "construct_db",parent=span)]
+pub async fn init(config: &config::Database, crypto: &CryptoController, span: &Span) {
     // sqlite://database/backend.sqlite?mode=rwc
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
