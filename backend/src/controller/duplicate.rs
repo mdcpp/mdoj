@@ -19,31 +19,35 @@ impl DupController {
             dup_str: Cache::new(150),
         }
     }
-    pub fn store_i32(&self, user_id: i32, uuid: Uuid, result: i32) {
+    /// store a request_id with result i32
+    pub fn store_i32(&self, spliter: i32, uuid: Uuid, result: i32) {
         tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
-        self.dup_i32.insert((user_id, uuid), result);
+        self.dup_i32.insert((spliter, uuid), result);
     }
-    pub fn store_str(&self, user_id: i32, uuid: Uuid, result: String) {
+    /// store a request_id with result String
+    pub fn store_str(&self, spliter: i32, uuid: Uuid, result: String) {
         tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
-        self.dup_str.insert((user_id, uuid), result);
+        self.dup_str.insert((spliter, uuid), result);
     }
+    /// attempt to get result of i32
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn check_i32(&self, user_id: i32, uuid: &Uuid) -> Option<i32> {
+    pub fn check_i32(&self, spliter: i32, uuid: &Uuid) -> Option<i32> {
         tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
-        if let Some(x) = self.dup_i32.get(&(user_id, *uuid)) {
+        if let Some(x) = self.dup_i32.get(&(spliter, *uuid)) {
             log::debug!("duplicated request_id: {}, result: {}", uuid, x);
             return Some(x);
         }
         None
     }
+    /// attempt to get result of String
     #[tracing::instrument(level = "debug", skip(self))]
-    pub fn check_str(&self, user_id: i32, uuid: &Uuid) -> Option<String> {
+    pub fn check_str(&self, spliter: i32, uuid: &Uuid) -> Option<String> {
         tracing::trace!(request_id=?uuid);
         #[cfg(feature = "single-instance")]
-        if let Some(x) = self.dup_str.get(&(user_id, *uuid)) {
+        if let Some(x) = self.dup_str.get(&(spliter, *uuid)) {
             log::debug!("duplicated request_id: {}, result: {}", uuid, x);
             return Some(x);
         }

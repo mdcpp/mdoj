@@ -23,6 +23,9 @@ impl From<Error> for tonic::Status {
     }
 }
 
+/// json serialization for imgur api
+/// 
+/// Read Imgur API Docs for more 
 #[derive(Serialize)]
 struct AccessTokenRequest<'a> {
     refresh_token: &'a str,
@@ -45,6 +48,7 @@ impl ImgurController {
             config: config.clone(),
         }
     }
+    /// upload image
     #[instrument(skip_all, level = "debug")]
     pub async fn upload(&self, image: Vec<u8>) -> Result<String, Error> {
         let res = self

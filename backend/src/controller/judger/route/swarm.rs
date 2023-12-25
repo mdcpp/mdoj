@@ -6,7 +6,8 @@ use hickory_resolver::TokioAsyncResolver;
 
 use super::{Routable, RouteStatus};
 
-pub struct DockerRouter {
+/// Upstream source for docker swarm
+pub struct SwarmRouter {
     dns: String,
     secret: Option<String>,
     address: HashSet<IpAddr>,
@@ -21,7 +22,7 @@ fn to_uri(ip: &IpAddr) -> String {
 }
 
 #[tonic::async_trait]
-impl Routable for DockerRouter {
+impl Routable for SwarmRouter {
     async fn route(&mut self) -> Result<RouteStatus, Error> {
         let result = self.resolver.lookup_ip(self.dns.as_str()).await?;
         let ips = result.as_lookup().records().iter().filter_map(|x| {

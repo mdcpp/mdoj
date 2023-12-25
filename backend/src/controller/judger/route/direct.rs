@@ -2,6 +2,7 @@ use super::{ConnectionDetail, Error, Routable, RouteStatus};
 use crate::init::config::Judger;
 use tonic::transport::Uri;
 
+/// Upstream source for static(only emit once)
 pub struct StaticRouter<const REUSE: bool> {
     uri: Option<String>,
     secret: Option<String>,
