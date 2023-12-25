@@ -94,7 +94,7 @@ impl From<Error> for Status {
         match value {
             Error::JudgerResourceExhausted => Status::resource_exhausted("no available judger"),
             Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
-            Error::LangNotFound=>Status::not_found("languaue not found"),
+            Error::LangNotFound => Status::not_found("languaue not found"),
             Error::JudgerError(x) => report_internal!(info, "`{}`", x),
             Error::Database(x) => report_internal!(warn, "{}", x),
             Error::TransportLayer(x) => report_internal!(info, "{}", x),

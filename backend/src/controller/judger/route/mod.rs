@@ -82,10 +82,10 @@ impl ConnectionDetail {
 }
 
 /// Deref Guard for Upstream
-/// 
-/// Be aware that you need to call report_success() to use ConnGuard 
+///
+/// Be aware that you need to call report_success() to use ConnGuard
 /// without minus healthy score
-/// 
+///
 /// The guard is needed because we need to store used connection back to Upstream
 pub struct ConnGuard {
     upstream: Arc<Upstream>,
@@ -126,8 +126,8 @@ impl Drop for ConnGuard {
 }
 
 /// keep discovering new Upstream from config(IE: docker swarm, static address)
-/// 
-/// occupy future, should generally be spawn in a green thread 
+///
+/// occupy future, should generally be spawn in a green thread
 async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
@@ -174,7 +174,7 @@ async fn discover<I: Routable + Send>(
 }
 
 /// Router offer interface for user to manage languages and load balancing
-/// 
+///
 /// Basically it's a thick client and also provide ability to list supported languages
 /// and get judger client correspond to the chosen languages
 pub struct Router {
@@ -215,7 +215,7 @@ impl Router {
         Ok(self_)
     }
     /// get judger client correspond to the chosen languages
-    /// 
+    ///
     /// fail if language not found(maybe the judger become unhealthy)
     pub async fn get(&self, lang: &Uuid) -> Result<ConnGuard, Error> {
         let queue = self
