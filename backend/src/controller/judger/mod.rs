@@ -158,7 +158,7 @@ pub struct JudgerController {
 impl JudgerController {
     #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
     pub async fn new(config: Vec<config::Judger>, span: &Span) -> Result<Self, Error> {
-        let router = Router::new(config, span).await?;
+        let router = Router::new(config, span)?;
         Ok(JudgerController {
             router,
             pubsub: Arc::new(PubSub::default()),

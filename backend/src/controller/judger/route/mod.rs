@@ -160,7 +160,7 @@ pub struct Router {
 impl Router {
     // skip because config contain basic auth secret
     #[instrument(name="router_construct",level = "info",skip_all, follows_from = [span])]
-    pub async fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
+    pub fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: DashMap::default(),
             langs: DashSet::default(),
