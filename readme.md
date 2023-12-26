@@ -6,7 +6,7 @@
 
 Performance-oriented contest management system for IOI like contest
 
-> :construction: work in progress
+> :construction: work in progress, please wait until first release
 
 ## Highlights
 
