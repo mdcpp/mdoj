@@ -17,7 +17,8 @@ int main()
     {
         printf("2: %m\n", errno);
         return 1;
-    }else
+    }
+    else
         printf("1: success create file!\n");
 
     char *code = malloc(MAX_SIZE * sizeof(char));

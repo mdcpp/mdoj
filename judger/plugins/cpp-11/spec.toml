@@ -1,0 +1,21 @@
+# memory in byte, time in microsecond
+info = "gcc 13.2.0 (G++)"
+extension = "cpp" # same extension means same language
+name = "cpp-11" # must be same as dictionary name
+uid = "8a9e1daf-ff89-42c3-b011-bf6fb4bd8b26" # be sure it's unique
+
+[compile]
+lockdown = true
+command = ["/compile"]
+kernel_mem = 67108864
+user_mem = 268435456
+rt_time = 1000000
+cpu_time = 10000000
+total_time = 10000000
+
+[judge]
+command = ["/execute.sh"]
+kernel_mem = 67108864
+multiplier_memory = 1 # user_mem
+rt_time = 1000000
+multiplier_cpu = 1 # cpu_time
