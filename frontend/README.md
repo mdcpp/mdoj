@@ -1,29 +1,7 @@
-<picture>
-    <source srcset="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_Solid_White.svg" media="(prefers-color-scheme: dark)">
-    <img src="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_RGB.svg" alt="Leptos Logo">
-</picture>
+# MDOJ Frontend
 
-# Leptos Starter Template
+- [Color](https://www.realtimecolors.com/?colors=e8f7f0-040a07-9addbc-2b5280-606fca&fonts=Poppins-Poppins)
 
-This is a template for use with the [Leptos](https://github.com/leptos-rs/leptos) web framework and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool.
-
-## Creating your template repo
-
-If you don't have `cargo-leptos` installed you can install it with
-
-`cargo install cargo-leptos`
-
-Then run
-
-`cargo leptos new --git leptos-rs/start`
-
-to generate a new project template (you will be prompted to enter a project name).
-
-`cd {projectname}`
-
-to go to your newly created project.
-
-Of course, you should explore around the project structure, but the best place to start with your application code is in `src/app.rs`.
 
 ## Running your project
 
@@ -58,11 +36,4 @@ export LEPTOS_SITE_PKG_DIR="pkg"
 export LEPTOS_SITE_ADDR="127.0.0.1:3000"
 export LEPTOS_RELOAD_PORT="3001"
 ```
-Finally, run the server binary.
 
-## Notes about CSR and Trunk:
-Although it is not recommended, you can also run your project without server integration using the feature `csr` and `trunk serve`:
-
-`trunk serve --open --features csr`
-
-This may be useful for integrating external tools which require a static site, e.g. `tauri`.

@@ -15,10 +15,13 @@ release-docker:
     docker build . -t mdoj-gateway
 
 release:
-    vite build
+    cargo build
     
 prepare:
-    yarn install
+    
 
 run:
-    vite
+    cargo leptos serve
+
+dev:
+    cargo leptos watch

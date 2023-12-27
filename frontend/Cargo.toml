@@ -17,6 +17,18 @@ leptos_meta = { version = "0.5", features = ["nightly"] }
 leptos_actix = { version = "0.5", optional = true }
 leptos_router = { version = "0.5", features = ["nightly"] }
 wasm-bindgen = "=0.2.89"
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic-web-wasm-client = "0.5.0"
+
+[dependencies.tonic]
+workspace = true
+default-features = false
+features = ["codegen", "prost"]
+
+[build-dependencies.tonic-build]
+features = ["prost"]
+workspace = true
 
 [features]
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
@@ -30,17 +42,9 @@ ssr = [
   "leptos_router/ssr",
 ]
 
-# Defines a size-optimized profile for the WASM bundle in release mode
-[profile.wasm-release]
-inherits = "release"
-opt-level = 'z'
-lto = true
-codegen-units = 1
-panic = "abort"
-
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
-output-name = "leptos_start"
+output-name = "mdoj"
 # The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
 site-root = "target/site"
 # The site-root relative folder where all compiled output (JS, WASM and CSS) is written
@@ -48,6 +52,17 @@ site-root = "target/site"
 site-pkg-dir = "pkg"
 # [Optional] The source CSS file. If it ends with .sass or .scss then it will be compiled by dart-sass into CSS. The CSS is optimized by Lightning CSS before being written to <site-root>/<site-pkg>/app.css
 style-file = "style/main.scss"
+
+# The tailwind input file.
+#
+# Optional, Activates the tailwind build
+tailwind-input-file = "style/tailwind.css"
+
+# The tailwind config file.
+#
+# Optional, defaults to "tailwind.config.js" which if is not present
+# is generated for you
+tailwind-config-file = "tailwind.config.js"
 # Assets source dir. All files found here will be copied and synchronized to site-root.
 # The assets-dir cannot have a sub directory with the same name/path as site-pkg-dir.
 #
