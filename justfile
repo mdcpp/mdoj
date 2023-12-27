@@ -2,7 +2,7 @@
 #     just dev-frontend & P1=$! & just dev-backend & P2=$! && wait P1 P2
 
 dev-frontend:
-    cd ./frontend && yarn dev
+    cd frontend && just run
 
 dev-backend:
     cd backend && just run
@@ -15,5 +15,4 @@ prepare:
     # openssl req -x509 -newkey rsa:4096 -keyout cert/key.pem -out cert/cert.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=localhost"
 
 clean:
-    cd ./frontend && yarn cache clean
-    cd ./backend && cargo clean
+    cargo clean

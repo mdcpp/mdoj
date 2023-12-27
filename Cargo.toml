@@ -8,3 +8,24 @@ members = [
     "backend/entity",
     "backend/migration",
 ]
+
+[workspace.dependencies]
+prost = "0.12.3"
+prost-types = "0.12.3"
+tonic-build = "0.10.2"
+[workspace.dependencies.tonic]
+version = "0.10.2"
+default-features = false
+
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.release]
+opt-level = "s"
+panic = 'abort'
+lto = true

@@ -1,6 +1,5 @@
 /backend/target
 /.devcontainer
-/.vscode
 /tonic_example
 /cert
 
