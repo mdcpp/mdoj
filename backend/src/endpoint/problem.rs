@@ -114,7 +114,7 @@ impl ProblemSet for Arc<Server> {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
                     old.session,
-                    &self,
+                    self,
                 )?
             }
         };
@@ -126,7 +126,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw(&self);
+        let next_session = pager.into_raw(self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -145,7 +145,7 @@ impl ProblemSet for Arc<Server> {
             }
             text_search_request::Request::Pager(old) => {
                 reverse = old.reverse;
-                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session, &self)?
+                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session, self)?
             }
         };
 
@@ -156,7 +156,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw(&self);
+        let next_session = pager.into_raw(self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -414,7 +414,7 @@ impl ProblemSet for Arc<Server> {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
                     old.session,
-                    &self,
+                    self,
                 )?
             }
         };
@@ -426,7 +426,7 @@ impl ProblemSet for Arc<Server> {
             .map(|x| x.into())
             .collect();
 
-        let next_session = pager.into_raw(&self);
+        let next_session = pager.into_raw(self);
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }

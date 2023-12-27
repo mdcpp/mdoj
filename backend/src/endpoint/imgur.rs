@@ -6,6 +6,7 @@ use crate::grpc::backend::*;
 
 #[async_trait]
 impl ImgurSet for Arc<Server> {
+    #[instrument(skip_all, level = "debug")]
     async fn upload(
         &self,
         req: Request<UploadRequest>,
@@ -27,7 +28,10 @@ impl ImgurSet for Arc<Server> {
 
         self.dup.store_str(user_id, uuid, url.to_owned());
 
-        tracing::debug!(request_id = uuid.to_string(), "image_uploaded");
+        tracing::debug!(request_id = uuid.to_string(), uri = url, "image_uploaded");
+
+        self.metrics.image.observe(1, &[]);
+
         Ok(Response::new(UploadResponse { url }))
     }
 }

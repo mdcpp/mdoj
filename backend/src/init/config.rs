@@ -60,6 +60,7 @@ pub struct Judger {
 pub enum JudgerType {
     Docker,
     Static,
+    LoadBalanced,
 }
 
 impl Default for JudgerType {

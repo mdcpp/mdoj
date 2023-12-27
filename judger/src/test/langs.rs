@@ -1,8 +1,6 @@
 use uuid::Uuid;
 
-use crate::{
-    grpc::proto::prelude::JudgeMatchRule, init::config::CONFIG, langs::prelude::ArtifactFactory,
-};
+use crate::{grpc::prelude::JudgeMatchRule, init::config::CONFIG, langs::prelude::ArtifactFactory};
 
 async fn rlua(factory: &mut ArtifactFactory) {
     let uuid = Uuid::parse_str("1c41598f-e253-4f81-9ef5-d50bf1e4e74f").unwrap();

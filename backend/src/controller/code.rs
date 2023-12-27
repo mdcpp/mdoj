@@ -1,7 +1,8 @@
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::judger::JudgerCode;
 
-#[repr(u32)]
+/// Stablized JudgeResponse Code, store in database
+#[repr(C)]
 pub enum Code {
     Accepted = 1,
     WrongAnswer = 2,

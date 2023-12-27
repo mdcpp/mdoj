@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
-use crate::grpc::server::Server;
-use grpc::proto::prelude::judger_server::JudgerServer;
+use grpc::prelude::judger_server::JudgerServer;
 use init::config::CONFIG;
-use tonic::transport;
 
 pub mod grpc;
 pub mod init;
 pub mod langs;
 pub mod sandbox;
+pub mod server;
 pub mod test;
 
 #[tokio::main]
@@ -20,9 +19,9 @@ async fn main() {
 
     log::info!("Server started");
 
-    let server = Server::new().await;
+    let server = server::Server::new().await;
 
-    transport::Server::builder()
+    tonic::transport::Server::builder()
         .add_service(JudgerServer::new(Arc::new(server)))
         .serve(addr)
         .await

@@ -21,6 +21,7 @@ pub struct MemoryStatistic {
 }
 
 /// A Semaphore for large buffer accounting
+///
 /// because tokio::sync::Semaphore default to u32 for inner type
 #[derive(Clone)]
 pub struct MemorySemaphore(Arc<Mutex<MemorySemaphoreInner>>);

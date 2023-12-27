@@ -22,7 +22,7 @@ services:
     image: ghcr.io/mdcpp/mdoj:backend
     volumes:
       - ./backend.toml:/config/config.toml
-      - ./backend.sqlite:/database/backend.sqlite
+      - ./database:/database/
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
     networks:

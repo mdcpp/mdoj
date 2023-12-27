@@ -14,9 +14,9 @@ use crate::init::config::CONFIG;
 
 use super::super::Error;
 
-// Nsjail abstraction, don't implement any meaningful logic
-// Just a wrapper for nsjail
-
+/// Nsjail abstraction, don't implement any meaningful logic
+///
+/// Just setup args and wrap for Mutex<Child> and automatic kill process when drop
 pub struct LimitBuilder {
     cmds: Vec<Cow<'static, str>>,
 }
@@ -131,8 +131,8 @@ pub struct CmdBuilder {
 }
 
 impl CmdBuilder {
-    pub fn cmds(mut self, cmd: Vec<&str>) -> NsJailBuilder {
-        for arg in cmd.clone() {
+    pub fn cmds(mut self, cmd: &[&str]) -> NsJailBuilder {
+        for &arg in cmd {
             self.cmds.push(Cow::Owned(arg.to_owned()));
         }
         NsJailBuilder { cmds: self.cmds }

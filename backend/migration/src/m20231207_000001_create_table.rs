@@ -1,8 +1,33 @@
+use paste::paste;
+use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 // static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP";
 static UPDATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP";
 static CREATE_AT: &str = "DEFAULT CURRENT_TIMESTAMP";
+
+macro_rules! index {
+    ($manager:expr,$table:ident,$col:ident) => {
+        paste! {
+            $manager
+            .create_index(
+                Index::create()
+                    .name(
+                        concat!(
+                            "idx-",
+                            stringify!($table),
+                            "-",
+                            stringify!($col),
+                        ).to_lowercase()
+                    )
+                    .table($table::Table)
+                    .col($table::$col)
+                    .to_owned(),
+            )
+            .await?;
+        }
+    };
+}
 
 #[derive(Iden)]
 enum Announcement {
@@ -506,6 +531,57 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-problem-text")
+                    .table(Problem::Table)
+                    .col(Problem::Tags)
+                    .col(Problem::Title)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-education-text")
+                    .table(Education::Table)
+                    .col(Education::Tags)
+                    .col(Education::Title)
+                    .to_owned(),
+            )
+            .await?;
+
+        index!(manager, Problem, Public);
+        index!(manager, Problem, SubmitCount);
+        index!(manager, Problem, AcRate);
+        index!(manager, Problem, AcceptCount);
+        index!(manager, Problem, Difficulty);
+        index!(manager, Submit, Committed);
+        index!(manager, Submit, Time);
+        index!(manager, Submit, Memory);
+        index!(manager, Contest, Hoster);
+        index!(manager, Contest, Public);
+        index!(manager, Contest, End);
+        index!(manager, Contest, Begin);
+        index!(manager, User, Score);
+        index!(manager, User, Username);
+        index!(manager, Token, Rand);
+
+        manager
+            .get_connection()
+            .execute(
+                Statement::from_string(DatabaseBackend::Sqlite, "PRAGMA journal_mode = WAL")
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .get_connection()
+            .execute(
+                Statement::from_string(DatabaseBackend::Sqlite, "PRAGMA synchronous = NORMAL")
                     .to_owned(),
             )
             .await?;

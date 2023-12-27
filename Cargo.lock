@@ -2866,6 +2866,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "log",
+ "paste",
  "sea-orm",
  "sea-orm-migration",
  "tracing",

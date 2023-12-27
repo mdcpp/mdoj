@@ -13,3 +13,7 @@ type = "static"
 trust_x_forwarded_for = true
 public_pem = "../cert/cert.pem"
 private_pem = "../cert/key.pem"
+
+[imgur]
+client_id = "fffffffffffffff"
+client_secret = "ffffffffffffffffffffffffffffffffffffffff"

@@ -15,7 +15,7 @@ trait Runable<S: Send + Sync> {
 #[async_trait]
 impl<S: Send + Sync, Rhs: Case<S> + Send + Sync + 'static> Runable<S> for Rhs {
     async fn run(&self, state: &mut S) -> Result<(), String> {
-        <Self as Case<S>>::run(&self, state).await
+        <Self as Case<S>>::run(self, state).await
     }
 
     fn name(&self) -> &'static str {

@@ -6,7 +6,7 @@
 
 Performance-oriented contest management system for IOI like contest
 
-> :construction: work in progress
+> :construction: work in progress, please wait until first release
 
 ## Highlights
 
@@ -44,20 +44,6 @@ See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
 
 If you prefer to use default config, you can skip step 2 and 3.
 
-## Full Setup(Standalone)
-
-> For details of config.toml, please follow the document in ``./backend`` and ``./judger``.
-
-1. Download `judger`, `backend` and `dist.tar.gz`.
-2. create `./config` directory for both `judger` and `backend`.
-3. Start `judger` and `backend`, it should generate config.
-4. Edit config.
-5. create `.temp` for backend.
-7. start both judger and backend.
-8. configure reverse proxy to proxy every request with prefix `/api` to router, and reverse proxy should also trust certification of backend.
-9. Configure proxy to serve static file for request not match prefix of `/api`
-
-> backend should only start after judger is online, or you might see a warning from console, and judger is only available after next health check(default to 60 seconds if previous health check fail)
 
 ## Setup for development
 

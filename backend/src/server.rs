@@ -32,25 +32,25 @@ pub struct Server {
 
 impl Server {
     pub async fn new() -> Arc<Self> {
-        let span = span!(Level::INFO, "server_construct");
-
         let config = config::init().await;
-
-        let crypto = crypto::CryptoController::new(&config, &span);
-        crate::init::db::init(&config.database, &crypto).await;
 
         let otel_guard = logger::init(&config);
 
-        let config4 = config.judger.clone();
+        let span = span!(Level::INFO, "server_construct");
 
-        let submit = judger::JudgerController::new(config4, &span)
+        let crypto = crypto::CryptoController::new(&config, &span);
+        crate::init::db::init(&config.database, &crypto, &span)
+            .in_current_span()
+            .await;
+
+        let judger = judger::JudgerController::new(config.judger.clone(), &span)
             .in_current_span()
             .await
             .unwrap();
 
         Arc::new(Server {
             token: token::TokenController::new(&span),
-            judger: Arc::new(submit),
+            judger: Arc::new(judger),
             dup: duplicate::DupController::new(&span),
             crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
@@ -71,7 +71,6 @@ impl Server {
             .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
             .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
             .serve(self.config.bind_address.clone().parse().unwrap())
-            .instrument(tracing::info_span!("server_serve"))
             .await
             .unwrap();
     }

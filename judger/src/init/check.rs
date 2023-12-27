@@ -87,7 +87,7 @@ pub fn init() {
     if config.platform.output_limit >= config.platform.available_memory.try_into().unwrap() {
         log::error!("config.platform.output_limit is too larget or config.platform.available_memory is too low");
         std::process::exit(1);
-        }
+    }
 
     if config.platform.output_limit * 8 >= config.platform.available_memory.try_into().unwrap() {
         log::warn!("config.platform.output_limit is consider too high");

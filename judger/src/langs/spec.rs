@@ -8,7 +8,7 @@ use crate::sandbox::Limit;
 
 use super::InitError;
 
-// Language specification
+/// Language specification
 pub struct LangSpec {
     pub info: String,
     pub extension: String,

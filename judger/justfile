@@ -6,6 +6,11 @@ release-docker:
 
 build-plugin:
     cd plugins && sh build-all.sh
+
+release-plugin:
+    just build-plugin
+    cd plugins sh export-all.sh
+
     
 build-nsjail:
     cd nsjail-docker && make nsjail-3.1
@@ -14,10 +19,7 @@ build-nsjail:
 prepare:
     just build-nsjail
     just build-plugin
-    mkdir -p config
-
-debian-deps:
-    echo todo!()
+    mkdir -p config plugins-out
 
 feodra-deps:
     sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
@@ -40,9 +42,3 @@ run:
     mkdir -p .temp
     cargo run
 
-# podman-run:
-#     # recreate cgroup of mdoj for normal user
-#     sudo rm -rf /sys/fs/cgroup/mdoj
-#     sudo cgcreate -a $USER -t $USER -g memory,cpu,cpuset:mdoj
-#     # run podman
-#     podman-compose up

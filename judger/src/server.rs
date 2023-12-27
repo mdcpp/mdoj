@@ -1,5 +1,3 @@
-// TODO: clean up imports
-// TODO: error handling
 use std::{pin::Pin, sync::Arc};
 
 use spin::Mutex;
@@ -9,12 +7,12 @@ use tonic::{Response, Status};
 use uuid::Uuid;
 
 use crate::{
-    grpc::proto::prelude::judge_response,
+    grpc::prelude::judge_response,
     init::config::CONFIG,
     langs::prelude::{ArtifactFactory, CompileLog},
 };
 
-use super::proto::prelude::{judger_server::Judger, *};
+use crate::grpc::prelude::{judger_server::Judger, *};
 
 const PENDING_LIMIT: usize = 128;
 const STREAM_CHUNK: usize = 1024 * 16;
@@ -44,7 +42,8 @@ fn parse_uid(uid: &str) -> Result<Uuid, Status> {
     })
 }
 
-async fn force_stream<T>(tx: &mut Sender<Result<T, Status>>, item: T) -> Result<(), Status> {
+/// forcely stream message, if client disconnect, there's no need to continue task
+async fn force_send<T>(tx: &mut Sender<Result<T, Status>>, item: T) -> Result<(), Status> {
     match tx.send(Ok(item)).await {
         Ok(_) => Ok(()),
         Err(err) => {
@@ -54,6 +53,7 @@ async fn force_stream<T>(tx: &mut Sender<Result<T, Status>>, item: T) -> Result<
     }
 }
 
+/// check basic auth in request metadata(similar to http header)
 fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
     let (meta, _, payload) = req.into_parts();
     let config = CONFIG.get().unwrap();
@@ -83,14 +83,14 @@ impl From<judge_response::Task> for JudgeResponse {
     }
 }
 
-// Adapter and abstraction for tonic to serve
-// utilize artifact factory and other components(in module `langs``)
+/// Server to serve JudgerSet
 pub struct Server {
     factory: ArtifactFactory,
     running: Mutex<usize>,
 }
 
 impl Server {
+    /// init the server with global config(must be set beforehand)
     pub async fn new() -> Self {
         let config = CONFIG.get().unwrap();
         let mut factory = ArtifactFactory::default();
@@ -98,10 +98,11 @@ impl Server {
         factory.load_dir(config.plugin.path.clone()).await;
 
         Self {
-            factory: factory,
+            factory,
             running: Mutex::new(PENDING_LIMIT),
         }
     }
+    /// check if pending jobs excess PENDING_LIMIT
     fn check_pending(self: &Arc<Self>) -> Result<PendingGuard, Status> {
         let mut running = self.running.lock();
         if *running > 0 {
@@ -121,6 +122,7 @@ impl Drop for PendingGuard {
     }
 }
 
+/// start each subtasks, it call stream because next subtask is run only if previous AC
 async fn judger_stream(
     factory: &ArtifactFactory,
     payload: JudgeRequest,
@@ -137,7 +139,7 @@ async fn judger_stream(
     compile.log().for_each(|x| x.log());
 
     if let Some(code) = compile.get_expection() {
-        force_stream(
+        force_send(
             tx,
             judge_response::Task::Result(JudgeResult {
                 status: code.into(),
@@ -150,7 +152,7 @@ async fn judger_stream(
 
     for (running_task, test) in payload.tests.into_iter().enumerate() {
         log::trace!("running at {} task", running_task);
-        force_stream(
+        force_send(
             tx,
             JudgeResponse {
                 task: Some(judge_response::Task::Case(running_task.try_into().unwrap())),
@@ -164,7 +166,7 @@ async fn judger_stream(
 
         if let Some(code) = result.get_expection() {
             log::trace!("yield result: {}", code);
-            force_stream(
+            force_send(
                 tx,
                 judge_response::Task::Result(JudgeResult {
                     status: code.into(),
@@ -181,7 +183,7 @@ async fn judger_stream(
             false => JudgerCode::Wa,
         };
 
-        let time = result.time().total_us;
+        let time = result.cpu().total_us;
         let memory = result.mem().peak;
         log::trace!(
             "yield result: {}, take memory {}B, total_us: {}ns",
@@ -189,7 +191,7 @@ async fn judger_stream(
             time,
             memory
         );
-        force_stream(
+        force_send(
             tx,
             judge_response::Task::Result(JudgeResult {
                 status: code.into(),
@@ -204,6 +206,9 @@ async fn judger_stream(
     Ok(())
 }
 
+/// start compile and execute the program
+///
+/// In future, we should stream the output to eliminate OLE
 async fn exec_stream(
     factory: &ArtifactFactory,
     payload: ExecRequest,
@@ -216,11 +221,11 @@ async fn exec_stream(
     let mut compile = factory.compile(&lang, &payload.code).await?;
 
     for log in compile.log() {
-        force_stream(tx, log.into()).await?;
+        force_send(tx, log.into()).await?;
     }
 
-    if let Some(_) = compile.get_expection() {
-        force_stream(
+    if compile.get_expection().is_some() {
+        force_send(
             tx,
             CompileLog {
                 level: 4,
@@ -237,7 +242,7 @@ async fn exec_stream(
         .await?;
 
     if let Some(x) = judge.get_expection() {
-        force_stream(
+        force_send(
             tx,
             CompileLog {
                 level: 4,
@@ -248,7 +253,7 @@ async fn exec_stream(
         .await?;
     } else {
         for chunk in judge.process().unwrap().stdout.chunks(STREAM_CHUNK) {
-            force_stream(
+            force_send(
                 tx,
                 ExecResult {
                     result: Some(exec_result::Result::Output(chunk.to_vec())),
@@ -265,6 +270,7 @@ async fn exec_stream(
 impl Judger for Arc<Server> {
     type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
+    /// see judger.proto
     async fn judge(
         &self,
         req: tonic::Request<JudgeRequest>,
@@ -287,6 +293,7 @@ impl Judger for Arc<Server> {
 
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
+    /// see judger.proto
     async fn judger_info(&self, req: tonic::Request<()>) -> Result<Response<JudgeInfo>, Status> {
         let config = CONFIG.get().unwrap();
         check_secret(req)?;
@@ -301,9 +308,9 @@ impl Judger for Arc<Server> {
         }))
     }
 
-    #[doc = " Server streaming response type for the Exec method."]
     type ExecStream = Pin<Box<dyn futures::Stream<Item = Result<ExecResult, Status>> + Send>>;
 
+    /// see judger.proto
     async fn exec(
         &self,
         req: tonic::Request<ExecRequest>,

@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 log = "0.4.20"
 tracing-subscriber = "0.3"
+paste = "1.0.12"
 
 [dependencies.tracing]
 version = "0.1.40"

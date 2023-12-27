@@ -22,16 +22,24 @@ use crate::{
     init::config::{self, Judger as JudgerConfig},
 };
 
-// introduce routing layer error
-// type Map<K, V> = Mutex<HashMap<K, V>>;
-// type Queue<V> = Mutex<VecDeque<V>>;
-// type Set<V> = Mutex<HashSet<V>>;
-const HEALTHY_THRESHOLD: isize = 100;
-type JudgerIntercept = JudgerClient<
+// TODO: add tracing
+
+// about health score:
+//
+// health score is a number in range [-1,HEALTH_MAX_SCORE)
+// Upstream with negitive health score is consider unhealthy, and should disconnect immediately
+
+/// Max score a health Upstream can reach
+const HEALTH_MAX_SCORE: isize = 100;
+
+/// Judger Client intercepted by BasicAuthInterceptor
+type AuthJudgerClient = JudgerClient<
     service::interceptor::InterceptedService<transport::Channel, BasicAuthInterceptor>,
 >;
 
+/// tower interceptor for Basic Auth
 pub struct BasicAuthInterceptor {
+    // Some if secret is set
     secret: Option<String>,
 }
 
@@ -49,13 +57,17 @@ impl Interceptor for BasicAuthInterceptor {
 }
 
 #[derive(Clone)]
+/// Info necessary to create connection, implement reuse logic
 pub struct ConnectionDetail {
     pub uri: String,
     pub secret: Option<String>,
+    // TODO: reuse logic shouldn't be binded with connection creation logic
+    pub reuse: bool,
 }
 
 impl ConnectionDetail {
-    async fn connect(&self) -> Result<JudgerIntercept, Error> {
+    /// create a new connection
+    async fn connect(&self) -> Result<AuthJudgerClient, Error> {
         let channel = transport::Channel::from_shared(self.uri.clone())
             .unwrap()
             .connect()
@@ -69,17 +81,25 @@ impl ConnectionDetail {
     }
 }
 
+/// Deref Guard for Upstream
+///
+/// Be aware that you need to call report_success() to use ConnGuard
+/// without minus healthy score
+///
+/// The guard is needed because we need to store used connection back to Upstream
 pub struct ConnGuard {
     upstream: Arc<Upstream>,
-    conn: Option<JudgerIntercept>,
+    conn: Option<AuthJudgerClient>,
+    reuse: bool,
 }
 
 impl ConnGuard {
+    /// any
     pub fn report_success(&mut self) {
         self.upstream.healthy.fetch_add(3, Ordering::Acquire);
         self.upstream
             .healthy
-            .fetch_min(HEALTHY_THRESHOLD, Ordering::Acquire);
+            .fetch_min(HEALTH_MAX_SCORE, Ordering::Acquire);
     }
 }
 
@@ -90,7 +110,7 @@ impl DerefMut for ConnGuard {
 }
 
 impl std::ops::Deref for ConnGuard {
-    type Target = JudgerIntercept;
+    type Target = AuthJudgerClient;
     fn deref(&self) -> &Self::Target {
         self.conn.as_ref().unwrap()
     }
@@ -99,10 +119,15 @@ impl std::ops::Deref for ConnGuard {
 impl Drop for ConnGuard {
     fn drop(&mut self) {
         self.upstream.healthy.fetch_add(-2, Ordering::Acquire);
-        self.upstream.clients.push(self.conn.take().unwrap());
+        if self.reuse {
+            self.upstream.clients.push(self.conn.take().unwrap());
+        }
     }
 }
 
+/// keep discovering new Upstream from config(IE: docker swarm, static address)
+///
+/// occupy future, should generally be spawn in a green thread
 async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
@@ -148,6 +173,10 @@ async fn discover<I: Routable + Send>(
     Ok(())
 }
 
+/// Router offer interface for user to manage languages and load balancing
+///
+/// Basically it's a thick client and also provide ability to list supported languages
+/// and get judger client correspond to the chosen languages
 pub struct Router {
     routing_table: DashMap<Uuid, SegQueue<Arc<Upstream>>>,
     pub langs: DashSet<LangInfo>,
@@ -156,7 +185,7 @@ pub struct Router {
 impl Router {
     // skip because config contain basic auth secret
     #[instrument(name="router_construct",level = "info",skip_all, follows_from = [span])]
-    pub async fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
+    pub fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: DashMap::default(),
             langs: DashSet::default(),
@@ -164,13 +193,19 @@ impl Router {
         for config in config.into_iter() {
             match config.judger_type {
                 config::JudgerType::Docker => {
-                    tokio::spawn(discover::<swarm::DockerRouter>(
+                    tokio::spawn(discover::<swarm::SwarmRouter>(
                         config,
                         Arc::downgrade(&self_),
                     ));
                 }
                 config::JudgerType::Static => {
-                    tokio::spawn(discover::<direct::StaticRouter>(
+                    tokio::spawn(discover::<direct::StaticRouter<true>>(
+                        config,
+                        Arc::downgrade(&self_),
+                    ));
+                }
+                config::JudgerType::LoadBalanced => {
+                    tokio::spawn(discover::<direct::StaticRouter<false>>(
                         config,
                         Arc::downgrade(&self_),
                     ));
@@ -179,38 +214,36 @@ impl Router {
         }
         Ok(self_)
     }
+    /// get judger client correspond to the chosen languages
+    ///
+    /// fail if language not found(maybe the judger become unhealthy)
     pub async fn get(&self, lang: &Uuid) -> Result<ConnGuard, Error> {
         let queue = self
             .routing_table
             .get(lang)
             .ok_or(Error::BadArgument("lang"))?;
 
-        loop {
-            match queue.pop() {
-                Some(upstream) => {
-                    if upstream.is_healthy() {
-                        queue.push(upstream.clone());
-                        return upstream.get().await;
-                    }
-                }
-                None => {
-                    self.routing_table.remove(lang);
-                    return Err(Error::BadArgument("lang"));
-                }
+        while let Some(upstream)=queue.pop(){
+            if upstream.is_healthy(){
+                queue.push(upstream.clone());
+                return upstream.get().await;
             }
         }
+        // we need this line if we need to handle mix language compatibility
+        // self.routing_table.remove(lang);
+        Err(Error::BadArgument("lang"))
     }
 }
 
 // abstraction for pipelining
 pub struct Upstream {
     healthy: AtomicIsize,
-    clients: SegQueue<JudgerIntercept>,
+    clients: SegQueue<AuthJudgerClient>,
     connection: ConnectionDetail,
-    // live_span: tracing::span::EnteredSpan,
 }
 
 impl Upstream {
+    /// create new Upstream
     async fn new(detail: ConnectionDetail) -> Result<(Arc<Self>, Vec<(Uuid, LangInfo)>), Error> {
         let mut client = detail.connect().await?;
         let info = client.judger_info(()).await?;
@@ -233,16 +266,18 @@ impl Upstream {
 
         Ok((
             Arc::new(Self {
-                healthy: AtomicIsize::new(HEALTHY_THRESHOLD),
+                healthy: AtomicIsize::new(HEALTH_MAX_SCORE),
                 clients,
                 connection: detail,
             }),
             result,
         ))
     }
+    /// check if it's healthy
     fn is_healthy(&self) -> bool {
         self.healthy.load(Ordering::Acquire) > 0
     }
+    /// get new upstream
     async fn get(self: Arc<Self>) -> Result<ConnGuard, Error> {
         let conn = match self.clients.pop() {
             Some(x) => x,
@@ -250,19 +285,26 @@ impl Upstream {
         };
 
         Ok(ConnGuard {
+            reuse: self.connection.reuse,
             upstream: self,
             conn: Some(conn),
         })
     }
 }
 
+/// return state of Routable(abstration)
 pub enum RouteStatus {
+    /// discover new connection
     NewConnection(ConnectionDetail),
+    /// wait for duration and apply next source discovery
     Wait(Duration),
+    /// No new upstream
     Never,
+    /// Error, should abort
     Abort,
 }
 
+/// foreign trait(interface) for upstream source to implement
 #[async_trait]
 pub trait Routable
 where
@@ -270,22 +312,18 @@ where
 {
     // return new connection when available, will immediately retry true is returned
     async fn route(&mut self) -> Result<RouteStatus, Error>;
+    /// create from config
     fn new(config: JudgerConfig) -> Result<Self, Error>;
 }
 
+/// wrapper for Routable(Error handling)
 #[async_trait]
-pub trait Discoverable {
+trait Discoverable {
     // return new connection when available, will immediately retry true is returned
     async fn discover(&mut self) -> RouteStatus;
 }
 
-// trait Constructable
-// where
-//     Self: Sized,
-// {
-//     fn new(config: JudgerConfig) -> Result<Self, Error>;
-// }
-
+/// wrapper
 #[async_trait]
 impl<S: Routable + Send> Discoverable for S {
     async fn discover(&mut self) -> RouteStatus {
@@ -298,10 +336,3 @@ impl<S: Routable + Send> Discoverable for S {
         }
     }
 }
-
-// #[async_trait]
-// impl<S: Routable + Send> Constructable for S {
-//     fn new(config: JudgerConfig) -> Result<Self, Error> {
-//         Self::new(config)
-//     }
-// }
