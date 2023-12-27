@@ -1,0 +1,11 @@
+{
+    "rust-analyzer.procMacro.ignored": {
+        "leptos_macro": [
+            "component",
+            "server"
+        ]
+    },
+    "tailwindCSS.includeLanguages": {
+        "rust": "html"
+    }
+}
