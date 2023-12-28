@@ -3,7 +3,7 @@ name: backend ci
 on:
   push:
     branches:    
-      - '*'   
+      - 'staging'   
     paths:
       - backend/**
 

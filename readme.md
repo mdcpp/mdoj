@@ -34,16 +34,14 @@ See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
 
 ## Full Setup(Docker)
 
-> For details of config.toml, please follow the document in ``./backend`` and ``./judger``. 
+> Please download source code from release
 
-1. Copy ``docker/production`` to your folder
+1. Copy ``docker/production`` from source code to your folder
 2. generate config for judger by starting the judger once, and edit config
 3. generate config for backend by starting the backend once
 4. download and extract plugin(language support) of your choice to `./plugins`
-5. get a certificate and key for backend, and place them in `./cert`
 
 If you prefer to use default config, you can skip step 2 and 3.
-
 
 ## Setup for development
 

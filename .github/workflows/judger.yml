@@ -3,7 +3,7 @@ name: judger ci
 on:
   push:
     branches:    
-      - '*'   
+      - 'staging'   
     paths:
       - judger/**
 
