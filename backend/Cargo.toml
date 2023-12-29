@@ -76,7 +76,7 @@ version = "1.0.163"
 features = ["derive"]
 
 [dependencies.tonic]
-workspace = true
+version = "0.10.2"
 features = ["transport", "channel", "codegen", "tls", "prost"]
 
 [dependencies.spin]

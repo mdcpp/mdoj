@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use cgroups_rs::Cgroup;
 use cgroups_rs::{cgroup_builder::CgroupBuilder, hierarchies};
+use spin::Mutex;
 use tokio::fs;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;
@@ -31,7 +32,7 @@ pub enum LimitReason {
 // so limiter should be initialize after `cgroup_rs::Cgroup`
 pub struct Limiter {
     task: JoinHandle<()>,
-    state: Arc<AtomicPtr<LimiterState>>,
+    state: Arc<Mutex<LimiterState>>,
     limit_oneshot: Option<Receiver<LimitReason>>,
     cg_name: String,
     cg: Cgroup,
@@ -55,14 +56,66 @@ impl Drop for Limiter {
     }
 }
 
+async fn monitor(
+    cg: Cgroup,
+    state: Arc<Mutex<LimiterState>>,
+    limit: Limit,
+    tx: oneshot::Sender<LimitReason>,
+) {
+    let config = CONFIG.get().unwrap();
+    loop {
+        time::sleep(time::Duration::from_nanos(config.runtime.accuracy)).await;
+
+        let cpu = CpuStatistics::from_cgroup(&cg);
+        let mem = MemStatistics::from_cgroup(&cg);
+
+        // let mut resource_status = ResourceStatus::Running;
+        let mut end = false;
+        let mut reason = LimitReason::Mem;
+
+        // oom could be incured from invaild configuration
+        // check other factor to determine whether is a systm failure or MLE
+        if mem.oom {
+            log::trace!("Stopping process because it reach its memory limit");
+            // even if oom occur, process may still be running(child process killed)
+            reason = LimitReason::Mem;
+            end = true;
+        } else if cpu.rt_us > limit.rt_us
+            || cpu.cpu_us > limit.cpu_us
+            || cpu.total_us > limit.total_us
+        {
+            log::trace!("Killing process because it reach its cpu quota");
+            reason = LimitReason::Cpu;
+            end = true;
+        }
+
+        if let Some(mut state) = state.try_lock() {
+            state.cpu = cpu;
+            state.mem = mem;
+        }
+        // TODO: use unsafe to increase performance(monitoring is a time critical task)
+        // unsafe {
+        //     let state_ptr = Box::into_raw(Box::new(LimiterState { cpu, mem }));
+        //     drop(Box::from_raw(
+        //         state.swap(state_ptr, Ordering::Relaxed),
+        //     ));
+        // }
+        if end {
+            tx.send(reason).ok();
+            cg.kill().unwrap();
+            log::trace!("Process was killed");
+            break;
+        }
+    }
+}
+
 impl Limiter {
     /// create limiter with limit
     pub fn new(cg_name: &str, limit: Limit) -> Result<Self, Error> {
         log::trace!("Creating new limiter for {}", cg_name);
         let (tx, rx) = oneshot::channel();
 
-        let state = Box::into_raw(Box::default());
-        let state = Arc::new(AtomicPtr::new(state));
+        let state: Arc<Mutex<LimiterState>> = Arc::default();
 
         let config = CONFIG.get().unwrap();
 
@@ -87,48 +140,7 @@ impl Limiter {
 
         let cg2 = cg.clone();
 
-        let state_taken = state.clone();
-        let task = tokio::spawn(async move {
-            loop {
-                time::sleep(time::Duration::from_nanos(config.runtime.accuracy)).await;
-
-                let cpu = CpuStatistics::from_cgroup(&cg);
-                let mem = MemStatistics::from_cgroup(&cg);
-
-                // let mut resource_status = ResourceStatus::Running;
-                let mut end = false;
-                let mut reason = LimitReason::Mem;
-
-                // oom could be incured from invaild configuration
-                // check other factor to determine whether is a systm failure or MLE
-                if mem.oom {
-                    log::trace!("Stopping process because it reach its memory limit");
-                    // even if oom occur, process may still be running(child process killed)
-                    reason = LimitReason::Mem;
-                    end = true;
-                } else if cpu.rt_us > limit.rt_us
-                    || cpu.cpu_us > limit.cpu_us
-                    || cpu.total_us > limit.total_us
-                {
-                    log::trace!("Killing process because it reach its cpu quota");
-                    reason = LimitReason::Cpu;
-                    end = true;
-                }
-
-                unsafe {
-                    let state_ptr = Box::into_raw(Box::new(LimiterState { cpu, mem }));
-                    drop(Box::from_raw(
-                        state_taken.swap(state_ptr, Ordering::Relaxed),
-                    ));
-                }
-                if end {
-                    tx.send(reason).ok();
-                    cg.kill().unwrap();
-                    log::trace!("Process was killed");
-                    break;
-                }
-            }
-        });
+        let task = tokio::spawn(monitor(cg.clone(), state.clone(), limit, tx));
 
         Ok(Limiter {
             task,
@@ -156,7 +168,7 @@ impl Limiter {
         }
         time::sleep(time::Duration::from_nanos(config.runtime.accuracy)).await;
 
-        let stat = unsafe { Box::from_raw(self.state.load(Ordering::SeqCst)) };
+        let stat = self.state.lock();
 
         (stat.cpu.clone(), stat.mem.clone())
     }
