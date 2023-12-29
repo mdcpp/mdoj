@@ -34,6 +34,8 @@ services:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
       - ./judger.toml:/config/config.toml
+    tmpfs:
+      - /.temp
     networks:
       - judger
 networks:
