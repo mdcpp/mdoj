@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ::entity::*;
-use sea_orm::{sea_query::SimpleExpr, *};
+use sea_orm::{*};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -459,11 +459,11 @@ impl PagerTrait for problem::Entity {
 
     fn sort_column(sort: &SortBy) -> problem::Column {
         match sort {
-            SortBy::UploadDate => (problem::Column::UpdateAt),
-            SortBy::CreateDate => (problem::Column::CreateAt),
-            SortBy::AcRate => (problem::Column::AcRate),
-            SortBy::SubmitCount => (problem::Column::SubmitCount),
-            SortBy::Difficulty => (problem::Column::Difficulty),
+            SortBy::UploadDate => problem::Column::UpdateAt,
+            SortBy::CreateDate => problem::Column::CreateAt,
+            SortBy::AcRate => problem::Column::AcRate,
+            SortBy::SubmitCount => problem::Column::SubmitCount,
+            SortBy::Difficulty => problem::Column::Difficulty,
             _ => problem::Column::Id,
         }
     }
@@ -511,7 +511,7 @@ impl PagerTrait for test::Entity {
 
     fn sort_column(sort: &SortBy) -> test::Column {
         match sort {
-            SortBy::Score => (test::Column::Score),
+            SortBy::Score => test::Column::Score,
             _ => test::Column::Id,
         }
     }
@@ -546,10 +546,10 @@ impl PagerTrait for contest::Entity {
 
     fn sort_column(sort: &SortBy) -> contest::Column {
         match sort {
-            SortBy::CreateDate => (contest::Column::CreateAt),
-            SortBy::UploadDate => (contest::Column::UpdateAt),
-            SortBy::Begin => (contest::Column::Begin),
-            SortBy::End => (contest::Column::End),
+            SortBy::CreateDate => contest::Column::CreateAt,
+            SortBy::UploadDate => contest::Column::UpdateAt,
+            SortBy::Begin => contest::Column::Begin,
+            SortBy::End => contest::Column::End,
             _ => contest::Column::Id,
         }
     }
@@ -590,8 +590,8 @@ impl PagerTrait for user::Entity {
 
     fn sort_column(sort: &SortBy) -> user::Column {
         match sort {
-            SortBy::CreateDate => (user::Column::CreateAt),
-            SortBy::Score => (user::Column::Score),
+            SortBy::CreateDate => user::Column::CreateAt,
+            SortBy::Score => user::Column::Score,
             _ => user::Column::Id,
         }
     }
@@ -632,11 +632,11 @@ impl PagerTrait for submit::Entity {
 
     fn sort_column(sort: &SortBy) -> submit::Column {
         match sort {
-            SortBy::Committed => (submit::Column::Committed),
-            SortBy::Score => (submit::Column::Score),
-            SortBy::Time => (submit::Column::Time),
-            SortBy::Memory => (submit::Column::Memory),
-            SortBy::UploadDate | SortBy::CreateDate => (submit::Column::UploadAt),
+            SortBy::Committed => submit::Column::Committed,
+            SortBy::Score => submit::Column::Score,
+            SortBy::Time => submit::Column::Time,
+            SortBy::Memory => submit::Column::Memory,
+            SortBy::UploadDate | SortBy::CreateDate => submit::Column::UploadAt,
             _ => submit::Column::Id,
         }
     }
@@ -675,10 +675,10 @@ impl PagerTrait for education::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn sort_column(sort: &SortBy) -> education::Column {
+    fn sort_column(_sort: &SortBy) -> education::Column {
         education::Column::Id
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn get_key_of(model: &Self::Model, _sort: &SortBy) -> String {
         model.id.to_string()
     }
     fn get_id(model: &Self::Model) -> i32 {
