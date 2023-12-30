@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ::entity::*;
-use sea_orm::*;
+use sea_orm::{sea_query::SimpleExpr, *};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -42,7 +42,15 @@ where
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self>;
+    fn sort(select: Select<Self>, sort: &SortBy, reverse: bool) -> Select<Self> {
+        let desc = match reverse {
+            true => Order::Asc,
+            false => Order::Desc,
+        };
+        select.order_by(Self::sort_column(sort), desc)
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String;
+    fn sort_column(sort: &SortBy) -> Self::Column;
     fn get_id(model: &Self::Model) -> i32;
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
@@ -57,7 +65,7 @@ enum RawSearchDep {
 #[derive(Serialize, Deserialize)]
 struct RawPager {
     type_number: i32,
-    ppk: i32,
+    previous: Option<String>,
     sort: RawSearchDep,
 }
 
@@ -70,7 +78,7 @@ pub enum SearchDep {
 
 #[derive(Clone, Debug)]
 pub struct Pager<E: PagerTrait> {
-    ppk: Option<i32>,
+    previous: Option<String>,
     sort: SearchDep,
     _entity: PhantomData<E>,
 }
@@ -118,7 +126,7 @@ where
     #[instrument]
     fn parent_search(ppk: i32) -> Self {
         Self {
-            ppk: None,
+            previous: None,
             sort: SearchDep::Parent(ppk),
             _entity: PhantomData,
         }
@@ -127,7 +135,7 @@ where
     fn into_raw(self, server: &Server) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
-            ppk: self.ppk.unwrap_or(0),
+            previous: self.previous,
             sort: match self.sort {
                 SearchDep::Text(s) => RawSearchDep::Text(s),
                 SearchDep::Column(sort_by, reverse) => {
@@ -154,26 +162,24 @@ where
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
-        match pager.type_number == E::TYPE_NUMBER {
-            true => {
-                let sort = match pager.sort {
-                    RawSearchDep::Text(x) => SearchDep::Text(x),
-                    RawSearchDep::Column(sort_by, reverse) => {
-                        let sort_by = sort_by
-                            .try_into()
-                            .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
-                        SearchDep::Column(sort_by, reverse)
-                    }
-                    RawSearchDep::Parent(x) => SearchDep::Parent(x),
-                };
-                Ok(Pager {
-                    ppk: Some(pager.ppk),
-                    sort,
-                    _entity: PhantomData,
-                })
-            }
-            false => Err(Error::PaginationError("Pager type number mismatch")),
+        if pager.type_number != E::TYPE_NUMBER {
+            return Err(Error::PaginationError("Pager type number mismatch"));
         }
+        let sort = match pager.sort {
+            RawSearchDep::Text(x) => SearchDep::Text(x),
+            RawSearchDep::Column(sort_by, reverse) => {
+                let sort_by = sort_by
+                    .try_into()
+                    .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
+                SearchDep::Column(sort_by, reverse)
+            }
+            RawSearchDep::Parent(x) => SearchDep::Parent(x),
+        };
+        Ok(Pager {
+            previous: pager.previous,
+            sort,
+            _entity: PhantomData,
+        })
     }
     #[instrument(skip(self, auth))]
     async fn fetch(
@@ -183,46 +189,67 @@ where
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
-        if limit > PAGE_MAX_SIZE {
-            return Err(Error::NumberTooLarge);
-        }
-        macro_rules! order_by_pk {
-            ($src:expr,$reverse: expr) => {
-                if $reverse {
-                    $src = $src.order_by_asc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        $src = $src.filter(E::COL_ID.gt(x));
-                    }
-                } else {
-                    $src = $src.order_by_desc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        $src = $src.filter(E::COL_ID.lt(x));
-                    }
-                }
-            };
-        }
-        let query = match self.sort.clone() {
+        let mut query = E::query_filter(E::find(), auth)?;
+
+        match &self.sort {
             SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                order_by_pk!(query, reverse);
-                let mut condition = E::COL_TEXT[0].like(&txt);
-                for col in E::COL_TEXT[1..].iter() {
-                    condition = condition.or(col.like(&txt));
+                if let Some(previous) = &self.previous {
+                    let col = E::COL_ID;
+                    match reverse {
+                        true => query = query.filter(ColumnTrait::lt(&col, previous)),
+                        false => query = query.filter(ColumnTrait::gt(&col, previous)),
+                    };
                 }
+
+                let mut condition = E::COL_TEXT[0].like(txt.as_str());
+                for col in E::COL_TEXT[1..].iter() {
+                    condition = condition.or(col.like(txt.as_str()));
+                }
+
                 query = query.filter(condition);
-                query
+
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
+
+                if let Some(model) = models.last() {
+                    self.previous = Some(E::get_id(model).to_string());
+                }
+                Ok(models)
             }
-            SearchDep::Column(sort_by, inner_reverse) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                order_by_pk!(query, reverse ^ inner_reverse);
-                E::sort(query, sort_by, reverse)
+            SearchDep::Column(sort, inner_reverse) => {
+                let reverse = reverse ^ inner_reverse;
+                if let Some(previous) = &self.previous {
+                    let col = E::sort_column(sort);
+                    match reverse {
+                        true => query = query.filter(ColumnTrait::lt(&col, previous)),
+                        false => query = query.filter(ColumnTrait::gt(&col, previous)),
+                    };
+                }
+
+                query = E::sort(query, sort, reverse);
+
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
+
+                if let Some(model) = models.last() {
+                    self.previous = Some(E::get_key_of(model, sort).to_string());
+                }
+                Ok(models)
             }
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
                 // TODO: select ID only
                 let query = E::ParentMarker::related_filter(auth).await?;
                 let query = query
-                    .filter(E::ParentMarker::COL_ID.eq(p_pk))
+                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
                     .columns([E::ParentMarker::COL_ID])
                     .one(db)
                     .await?;
@@ -235,23 +262,26 @@ where
 
                 query = E::query_filter(query, auth)?;
 
-                order_by_pk!(query, reverse);
-                query
+                if let Some(previous) = &self.previous {
+                    let col = E::COL_ID;
+                    match reverse {
+                        true => query = query.filter(ColumnTrait::lt(&col, previous)),
+                        false => query = query.filter(ColumnTrait::gt(&col, previous)),
+                    };
+                }
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
+
+                if let Some(model) = models.last() {
+                    self.previous = Some(E::get_id(model).to_string());
+                }
+                Ok(models)
             }
-        };
-
-        let models = query
-            .columns(E::COL_SELECT.to_vec())
-            .limit(limit)
-            .offset(offset)
-            .all(DB.get().unwrap())
-            .await?;
-
-        if let Some(x) = models.last() {
-            self.ppk = Some(E::get_id(x));
         }
-
-        Ok(models)
     }
 }
 
@@ -264,7 +294,7 @@ where
     fn into_raw(self, server: &Server) -> String {
         let raw = RawPager {
             type_number: E::TYPE_NUMBER,
-            ppk: self.ppk.unwrap_or(0),
+            previous: self.previous,
             sort: match self.sort {
                 SearchDep::Text(s) => RawSearchDep::Text(s),
                 SearchDep::Column(sort_by, reverse) => {
@@ -291,28 +321,26 @@ where
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
-        match pager.type_number == E::TYPE_NUMBER {
-            true => {
-                let sort = match pager.sort {
-                    RawSearchDep::Text(x) => SearchDep::Text(x),
-                    RawSearchDep::Column(sort_by, reverse) => {
-                        let sort_by = sort_by
-                            .try_into()
-                            .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
-                        SearchDep::Column(sort_by, reverse)
-                    }
-                    RawSearchDep::Parent(_) => {
-                        return Err(Error::PaginationError("Pager reconstruction failed"));
-                    }
-                };
-                Ok(Pager {
-                    ppk: Some(pager.ppk),
-                    sort,
-                    _entity: PhantomData,
-                })
-            }
-            false => Err(Error::PaginationError("Pager type number mismatch")),
+        if pager.type_number != E::TYPE_NUMBER {
+            return Err(Error::PaginationError("Pager type number mismatch"));
         }
+        let sort = match pager.sort {
+            RawSearchDep::Text(x) => SearchDep::Text(x),
+            RawSearchDep::Column(sort_by, reverse) => {
+                let sort_by = sort_by
+                    .try_into()
+                    .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
+                SearchDep::Column(sort_by, reverse)
+            }
+            RawSearchDep::Parent(_) => {
+                return Err(Error::PaginationError("Pager reconstruction failed"));
+            }
+        };
+        Ok(Pager {
+            previous: pager.previous,
+            sort,
+            _entity: PhantomData,
+        })
     }
     #[instrument(skip(self, auth))]
     async fn fetch(
@@ -322,55 +350,65 @@ where
         reverse: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
-        if limit > PAGE_MAX_SIZE {
-            return Err(Error::NumberTooLarge);
-        }
-        macro_rules! order_by_pk {
-            ($src:expr,$reverse: expr) => {
-                if $reverse {
-                    $src = $src.order_by_asc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        $src = $src.filter(E::COL_ID.gt(x));
-                    }
-                } else {
-                    $src = $src.order_by_desc(E::COL_ID);
-                    if let Some(x) = self.ppk {
-                        $src = $src.filter(E::COL_ID.lt(x));
-                    }
-                }
-            };
-        }
-        let query = match self.sort.clone() {
+        let mut query = E::query_filter(E::find(), auth)?;
+
+        match &self.sort {
             SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                order_by_pk!(query, reverse);
-                let mut condition = E::COL_TEXT[0].like(&txt);
-                for col in E::COL_TEXT[1..].iter() {
-                    condition = condition.or(col.like(&txt));
+                if let Some(previous) = &self.previous {
+                    let col = E::COL_ID;
+                    match reverse {
+                        true => query = query.filter(ColumnTrait::lt(&col, previous)),
+                        false => query = query.filter(ColumnTrait::gt(&col, previous)),
+                    };
                 }
+
+                let mut condition = E::COL_TEXT[0].like(txt.as_str());
+                for col in E::COL_TEXT[1..].iter() {
+                    condition = condition.or(col.like(txt.as_str()));
+                }
+
                 query = query.filter(condition);
-                query
-            }
-            SearchDep::Column(sort_by, inner_reverse) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                order_by_pk!(query, reverse ^ inner_reverse);
-                E::sort(query, sort_by, reverse)
-            }
-            SearchDep::Parent(_) => unreachable!(),
-        };
 
-        let models = query
-            .columns(E::COL_SELECT.to_vec())
-            .limit(limit)
-            .offset(offset)
-            .all(DB.get().unwrap())
-            .await?;
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
 
-        if let Some(x) = models.last() {
-            self.ppk = Some(E::get_id(x));
+                if let Some(model) = models.last() {
+                    self.previous = Some(E::get_id(model).to_string());
+                }
+                Ok(models)
+            }
+            SearchDep::Column(sort, inner_reverse) => {
+                let reverse = reverse ^ inner_reverse;
+                if let Some(previous) = &self.previous {
+                    let col = E::sort_column(sort);
+                    match reverse {
+                        true => query = query.filter(ColumnTrait::lt(&col, previous)),
+                        false => query = query.filter(ColumnTrait::gt(&col, previous)),
+                    };
+                }
+
+                query = E::sort(query, sort, reverse);
+
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
+
+                if let Some(model) = models.last() {
+                    self.previous = Some(E::get_key_of(model, sort).to_string());
+                }
+                Ok(models)
+            }
+            SearchDep::Parent(_) => {
+                unreachable!()
+            }
         }
-
-        Ok(models)
     }
 }
 
@@ -378,7 +416,7 @@ impl<E: PagerTrait> Pager<E> {
     #[instrument(level = "debug")]
     pub fn sort_search(sort: SortBy, reverse: bool) -> Self {
         Self {
-            ppk: None,
+            previous: None,
             sort: SearchDep::Column(sort, reverse),
             _entity: PhantomData,
         }
@@ -386,7 +424,7 @@ impl<E: PagerTrait> Pager<E> {
     #[instrument(level = "debug")]
     pub fn text_search(sort: String) -> Self {
         Self {
-            ppk: None,
+            previous: None,
             sort: SearchDep::Text(sort),
             _entity: PhantomData,
         }
@@ -419,22 +457,24 @@ impl PagerTrait for problem::Entity {
 
     type ParentMarker = HasParent<contest::Entity>;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        let desc = match reverse {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
-        let asc = match reverse {
-            true => Order::Desc,
-            false => Order::Asc,
-        };
+    fn sort_column(sort: &SortBy) -> problem::Column {
         match sort {
-            SortBy::UploadDate => select.order_by(problem::Column::UpdateAt, desc),
-            SortBy::CreateDate => select.order_by(problem::Column::CreateAt, desc),
-            SortBy::AcRate => select.order_by(problem::Column::AcRate, desc),
-            SortBy::SubmitCount => select.order_by(problem::Column::SubmitCount, desc),
-            SortBy::Difficulty => select.order_by(problem::Column::Difficulty, asc),
-            _ => select,
+            SortBy::UploadDate => (problem::Column::UpdateAt),
+            SortBy::CreateDate => (problem::Column::CreateAt),
+            SortBy::AcRate => (problem::Column::AcRate),
+            SortBy::SubmitCount => (problem::Column::SubmitCount),
+            SortBy::Difficulty => (problem::Column::Difficulty),
+            _ => problem::Column::Id,
+        }
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        match sort {
+            SortBy::UploadDate => model.update_at.to_string(),
+            SortBy::CreateDate => model.create_at.to_string(),
+            SortBy::AcRate => model.ac_rate.to_string(),
+            SortBy::SubmitCount => model.submit_count.to_string(),
+            SortBy::Difficulty => model.difficulty.to_string(),
+            _ => model.id.to_string(),
         }
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -469,14 +509,16 @@ impl PagerTrait for test::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        let desc = match reverse {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
+    fn sort_column(sort: &SortBy) -> test::Column {
         match sort {
-            SortBy::Score => select.order_by(test::Column::Score, desc),
-            _ => select,
+            SortBy::Score => (test::Column::Score),
+            _ => test::Column::Id,
+        }
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        match sort {
+            SortBy::Score => (model.score).to_string(),
+            _ => model.id.to_string(),
         }
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -502,20 +544,24 @@ impl PagerTrait for contest::Entity {
 
     type ParentMarker = NoParent;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        let desc = match reverse {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
+    fn sort_column(sort: &SortBy) -> contest::Column {
         match sort {
-            SortBy::CreateDate => select.order_by(contest::Column::CreateAt, desc),
-            SortBy::UploadDate => select.order_by(contest::Column::UpdateAt, desc),
-            SortBy::Begin => select.order_by(contest::Column::Begin, desc),
-            SortBy::End => select.order_by(contest::Column::End, desc),
-            _ => select,
+            SortBy::CreateDate => (contest::Column::CreateAt),
+            SortBy::UploadDate => (contest::Column::UpdateAt),
+            SortBy::Begin => (contest::Column::Begin),
+            SortBy::End => (contest::Column::End),
+            _ => contest::Column::Id,
         }
     }
-
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        match sort {
+            SortBy::CreateDate => model.create_at.to_string(),
+            SortBy::UploadDate => model.update_at.to_string(),
+            SortBy::Begin => model.begin.to_string(),
+            SortBy::End => model.end.to_string(),
+            _ => model.id.to_string(),
+        }
+    }
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
@@ -542,15 +588,18 @@ impl PagerTrait for user::Entity {
 
     type ParentMarker = NoParent;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        let desc = match reverse {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
+    fn sort_column(sort: &SortBy) -> user::Column {
         match sort {
-            SortBy::CreateDate => select.order_by(user::Column::CreateAt, desc),
-            SortBy::Score => select.order_by(user::Column::Score, desc),
-            _ => select,
+            SortBy::CreateDate => (user::Column::CreateAt),
+            SortBy::Score => (user::Column::Score),
+            _ => user::Column::Id,
+        }
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        match sort {
+            SortBy::CreateDate => model.create_at.to_string(),
+            SortBy::Score => model.score.to_string(),
+            _ => model.id.to_string(),
         }
     }
 
@@ -581,20 +630,27 @@ impl PagerTrait for submit::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn sort(select: Select<Self>, sort: SortBy, reverse: bool) -> Select<Self> {
-        let desc = match reverse {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
+    fn sort_column(sort: &SortBy) -> submit::Column {
         match sort {
-            SortBy::Committed => select.order_by(submit::Column::Committed, desc),
-            SortBy::Score => select.order_by(submit::Column::Score, desc),
-            SortBy::Time => select.order_by(submit::Column::Time, desc),
-            SortBy::Memory => select.order_by(submit::Column::Memory, desc),
-            SortBy::UploadDate | SortBy::CreateDate => {
-                select.order_by(submit::Column::UploadAt, desc)
-            }
-            _ => select,
+            SortBy::Committed => (submit::Column::Committed),
+            SortBy::Score => (submit::Column::Score),
+            SortBy::Time => (submit::Column::Time),
+            SortBy::Memory => (submit::Column::Memory),
+            SortBy::UploadDate | SortBy::CreateDate => (submit::Column::UploadAt),
+            _ => submit::Column::Id,
+        }
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        match sort {
+            SortBy::Committed => match model.committed {
+                true => "1".to_string(),
+                false => "0".to_string(),
+            },
+            SortBy::Score => model.score.to_string(),
+            SortBy::Time => model.time.unwrap_or_default().to_string(),
+            SortBy::Memory => model.memory.unwrap_or_default().to_string(),
+            SortBy::UploadDate | SortBy::CreateDate => model.upload_at.to_string(),
+            _ => model.id.to_string(),
         }
     }
 
@@ -619,8 +675,11 @@ impl PagerTrait for education::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn sort(select: Select<Self>, _: SortBy, _: bool) -> Select<Self> {
-        select
+    fn sort_column(sort: &SortBy) -> education::Column {
+        education::Column::Id
+    }
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        model.id.to_string()
     }
     fn get_id(model: &Self::Model) -> i32 {
         model.id

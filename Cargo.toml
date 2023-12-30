@@ -13,6 +13,7 @@ members = [
 prost = "0.12.3"
 prost-types = "0.12.3"
 tonic-build = "0.10.2"
+
 [workspace.dependencies.tonic]
 version = "0.10.2"
 default-features = false

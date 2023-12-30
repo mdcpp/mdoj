@@ -223,8 +223,8 @@ impl Router {
             .get(lang)
             .ok_or(Error::BadArgument("lang"))?;
 
-        while let Some(upstream)=queue.pop(){
-            if upstream.is_healthy(){
+        while let Some(upstream) = queue.pop() {
+            if upstream.is_healthy() {
                 queue.push(upstream.clone());
                 return upstream.get().await;
             }
