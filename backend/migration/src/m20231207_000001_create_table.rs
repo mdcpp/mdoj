@@ -644,6 +644,33 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(Announcement::Table).to_owned())
             .await?;
-        todo!()
+        manager
+            .drop_table(Table::drop().table(Chat::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Contest::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Education::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Problem::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Submit::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Test::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Token::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(User::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(UserContest::Table).to_owned())
+            .await?;
+        Ok(())
     }
 }

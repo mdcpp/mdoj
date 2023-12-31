@@ -1,5 +1,6 @@
+pub mod chat;
 pub mod contest;
-mod education;
+pub mod education;
 pub mod imgur;
 pub mod playground;
 pub mod problem;

@@ -565,14 +565,17 @@ message CreateUserRequest {
 }
 
 message Permission {
-  required bool can_manage_contest = 1;
-  required bool can_manage_problem = 2;
-  required bool can_manage_announcement = 3;
-  required bool can_manage_education = 4;
-  required bool can_manage_user = 5;
   required bool can_root = 6;
-  required bool can_link = 7;
+  required bool can_manage_problem = 2;
+  required bool can_manage_education = 4;
+  required bool can_manage_announcement = 3;
+  required bool can_manage_submit = 1;
   required bool can_publish = 8;
+  required bool can_link = 7;
+  required bool can_manage_contest = 9;
+  required bool can_manage_user = 5;
+  required bool can_imgur = 10;
+  required bool can_manage_chat = 11;
 }
 
 message UpdateUserRequest {
@@ -668,8 +671,7 @@ message ChatInfo {
   required UserId user_id = 1;
   required ProblemId problem_id = 2;
   required google.protobuf.Timestamp create_at = 3;
-  repeated string message = 4;
-  required string request_id = 6;
+  required string message = 4;
 }
 
 message ListChatResponse {
@@ -680,13 +682,14 @@ message ListChatResponse {
 message CreateChatRequest{
   required ProblemId problem_id=1;
   required string message=2;
+  required string request_id = 6;
 }
 
 service ChatSet {
   // unlike other entity, there is no such permission as manage_chat
   // everyone(except guest) can create chat
-  rpc Create(CreateContestRequest) returns (ContestId);
+  rpc Create(CreateChatRequest) returns (ChatId);
   rpc Remove(ChatId) returns (google.protobuf.Empty);
 
-  rpc ListByProblem(ListByRequest) returns (ListTestcaseResponse);
+  rpc ListByProblem(ListByRequest) returns (ListChatResponse);
 }
