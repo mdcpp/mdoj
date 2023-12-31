@@ -272,6 +272,9 @@ impl UserSet for Arc<Server> {
 
         self.metrics.user.add(-1, &[]);
 
+        // TODO: remove user's token
+        // self.token.remove_by_user_id(user_id, txn);
+
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
