@@ -3,8 +3,7 @@ pub mod paginate;
 
 use std::marker::PhantomData;
 
-use ::entity::*;
-use sea_orm::{sea_query::SimpleExpr, PrimaryKeyToColumn, *};
+use sea_orm::*;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -15,7 +14,7 @@ use crate::{
     server::Server,
 };
 
-use super::{auth::Auth, error::Error, filter::Filter};
+use super::{auth::Auth, error::Error};
 
 const PAGE_MAX_SIZE: u64 = 64;
 
@@ -87,7 +86,7 @@ pub enum SearchDep {
 
 impl SearchDep {
     fn update_last_col(&mut self, data: String) {
-        if let Self::Column(a, b, c) = self {
+        if let Self::Column(_a, _b, c) = self {
             *c = data;
         } else {
             unreachable!()
@@ -454,7 +453,7 @@ where
 
                 models
             }
-            SearchDep::Parent(p_pk) => {
+            SearchDep::Parent(_p_pk) => {
                 unreachable!()
             }
         };

@@ -1,14 +1,4 @@
-use std::marker::PhantomData;
-
-use ::entity::*;
-use sea_orm::{sea_query::SimpleExpr, PrimaryKeyToColumn, *};
-use serde::{Deserialize, Serialize};
-use tracing::instrument;
-
-use crate::{grpc::backend::SortBy, init::db::DB, server::Server};
-
-use super::{HasParent, NoParent, PagerTrait, ParentalTrait};
-use crate::endpoint::util::{auth::Auth, error::Error, filter::Filter};
+use sea_orm::{sea_query::SimpleExpr, *};
 
 #[inline]
 pub fn order_by_bool<E: EntityTrait>(
@@ -60,7 +50,7 @@ pub struct PaginateCol<'a, PK: ColumnTrait, COL: ColumnTrait> {
 
 impl<'a, PK: ColumnTrait, COL: ColumnTrait> PaginateCol<'a, PK, COL> {
     pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
-        let ord = match self.rev {
+        let _ord = match self.rev {
             true => Order::Desc,
             false => Order::Asc,
         };
@@ -76,9 +66,8 @@ impl<'a, PK: ColumnTrait, COL: ColumnTrait> PaginateCol<'a, PK, COL> {
         let query = query.filter(left.and(right));
 
         let query = order_by_bool(query, self.pk, self.rev);
-        let query = order_by_bool(query, self.col, self.rev);
 
-        query
+        order_by_bool(query, self.col, self.rev)
     }
 }
 
@@ -93,11 +82,11 @@ pub struct PaginatePk<PK: ColumnTrait> {
 impl<PK: ColumnTrait> PaginatePk<PK> {
     pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
         let query = query.filter(compare_include(self.include, self.rev, self.last, self.pk));
-        let ord = match self.rev {
+        let _ord = match self.rev {
             true => Order::Desc,
             false => Order::Asc,
         };
-        let query = order_by_bool(query, self.pk, self.rev);
-        query
+
+        order_by_bool(query, self.pk, self.rev)
     }
 }
