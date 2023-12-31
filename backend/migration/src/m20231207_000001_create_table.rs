@@ -131,6 +131,17 @@ enum User {
     Password,
     CreateAt,
 }
+
+#[derive(Iden)]
+enum Chat {
+    Table,
+    Id,
+    UserId,
+    ProblemId,
+    CreateAt,
+    Message,
+}
+
 #[derive(Iden)]
 enum UserContest {
     Table,
@@ -534,6 +545,44 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Chat::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Chat::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Chat::UserId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-chat-user")
+                            .from(Chat::Table, Chat::UserId)
+                            .to(User::Table, User::Id),
+                    )
+                    .col(ColumnDef::new(Chat::ProblemId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-chat-problem")
+                            .from(Chat::Table, Chat::ProblemId)
+                            .to(Problem::Table, Problem::Id),
+                    )
+                    .col(
+                        ColumnDef::new(Chat::CreateAt)
+                            .date_time()
+                            .not_null()
+                            .extra(CREATE_AT.to_string()),
+                    )
+                    .col(ColumnDef::new(Chat::Message).string().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
         manager
             .create_index(
                 Index::create()
@@ -570,6 +619,7 @@ impl MigrationTrait for Migration {
         index!(manager, User, Score);
         index!(manager, User, Username);
         index!(manager, Token, Rand);
+        index!(manager, Chat, CreateAt);
 
         manager
             .get_connection()

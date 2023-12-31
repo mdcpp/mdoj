@@ -16,7 +16,9 @@ use crate::{
 
 use super::{auth::Auth, error::Error};
 
+// TODO: add limit
 const PAGE_MAX_SIZE: u64 = 64;
+const PAGE_MAX_OFFSET: u64 = 256;
 
 #[tonic::async_trait]
 pub trait ParentalTrait<P>
