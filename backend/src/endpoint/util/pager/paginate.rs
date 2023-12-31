@@ -20,12 +20,7 @@ pub fn order_by_bool<E: EntityTrait>(
 // included and desc=>lte
 // excluded and desc=>lt
 #[inline]
-pub fn com_eq(
-    eq: bool,
-    ord: bool,
-    val: impl Into<Value>,
-    col: impl ColumnTrait,
-) -> SimpleExpr {
+pub fn com_eq(eq: bool, ord: bool, val: impl Into<Value>, col: impl ColumnTrait) -> SimpleExpr {
     match eq {
         true => match ord {
             true => ColumnTrait::lte(&col, val),

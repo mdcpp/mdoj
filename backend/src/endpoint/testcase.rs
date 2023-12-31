@@ -148,7 +148,7 @@ impl TestcaseSet for Arc<Server> {
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {

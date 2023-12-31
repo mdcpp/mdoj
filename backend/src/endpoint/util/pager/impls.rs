@@ -276,11 +276,11 @@ impl PagerTrait for chat::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn get_key_of(model: &Self::Model, _sort: &SortBy) -> String {
         model.id.to_string()
     }
 
-    fn sort_column(sort: &SortBy) -> Self::Column {
+    fn sort_column(_sort: &SortBy) -> Self::Column {
         chat::Column::Id
     }
 
