@@ -8,11 +8,11 @@ import "google/protobuf/empty.proto";
 /*
  * all time are in unit of nanosecond
  * all memory are in unit of byte
- * 
+ *
  * any rpc with field request_id can be sent multiple time
- * but will only be execute once, the return value will be store and return on preceeding request
- * request_ids for each token should be unique and be a vaild UUIDv4:
- * upper or lower case, with "-" or no "-" is all allowed
+ * but will only be execute once, the return value will be store and return on
+ * preceeding request request_ids for each token should be unique and be a vaild
+ * UUIDv4: upper or lower case, with "-" or no "-" is all allowed
  */
 
 // How judge assert input
@@ -34,11 +34,11 @@ enum SortBy {
   Difficulty = 4;
   AcceptCount = 7;
   CreateDate = 8;
-  Begin =9;
-  End=10;
-  Committed=11;
-  Time=12;
-  Memory=13;
+  Begin = 9;
+  End = 10;
+  Committed = 11;
+  Time = 12;
+  Memory = 13;
 }
 
 // paginator is used to paginate list
@@ -64,7 +64,7 @@ message ListRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
-  optional uint64 offset =4;
+  optional uint64 offset = 4;
 }
 
 message TextSearchRequest {
@@ -73,7 +73,7 @@ message TextSearchRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
-  optional uint64 offset =4;
+  optional uint64 offset = 4;
 }
 
 message ListByRequest {
@@ -82,7 +82,7 @@ message ListByRequest {
     Paginator pager = 2;
   }
   required uint64 size = 3;
-  optional uint64 offset =4;
+  optional uint64 offset = 4;
 }
 
 message Case {
@@ -95,7 +95,7 @@ message Testcases { repeated TestcaseId list = 1; }
 // Submit
 
 // I don't want to write docs
-enum StateCode{
+enum StateCode {
   AC = 0;
   NA = 1;
   WA = 2;
@@ -107,10 +107,10 @@ enum StateCode{
   OLE = 8;
 }
 message JudgeResult {
-    required StateCode code=1;
-    optional uint64 accuracy=2;
-    optional uint64 time=3;
-    optional uint64 memory=4;
+  required StateCode code = 1;
+  optional uint64 accuracy = 2;
+  optional uint64 time = 3;
+  optional uint64 memory = 4;
 }
 
 message SubmitId { required int32 id = 1; }
@@ -144,7 +144,7 @@ message CreateSubmitRequest {
   message Info {
     required bytes code = 1;
     required ProblemId problem_id = 2;
-    required string lang=3;
+    required string lang = 3;
   }
   required Info info = 1;
   // required SubmitId id = 2;
@@ -247,7 +247,8 @@ service AnnouncementSet {
 /*
  * about entity hierarchy(I named it!)
  * There are a lot of entity pair which have a parent-child relationship
- * For example, you can only view a unpublish problem if you are in a contest with it
+ * For example, you can only view a unpublish problem if you are in a contest
+ * with it
  *
  * So, for entity that can expose sololy, we call it a top-level entity
  * Top level entity are: Contest, User, Announcement, Problem
@@ -491,8 +492,9 @@ message UpdateContestRequest {
     optional google.protobuf.Timestamp end = 3;
     optional string content = 4;
     optional string tags = 6;
-    // if there is password: enter original password to disable password, null to keep password
-    // if there isn't: enter new password to set password, null to keep it password disable
+    // if there is password: enter original password to disable password, null
+    // to keep password if there isn't: enter new password to set password, null
+    // to keep it password disable
     optional string password = 5;
   }
   required Info info = 1;
@@ -510,14 +512,12 @@ message ListRankResponse {
   required string next_session = 2;
 }
 
-message JoinContestRequest{
-  required ContestId id=1;
-  optional string password=2;
+message JoinContestRequest {
+  required ContestId id = 1;
+  optional string password = 2;
 }
 
-message Users{
-  repeated UserRank list=1;
-}
+message Users { repeated UserRank list = 1; }
 
 service ContestSet {
   rpc List(ListRequest) returns (ListContestResponse);
@@ -573,7 +573,6 @@ message Permission {
   required bool can_root = 6;
   required bool can_link = 7;
   required bool can_publish = 8;
-
 }
 
 message UpdateUserRequest {
@@ -629,37 +628,65 @@ service TokenSet {
   rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
-message PlaygroundRequest{
-  required bytes code=1;
-  required string lang=2;
-  required bytes input=3;
+message PlaygroundRequest {
+  required bytes code = 1;
+  required string lang = 2;
+  required bytes input = 3;
 }
 
-message Log{
+message Log {
   required uint32 level = 1;
   required string msg = 2;
 }
 
-message PlaygroundResult{
-  oneof result{
-    Log compile=1;
-    bytes output=2;
+message PlaygroundResult {
+  oneof result {
+    Log compile = 1;
+    bytes output = 2;
   }
 }
 
-service PlaygroundSet{
+service PlaygroundSet {
   rpc Run(PlaygroundRequest) returns (stream PlaygroundResult);
 }
 
-message UploadRequest{
-  required bytes data=1;
-  required string request_id=2;
+message UploadRequest {
+  required bytes data = 1;
+  required string request_id = 2;
 }
 
-message UploadResponse{
-  required string url=1;
+message UploadResponse { required string url = 1; }
+
+service ImgurSet { rpc Upload(UploadRequest) returns (UploadResponse); }
+
+message ChatId{
+  required int32 id = 1;
 }
 
-service ImgurSet{
-  rpc Upload(UploadRequest) returns (UploadResponse);
+message ChatInfo {
+  required ChatId id=5;
+  required UserId user_id = 1;
+  required ProblemId problem_id = 2;
+  required google.protobuf.Timestamp create_at = 3;
+  repeated string message = 4;
+  required string request_id = 6;
+}
+
+message ListChatResponse {
+  repeated ChatInfo list = 1;
+  required string next_session = 2;
+}
+
+message CreateChatRequest{
+  required ProblemId problem_id=1;
+  required string message=2;
+}
+
+service ChatSet {
+  // unlike other entity, there is no such permission as manage_chat
+  // everyone(except guest) can create chat
+  rpc Create(CreateContestRequest) returns (ContestId);
+  rpc Remove(ChatId) returns (google.protobuf.Empty);
+
+  rpc ListByProblem(ListByRequest) returns (ListTestcaseResponse);
 }
