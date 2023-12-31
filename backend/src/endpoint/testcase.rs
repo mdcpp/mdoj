@@ -155,10 +155,6 @@ impl TestcaseSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update test").into());
-        }
-
         tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -257,7 +253,7 @@ impl TestcaseSet for Arc<Server> {
 
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(
-                Error::PremissionDeny("input and output field of problem is protected").into(),
+                Error::PremissionDeny("input and output field of testcase is protected").into(),
             );
         }
 

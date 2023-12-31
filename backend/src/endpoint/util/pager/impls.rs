@@ -264,3 +264,31 @@ impl PagerTrait for education::Entity {
         education::Entity::read_filter(select, auth)
     }
 }
+
+impl PagerTrait for chat::Entity {
+    const TYPE_NUMBER: i32 = 3278361;
+
+    const COL_ID: Self::Column = chat::Column::Id;
+
+    const COL_TEXT: &'static [Self::Column] = &[chat::Column::Message];
+
+    const COL_SELECT: &'static [Self::Column] = &[chat::Column::Id, chat::Column::Message];
+
+    type ParentMarker = HasParent<problem::Entity>;
+
+    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+        model.id.to_string()
+    }
+
+    fn sort_column(sort: &SortBy) -> Self::Column {
+        chat::Column::Id
+    }
+
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        chat::Entity::read_filter(select, auth)
+    }
+}

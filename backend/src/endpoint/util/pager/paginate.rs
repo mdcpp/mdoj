@@ -20,20 +20,20 @@ pub fn order_by_bool<E: EntityTrait>(
 // included and desc=>lte
 // excluded and desc=>lt
 #[inline]
-pub fn compare_include(
-    include: bool,
-    order: bool,
-    value: impl Into<Value>,
+pub fn com_eq(
+    eq: bool,
+    ord: bool,
+    val: impl Into<Value>,
     col: impl ColumnTrait,
 ) -> SimpleExpr {
-    match include {
-        true => match order {
-            true => ColumnTrait::lte(&col, value),
-            false => ColumnTrait::gte(&col, value),
+    match eq {
+        true => match ord {
+            true => ColumnTrait::lte(&col, val),
+            false => ColumnTrait::gte(&col, val),
         },
-        false => match order {
-            true => ColumnTrait::lt(&col, value),
-            false => ColumnTrait::gt(&col, value),
+        false => match ord {
+            true => ColumnTrait::lt(&col, val),
+            false => ColumnTrait::gt(&col, val),
         },
     }
 }
@@ -55,11 +55,11 @@ impl<'a, PK: ColumnTrait, COL: ColumnTrait> PaginateCol<'a, PK, COL> {
             false => Order::Asc,
         };
         // WHERE created >= $<after> and (id >= $<id> OR created > $<after>)
-        let left = compare_include(true, self.rev, self.last_value, self.col);
+        let left = com_eq(true, self.rev, self.last_value, self.col);
 
         let right = {
-            let left = compare_include(self.include, self.rev, self.last_id, self.pk);
-            let right = compare_include(false, self.rev, self.last_value, self.col);
+            let left = com_eq(self.include, self.rev, self.last_id, self.pk);
+            let right = com_eq(false, self.rev, self.last_value, self.col);
             left.or(right)
         };
 
@@ -81,7 +81,7 @@ pub struct PaginatePk<PK: ColumnTrait> {
 
 impl<PK: ColumnTrait> PaginatePk<PK> {
     pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
-        let query = query.filter(compare_include(self.include, self.rev, self.last, self.pk));
+        let query = query.filter(com_eq(self.include, self.rev, self.last, self.pk));
         let _ord = match self.rev {
             true => Order::Desc,
             false => Order::Asc,

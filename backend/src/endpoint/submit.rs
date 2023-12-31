@@ -202,11 +202,7 @@ impl SubmitSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        if !auth.is_root() {
-            return Err(Error::PremissionDeny("only root can remove submit").into());
-        }
-
-        Entity::delete_by_id(req.id)
+        Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;

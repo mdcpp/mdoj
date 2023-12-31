@@ -16,7 +16,9 @@ use crate::{
 
 use super::{auth::Auth, error::Error};
 
+// TODO: add limit
 const PAGE_MAX_SIZE: u64 = 64;
+const PAGE_MAX_OFFSET: u64 = 256;
 
 #[tonic::async_trait]
 pub trait ParentalTrait<P>
@@ -38,6 +40,9 @@ impl PagerMarker for NoParent {}
 
 impl<P: EntityTrait> PagerMarker for HasParent<P> {}
 
+/// An abstract base class for Paginatable Entity
+///
+/// The trait enable sort, text search, search by parent Entity
 #[tonic::async_trait]
 pub trait PagerTrait
 where
@@ -94,6 +99,7 @@ impl SearchDep {
     }
 }
 
+/// An instance of paginator itself
 #[derive(Clone, Debug)]
 pub struct Pager<E: PagerTrait> {
     sort: SearchDep,

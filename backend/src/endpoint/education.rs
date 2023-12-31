@@ -102,7 +102,7 @@ impl EducationSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
+        if !(perm.can_root() || perm.can_manage_education()) {
             return Err(Error::PremissionDeny("Can't create education").into());
         }
 
@@ -131,10 +131,6 @@ impl EducationSet for Arc<Server> {
         if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
-
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update problem").into());
-        }
 
         tracing::trace!(id = req.id.id);
 
