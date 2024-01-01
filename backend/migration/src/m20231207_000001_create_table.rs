@@ -619,6 +619,7 @@ impl MigrationTrait for Migration {
         index!(manager, User, Score);
         index!(manager, User, Username);
         index!(manager, Token, Rand);
+        index!(manager, Token, Expiry);
         index!(manager, Chat, CreateAt);
 
         manager

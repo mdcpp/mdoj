@@ -1,9 +1,15 @@
-// mod login;
-// use crate::{client::Clients, grpc::*};
+mod login;
+use crate::{case::CaseRunner, user::login::AdminLogin};
 
-// struct State {
-//     token: Option<String>,
-//     clients: Clients,
-// }
+#[derive(Default)]
+pub struct State {
+    token: Option<String>,
+}
 
-// pub async fn run() {}
+pub async fn run() -> State {
+    let mut user_runner = CaseRunner::<State>::default();
+
+    user_runner.add_case(AdminLogin);
+
+    user_runner.run("user").await
+}

@@ -59,6 +59,7 @@ impl Server {
             _otel_guard: otel_guard,
         })
     }
+    #[cfg(not(feature="testsuit"))]
     pub async fn start(self: Arc<Self>) {
         transport::Server::builder()
             .accept_http1(true)
@@ -71,6 +72,23 @@ impl Server {
             .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
             .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
             .add_service(tonic_web::enable(ChatSetServer::new(self.clone())))
+            .serve(self.config.bind_address.clone().parse().unwrap())
+            .await
+            .unwrap();
+    }
+    #[cfg(feature="testsuit")]
+    pub async fn start(self: Arc<Self>) {
+        transport::Server::builder()
+            .accept_http1(true)
+            .max_frame_size(Some(MAX_FRAME_SIZE))
+            .add_service(ProblemSetServer::new(self.clone()))
+            .add_service(EducationSetServer::new(self.clone()))
+            .add_service(UserSetServer::new(self.clone()))
+            .add_service(TokenSetServer::new(self.clone()))
+            .add_service(ContestSetServer::new(self.clone()))
+            .add_service(TestcaseSetServer::new(self.clone()))
+            .add_service(SubmitSetServer::new(self.clone()))
+            .add_service(ChatSetServer::new(self.clone()))
             .serve(self.config.bind_address.clone().parse().unwrap())
             .await
             .unwrap();

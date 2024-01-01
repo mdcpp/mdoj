@@ -608,7 +608,7 @@ service UserSet {
 
 message TokenInfo {
   required Token token = 1;
-  required uint64 permission = 2;
+  required Permission permission = 2;
   required google.protobuf.Timestamp expiry = 3;
 }
 
