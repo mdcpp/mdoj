@@ -85,9 +85,3 @@ features = ["mutex", "spin_mutex", "rwlock"]
 
 [build-dependencies]
 tonic-build = { workspace = true }
-
-[features]
-default = ["single-instance"]
-unsecured-log = []
-single-instance = []
-testsuit = []

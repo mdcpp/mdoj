@@ -10,6 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+
 jobs:
   check:
     name: Check
@@ -44,3 +45,5 @@ jobs:
         with:
           command: fmt
           args: --manifest-path ./backend/Cargo.toml
+
+

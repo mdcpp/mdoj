@@ -54,45 +54,27 @@ where
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
 
-    fn sort(select: Select<Self>, sort: &SortBy, rev: bool) -> Select<Self> {
-        let desc = match rev {
-            true => Order::Asc,
-            false => Order::Desc,
-        };
-        select.order_by(Self::sort_column(sort), desc)
-    }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String;
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String;
     fn sort_column(sort: &SortBy) -> Self::Column;
     fn get_id(model: &Self::Model) -> i32;
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
 
-#[derive(Serialize, Deserialize)]
-enum RawSearchDep {
-    Text(String),
-    Column(i32, bool, String),
-    Parent(i32),
-}
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct LastValue(bool, String);
 
-#[derive(Serialize, Deserialize)]
-struct RawPager {
-    type_number: i32,
-    sort: RawSearchDep,
-    last_rev: bool,
-    last_pk: Option<i32>,
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SearchDep {
     Text(String),
-    Column(SortBy, bool, String),
+    Column(SortBy, LastValue),
     Parent(i32),
+    ParentSort(i32, SortBy, LastValue),
 }
 
 impl SearchDep {
-    fn update_last_col(&mut self, data: String) {
-        if let Self::Column(_a, _b, c) = self {
-            *c = data;
+    fn update_last_col(&mut self, data: LastValue) {
+        if let Self::Column(_, val) = self {
+            *val = data;
         } else {
             unreachable!()
         }
@@ -100,8 +82,9 @@ impl SearchDep {
 }
 
 /// An instance of paginator itself
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Pager<E: PagerTrait> {
+    type_number: i32,
     sort: SearchDep,
     last_pk: Option<i32>,
     last_rev: bool,
@@ -114,8 +97,8 @@ where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
 {
     fn parent_search(ppk: i32) -> Self;
+    fn parent_sorted_search(ppk: i32, sort: SortBy) -> Self;
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
-    fn into_raw(self, server: &Server) -> String;
     async fn fetch(
         &mut self,
         limit: u64,
@@ -131,7 +114,6 @@ where
     E: EntityTrait + PagerTrait<ParentMarker = NoParent>,
 {
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
-    fn into_raw(self, server: &Server) -> String;
     async fn fetch(
         &mut self,
         limit: u64,
@@ -151,32 +133,22 @@ where
     #[instrument]
     fn parent_search(ppk: i32) -> Self {
         Self {
+            type_number: E::TYPE_NUMBER,
             sort: SearchDep::Parent(ppk),
+            _entity: PhantomData,
+            last_pk: None,
+            last_rev: true,
+        }
+    }
+    #[instrument]
+    fn parent_sorted_search(ppk: i32, sort: SortBy) -> Self {
+        Self {
+            type_number: E::TYPE_NUMBER,
+            sort: SearchDep::ParentSort(ppk, sort, LastValue::default()),
             _entity: PhantomData,
             last_pk: None,
             last_rev: false,
         }
-    }
-    #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
-    fn into_raw(self, server: &Server) -> String {
-        let raw = RawPager {
-            type_number: E::TYPE_NUMBER,
-            sort: match self.sort {
-                SearchDep::Text(s) => RawSearchDep::Text(s),
-                SearchDep::Column(sort_by, rev, last_val) => {
-                    RawSearchDep::Column(sort_by as i32, rev, last_val)
-                }
-                SearchDep::Parent(x) => RawSearchDep::Parent(x),
-            },
-            last_rev: self.last_rev,
-            last_pk: self.last_pk,
-        };
-        let byte = server.crypto.encode(raw);
-
-        base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD_NO_PAD,
-            byte.unwrap(),
-        )
     }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
@@ -185,29 +157,14 @@ where
                 tracing::trace!(err=?e,"base64_deserialize");
                 Error::PaginationError("Not base64")
             })?;
-        let pager = server.crypto.decode::<RawPager>(byte).map_err(|e| {
+        let pager = server.crypto.decode::<Pager<_>>(byte).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
         if pager.type_number != E::TYPE_NUMBER {
             return Err(Error::PaginationError("Pager type number mismatch"));
         }
-        let sort = match pager.sort {
-            RawSearchDep::Text(x) => SearchDep::Text(x),
-            RawSearchDep::Column(sort_by, rev, last_val) => {
-                let sort_by = sort_by
-                    .try_into()
-                    .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
-                SearchDep::Column(sort_by, rev, last_val)
-            }
-            RawSearchDep::Parent(x) => SearchDep::Parent(x),
-        };
-        Ok(Pager {
-            sort,
-            _entity: PhantomData,
-            last_pk: pager.last_pk,
-            last_rev: pager.last_rev,
-        })
+        Ok(pager)
     }
     #[instrument(skip(self, auth))]
     async fn fetch(
@@ -217,69 +174,11 @@ where
         rev: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
+        Self::check_bound(limit, offset)?;
         let models = match &self.sort {
-            SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                let mut condition = E::COL_TEXT[0].like(txt.as_str());
-                for col in E::COL_TEXT[1..].iter() {
-                    condition = condition.or(col.like(txt.as_str()));
-                }
-                query = query.filter(condition);
-
-                if let Some(last) = self.last_pk {
-                    let paginate = PaginatePkBuilder::default()
-                        .include(self.last_rev ^ rev)
-                        .rev(rev)
-                        .pk(E::COL_ID)
-                        .last(last)
-                        .build()
-                        .unwrap();
-                    query = paginate.apply(query);
-                } else {
-                    query = order_by_bool(query, E::COL_ID, rev);
-                }
-                query = query.offset(offset).limit(limit);
-                query
-                    .columns(E::COL_SELECT.to_vec())
-                    .limit(limit)
-                    .offset(offset)
-                    .all(DB.get().unwrap())
-                    .await?
-            }
-            SearchDep::Column(sort, inner_rev, last_val) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                let rev = rev ^ inner_rev;
-
-                let col = E::sort_column(sort);
-
-                if let Some(last) = self.last_pk {
-                    PaginateColBuilder::default()
-                        .include(self.last_rev ^ rev)
-                        .rev(rev)
-                        .pk(E::COL_ID)
-                        .col(col)
-                        .last_id(last)
-                        .last_value(last_val)
-                        .build()
-                        .unwrap();
-                } else {
-                    query = order_by_bool(query, E::COL_ID, rev);
-                    query = order_by_bool(query, col, rev);
-                }
-
-                query = query.offset(offset).limit(limit);
-                let models = query
-                    .columns(E::COL_SELECT.to_vec())
-                    .limit(limit)
-                    .offset(offset)
-                    .all(DB.get().unwrap())
-                    .await?;
-
-                if let Some(model) = models.last() {
-                    self.sort.update_last_col(E::get_key_of(model, sort));
-                }
-
-                models
+            SearchDep::Text(txt) => self.text_search_inner(limit, offset, rev, auth).await?,
+            SearchDep::Column(sort, last_val) => {
+                self.column_search_inner(limit, offset, rev, auth).await?
             }
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
@@ -320,6 +219,57 @@ where
                     .all(DB.get().unwrap())
                     .await?
             }
+            SearchDep::ParentSort(p_pk, sort, last_val) => {
+                let db = DB.get().unwrap();
+                // TODO: select ID only
+                let LastValue(inner_rev, last_val) = last_val;
+                let rev = rev ^ inner_rev;
+
+                let query = E::ParentMarker::related_filter(auth).await?;
+                let parent = query
+                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
+                    .columns([E::ParentMarker::COL_ID])
+                    .one(db)
+                    .await?;
+
+                if parent.is_none() {
+                    return Ok(vec![]);
+                }
+
+                let mut query = parent.unwrap().find_related(E::default());
+
+                query = E::query_filter(query, auth)?;
+
+                if let Some(last) = self.last_pk {
+                    let paginate = PaginateColBuilder::default()
+                        .include(self.last_rev ^ rev)
+                        .rev(rev)
+                        .pk(E::COL_ID)
+                        .last_id(last)
+                        .col(E::sort_column(sort))
+                        .last_value(&last_val)
+                        .build()
+                        .unwrap();
+                    query = paginate.apply(query);
+                } else {
+                    query = order_by_bool(query, E::COL_ID, rev);
+                }
+
+                query = query.offset(offset).limit(limit);
+                let models = query
+                    .columns(E::COL_SELECT.to_vec())
+                    .limit(limit)
+                    .offset(offset)
+                    .all(DB.get().unwrap())
+                    .await?;
+
+                if let Some(model) = models.last() {
+                    self.sort
+                        .update_last_col(LastValue(rev, E::sort_value(model, sort)));
+                }
+
+                models
+            }
         };
         if let Some(model) = models.last() {
             self.last_pk = Some(E::get_id(model));
@@ -334,26 +284,6 @@ where
     E: PagerTrait<ParentMarker = NoParent>,
 {
     #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
-    fn into_raw(self, server: &Server) -> String {
-        let raw = RawPager {
-            type_number: E::TYPE_NUMBER,
-            sort: match self.sort {
-                SearchDep::Text(s) => RawSearchDep::Text(s),
-                SearchDep::Column(sort_by, rev, last_val) => {
-                    RawSearchDep::Column(sort_by as i32, rev, last_val)
-                }
-                SearchDep::Parent(x) => RawSearchDep::Parent(x),
-            },
-            last_pk: self.last_pk,
-            last_rev: self.last_rev,
-        };
-        let byte = server.crypto.encode(raw);
-
-        base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD_NO_PAD,
-            byte.unwrap(),
-        )
-    }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
         let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
@@ -361,31 +291,20 @@ where
                 tracing::trace!(err=?e,"base64_deserialize");
                 Error::PaginationError("Not base64")
             })?;
-        let pager = server.crypto.decode::<RawPager>(byte).map_err(|e| {
+        let pager = server.crypto.decode::<Pager<_>>(byte).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
         if pager.type_number != E::TYPE_NUMBER {
             return Err(Error::PaginationError("Pager type number mismatch"));
         }
-        let sort = match pager.sort {
-            RawSearchDep::Text(x) => SearchDep::Text(x),
-            RawSearchDep::Column(sort_by, rev, last_val) => {
-                let sort_by = sort_by
-                    .try_into()
-                    .map_err(|_| Error::PaginationError("Pager reconstruction failed"))?;
-                SearchDep::Column(sort_by, rev, last_val)
+        match pager.sort {
+            SearchDep::Parent(_) | SearchDep::ParentSort(_, _, _) => {
+                return Err(Error::PaginationError("Pager type number mismatch"))
             }
-            RawSearchDep::Parent(_) => {
-                return Err(Error::PaginationError("Pager reconstruction failed"));
-            }
-        };
-        Ok(Pager {
-            sort,
-            _entity: PhantomData,
-            last_pk: pager.last_pk,
-            last_rev: pager.last_rev,
-        })
+            _ => (),
+        }
+        Ok(pager)
     }
     #[instrument(skip(self, auth))]
     async fn fetch(
@@ -395,74 +314,14 @@ where
         rev: bool,
         auth: &Auth,
     ) -> Result<Vec<E::Model>, Error> {
+        Self::check_bound(limit, offset)?;
         let models = match &self.sort {
-            SearchDep::Text(txt) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                let mut condition = E::COL_TEXT[0].like(txt.as_str());
-                for col in E::COL_TEXT[1..].iter() {
-                    condition = condition.or(col.like(txt.as_str()));
-                }
-                query = query.filter(condition);
-
-                if let Some(last) = self.last_pk {
-                    let paginate = PaginatePkBuilder::default()
-                        .include(self.last_rev ^ rev)
-                        .rev(rev)
-                        .pk(E::COL_ID)
-                        .last(last)
-                        .build()
-                        .unwrap();
-                    query = paginate.apply(query);
-                } else {
-                    query = order_by_bool(query, E::COL_ID, rev);
-                }
-                query = query.offset(offset).limit(limit);
-                query
-                    .columns(E::COL_SELECT.to_vec())
-                    .limit(limit)
-                    .offset(offset)
-                    .all(DB.get().unwrap())
-                    .await?
-            }
-            SearchDep::Column(sort, inner_rev, last_val) => {
-                let mut query = E::query_filter(E::find(), auth)?;
-                let rev = rev ^ inner_rev;
-
-                let col = E::sort_column(sort);
-
-                if let Some(last) = self.last_pk {
-                    PaginateColBuilder::default()
-                        .include(self.last_rev ^ rev)
-                        .rev(rev)
-                        .pk(E::COL_ID)
-                        .col(col)
-                        .last_id(last)
-                        .last_value(last_val)
-                        .build()
-                        .unwrap();
-                } else {
-                    query = order_by_bool(query, E::COL_ID, rev);
-                    query = order_by_bool(query, col, rev);
-                }
-
-                query = query.offset(offset).limit(limit);
-                let models = query
-                    .columns(E::COL_SELECT.to_vec())
-                    .limit(limit)
-                    .offset(offset)
-                    .all(DB.get().unwrap())
-                    .await?;
-
-                if let Some(model) = models.last() {
-                    self.sort.update_last_col(E::get_key_of(model, sort));
-                }
-
-                models
-            }
-            SearchDep::Parent(_p_pk) => {
-                unreachable!()
-            }
-        };
+            SearchDep::Text(_) => self.text_search_inner(limit, offset, rev, auth).await,
+            SearchDep::Column(_, _) => self.column_search_inner(limit, offset, rev, auth).await,
+            _ => Err(Error::Unreachable(
+                "Pager<ParentMarker=NoParent> can not have parent search",
+            )),
+        }?;
         if let Some(model) = models.last() {
             self.last_pk = Some(E::get_id(model));
         }
@@ -470,23 +329,132 @@ where
     }
 }
 
-impl<E: PagerTrait> Pager<E> {
+impl<E: PagerTrait> Pager<E>
+where
+    E: PagerTrait,
+{
     #[instrument(level = "debug")]
     pub fn sort_search(sort: SortBy, rev: bool) -> Self {
         Self {
-            sort: SearchDep::Column(sort, rev, "".to_string()),
+            type_number: E::TYPE_NUMBER,
+            sort: SearchDep::Column(sort, LastValue(rev, "".to_string())),
             _entity: PhantomData,
             last_pk: None,
             last_rev: false,
         }
     }
+    #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
+    pub fn into_raw(self, server: &Server) -> String {
+        let byte = server.crypto.encode(self);
+
+        base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+            byte.unwrap(),
+        )
+    }
     #[instrument(level = "debug")]
     pub fn text_search(sort: String) -> Self {
         Self {
+            type_number: E::TYPE_NUMBER,
             sort: SearchDep::Text(sort),
             _entity: PhantomData,
             last_pk: None,
             last_rev: false,
+        }
+    }
+    #[instrument(skip(self, auth))]
+    async fn text_search_inner(
+        &mut self,
+        limit: u64,
+        offset: u64,
+        rev: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error> {
+        if let SearchDep::Text(txt) = &self.sort {
+            let mut query = E::query_filter(E::find(), auth)?;
+            let mut condition = E::COL_TEXT[0].like(txt.as_str());
+            for col in E::COL_TEXT[1..].iter() {
+                condition = condition.or(col.like(txt.as_str()));
+            }
+            query = query.filter(condition);
+
+            if let Some(last) = self.last_pk {
+                let paginate = PaginatePkBuilder::default()
+                    .include(self.last_rev ^ rev)
+                    .rev(rev)
+                    .pk(E::COL_ID)
+                    .last(last)
+                    .build()
+                    .unwrap();
+                query = paginate.apply(query);
+            } else {
+                query = order_by_bool(query, E::COL_ID, rev);
+            }
+            query = query.offset(offset).limit(limit);
+            Ok(query
+                .columns(E::COL_SELECT.to_vec())
+                .limit(limit)
+                .offset(offset)
+                .all(DB.get().unwrap())
+                .await?)
+        } else {
+            Err(Error::Unreachable("text_search_inner"))
+        }
+    }
+    #[instrument(skip(self, auth))]
+    async fn column_search_inner(
+        &mut self,
+        limit: u64,
+        offset: u64,
+        rev: bool,
+        auth: &Auth,
+    ) -> Result<Vec<E::Model>, Error> {
+        if let SearchDep::Column(sort, last_val) = &self.sort {
+            let mut query = E::query_filter(E::find(), auth)?;
+            let LastValue(inner_rev, last_val) = last_val;
+            let rev = rev ^ inner_rev;
+
+            let col = E::sort_column(sort);
+
+            if let Some(last) = self.last_pk {
+                PaginateColBuilder::default()
+                    .include(self.last_rev ^ rev)
+                    .rev(rev)
+                    .pk(E::COL_ID)
+                    .col(col)
+                    .last_id(last)
+                    .last_value(last_val)
+                    .build()
+                    .unwrap();
+            } else {
+                query = order_by_bool(query, E::COL_ID, rev);
+                query = order_by_bool(query, col, rev);
+            }
+
+            query = query.offset(offset).limit(limit);
+            let models = query
+                .columns(E::COL_SELECT.to_vec())
+                .limit(limit)
+                .offset(offset)
+                .all(DB.get().unwrap())
+                .await?;
+
+            if let Some(model) = models.last() {
+                self.sort
+                    .update_last_col(LastValue(rev, E::sort_value(model, sort)));
+            }
+
+            Ok(models)
+        } else {
+            Err(Error::Unreachable("column_search_inner"))
+        }
+    }
+
+    fn check_bound(limit: u64, offset: u64) -> Result<(), Error> {
+        if limit > PAGE_MAX_SIZE || offset > PAGE_MAX_OFFSET {
+            Err(Error::NumberTooLarge)
+        } else {
+            Ok(())
         }
     }
 }

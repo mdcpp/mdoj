@@ -42,7 +42,7 @@ impl PagerTrait for problem::Entity {
             _ => problem::Column::Id,
         }
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
         match sort {
             SortBy::UploadDate => model.update_at.to_string(),
             SortBy::CreateDate => model.create_at.to_string(),
@@ -90,7 +90,7 @@ impl PagerTrait for test::Entity {
             _ => test::Column::Id,
         }
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
         match sort {
             SortBy::Score => (model.score).to_string(),
             _ => model.id.to_string(),
@@ -128,7 +128,7 @@ impl PagerTrait for contest::Entity {
             _ => contest::Column::Id,
         }
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
         match sort {
             SortBy::CreateDate => model.create_at.to_string(),
             SortBy::UploadDate => model.update_at.to_string(),
@@ -170,7 +170,7 @@ impl PagerTrait for user::Entity {
             _ => user::Column::Id,
         }
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
         match sort {
             SortBy::CreateDate => model.create_at.to_string(),
             SortBy::Score => model.score.to_string(),
@@ -215,7 +215,7 @@ impl PagerTrait for submit::Entity {
             _ => submit::Column::Id,
         }
     }
-    fn get_key_of(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
         match sort {
             SortBy::Committed => match model.committed {
                 true => "1".to_string(),
@@ -253,7 +253,7 @@ impl PagerTrait for education::Entity {
     fn sort_column(_sort: &SortBy) -> education::Column {
         education::Column::Id
     }
-    fn get_key_of(model: &Self::Model, _sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, _sort: &SortBy) -> String {
         model.id.to_string()
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -276,7 +276,7 @@ impl PagerTrait for chat::Entity {
 
     type ParentMarker = HasParent<problem::Entity>;
 
-    fn get_key_of(model: &Self::Model, _sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, _sort: &SortBy) -> String {
         model.id.to_string()
     }
 

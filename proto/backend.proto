@@ -171,6 +171,7 @@ service SubmitSet {
   rpc Create(CreateSubmitRequest) returns (SubmitId);
   rpc Remove(SubmitId) returns (google.protobuf.Empty);
 
+  // list submit by problem, sorted by pirmary key(desc)
   rpc ListByProblem(ListByRequest) returns (ListSubmitResponse);
 
   // are not guarantee to yield status

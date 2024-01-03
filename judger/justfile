@@ -2,6 +2,7 @@ release-docker:
     MUSL_TARGET=$(uname -m)-linux-musl
     cd plugins/rlua-54 && sh ./build.sh
     cp ../proto/judger.proto .
+    cp ../Cargo.toml ws-Cargo.toml
     docker build . --build-arg ARCH=$(uname -m) -t mdoj-judger
 
 build-plugin:
@@ -10,7 +11,6 @@ build-plugin:
 release-plugin:
     just build-plugin
     cd plugins sh export-all.sh
-
     
 build-nsjail:
     cd nsjail-docker && make nsjail-3.1

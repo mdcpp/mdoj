@@ -1,0 +1,51 @@
+name: master
+
+on:
+  push:
+    branches:
+      - "*"
+    paths:
+      - "**.rs"
+      - .github/workflows/master.yml
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-x86_64-unknown-linux-gnu
+          override: true
+          components: rustfmt, clippy
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Lint
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy -- -D warnings
+      - name: Check
+        run: cargo check
+      - name: Run Backend Test
+        run: cargo test -p backend
+      - name: Run Frontend Test
+        run: cargo test -p frontend
+      # judger need to build plugin first(which take long time)
+      # - name: Run Judger test
+      #   run: cd judger && just test

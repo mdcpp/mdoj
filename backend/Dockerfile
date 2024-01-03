@@ -14,6 +14,9 @@ WORKDIR /complier/proto
 COPY backend.proto .
 COPY judger.proto .
 
+WORKDIR /compiler
+COPY ws-Cargo.toml Cargo.toml
+
 WORKDIR /complier/backend
 COPY . .
 

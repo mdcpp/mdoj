@@ -13,6 +13,9 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 WORKDIR /complier/proto
 COPY judger.proto .
 
+WORKDIR /compiler
+COPY ws-Cargo.toml Cargo.toml
+
 WORKDIR /complier/judger
 COPY . .
 
