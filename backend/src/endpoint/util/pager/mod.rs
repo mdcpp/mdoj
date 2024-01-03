@@ -176,8 +176,8 @@ where
     ) -> Result<Vec<E::Model>, Error> {
         Self::check_bound(limit, offset)?;
         let models = match &self.sort {
-            SearchDep::Text(txt) => self.text_search_inner(limit, offset, rev, auth).await?,
-            SearchDep::Column(sort, last_val) => {
+            SearchDep::Text(_txt) => self.text_search_inner(limit, offset, rev, auth).await?,
+            SearchDep::Column(_sort, _last_val) => {
                 self.column_search_inner(limit, offset, rev, auth).await?
             }
             SearchDep::Parent(p_pk) => {
@@ -247,7 +247,7 @@ where
                         .pk(E::COL_ID)
                         .last_id(last)
                         .col(E::sort_column(sort))
-                        .last_value(&last_val)
+                        .last_value(last_val)
                         .build()
                         .unwrap();
                     query = paginate.apply(query);
