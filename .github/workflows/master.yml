@@ -18,12 +18,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly-x86_64-unknown-linux-gnu
-          override: true
-          components: rustfmt, clippy
+          toolchain: nightly
+          targets: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
       - name: Set up cargo cache
         uses: actions/cache@v3
         continue-on-error: false
@@ -39,7 +38,7 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
       - name: Install Just
-        uses: extractions/setup-just@v1
+        uses: taiki-e/install-action@just
       - name: Lint
         run: |
           cargo fmt --all -- --check
