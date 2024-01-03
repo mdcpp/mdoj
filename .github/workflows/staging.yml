@@ -1,8 +1,8 @@
-name: master
+name: staging
 
 on:
   push:
-    branches-ignore:
+    branches:
       - "staging"
     paths:
       - "**.rs"
@@ -38,18 +38,21 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
-      - name: Install Just
-        uses: extractions/setup-just@v1
+      - name: Install sea-orm-cli
+        run: cargo install sea-orm-cli
       - name: Lint
         run: |
           cargo fmt --all -- --check
-          cargo clippy
+          cargo clippy -- -D warnings
       - name: Check
         run: cargo check
-      - name: Run Backend Unit Test
-        run: cargo test -p backend
-      - name: Run Frontend Unit Test
+      - name: Run Backend Test
+        run: cd backend && just ci-test
+      - name: Run Frontend Test
         run: cargo test -p frontend
-      # judger need to build plugin first(which take long time)
-      # - name: Run Judger test
-      #   run: cd judger && just test
+      - name: build plugin
+        run: cd judger && just build-plugin
+      - name: Run Judger test
+        run: cd judger && just ci-test
+      - name: Run testsuit
+        run: cd testsuit && just ci-run

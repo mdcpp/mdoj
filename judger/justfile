@@ -42,3 +42,5 @@ run:
     mkdir -p .temp
     cargo run
 
+ci-test:
+    just test
