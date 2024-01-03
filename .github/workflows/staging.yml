@@ -6,7 +6,7 @@ on:
       - "staging"
     paths:
       - "**.rs"
-      - .github/workflows/master.yml
+      - .github/workflows/staging.yml
 
 env:
   CARGO_TERM_COLOR: always
