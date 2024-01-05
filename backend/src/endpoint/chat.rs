@@ -97,7 +97,7 @@ impl ChatSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)
+                Pager::parent_search(ppk, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

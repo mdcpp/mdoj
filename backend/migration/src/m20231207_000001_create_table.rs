@@ -82,6 +82,7 @@ enum Problem {
     CreateAt,
     UpdateAt,
     MatchRule,
+    Order,
 }
 
 #[derive(Iden)]
@@ -351,6 +352,7 @@ impl MigrationTrait for Migration {
                             .extra(UPDATE_AT.to_string()),
                     )
                     .col(ColumnDef::new(Problem::MatchRule).integer().not_null())
+                    .col(ColumnDef::new(Problem::Order).float().not_null())
                     .to_owned(),
             )
             .await?;
@@ -609,6 +611,7 @@ impl MigrationTrait for Migration {
         index!(manager, Problem, AcRate);
         index!(manager, Problem, AcceptCount);
         index!(manager, Problem, Difficulty);
+        index!(manager, Problem, Order);
         index!(manager, Submit, Committed);
         index!(manager, Submit, Time);
         index!(manager, Submit, Memory);
