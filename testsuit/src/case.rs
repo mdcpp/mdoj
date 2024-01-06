@@ -1,9 +1,9 @@
 use tonic::async_trait;
 
-#[derive(Debug,thiserror::Error)]
-pub enum Error{
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     #[error("unreachable")]
-    Unreachable
+    Unreachable,
 }
 
 // pub struct StackedTestcase<O> where Self:Sized{
