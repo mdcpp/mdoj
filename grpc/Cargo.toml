@@ -1,0 +1,31 @@
+[package]
+name = "grpc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+prost = { workspace = true }
+prost-wkt = { workspace = true }
+prost-wkt-types = { workspace = true }
+
+[dependencies.tonic]
+workspace = true
+features = ["codegen", "prost"]
+
+[dependencies.serde]
+workspace = true
+optional = true
+features = ["derive"]
+
+[build-dependencies.tonic-build]
+workspace = true
+features = ["prost"]
+
+[build-dependencies.prost-wkt-build]
+workspace = true
+
+[features]
+serde = ["dep:serde"]
+transport = ["tonic-build/transport"]

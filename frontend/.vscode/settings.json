@@ -1,0 +1,17 @@
+{
+    "rust-analyzer.procMacro.ignored": {
+        "leptos_macro": [
+            "component",
+            "server"
+        ]
+    },
+    "tailwindCSS.includeLanguages": {
+        "rust": "html"
+    },
+    "emmet.includeLanguages": {
+        "rust": "html",
+    },
+    "rust-analyzer.cachePriming.enable": false,
+    "rust-analyzer.checkOnSave": false,
+    "rust-analyzer.cargo.features": "all",
+}

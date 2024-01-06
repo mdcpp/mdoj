@@ -4,5 +4,12 @@
         "Backend",
         "Judger",
         "Testsuit"
-    ]
+    ],
+    "files.watcherExclude": {
+        "judger/plugins/**": true
+    },
+    "rust-analyzer.files.excludeDirs": [
+        "judger/plugins"
+    ],
+    "rust-analyzer.cachePriming.enable": false
 }

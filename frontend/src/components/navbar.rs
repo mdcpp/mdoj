@@ -1,12 +1,17 @@
+use crate::config::*;
 use leptos::*;
 use leptos_router::*;
+use leptos_use::*;
 
 #[component]
 pub fn Navbar() -> impl IntoView {
+    let (login_info, ..) = use_login_info();
     view! {
         <nav class="bg-background sticky top-0 p-2 flex flex-row justify-between border-b-2 border-primary">
             <div class="flex flex-row flex-nowrap">
-                <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
+                <A href="/">
+                    <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
+                </A>
                 <ul class="flex flex-row flex-nowrap justify-between items-center">
                     <li class="transition-opacity hover:opacity-60">
                         <A href="/problems" class="text-text text-base px-6">
@@ -36,9 +41,16 @@ pub fn Navbar() -> impl IntoView {
                 </ul>
             </div>
             <div class="flex flex-row flex-nowrap justify-between items-center transition-opacity hover:opacity-60">
-                <A href="/login" class="text-text text-base px-6">
-                    Login
-                </A>
+                <img
+                    src="https://placehold.co/100"
+                    class="h-12 aspect-square mx-5"
+                    hidden=is_none(login_info)
+                />
+                <div hidden=is_some(login_info)>
+                    <A href="/login" class="text-text text-base px-6">
+                        Login
+                    </A>
+                </div>
             </div>
         </nav>
     }

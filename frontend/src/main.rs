@@ -35,7 +35,8 @@ async fn main() -> Result<()> {
     })
     .bind(&addr)?
     .run()
-    .await
+    .await?;
+    Ok(())
 }
 
 #[cfg(feature = "ssr")]

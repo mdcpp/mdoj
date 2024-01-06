@@ -1,6 +1,6 @@
 use leptos::*;
 
 #[component]
-pub fn About() -> impl IntoView {
+pub fn Problem() -> impl IntoView {
     view! { <h1>About</h1> }
 }
