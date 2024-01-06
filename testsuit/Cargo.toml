@@ -22,6 +22,8 @@ tokio-rustls = "0.24.1"
 rustls-pki-types = "1.0.1"
 rustls = "0.21.9"
 http-body = "0.4.6"
+termion = "3.0.0"
+thiserror = "1.0.56"
 
 [dependencies.tokio-stream]
 version = "0.1.14"

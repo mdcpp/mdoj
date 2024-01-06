@@ -25,6 +25,7 @@ pub struct Model {
     #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
     pub match_rule: i32,
+    pub order: f32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

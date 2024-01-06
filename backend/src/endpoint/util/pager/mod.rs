@@ -96,8 +96,8 @@ pub trait HasParentPager<P, E>
 where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
 {
-    fn parent_search(ppk: i32) -> Self;
-    fn parent_sorted_search(ppk: i32, sort: SortBy) -> Self;
+    fn parent_search(ppk: i32, rev: bool) -> Self;
+    fn parent_sorted_search(ppk: i32, sort: SortBy, rev: bool) -> Self;
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
     async fn fetch(
         &mut self,
@@ -131,23 +131,23 @@ where
     P: Related<E>,
 {
     #[instrument]
-    fn parent_search(ppk: i32) -> Self {
+    fn parent_search(ppk: i32, rev: bool) -> Self {
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::Parent(ppk),
             _entity: PhantomData,
             last_pk: None,
-            last_rev: true,
+            last_rev: rev,
         }
     }
     #[instrument]
-    fn parent_sorted_search(ppk: i32, sort: SortBy) -> Self {
+    fn parent_sorted_search(ppk: i32, sort: SortBy, rev: bool) -> Self {
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::ParentSort(ppk, sort, LastValue::default()),
             _entity: PhantomData,
             last_pk: None,
-            last_rev: false,
+            last_rev: rev,
         }
     }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]

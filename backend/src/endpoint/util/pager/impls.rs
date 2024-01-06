@@ -39,6 +39,7 @@ impl PagerTrait for problem::Entity {
             SortBy::AcRate => problem::Column::AcRate,
             SortBy::SubmitCount => problem::Column::SubmitCount,
             SortBy::Difficulty => problem::Column::Difficulty,
+            SortBy::Order => problem::Column::Order,
             _ => problem::Column::Id,
         }
     }
@@ -49,6 +50,7 @@ impl PagerTrait for problem::Entity {
             SortBy::AcRate => model.ac_rate.to_string(),
             SortBy::SubmitCount => model.submit_count.to_string(),
             SortBy::Difficulty => model.difficulty.to_string(),
+            SortBy::Order => model.order.to_string(),
             _ => model.id.to_string(),
         }
     }
