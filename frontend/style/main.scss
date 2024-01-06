@@ -1,4 +1,10 @@
-body {
-	font-family: sans-serif;
-	text-align: center;
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500");
+
+body,
+html {
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    font-family: "Noto Sans TC";
+    font-weight: 500;
 }
