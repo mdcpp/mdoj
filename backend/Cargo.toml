@@ -84,5 +84,11 @@ features = ["transport", "channel", "codegen", "prost","tls"]
 version = "0.9.8"
 features = ["mutex", "spin_mutex", "rwlock"]
 
-[build-dependencies]
-tonic-build = { workspace = true }
+[build-dependencies.tonic-build]
+workspace = true
+features = ["transport", "prost"]
+
+[features]
+default = ["single-instance"]
+unsecured-log = []
+single-instance = []
