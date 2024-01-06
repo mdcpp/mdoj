@@ -13,11 +13,12 @@ log = "0.4.17"
 prost = { workspace = true }
 prost-types = { workspace = true }
 thiserror = "1.0.40"
-toml = "0.7.4"
+toml = { workspace = true }
+derive_builder = { workspace = true }
 
 [dependencies.rustix]
 version = "0.38.28"
-features = ["process","thread"]
+features = ["process", "thread"]
 
 [dependencies.uuid]
 version = "1.6.1"
@@ -40,7 +41,7 @@ version = "0.10.2"
 features = ["transport", "codegen", "prost", "tls"]
 
 [dependencies.serde]
-version = "1.0.163"
+workspace = true
 features = ["derive"]
 
 [dependencies.tokio-stream]
