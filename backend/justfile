@@ -18,9 +18,7 @@ entity-codegen:
 
 release-docker:
     just prepare
-    cp ../Cargo.toml ws-Cargo.toml
-    cp ../proto/*.proto .
-    sudo docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
+    sudo docker build  --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
 
 run:
     cargo run

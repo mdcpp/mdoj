@@ -1,5 +1,4 @@
-/target
 .temp
 *.log
-/config.toml
 *.pem
+Dockerfile

@@ -1,11 +1,3 @@
-/target
 /.cargo
 /database
 /config
-*.sqlite
-/key.pem
-/cert.pem
-/a.log
-/judger.proto
-/backend.proto
-/ws-Cargo.toml
