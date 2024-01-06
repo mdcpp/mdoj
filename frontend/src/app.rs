@@ -1,7 +1,9 @@
-use crate::{components::*, pages::*};
+use crate::{components::*, config::*, pages::*};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use leptos_use::*;
+
 // use tracing_subscriber::fmt::format::Pretty;
 // use tracing_subscriber::prelude::*;
 // use tracing_web::{performance_layer, MakeWebConsoleWriter};
@@ -21,22 +23,25 @@ pub fn App() -> impl IntoView {
     //     .with(perf_layer)
     //     .init(); // Install these as subscribers to tracing events
     // tracing::
+    let (login_info, ..) = use_login_info();
 
     view! {
         <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
 
-        // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="MDOJ"/>
         <div class="bg-background w-full h-full flex flex-col">
             <Router>
                 <Navbar/>
                 <main class="grow">
                     <Routes>
                         <Route path="" view=Home/>
-                        <Route path="/login" view=Login/>
                         <Route path="/problems" view=Problems/>
+                        <Route path="/problem/:id" view=Problem/>
                         <Route path="/contests" view=Contests/>
                         <Route path="/about" view=About/>
+
+                        <Route path="/login" view=Login/>
+
                         <Route path="/*any" view=NotFound/>
                     </Routes>
                 </main>
