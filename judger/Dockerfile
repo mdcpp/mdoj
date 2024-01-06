@@ -10,16 +10,10 @@ RUN cargo install just
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
 
-WORKDIR /complier/proto
-COPY judger.proto .
-
-WORKDIR /compiler
-COPY ws-Cargo.toml Cargo.toml
-
-WORKDIR /complier/judger
+WORKDIR /complier
 COPY . .
 
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path judger
 
 WORKDIR /environment
 RUN mkdir -p .temp

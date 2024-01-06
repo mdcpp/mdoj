@@ -37,7 +37,7 @@ One of the recommanded way is with ``docker export``.
 Program your own docker image and run:
  
 ```shell
-docker export ${id of your docker container} | tar -C plugins/${plugin name}/rootfs -xvf -
+sudo docker export ${id of your docker container} | tar -C plugins/${plugin name}/rootfs -xvf -
 ```
 
 finish spec.toml like this

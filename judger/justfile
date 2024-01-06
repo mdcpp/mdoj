@@ -3,7 +3,7 @@ release-docker:
     cd plugins/rlua-54 && sh ./build.sh
     cp ../proto/judger.proto .
     cp ../Cargo.toml ws-Cargo.toml
-    sudo docker build . --build-arg ARCH=$(uname -m) -t mdoj-judger
+    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
 
 build-plugin:
     cd plugins && sh build-all.sh
