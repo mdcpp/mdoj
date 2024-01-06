@@ -148,16 +148,12 @@ impl TestcaseSet for Arc<Server> {
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
-
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update test").into());
-        }
 
         tracing::trace!(id = req.id.id);
 
@@ -257,7 +253,7 @@ impl TestcaseSet for Arc<Server> {
 
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(
-                Error::PremissionDeny("input and output field of problem is protected").into(),
+                Error::PremissionDeny("input and output field of testcase is protected").into(),
             );
         }
 
@@ -292,7 +288,7 @@ impl TestcaseSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)
+                Pager::parent_search(ppk, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

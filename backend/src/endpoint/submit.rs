@@ -105,7 +105,7 @@ impl SubmitSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)
+                Pager::parent_search(ppk, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;
@@ -202,11 +202,7 @@ impl SubmitSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        if !auth.is_root() {
-            return Err(Error::PremissionDeny("only root can remove submit").into());
-        }
-
-        Entity::delete_by_id(req.id)
+        Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;

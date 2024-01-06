@@ -8,6 +8,4 @@ pub fn compile() {
     stdin().read_to_end(&mut buf).unwrap();
 
     fs::write(crate::LUA_SRC, buf).unwrap();
-
-    println!("2: Invalid command");
 }

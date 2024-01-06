@@ -1,5 +1,6 @@
+pub mod chat;
 pub mod contest;
-mod education;
+pub mod education;
 pub mod imgur;
 pub mod playground;
 pub mod problem;
@@ -19,7 +20,7 @@ pub mod tools {
 pub mod endpoints {
     pub use super::util::{
         filter::{Filter, ParentalFilter},
-        pagination::*,
+        pager::*,
     };
     pub use crate::{fill_active_model, fill_exist_active_model, server::Server};
     pub use sea_orm::{

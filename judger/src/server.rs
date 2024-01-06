@@ -268,7 +268,8 @@ async fn exec_stream(
 
 #[tonic::async_trait]
 impl Judger for Arc<Server> {
-    type JudgeStream = Pin<Box<dyn futures::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
+    type JudgeStream =
+        Pin<Box<dyn futures_core::Stream<Item = Result<JudgeResponse, Status>> + Send>>;
 
     /// see judger.proto
     async fn judge(
@@ -308,7 +309,7 @@ impl Judger for Arc<Server> {
         }))
     }
 
-    type ExecStream = Pin<Box<dyn futures::Stream<Item = Result<ExecResult, Status>> + Send>>;
+    type ExecStream = Pin<Box<dyn futures_core::Stream<Item = Result<ExecResult, Status>> + Send>>;
 
     /// see judger.proto
     async fn exec(

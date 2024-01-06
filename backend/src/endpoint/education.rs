@@ -102,7 +102,7 @@ impl EducationSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
+        if !(perm.can_root() || perm.can_manage_education()) {
             return Err(Error::PremissionDeny("Can't create education").into());
         }
 
@@ -125,16 +125,12 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
-
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update problem").into());
-        }
 
         tracing::trace!(id = req.id.id);
 
@@ -230,7 +226,7 @@ impl EducationSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)
+                Pager::parent_search(ppk, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

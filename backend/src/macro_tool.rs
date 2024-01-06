@@ -1,9 +1,9 @@
 #[macro_export]
-#[cfg(feature = "unsecured-log")]
+#[cfg(debug_assertions)]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
-        tonic::Status::internal($error.to_string())
+        tonic::Status::internal($pattern.to_string())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         tracing::$level!($pattern, $error);
@@ -12,6 +12,7 @@ macro_rules! report_internal {
 }
 
 #[macro_export]
+#[cfg(not(debug_assertions))]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);

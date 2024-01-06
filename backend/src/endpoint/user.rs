@@ -55,6 +55,9 @@ impl From<UserPermBytes> for Permission {
             can_root: value.can_root(),
             can_link: value.can_link(),
             can_publish: value.can_publish(),
+            can_manage_submit: value.can_manage_submit(),
+            can_imgur: value.can_imgur(),
+            can_manage_chat: value.can_manage_chat(),
         }
     }
 }
@@ -86,6 +89,15 @@ impl From<Permission> for UserPermBytes {
         }
         if value.can_publish {
             perm.grant_publish(true);
+        }
+        if value.can_manage_submit {
+            perm.grant_manage_submit(true);
+        }
+        if value.can_imgur {
+            perm.grant_imgur(true);
+        }
+        if value.can_manage_chat {
+            perm.grant_manage_chat(true);
         }
 
         perm
@@ -259,6 +271,9 @@ impl UserSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         self.metrics.user.add(-1, &[]);
+
+        // TODO: remove user's token
+        // self.token.remove_by_user_id(user_id, txn);
 
         Ok(Response::new(()))
     }

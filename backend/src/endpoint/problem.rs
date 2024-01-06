@@ -201,7 +201,7 @@ impl ProblemSet for Arc<Server> {
         model.user_id = ActiveValue::Set(user_id);
 
         fill_active_model!(
-            model, req.info, title, difficulty, time, memory, tags, content, match_rule
+            model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
         );
 
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
@@ -217,16 +217,12 @@ impl ProblemSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
             return Ok(Response::new(()));
         };
-
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update problem").into());
-        }
 
         tracing::trace!(id = req.id.id);
 
@@ -248,7 +244,8 @@ impl ProblemSet for Arc<Server> {
             content,
             match_rule,
             ac_rate,
-            submit_count
+            submit_count,
+            order
         );
 
         let model = model.update(db).await.map_err(Into::<Error>::into)?;
@@ -408,7 +405,7 @@ impl ProblemSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk)
+                Pager::parent_sorted_search(ppk, SortBy::Order, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

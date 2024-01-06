@@ -4,20 +4,15 @@ ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
-RUN apt install musl-tools protobuf-compiler -y
+RUN apt install musl-tools protobuf-compiler pkg-config libssl-dev -y
 
 RUN cargo install just
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
 
-WORKDIR /complier/proto
-COPY backend.proto .
-COPY judger.proto .
-
-WORKDIR /complier/backend
+WORKDIR /complier
 COPY . .
-
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
+RUN OPENSSL_STATIC=1 OPENSSL_DIR=/usr/include/openssl cargo install --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
 WORKDIR /database

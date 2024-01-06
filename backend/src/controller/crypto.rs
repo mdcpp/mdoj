@@ -100,9 +100,9 @@ impl CryptoController {
         Ok(bincode::serialize(&signed)?)
     }
     /// extract signature and object of encoded bytes(serde will handle it)
-    /// 
+    ///
     /// check signature and return the object
-    /// 
+    ///
     /// Error if signature invaild
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn decode<M: DeserializeOwned>(&self, raw: Vec<u8>) -> Result<M> {

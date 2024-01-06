@@ -1,4 +1,5 @@
 pub mod announcement;
+pub mod chat;
 pub mod contest;
 pub mod education;
 pub mod problem;

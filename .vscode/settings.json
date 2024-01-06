@@ -2,6 +2,7 @@
     "conventionalCommits.scopes": [
         "Frontend",
         "Backend",
-        "Judger"
+        "Judger",
+        "Testsuit"
     ]
 }

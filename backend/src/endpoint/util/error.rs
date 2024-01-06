@@ -1,5 +1,7 @@
 use crate::report_internal;
 
+/// Centralized Error for endpoint, usually calling with `Into::into()`
+/// to tramsform it into `tonic::Status` immediately
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Premission deny: `{0}`")]

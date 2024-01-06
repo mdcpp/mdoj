@@ -1,8 +1,8 @@
 # MDOJ
 
 [![wakatime](https://wakatime.com/badge/user/6c7a0447-9414-43ab-a937-9081f3e9fc7d/project/5ca22e8e-119f-4183-a942-bbce042f8705.svg)](https://wakatime.com/badge/user/6c7a0447-9414-43ab-a937-9081f3e9fc7d/project/5ca22e8e-119f-4183-a942-bbce042f8705)
-[![judger](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml/badge.svg?branch=master)](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml)
-[![backend](https://github.com/mdcpp/mdoj/actions/workflows/backend.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/backend.yml)
+[![master](https://github.com/mdcpp/mdoj/actions/workflows/master.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/master.yml)
+[![staging](https://github.com/mdcpp/mdoj/actions/workflows/staging.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/staging.yml)
 
 Performance-oriented contest management system for IOI like contest
 
@@ -34,16 +34,14 @@ See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
 
 ## Full Setup(Docker)
 
-> For details of config.toml, please follow the document in ``./backend`` and ``./judger``. 
+> Please download source code from release
 
-1. Copy ``docker/production`` to your folder
+1. Copy ``docker/production`` from source code to your folder
 2. generate config for judger by starting the judger once, and edit config
 3. generate config for backend by starting the backend once
 4. download and extract plugin(language support) of your choice to `./plugins`
-5. get a certificate and key for backend, and place them in `./cert`
 
 If you prefer to use default config, you can skip step 2 and 3.
-
 
 ## Setup for development
 

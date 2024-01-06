@@ -3,6 +3,7 @@ use std::time::Duration;
 use super::endpoints::*;
 use super::tools::*;
 
+use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::token_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
@@ -77,7 +78,7 @@ impl TokenSet for Arc<Server> {
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: model.permission as u64,
+                permission: UserPermBytes(model.permission).into(),
                 expiry: into_prost(expiry),
             }))
         } else {
@@ -115,7 +116,7 @@ impl TokenSet for Arc<Server> {
             let (token, expiry) = self.token.add(&user, dur).await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: perm.0 as u64,
+                permission: perm.into(),
                 expiry: into_prost(expiry),
             }));
         }

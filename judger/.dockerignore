@@ -1,5 +1,4 @@
-/target
-.temp
+/.temp
 *.log
 /config.toml
 /nsjail-docker
