@@ -1,11 +1,15 @@
+use anyhow::Result;
+
 #[cfg(feature = "ssr")]
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<()> {
     use actix_files::Files;
     use actix_web::*;
-    use frontend::app::*;
+    use frontend::{app::*, config};
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};
+
+    config::init().await?;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
