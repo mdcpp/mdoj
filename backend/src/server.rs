@@ -6,10 +6,10 @@ use tracing::{span, Instrument, Level};
 use crate::{
     controller::*,
     grpc::backend::{
-        contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
-        problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
-        testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
-        user_set_server::UserSetServer,
+        chat_set_server::ChatSetServer, contest_set_server::ContestSetServer,
+        education_set_server::EducationSetServer, problem_set_server::ProblemSetServer,
+        submit_set_server::SubmitSetServer, testcase_set_server::TestcaseSetServer,
+        token_set_server::TokenSetServer, user_set_server::UserSetServer,
     },
     init::{
         config::{self, GlobalConfig},
@@ -70,6 +70,7 @@ impl Server {
             .add_service(tonic_web::enable(ContestSetServer::new(self.clone())))
             .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
             .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
+            .add_service(tonic_web::enable(ChatSetServer::new(self.clone())))
             .serve(self.config.bind_address.clone().parse().unwrap())
             .await
             .unwrap();

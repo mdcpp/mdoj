@@ -11,7 +11,7 @@ release-docker:
     just prepare
     just release
     cp ../proto/*.proto .
-    cp ../cert/*.pem .
+    cp ../Cargo.toml ws-Cargo.toml
     docker build . -t mdoj-gateway
 
 release:

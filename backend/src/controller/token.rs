@@ -62,7 +62,6 @@ impl From<token::Model> for CachedToken {
 }
 
 pub struct TokenController {
-    #[cfg(feature = "single-instance")]
     cache: Cache<Rand, CachedToken>,
     rng: Mutex<Hc128Rng>,
     cache_meter: RateMetrics<30>,
@@ -72,10 +71,8 @@ impl TokenController {
     #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
     pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
-        #[cfg(feature = "single-instance")]
         let cache = Cache::new(500);
         let self_ = Arc::new(Self {
-            #[cfg(feature = "single-instance")]
             cache,
             rng: Mutex::new(Hc128Rng::from_entropy()),
             cache_meter: RateMetrics::new("hitrate_token"),
@@ -137,7 +134,6 @@ impl TokenController {
 
         let token: CachedToken;
 
-        #[cfg(feature = "single-instance")]
         let cache_result = {
             match self.cache.get(&rand) {
                 Some(cc) => {
@@ -151,8 +147,6 @@ impl TokenController {
                 None => None,
             }
         };
-        #[cfg(not(feature = "single-instance"))]
-        let cache_result: Option<CachedToken> = None;
 
         let token = match cache_result {
             Some(token) => {
@@ -172,7 +166,6 @@ impl TokenController {
                 tracing::trace!(user_id = token.user_id, "cache_missed");
                 self.cache_meter.unset();
 
-                #[cfg(feature = "single-instance")]
                 self.cache.insert(rand, token.clone());
 
                 token
@@ -199,7 +192,6 @@ impl TokenController {
             .exec(db)
             .await?;
 
-        #[cfg(feature = "single-instance")]
         self.cache.remove(&rand);
 
         Ok(Some(()))
@@ -265,3 +257,4 @@ set_bit_value!(UserPermBytes, link, 6);
 set_bit_value!(UserPermBytes, manage_contest, 7);
 set_bit_value!(UserPermBytes, manage_user, 8);
 set_bit_value!(UserPermBytes, imgur, 9);
+set_bit_value!(UserPermBytes, manage_chat, 10);

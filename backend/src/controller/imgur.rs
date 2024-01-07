@@ -24,8 +24,8 @@ impl From<Error> for tonic::Status {
 }
 
 /// json serialization for imgur api
-/// 
-/// Read Imgur API Docs for more 
+///
+/// Read Imgur API Docs for more
 #[derive(Serialize)]
 struct AccessTokenRequest<'a> {
     refresh_token: &'a str,

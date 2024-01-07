@@ -2,4 +2,4 @@ pub mod auth;
 pub mod controller;
 pub mod error;
 pub mod filter;
-pub mod pagination;
+pub mod pager;

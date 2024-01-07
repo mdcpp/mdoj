@@ -6,7 +6,9 @@ const LUA_SRC: &str = "/src/code.txt";
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    match args.get(1).unwrap().as_str() {
+    let cmd=args.get(1).unwrap().as_str();
+
+    match cmd {
         "compile" => compile::compile(),
         "execute" => execute::execute(),
         "violate" => match args.get(2).unwrap().as_str(){
@@ -18,6 +20,6 @@ fn main() {
             _ => println!("3: Invalid command"),
         },
         "hello" => println!("hello world"),
-        _ => println!("4: Invalid command"),
+        _ => println!("4: Invalid command: \"{}\"", cmd),
     };
 }

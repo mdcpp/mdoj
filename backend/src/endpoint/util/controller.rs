@@ -5,6 +5,7 @@ use crate::server::Server;
 use super::auth::Auth;
 
 impl Server {
+    /// parse request
     #[instrument(skip_all, level = "debug")]
     pub async fn parse_request<T: Send>(
         &self,

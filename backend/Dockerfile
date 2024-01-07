@@ -4,26 +4,20 @@ ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
-RUN apt install musl-tools protobuf-compiler -y
+RUN apt install musl-tools protobuf-compiler pkg-config make -y
 
 RUN cargo install just
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
 
-WORKDIR /complier/proto
-COPY backend.proto .
-COPY judger.proto .
-
-WORKDIR /complier/backend
+WORKDIR /complier
 COPY . .
-
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path .
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
+# WORKDIR are used instead of mkdir
 WORKDIR /database
 WORKDIR /config
-WORKDIR /cert
-WORKDIR /backend
-COPY --from=builder /usr/local/cargo/bin/backend /backend
+COPY --from=builder /usr/local/cargo/bin/backend /
 
-CMD ["/backend/backend"]
+CMD ["/backend"]

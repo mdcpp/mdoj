@@ -2,7 +2,7 @@ use super::config::CONFIG;
 use log::LevelFilter;
 use std::io::Write;
 
-// logger
+// setup logger and panic handler
 pub fn init() {
     let config = CONFIG.get().unwrap();
 
@@ -18,17 +18,13 @@ pub fn init() {
         _ => LevelFilter::Info,
     };
     env_logger::Builder::new()
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{}:{} [{}] - {}",
-                record.file().unwrap_or("unknown"),
-                record.line().unwrap_or(0),
-                record.level(),
-                record.args()
-            )
-        })
-        .filter(Some("judger"), level)
+        .filter_module("judger", level)
         .try_init()
         .ok();
+    // make panic propagate across thread to ensure safety
+    let default_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        default_panic(info);
+        std::process::exit(1);
+    }));
 }

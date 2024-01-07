@@ -1,0 +1,54 @@
+name: master
+
+on:
+  push:
+    branches-ignore:
+      - "staging"
+    paths:
+      - "**.rs"
+      - .github/workflows/master.yml
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly
+          targets: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
+      - name: Install Just
+        uses: taiki-e/install-action@just
+      - name: Lint
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy
+      - name: Check
+        run: cargo check
+      - name: Run Backend Unit Test
+        run: mkdir -p backend/config && cargo test -p backend
+      - name: Run Frontend Unit Test
+        run: cargo test -p frontend
+      # judger need to build plugin first(which take long time)
+      # - name: Run Judger test
+      #   run: cd judger && just test

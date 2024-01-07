@@ -1,8 +1,8 @@
 # MDOJ
 
 [![wakatime](https://wakatime.com/badge/user/6c7a0447-9414-43ab-a937-9081f3e9fc7d/project/5ca22e8e-119f-4183-a942-bbce042f8705.svg)](https://wakatime.com/badge/user/6c7a0447-9414-43ab-a937-9081f3e9fc7d/project/5ca22e8e-119f-4183-a942-bbce042f8705)
-[![judger](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml/badge.svg?branch=master)](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml)
-[![backend](https://github.com/mdcpp/mdoj/actions/workflows/backend.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/backend.yml)
+[![master](https://github.com/mdcpp/mdoj/actions/workflows/master.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/master.yml)
+[![staging](https://github.com/mdcpp/mdoj/actions/workflows/staging.yml/badge.svg)](https://github.com/mdcpp/mdoj/actions/workflows/staging.yml)
 
 Performance-oriented contest management system for IOI like contest
 

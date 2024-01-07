@@ -1,16 +1,14 @@
 release-docker:
-    MUSL_TARGET=$(uname -m)-linux-musl
     cd plugins/rlua-54 && sh ./build.sh
-    cp ../proto/judger.proto .
-    docker build . --build-arg ARCH=$(uname -m) -t mdoj-judger
+    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
 
 build-plugin:
+    mkdir -p config plugins-out
     cd plugins && sh build-all.sh
 
 release-plugin:
     just build-plugin
     cd plugins sh export-all.sh
-
     
 build-nsjail:
     cd nsjail-docker && make nsjail-3.1
@@ -19,18 +17,14 @@ build-nsjail:
 prepare:
     just build-nsjail
     just build-plugin
-    mkdir -p config plugins-out
-
-feodra-deps:
-    sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
 
 clean:
     sudo rm -rf .temp
     cargo clean
-    docker images rm nsjail-3.1-$(uname -m)-linux-musl
-    docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
-    docker images rm libnl-3.2.25-$(uname -m)-linux-musl
-    docker images rm  musl-cross-make-$(uname -m)-linux-musl
+    sudo docker images rm nsjail-3.1-$(uname -m)-linux-musl
+    sudo docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
+    sudo docker images rm libnl-3.2.25-$(uname -m)-linux-musl
+    sudo docker images rm musl-cross-make-$(uname -m)-linux-musl
 
 test:
     sudo rm -rf .temp/*
@@ -42,3 +36,6 @@ run:
     mkdir -p .temp
     cargo run
 
+ci-test:
+    just ci-test
+    just test

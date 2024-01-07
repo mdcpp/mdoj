@@ -17,9 +17,11 @@ entity-codegen:
     rm entity/src/prelude.rs
 
 release-docker:
-    just prepare
-    cp ../proto/*.proto .
-    docker build . --build-arg ARCH=$(uname -m) -t mdoj-backend
+    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
 
 run:
     cargo run
+
+ci-test:
+    just prepare
+    cargo test

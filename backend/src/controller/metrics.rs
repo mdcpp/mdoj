@@ -14,6 +14,7 @@ pub struct MetricsController {
     pub submit: UpDownCounter<i64>,
     pub education: UpDownCounter<i64>,
     pub contest: UpDownCounter<i64>,
+    pub chat: UpDownCounter<i64>,
     pub image: ObservableCounter<u64>,
 }
 
@@ -26,6 +27,7 @@ impl MetricsController {
             submit: package_meter.i64_up_down_counter("counts_submit").init(),
             education: package_meter.i64_up_down_counter("counts_education").init(),
             contest: package_meter.i64_up_down_counter("counts_contest").init(),
+            chat: package_meter.i64_up_down_counter("counts_chat").init(),
             image: package_meter.u64_observable_counter("counts_image").init(),
         }
     }
