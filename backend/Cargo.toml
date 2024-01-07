@@ -39,6 +39,7 @@ opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
 
 [dependencies.reqwest]
 version = "0.11.22"
+default-features = false
 features = ["rustls-tls", "json"]
 
 [dependencies.k256]
@@ -77,7 +78,7 @@ features = ["derive"]
 
 [dependencies.tonic]
 version = "0.10.2"
-features = ["transport", "channel", "codegen", "prost"]
+features = ["transport", "channel", "codegen", "prost","tls"]
 
 [dependencies.spin]
 version = "0.9.8"

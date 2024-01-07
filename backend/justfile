@@ -17,7 +17,6 @@ entity-codegen:
     rm entity/src/prelude.rs
 
 release-docker:
-    just prepare
     sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
 
 run:
