@@ -3,6 +3,7 @@ release-docker:
     sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
 
 build-plugin:
+    mkdir -p config plugins-out
     cd plugins && sh build-all.sh
 
 release-plugin:
@@ -16,10 +17,6 @@ build-nsjail:
 prepare:
     just build-nsjail
     just build-plugin
-    mkdir -p config plugins-out
-
-feodra-deps:
-    sudo dnf install protobuf-devel autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel libgcrypt-devel glibc-static libseccomp-devel python36 git
 
 clean:
     sudo rm -rf .temp
@@ -40,4 +37,5 @@ run:
     cargo run
 
 ci-test:
+    just ci-test
     just test
