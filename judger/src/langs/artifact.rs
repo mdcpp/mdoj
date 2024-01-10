@@ -190,6 +190,7 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<TaskResult, Error> {
+        log::debug!("Exit status: {}",self.process.status);
         debug_assert!(self.process.succeed());
         let spec = self.spec;
         let mut limit = spec.judge_limit.clone().apply_platform();
@@ -227,6 +228,7 @@ impl<'a> CompiledArtifact<'a> {
         time: u64,
         memory: u64,
     ) -> Result<ExecResult, Error> {
+        log::debug!("Exit status: {}",self.process.status);
         debug_assert!(self.process.succeed());
         let spec = self.spec;
         let mut limit = spec.judge_limit.clone().apply_platform();
