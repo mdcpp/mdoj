@@ -240,7 +240,7 @@ impl SubmitSet for Arc<Server> {
         let submit_id = req.id.id;
 
         if !(perm.can_root() || perm.can_manage_submit()) {
-            return Err(Error::PremissionDeny("Can't rejudge").into());
+            return Err(Error::PermissionDeny("Can't rejudge").into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

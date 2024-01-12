@@ -26,7 +26,7 @@ impl Filter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't write problem"))
+        Err(Error::PermissionDeny("Can't write problem"))
     }
 }
 
@@ -42,7 +42,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't publish problem"))
+        Err(Error::PermissionDeny("Can't publish problem"))
     }
 
     fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
@@ -55,7 +55,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't link problem"))
+        Err(Error::PermissionDeny("Can't link problem"))
     }
 }
 
@@ -194,7 +194,7 @@ impl ProblemSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't create problem").into());
+            return Err(Error::PermissionDeny("Can't create problem").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -269,14 +269,14 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+    async fn add_to_contest(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
@@ -301,7 +301,7 @@ impl ProblemSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?

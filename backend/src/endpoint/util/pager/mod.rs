@@ -1,15 +1,14 @@
 pub mod impls;
 pub mod paginate;
 
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use sea_orm::*;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
     endpoint::endpoints::paginate::{order_by_bool, PaginateColBuilder, PaginatePkBuilder},
-    grpc::backend::SortBy,
     init::db::DB,
     server::Server,
 };
@@ -53,9 +52,10 @@ where
     const COL_TEXT: &'static [Self::Column];
     const COL_SELECT: &'static [Self::Column];
     type ParentMarker: PagerMarker;
+    type SortBy: Sized + Serialize + Clone + Debug + DeserializeOwned + Send + Sync + 'static;
 
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String;
-    fn sort_column(sort: &SortBy) -> Self::Column;
+    fn sort_value(model: &Self::Model, sort: &Self::SortBy) -> String;
+    fn sort_column(sort: &Self::SortBy) -> Self::Column;
     fn get_id(model: &Self::Model) -> i32;
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
@@ -64,14 +64,14 @@ where
 pub struct LastValue(bool, String);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum SearchDep {
+pub enum SearchDep<E: PagerTrait> {
     Text(String),
-    Column(SortBy, LastValue),
+    Column(E::SortBy, LastValue),
     Parent(i32),
-    ParentSort(i32, SortBy, LastValue),
+    ParentSort(i32, E::SortBy, LastValue),
 }
 
-impl SearchDep {
+impl<E: PagerTrait> SearchDep<E> {
     fn update_last_col(&mut self, data: LastValue) {
         if let Self::Column(_, val) = self {
             *val = data;
@@ -85,10 +85,11 @@ impl SearchDep {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Pager<E: PagerTrait> {
     type_number: i32,
-    sort: SearchDep,
+    #[serde(bound(deserialize = "SearchDep<E>: DeserializeOwned"))]
+    #[serde(bound(serialize = "SearchDep<E>: Serialize"))]
+    sort: SearchDep<E>,
     last_pk: Option<i32>,
     last_rev: bool,
-    _entity: PhantomData<E>,
 }
 
 #[tonic::async_trait]
@@ -97,7 +98,7 @@ where
     E: EntityTrait + PagerTrait<ParentMarker = HasParent<P>>,
 {
     fn parent_search(ppk: i32, rev: bool) -> Self;
-    fn parent_sorted_search(ppk: i32, sort: SortBy, rev: bool) -> Self;
+    fn parent_sorted_search(ppk: i32, sort: E::SortBy, rev: bool) -> Self;
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error>;
     async fn fetch(
         &mut self,
@@ -135,17 +136,15 @@ where
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::Parent(ppk),
-            _entity: PhantomData,
             last_pk: None,
             last_rev: rev,
         }
     }
     #[instrument]
-    fn parent_sorted_search(ppk: i32, sort: SortBy, rev: bool) -> Self {
+    fn parent_sorted_search(ppk: i32, sort: E::SortBy, rev: bool) -> Self {
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::ParentSort(ppk, sort, LastValue::default()),
-            _entity: PhantomData,
             last_pk: None,
             last_rev: rev,
         }
@@ -334,11 +333,10 @@ where
     E: PagerTrait,
 {
     #[instrument(level = "debug")]
-    pub fn sort_search(sort: SortBy, rev: bool) -> Self {
+    pub fn sort_search(sort: E::SortBy, rev: bool) -> Self {
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::Column(sort, LastValue(rev, "".to_string())),
-            _entity: PhantomData,
             last_pk: None,
             last_rev: false,
         }
@@ -357,7 +355,6 @@ where
         Self {
             type_number: E::TYPE_NUMBER,
             sort: SearchDep::Text(sort),
-            _entity: PhantomData,
             last_pk: None,
             last_rev: false,
         }

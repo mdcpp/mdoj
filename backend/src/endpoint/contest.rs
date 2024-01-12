@@ -20,7 +20,7 @@ impl Filter for Entity {
                 return Ok(query.filter(Column::Hoster.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't write contest"))
+        Err(Error::PermissionDeny("Can't write contest"))
     }
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Some(perm) = auth.user_perm() {
@@ -44,7 +44,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::Hoster.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't link test"))
+        Err(Error::PermissionDeny("Can't link test"))
     }
 }
 
@@ -181,7 +181,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PremissionDeny("Can't create contest").into());
+            return Err(Error::PermissionDeny("Can't create contest").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -222,7 +222,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PremissionDeny("Can't update contest").into());
+            return Err(Error::PermissionDeny("Can't update contest").into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -237,7 +237,7 @@ impl ContestSet for Arc<Server> {
                     let hash = self.crypto.hash(&src).into();
                     model.password = Some(hash);
                 } else {
-                    return Err(Error::PremissionDeny(
+                    return Err(Error::PermissionDeny(
                         "password should match in order to update password!",
                     )
                     .into());
@@ -297,7 +297,7 @@ impl ContestSet for Arc<Server> {
                     .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
                 && model.public
             {
-                return Err(Error::PremissionDeny("contest password mismatch").into());
+                return Err(Error::PermissionDeny("contest password mismatch").into());
             }
         }
 

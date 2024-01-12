@@ -4,5 +4,8 @@
         "Backend",
         "Judger",
         "Testsuit"
-    ]
+    ],
+    "files.watcherExclude": {
+        "**/plugins/**": true
+    }
 }

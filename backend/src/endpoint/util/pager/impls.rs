@@ -31,6 +31,7 @@ impl PagerTrait for problem::Entity {
     ];
 
     type ParentMarker = HasParent<contest::Entity>;
+    type SortBy = SortBy;
 
     fn sort_column(sort: &SortBy) -> problem::Column {
         match sort {
@@ -85,6 +86,7 @@ impl PagerTrait for test::Entity {
     ];
 
     type ParentMarker = HasParent<problem::Entity>;
+    type SortBy = SortBy;
 
     fn sort_column(sort: &SortBy) -> test::Column {
         match sort {
@@ -120,6 +122,7 @@ impl PagerTrait for contest::Entity {
     ];
 
     type ParentMarker = NoParent;
+    type SortBy = SortBy;
 
     fn sort_column(sort: &SortBy) -> contest::Column {
         match sort {
@@ -164,6 +167,7 @@ impl PagerTrait for user::Entity {
     ];
 
     type ParentMarker = NoParent;
+    type SortBy = SortBy;
 
     fn sort_column(sort: &SortBy) -> user::Column {
         match sort {
@@ -206,6 +210,7 @@ impl PagerTrait for submit::Entity {
     ];
 
     type ParentMarker = HasParent<problem::Entity>;
+    type SortBy = SortBy;
 
     fn sort_column(sort: &SortBy) -> submit::Column {
         match sort {
@@ -251,6 +256,7 @@ impl PagerTrait for education::Entity {
     const COL_SELECT: &'static [Self::Column] = &[education::Column::Id, education::Column::Title];
 
     type ParentMarker = HasParent<problem::Entity>;
+    type SortBy = SortBy;
 
     fn sort_column(_sort: &SortBy) -> education::Column {
         education::Column::Id
@@ -277,6 +283,7 @@ impl PagerTrait for chat::Entity {
     const COL_SELECT: &'static [Self::Column] = &[chat::Column::Id, chat::Column::Message];
 
     type ParentMarker = HasParent<problem::Entity>;
+    type SortBy = SortBy;
 
     fn sort_value(model: &Self::Model, _sort: &SortBy) -> String {
         model.id.to_string()

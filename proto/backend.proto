@@ -236,7 +236,7 @@ service AnnouncementSet {
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
   rpc Remove(AnnouncementId) returns (google.protobuf.Empty);
 
-  rpc Link(AnnouncementLink) returns (google.protobuf.Empty);
+  rpc AddToContest(AnnouncementLink) returns (google.protobuf.Empty);
   rpc Unlink(AnnouncementLink) returns (google.protobuf.Empty);
 
   rpc Publish(AnnouncementId) returns (google.protobuf.Empty);
@@ -306,7 +306,7 @@ service EducationSet {
   rpc Update(UpdateEducationRequest) returns (google.protobuf.Empty);
   rpc Remove(EducationId) returns (google.protobuf.Empty);
 
-  rpc Link(EducationLink) returns (google.protobuf.Empty);
+  rpc AddToProblem(EducationLink) returns (google.protobuf.Empty);
   rpc Unlink(EducationLink) returns (google.protobuf.Empty);
 
   // paginate by id(increasing)
@@ -386,7 +386,7 @@ service ProblemSet {
   rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
   rpc Remove(ProblemId) returns (google.protobuf.Empty);
 
-  rpc Link(ProblemLink) returns (google.protobuf.Empty);
+  rpc AddToContest(ProblemLink) returns (google.protobuf.Empty);
   rpc Unlink(ProblemLink) returns (google.protobuf.Empty);
 
   rpc Publish(ProblemId) returns (google.protobuf.Empty);
@@ -450,7 +450,7 @@ service TestcaseSet {
   rpc Update(UpdateTestcaseRequest) returns (google.protobuf.Empty);
   rpc Remove(TestcaseId) returns (google.protobuf.Empty);
 
-  rpc Link(TestcaseLink) returns (google.protobuf.Empty);
+  rpc AddToProblem(TestcaseLink) returns (google.protobuf.Empty);
   rpc Unlink(TestcaseLink) returns (google.protobuf.Empty);
 
   rpc FullInfoByProblem(TestcaseLink) returns (TestcaseFullInfo);
@@ -573,17 +573,20 @@ message CreateUserRequest {
 }
 
 message Permission {
-  required bool can_root = 6;
-  required bool can_manage_problem = 2;
-  required bool can_manage_education = 4;
-  required bool can_manage_announcement = 3;
-  required bool can_manage_submit = 1;
-  required bool can_publish = 8;
-  required bool can_link = 7;
-  required bool can_manage_contest = 9;
-  required bool can_manage_user = 5;
-  required bool can_imgur = 10;
-  required bool can_manage_chat = 11;
+  enum Flags {
+    Root = 0x001;
+    Problem = 0x002;
+    Education = 0x004;
+    Announcement = 0x008;
+    Submit = 0x010;
+    Publish = 0x020;
+    AddTo = 0x040;
+    Contest = 0x080;
+    User = 0x100;
+    Image = 0x200;
+    Message = 0x400;
+  }
+  required uint32 flags = 1;
 }
 
 message UpdateUserRequest {
