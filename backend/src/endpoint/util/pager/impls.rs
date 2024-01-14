@@ -44,7 +44,6 @@ impl PagerTrait for problem::Entity {
             ProblemSortBy::SubmitCount => problem::Column::SubmitCount,
             ProblemSortBy::Difficulty => problem::Column::Difficulty,
             ProblemSortBy::Order => problem::Column::Order,
-            _ => problem::Column::Id,
         }
     }
     fn sort_value(model: &Self::Model, sort: &ProblemSortBy) -> String {
@@ -55,7 +54,6 @@ impl PagerTrait for problem::Entity {
             ProblemSortBy::SubmitCount => model.submit_count.to_string(),
             ProblemSortBy::Difficulty => model.difficulty.to_string(),
             ProblemSortBy::Order => model.order.to_string(),
-            _ => model.id.to_string(),
         }
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -127,13 +125,11 @@ impl PagerTrait for test::Entity {
     fn sort_column(sort: &TestcaseSortBy) -> test::Column {
         match sort {
             TestcaseSortBy::Score => test::Column::Score,
-            _ => test::Column::Id,
         }
     }
     fn sort_value(model: &Self::Model, sort: &TestcaseSortBy) -> String {
         match sort {
             TestcaseSortBy::Score => (model.score).to_string(),
-            _ => model.id.to_string(),
         }
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -166,7 +162,6 @@ impl PagerTrait for contest::Entity {
             ContestSortBy::UploadDate => contest::Column::UpdateAt,
             ContestSortBy::Begin => contest::Column::Begin,
             ContestSortBy::End => contest::Column::End,
-            _ => contest::Column::Id,
         }
     }
     fn sort_value(model: &Self::Model, sort: &ContestSortBy) -> String {
@@ -175,7 +170,6 @@ impl PagerTrait for contest::Entity {
             ContestSortBy::UploadDate => model.update_at.to_string(),
             ContestSortBy::Begin => model.begin.to_string(),
             ContestSortBy::End => model.end.to_string(),
-            _ => model.id.to_string(),
         }
     }
     fn get_id(model: &Self::Model) -> i32 {
@@ -209,14 +203,12 @@ impl PagerTrait for user::Entity {
         match sort {
             UserSortBy::CreateDate => user::Column::CreateAt,
             UserSortBy::Score => user::Column::Score,
-            _ => user::Column::Id,
         }
     }
     fn sort_value(model: &Self::Model, sort: &UserSortBy) -> String {
         match sort {
             UserSortBy::CreateDate => model.create_at.to_string(),
             UserSortBy::Score => model.score.to_string(),
-            _ => model.id.to_string(),
         }
     }
 
@@ -255,7 +247,6 @@ impl PagerTrait for submit::Entity {
             SubmitSortBy::Time => submit::Column::Time,
             SubmitSortBy::Memory => submit::Column::Memory,
             SubmitSortBy::UploadDate => submit::Column::UploadAt,
-            _ => submit::Column::Id,
         }
     }
     fn sort_value(model: &Self::Model, sort: &SubmitSortBy) -> String {
@@ -268,7 +259,6 @@ impl PagerTrait for submit::Entity {
             SubmitSortBy::Time => model.time.unwrap_or_default().to_string(),
             SubmitSortBy::Memory => model.memory.unwrap_or_default().to_string(),
             SubmitSortBy::UploadDate => model.upload_at.to_string(),
-            _ => model.id.to_string(),
         }
     }
 

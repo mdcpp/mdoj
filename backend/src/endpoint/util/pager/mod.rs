@@ -56,10 +56,10 @@ where
     type ParentMarker: PagerMarker;
     type SortBy: Sized + Serialize + Clone + Debug + DeserializeOwned + Send + Sync + 'static;
 
-    fn sort_value(model: &Self::Model, sort: &Self::SortBy) -> String {
+    fn sort_value(model: &Self::Model, _sort: &Self::SortBy) -> String {
         Self::get_id(model).to_string()
     }
-    fn sort_column(sort: &Self::SortBy) -> Self::Column {
+    fn sort_column(_sort: &Self::SortBy) -> Self::Column {
         Self::COL_ID
     }
     fn get_id(model: &Self::Model) -> i32;
