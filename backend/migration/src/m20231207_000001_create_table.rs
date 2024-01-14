@@ -33,6 +33,7 @@ macro_rules! index {
 enum Announcement {
     Table,
     Id,
+    ContestId,
     Title,
     Content,
     CreateAt,
@@ -176,6 +177,13 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null()
                             .default(""),
+                    )
+                    .col(ColumnDef::new(Announcement::ContestId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-contest")
+                            .from(Education::Table, Announcement::ContestId)
+                            .to(Contest::Table, Contest::Id),
                     )
                     .col(
                         ColumnDef::new(Announcement::CreateAt)
