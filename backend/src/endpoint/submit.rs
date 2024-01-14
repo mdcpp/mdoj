@@ -64,16 +64,16 @@ impl SubmitSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_submit_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_submit_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
                     old.session,
@@ -240,7 +240,7 @@ impl SubmitSet for Arc<Server> {
         let submit_id = req.id.id;
 
         if !(perm.can_root() || perm.can_manage_submit()) {
-            return Err(Error::PremissionDeny("Can't rejudge").into());
+            return Err(Error::PermissionDeny("Can't rejudge").into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

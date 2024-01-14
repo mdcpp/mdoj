@@ -46,76 +46,31 @@ impl From<Model> for UserInfo {
 
 impl From<UserPermBytes> for Permission {
     fn from(value: UserPermBytes) -> Self {
-        Permission {
-            can_manage_contest: value.can_manage_contest(),
-            can_manage_problem: value.can_manage_problem(),
-            can_manage_announcement: value.can_manage_announcement(),
-            can_manage_education: value.can_manage_education(),
-            can_manage_user: value.can_manage_user(),
-            can_root: value.can_root(),
-            can_link: value.can_link(),
-            can_publish: value.can_publish(),
-            can_manage_submit: value.can_manage_submit(),
-            can_imgur: value.can_imgur(),
-            can_manage_chat: value.can_manage_chat(),
-        }
+        Permission { flags: value.0 }
     }
 }
 
 impl From<Permission> for UserPermBytes {
     fn from(value: Permission) -> Self {
-        let mut perm = UserPermBytes::default();
-
-        if value.can_manage_contest {
-            perm.grant_manage_contest(true);
-        }
-        if value.can_manage_problem {
-            perm.grant_manage_problem(true);
-        }
-        if value.can_manage_announcement {
-            perm.grant_manage_announcement(true);
-        }
-        if value.can_manage_education {
-            perm.grant_manage_education(true);
-        }
-        if value.can_manage_user {
-            perm.grant_manage_user(true);
-        }
-        if value.can_root {
-            perm.grant_root(true);
-        }
-        if value.can_link {
-            perm.grant_link(true);
-        }
-        if value.can_publish {
-            perm.grant_publish(true);
-        }
-        if value.can_manage_submit {
-            perm.grant_manage_submit(true);
-        }
-        if value.can_imgur {
-            perm.grant_imgur(true);
-        }
-        if value.can_manage_chat {
-            perm.grant_manage_chat(true);
-        }
-
-        perm
+        UserPermBytes(value.flags)
     }
 }
 
 #[async_trait]
 impl UserSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
-    async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListUserResponse>, Status> {
+    async fn list(
+        &self,
+        req: Request<ListUserRequest>,
+    ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_user_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_user_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session, self)?
             }
@@ -181,7 +136,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_user()) {
-            return Err(Error::PremissionDeny("Can't create user").into());
+            return Err(Error::PermissionDeny("Can't create user").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -204,7 +159,7 @@ impl UserSet for Arc<Server> {
         let new_perm = Into::<UserPermBytes>::into(req.info.permission);
 
         if new_perm != UserPermBytes::default() && !perm.can_root() {
-            return Err(Error::PremissionDeny("Can't set permission").into());
+            return Err(Error::PermissionDeny("Can't set permission").into());
         }
         model.permission = ActiveValue::set(new_perm.0);
 
@@ -230,7 +185,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update user").into());
+            return Err(Error::PermissionDeny("Can't update user").into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -249,7 +204,7 @@ impl UserSet for Arc<Server> {
         }
         if let Some(permission) = req.info.permission {
             if !perm.can_root() {
-                return Err(Error::PremissionDeny("Can't set permission").into());
+                return Err(Error::PermissionDeny("Can't set permission").into());
             }
             model.permission = ActiveValue::set(Into::<UserPermBytes>::into(permission).0);
         }
@@ -294,7 +249,7 @@ impl UserSet for Arc<Server> {
             .ok_or(Error::NotInDB("user"))?;
 
         if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
-            return Err(Error::PremissionDeny("password").into());
+            return Err(Error::PermissionDeny("password").into());
         }
 
         for _ in 0..32 {

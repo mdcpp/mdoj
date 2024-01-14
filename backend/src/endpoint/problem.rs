@@ -26,7 +26,7 @@ impl Filter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't write problem"))
+        Err(Error::PermissionDeny("Can't write problem"))
     }
 }
 
@@ -42,7 +42,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't publish problem"))
+        Err(Error::PermissionDeny("Can't publish problem"))
     }
 
     fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
@@ -55,7 +55,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't link problem"))
+        Err(Error::PermissionDeny("Can't link problem"))
     }
 }
 
@@ -101,16 +101,16 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_problem_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_problem_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
                     old.session,
@@ -194,7 +194,7 @@ impl ProblemSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't create problem").into());
+            return Err(Error::PermissionDeny("Can't create problem").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -269,14 +269,17 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+    async fn add_to_contest(
+        &self,
+        req: Request<AddProblemToContestRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
@@ -294,14 +297,17 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_contest(
+        &self,
+        req: Request<AddProblemToContestRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
@@ -369,7 +375,7 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_contest(
         &self,
-        req: Request<ProblemLink>,
+        req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -405,7 +411,7 @@ impl ProblemSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_sorted_search(ppk, SortBy::Order, false)
+                Pager::parent_sorted_search(ppk, ProblemSortBy::Order, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

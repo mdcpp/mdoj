@@ -83,7 +83,7 @@ impl TokenSet for Arc<Server> {
             }))
         } else {
             tracing::trace!("password_mismatch");
-            Err(Error::PremissionDeny("password").into())
+            Err(Error::PermissionDeny("password").into())
         }
     }
     #[instrument(skip_all, level = "debug")]

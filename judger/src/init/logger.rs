@@ -1,6 +1,5 @@
 use super::config::CONFIG;
 use log::LevelFilter;
-use std::io::Write;
 
 // setup logger and panic handler
 pub fn init() {

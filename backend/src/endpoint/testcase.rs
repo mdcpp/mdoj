@@ -28,7 +28,7 @@ impl Filter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't write test"))
+        Err(Error::PermissionDeny("Can't write test"))
     }
 }
 
@@ -44,7 +44,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't link test"))
+        Err(Error::PermissionDeny("Can't link test"))
     }
 }
 
@@ -84,16 +84,16 @@ impl TestcaseSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_testcase_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_testcase_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
                     old.session,
@@ -128,7 +128,7 @@ impl TestcaseSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't create test").into());
+            return Err(Error::PermissionDeny("Can't create test").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -187,14 +187,17 @@ impl TestcaseSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
+    async fn add_to_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link test").into());
+            return Err(Error::PermissionDeny("Can't link test").into());
         }
 
         let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
@@ -212,14 +215,17 @@ impl TestcaseSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link test").into());
+            return Err(Error::PermissionDeny("Can't link test").into());
         }
 
         let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
@@ -239,7 +245,7 @@ impl TestcaseSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
-        req: Request<TestcaseLink>,
+        req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -253,7 +259,7 @@ impl TestcaseSet for Arc<Server> {
 
         if !(perm.can_root() || perm.can_manage_problem()) {
             return Err(
-                Error::PremissionDeny("input and output field of testcase is protected").into(),
+                Error::PermissionDeny("input and output field of testcase is protected").into(),
             );
         }
 

@@ -39,7 +39,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't publish education"))
+        Err(Error::PermissionDeny("Can't publish education"))
     }
 
     fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
@@ -52,7 +52,7 @@ impl ParentalFilter for Entity {
                 return Ok(query.filter(Column::UserId.eq(user_id)));
             }
         }
-        Err(Error::PremissionDeny("Can't link education"))
+        Err(Error::PermissionDeny("Can't link education"))
     }
 }
 
@@ -103,7 +103,7 @@ impl EducationSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_education()) {
-            return Err(Error::PremissionDeny("Can't create education").into());
+            return Err(Error::PermissionDeny("Can't create education").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -165,14 +165,17 @@ impl EducationSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
+    async fn add_to_problem(
+        &self,
+        req: Request<AddEducationToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
@@ -190,14 +193,17 @@ impl EducationSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_problem(
+        &self,
+        req: Request<AddEducationToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+            return Err(Error::PermissionDeny("Can't link problem").into());
         }
 
         let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
@@ -251,7 +257,7 @@ impl EducationSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
-        req: Request<EducationLink>,
+        req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;

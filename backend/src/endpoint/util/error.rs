@@ -4,8 +4,8 @@ use crate::report_internal;
 /// to tramsform it into `tonic::Status` immediately
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Premission deny: `{0}`")]
-    PremissionDeny(&'static str),
+    #[error("Permission deny: `{0}`")]
+    PermissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
     DBErr(#[from] sea_orm::DbErr),
     #[error("payload.`{0}` is not a vaild argument")]
@@ -33,8 +33,8 @@ pub enum Error {
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::PremissionDeny(x) => {
-                tracing::debug!(hint = x, "premission_invaild");
+            Error::PermissionDeny(x) => {
+                tracing::debug!(hint = x, "permission_invaild");
                 tonic::Status::permission_denied(x)
             }
             Error::DBErr(x) => report_internal!(error, "{}", x),
