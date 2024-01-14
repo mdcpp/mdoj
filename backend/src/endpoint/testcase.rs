@@ -84,16 +84,16 @@ impl TestcaseSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_testcase_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_testcase_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
                     old.session,
@@ -187,7 +187,7 @@ impl TestcaseSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn add_to_problem(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
+    async fn add_to_problem(&self, req: Request<AddTestcaseToProblemRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -212,7 +212,10 @@ impl TestcaseSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -239,7 +242,7 @@ impl TestcaseSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
-        req: Request<TestcaseLink>,
+        req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;

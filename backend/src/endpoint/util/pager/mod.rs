@@ -39,6 +39,8 @@ impl PagerMarker for NoParent {}
 
 impl<P: EntityTrait> PagerMarker for HasParent<P> {}
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct EmptySortBy;
 /// An abstract base class for Paginatable Entity
 ///
 /// The trait enable sort, text search, search by parent Entity
@@ -54,8 +56,12 @@ where
     type ParentMarker: PagerMarker;
     type SortBy: Sized + Serialize + Clone + Debug + DeserializeOwned + Send + Sync + 'static;
 
-    fn sort_value(model: &Self::Model, sort: &Self::SortBy) -> String;
-    fn sort_column(sort: &Self::SortBy) -> Self::Column;
+    fn sort_value(model: &Self::Model, sort: &Self::SortBy) -> String {
+        Self::get_id(model).to_string()
+    }
+    fn sort_column(sort: &Self::SortBy) -> Self::Column {
+        Self::COL_ID
+    }
     fn get_id(model: &Self::Model) -> i32;
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error>;
 }
@@ -195,8 +201,6 @@ where
 
                 let mut query = parent.unwrap().find_related(E::default());
 
-                query = E::query_filter(query, auth)?;
-
                 if let Some(last) = self.last_pk {
                     let paginate = PaginatePkBuilder::default()
                         .include(self.last_rev ^ rev)
@@ -236,8 +240,6 @@ where
                 }
 
                 let mut query = parent.unwrap().find_related(E::default());
-
-                query = E::query_filter(query, auth)?;
 
                 if let Some(last) = self.last_pk {
                     let paginate = PaginateColBuilder::default()

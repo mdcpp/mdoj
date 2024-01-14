@@ -8,6 +8,7 @@ pub mod submit;
 pub mod testcase;
 pub mod token;
 pub mod user;
+pub mod announcement;
 pub mod util;
 
 pub mod tools {

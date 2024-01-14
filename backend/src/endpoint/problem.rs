@@ -101,16 +101,16 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
+            list_problem_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
             }
-            list_request::Request::Pager(old) => {
+            list_problem_request::Request::Pager(old) => {
                 reverse = old.reverse;
                 <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
                     old.session,
@@ -269,7 +269,7 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn add_to_contest(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+    async fn add_to_contest(&self, req: Request<AddProblemToContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -294,7 +294,7 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<ProblemLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_contest(&self, req: Request<AddProblemToContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -369,7 +369,7 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_contest(
         &self,
-        req: Request<ProblemLink>,
+        req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
@@ -405,7 +405,7 @@ impl ProblemSet for Arc<Server> {
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_sorted_search(ppk, SortBy::Order, false)
+                Pager::parent_sorted_search(ppk, ProblemSortBy::Order, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

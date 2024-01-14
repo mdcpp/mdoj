@@ -1,9 +1,12 @@
 use ::entity::*;
 use sea_orm::*;
 
-use crate::{grpc::backend::SortBy, init::db::DB};
+use crate::{
+    grpc::backend::{ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy, AnnouncementSortBy},
+    init::db::DB,
+};
 
-use super::{HasParent, NoParent, PagerTrait, ParentalTrait};
+use super::{EmptySortBy, HasParent, NoParent, PagerTrait, ParentalTrait};
 use crate::endpoint::util::{auth::Auth, error::Error, filter::Filter};
 
 #[tonic::async_trait]
@@ -31,27 +34,27 @@ impl PagerTrait for problem::Entity {
     ];
 
     type ParentMarker = HasParent<contest::Entity>;
-    type SortBy = SortBy;
+    type SortBy = ProblemSortBy;
 
-    fn sort_column(sort: &SortBy) -> problem::Column {
+    fn sort_column(sort: &ProblemSortBy) -> problem::Column {
         match sort {
-            SortBy::UploadDate => problem::Column::UpdateAt,
-            SortBy::CreateDate => problem::Column::CreateAt,
-            SortBy::AcRate => problem::Column::AcRate,
-            SortBy::SubmitCount => problem::Column::SubmitCount,
-            SortBy::Difficulty => problem::Column::Difficulty,
-            SortBy::Order => problem::Column::Order,
+            ProblemSortBy::UploadDate => problem::Column::UpdateAt,
+            ProblemSortBy::CreateDate => problem::Column::CreateAt,
+            ProblemSortBy::AcRate => problem::Column::AcRate,
+            ProblemSortBy::SubmitCount => problem::Column::SubmitCount,
+            ProblemSortBy::Difficulty => problem::Column::Difficulty,
+            ProblemSortBy::Order => problem::Column::Order,
             _ => problem::Column::Id,
         }
     }
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &ProblemSortBy) -> String {
         match sort {
-            SortBy::UploadDate => model.update_at.to_string(),
-            SortBy::CreateDate => model.create_at.to_string(),
-            SortBy::AcRate => model.ac_rate.to_string(),
-            SortBy::SubmitCount => model.submit_count.to_string(),
-            SortBy::Difficulty => model.difficulty.to_string(),
-            SortBy::Order => model.order.to_string(),
+            ProblemSortBy::UploadDate => model.update_at.to_string(),
+            ProblemSortBy::CreateDate => model.create_at.to_string(),
+            ProblemSortBy::AcRate => model.ac_rate.to_string(),
+            ProblemSortBy::SubmitCount => model.submit_count.to_string(),
+            ProblemSortBy::Difficulty => model.difficulty.to_string(),
+            ProblemSortBy::Order => model.order.to_string(),
             _ => model.id.to_string(),
         }
     }
@@ -60,6 +63,39 @@ impl PagerTrait for problem::Entity {
     }
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         problem::Entity::read_filter(select, auth)
+    }
+}
+
+#[tonic::async_trait]
+impl PagerTrait for announcement::Entity {
+    const TYPE_NUMBER: i32 = 1591223;
+    const COL_ID: announcement::Column = announcement::Column::Id;
+    const COL_TEXT: &'static [announcement::Column] = &[announcement::Column::Title];
+    const COL_SELECT: &'static [announcement::Column] = &[
+        announcement::Column::Id,
+        announcement::Column::Title,
+    ];
+
+    type ParentMarker = HasParent<contest::Entity>;
+    type SortBy = AnnouncementSortBy;
+
+    fn sort_column(sort: &AnnouncementSortBy) -> announcement::Column {
+        match sort {
+            AnnouncementSortBy::UploadDate => announcement::Column::UpdateAt,
+            AnnouncementSortBy::CreateDate => announcement::Column::CreateAt,
+        }
+    }
+    fn sort_value(model: &Self::Model, sort: &AnnouncementSortBy) -> String {
+        match sort {
+            AnnouncementSortBy::UploadDate => model.update_at.to_string(),
+            AnnouncementSortBy::CreateDate => model.create_at.to_string(),
+        }
+    }
+    fn get_id(model: &Self::Model) -> i32 {
+        model.id
+    }
+    fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
+        announcement::Entity::read_filter(select, auth)
     }
 }
 
@@ -86,17 +122,17 @@ impl PagerTrait for test::Entity {
     ];
 
     type ParentMarker = HasParent<problem::Entity>;
-    type SortBy = SortBy;
+    type SortBy = TestcaseSortBy;
 
-    fn sort_column(sort: &SortBy) -> test::Column {
+    fn sort_column(sort: &TestcaseSortBy) -> test::Column {
         match sort {
-            SortBy::Score => test::Column::Score,
+            TestcaseSortBy::Score => test::Column::Score,
             _ => test::Column::Id,
         }
     }
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &TestcaseSortBy) -> String {
         match sort {
-            SortBy::Score => (model.score).to_string(),
+            TestcaseSortBy::Score => (model.score).to_string(),
             _ => model.id.to_string(),
         }
     }
@@ -122,23 +158,23 @@ impl PagerTrait for contest::Entity {
     ];
 
     type ParentMarker = NoParent;
-    type SortBy = SortBy;
+    type SortBy = ContestSortBy;
 
-    fn sort_column(sort: &SortBy) -> contest::Column {
+    fn sort_column(sort: &ContestSortBy) -> contest::Column {
         match sort {
-            SortBy::CreateDate => contest::Column::CreateAt,
-            SortBy::UploadDate => contest::Column::UpdateAt,
-            SortBy::Begin => contest::Column::Begin,
-            SortBy::End => contest::Column::End,
+            ContestSortBy::CreateDate => contest::Column::CreateAt,
+            ContestSortBy::UploadDate => contest::Column::UpdateAt,
+            ContestSortBy::Begin => contest::Column::Begin,
+            ContestSortBy::End => contest::Column::End,
             _ => contest::Column::Id,
         }
     }
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &ContestSortBy) -> String {
         match sort {
-            SortBy::CreateDate => model.create_at.to_string(),
-            SortBy::UploadDate => model.update_at.to_string(),
-            SortBy::Begin => model.begin.to_string(),
-            SortBy::End => model.end.to_string(),
+            ContestSortBy::CreateDate => model.create_at.to_string(),
+            ContestSortBy::UploadDate => model.update_at.to_string(),
+            ContestSortBy::Begin => model.begin.to_string(),
+            ContestSortBy::End => model.end.to_string(),
             _ => model.id.to_string(),
         }
     }
@@ -167,19 +203,19 @@ impl PagerTrait for user::Entity {
     ];
 
     type ParentMarker = NoParent;
-    type SortBy = SortBy;
+    type SortBy = UserSortBy;
 
-    fn sort_column(sort: &SortBy) -> user::Column {
+    fn sort_column(sort: &UserSortBy) -> user::Column {
         match sort {
-            SortBy::CreateDate => user::Column::CreateAt,
-            SortBy::Score => user::Column::Score,
+            UserSortBy::CreateDate => user::Column::CreateAt,
+            UserSortBy::Score => user::Column::Score,
             _ => user::Column::Id,
         }
     }
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &UserSortBy) -> String {
         match sort {
-            SortBy::CreateDate => model.create_at.to_string(),
-            SortBy::Score => model.score.to_string(),
+            UserSortBy::CreateDate => model.create_at.to_string(),
+            UserSortBy::Score => model.score.to_string(),
             _ => model.id.to_string(),
         }
     }
@@ -210,28 +246,28 @@ impl PagerTrait for submit::Entity {
     ];
 
     type ParentMarker = HasParent<problem::Entity>;
-    type SortBy = SortBy;
+    type SortBy = SubmitSortBy;
 
-    fn sort_column(sort: &SortBy) -> submit::Column {
+    fn sort_column(sort: &SubmitSortBy) -> submit::Column {
         match sort {
-            SortBy::Committed => submit::Column::Committed,
-            SortBy::Score => submit::Column::Score,
-            SortBy::Time => submit::Column::Time,
-            SortBy::Memory => submit::Column::Memory,
-            SortBy::UploadDate | SortBy::CreateDate => submit::Column::UploadAt,
+            SubmitSortBy::Committed => submit::Column::Committed,
+            SubmitSortBy::Score => submit::Column::Score,
+            SubmitSortBy::Time => submit::Column::Time,
+            SubmitSortBy::Memory => submit::Column::Memory,
+            SubmitSortBy::UploadDate => submit::Column::UploadAt,
             _ => submit::Column::Id,
         }
     }
-    fn sort_value(model: &Self::Model, sort: &SortBy) -> String {
+    fn sort_value(model: &Self::Model, sort: &SubmitSortBy) -> String {
         match sort {
-            SortBy::Committed => match model.committed {
+            SubmitSortBy::Committed => match model.committed {
                 true => "1".to_string(),
                 false => "0".to_string(),
             },
-            SortBy::Score => model.score.to_string(),
-            SortBy::Time => model.time.unwrap_or_default().to_string(),
-            SortBy::Memory => model.memory.unwrap_or_default().to_string(),
-            SortBy::UploadDate | SortBy::CreateDate => model.upload_at.to_string(),
+            SubmitSortBy::Score => model.score.to_string(),
+            SubmitSortBy::Time => model.time.unwrap_or_default().to_string(),
+            SubmitSortBy::Memory => model.memory.unwrap_or_default().to_string(),
+            SubmitSortBy::UploadDate => model.upload_at.to_string(),
             _ => model.id.to_string(),
         }
     }
@@ -256,18 +292,11 @@ impl PagerTrait for education::Entity {
     const COL_SELECT: &'static [Self::Column] = &[education::Column::Id, education::Column::Title];
 
     type ParentMarker = HasParent<problem::Entity>;
-    type SortBy = SortBy;
+    type SortBy = EmptySortBy;
 
-    fn sort_column(_sort: &SortBy) -> education::Column {
-        education::Column::Id
-    }
-    fn sort_value(model: &Self::Model, _sort: &SortBy) -> String {
-        model.id.to_string()
-    }
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         education::Entity::read_filter(select, auth)
     }
@@ -283,20 +312,11 @@ impl PagerTrait for chat::Entity {
     const COL_SELECT: &'static [Self::Column] = &[chat::Column::Id, chat::Column::Message];
 
     type ParentMarker = HasParent<problem::Entity>;
-    type SortBy = SortBy;
-
-    fn sort_value(model: &Self::Model, _sort: &SortBy) -> String {
-        model.id.to_string()
-    }
-
-    fn sort_column(_sort: &SortBy) -> Self::Column {
-        chat::Column::Id
-    }
+    type SortBy = EmptySortBy;
 
     fn get_id(model: &Self::Model) -> i32 {
         model.id
     }
-
     fn query_filter(select: Select<Self>, auth: &Auth) -> Result<Select<Self>, Error> {
         chat::Entity::read_filter(select, auth)
     }
