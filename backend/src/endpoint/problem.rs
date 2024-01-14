@@ -269,7 +269,10 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn add_to_contest(&self, req: Request<AddProblemToContestRequest>) -> Result<Response<()>, Status> {
+    async fn add_to_contest(
+        &self,
+        req: Request<AddProblemToContestRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -294,7 +297,10 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn remove_from_contest(&self, req: Request<AddProblemToContestRequest>) -> Result<Response<()>, Status> {
+    async fn remove_from_contest(
+        &self,
+        req: Request<AddProblemToContestRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 

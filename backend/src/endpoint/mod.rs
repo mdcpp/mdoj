@@ -1,3 +1,4 @@
+pub mod announcement;
 pub mod chat;
 pub mod contest;
 pub mod education;
@@ -8,7 +9,6 @@ pub mod submit;
 pub mod testcase;
 pub mod token;
 pub mod user;
-pub mod announcement;
 pub mod util;
 
 pub mod tools {

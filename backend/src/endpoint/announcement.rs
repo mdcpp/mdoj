@@ -1,10 +1,7 @@
 use super::endpoints::*;
 use super::tools::*;
 
-
-
-
-use entity::{announcement::*};
+use entity::announcement::*;
 
 impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
@@ -17,7 +14,7 @@ impl Filter for Entity {
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (_user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root()||perm.can_manage_announcement() {
+        if perm.can_root() || perm.can_manage_announcement() {
             return Ok(query);
         }
         Err(Error::Unauthenticated)

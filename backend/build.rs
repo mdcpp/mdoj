@@ -24,7 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .type_attribute(
             "oj.backend.UserSortBy",
             "#[derive(serde::Serialize, serde::Deserialize)]",
-        ) .type_attribute(
+        )
+        .type_attribute(
             "oj.backend.AnnouncementSortBy",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )

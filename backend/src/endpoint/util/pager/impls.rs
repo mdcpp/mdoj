@@ -2,7 +2,9 @@ use ::entity::*;
 use sea_orm::*;
 
 use crate::{
-    grpc::backend::{ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy, AnnouncementSortBy},
+    grpc::backend::{
+        AnnouncementSortBy, ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy,
+    },
     init::db::DB,
 };
 
@@ -69,10 +71,8 @@ impl PagerTrait for announcement::Entity {
     const TYPE_NUMBER: i32 = 1591223;
     const COL_ID: announcement::Column = announcement::Column::Id;
     const COL_TEXT: &'static [announcement::Column] = &[announcement::Column::Title];
-    const COL_SELECT: &'static [announcement::Column] = &[
-        announcement::Column::Id,
-        announcement::Column::Title,
-    ];
+    const COL_SELECT: &'static [announcement::Column] =
+        &[announcement::Column::Id, announcement::Column::Title];
 
     type ParentMarker = HasParent<contest::Entity>;
     type SortBy = AnnouncementSortBy;

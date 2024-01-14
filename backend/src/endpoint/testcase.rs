@@ -187,7 +187,10 @@ impl TestcaseSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn add_to_problem(&self, req: Request<AddTestcaseToProblemRequest>) -> Result<Response<()>, Status> {
+    async fn add_to_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 

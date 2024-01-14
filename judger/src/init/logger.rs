@@ -1,7 +1,6 @@
 use super::config::CONFIG;
 use log::LevelFilter;
 
-
 // setup logger and panic handler
 pub fn init() {
     let config = CONFIG.get().unwrap();
