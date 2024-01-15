@@ -53,6 +53,7 @@ where
     const COL_ID: Self::Column;
     const COL_TEXT: &'static [Self::Column];
     const COL_SELECT: &'static [Self::Column];
+    const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";
     type ParentMarker: PagerMarker;
     type SortBy: Sized + Serialize + Clone + Debug + DeserializeOwned + Send + Sync + 'static;
 

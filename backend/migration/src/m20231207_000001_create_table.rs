@@ -34,6 +34,8 @@ enum Announcement {
     Table,
     Id,
     ContestId,
+    UserId,
+    Public,
     Title,
     Content,
     CreateAt,
@@ -172,18 +174,26 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Announcement::Title).string().not_null())
+                    .col(ColumnDef::new(Announcement::Public).boolean().default(false))
                     .col(
                         ColumnDef::new(Announcement::Content)
                             .string()
                             .not_null()
                             .default(""),
                     )
-                    .col(ColumnDef::new(Announcement::ContestId).integer().not_null())
+                    .col(ColumnDef::new(Announcement::ContestId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-announcement-contest")
-                            .from(Education::Table, Announcement::ContestId)
+                            .from(Announcement::Table, Announcement::ContestId)
                             .to(Contest::Table, Contest::Id),
+                    )
+                    .col(ColumnDef::new(Announcement::UserId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-user")
+                            .from(Announcement::Table, Announcement::UserId)
+                            .to(User::Table, User::Id),
                     )
                     .col(
                         ColumnDef::new(Announcement::CreateAt)
@@ -306,7 +316,13 @@ impl MigrationTrait for Migration {
                             .from(Problem::Table, Problem::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(Problem::ContestId).integer().null())
+                    .col(ColumnDef::new(Problem::ContestId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-problem-contest")
+                            .from(Problem::Table, Problem::ContestId)
+                            .to(Contest::Table, Contest::Id),
+                    )
                     .col(
                         ColumnDef::new(Problem::AcceptCount)
                             .integer()

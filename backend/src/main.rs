@@ -6,6 +6,7 @@ pub mod grpc;
 pub mod init;
 pub mod macro_tool;
 pub mod server;
+pub mod util;
 
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;

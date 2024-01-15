@@ -14,21 +14,6 @@ use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;
 
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_manage_submit() || perm.can_root() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-}
-
 impl From<i32> for SubmitId {
     fn from(value: i32) -> Self {
         SubmitId { id: value }
@@ -139,7 +124,7 @@ impl SubmitSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("submit"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -165,7 +150,7 @@ impl SubmitSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;
 
-        if !problem.public {
+        if (problem.user_id != user_id) && (!problem.public) {
             problem
                 .find_related(contest::Entity)
                 .one(db)
@@ -240,7 +225,7 @@ impl SubmitSet for Arc<Server> {
         let submit_id = req.id.id;
 
         if !(perm.can_root() || perm.can_manage_submit()) {
-            return Err(Error::PermissionDeny("Can't rejudge").into());
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
@@ -254,7 +239,7 @@ impl SubmitSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("submit"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         let problem = submit
             .find_related(problem::Entity)
