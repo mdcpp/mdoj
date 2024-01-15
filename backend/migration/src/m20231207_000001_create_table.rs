@@ -174,7 +174,11 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Announcement::Title).string().not_null())
-                    .col(ColumnDef::new(Announcement::Public).boolean().default(false))
+                    .col(
+                        ColumnDef::new(Announcement::Public)
+                            .boolean()
+                            .default(false),
+                    )
                     .col(
                         ColumnDef::new(Announcement::Content)
                             .string()
