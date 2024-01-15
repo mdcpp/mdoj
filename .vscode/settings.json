@@ -6,6 +6,9 @@
         "Testsuit"
     ],
     "files.watcherExclude": {
-        "**/plugins/**": true
-    }
+        "judger/plugins/**": true
+    },
+    "rust-analyzer.files.excludeDirs": [
+        "judger/plugins"
+    ]
 }
