@@ -8,20 +8,6 @@ use crate::grpc::backend::*;
 use entity::user;
 use entity::user::*;
 
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() || perm.can_manage_user() {
-            return Ok(query);
-        }
-        Ok(query.filter(Column::Id.eq(user_id)))
-    }
-}
-
 impl From<i32> for UserId {
     fn from(value: i32) -> Self {
         Self { id: value }
@@ -184,15 +170,15 @@ impl UserSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PermissionDeny("Can't update user").into());
+        if !(perm.can_root() || perm.can_manage_user()) {
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         if let Some(username) = req.info.username {
@@ -246,7 +232,7 @@ impl UserSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
             return Err(Error::PermissionDeny("password").into());

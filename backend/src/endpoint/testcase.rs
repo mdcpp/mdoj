@@ -6,48 +6,6 @@ use crate::grpc::backend::*;
 
 use entity::{test::*, *};
 
-#[async_trait]
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            return Ok(query);
-        }
-        if perm.can_manage_problem() {
-            return Ok(query.filter(test::Column::UserId.eq(user_id)));
-        }
-        Err(Error::Unauthenticated)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_manage_problem() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't write test"))
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't link test"))
-    }
-}
-
 impl From<i32> for TestcaseId {
     fn from(value: i32) -> Self {
         Self { id: value }
@@ -128,7 +86,7 @@ impl TestcaseSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PermissionDeny("Can't create test").into());
+            return Err(Error::RequirePermission("Problem").into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -161,7 +119,7 @@ impl TestcaseSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, input, output, score);
@@ -193,24 +151,36 @@ impl TestcaseSet for Arc<Server> {
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (problem, model) = try_join!(
+            spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
+            spawn(Entity::read_by_id(req.testcase_id.id, &auth)?.one(db))
+        )
+        .unwrap();
+
+        let problem = problem
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("problem"))?;
+        let model = model
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link test").into());
+            if problem.user_id != user_id {
+                return Err(Error::Add("problem").into());
+            }
+            if model.user_id != user_id {
+                return Err(Error::Add(Entity::DEBUG_NAME).into());
+            }
+            if !perm.can_manage_problem() {
+                return Err(Error::RequirePermission("Problem").into());
+            }
         }
 
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
-            .columns([Column::Id, Column::ProblemId])
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
-            .into_active_model();
-
-        test.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-
-        test.save(db).await.map_err(Into::<Error>::into)?;
+        let mut model = model.into_active_model();
+        model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
+        model.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -225,15 +195,15 @@ impl TestcaseSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link test").into());
+            return Err(Error::RequirePermission("TODO").into());
         }
 
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
+        let mut test = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         test.problem_id = ActiveValue::Set(None);
@@ -257,10 +227,8 @@ impl TestcaseSet for Arc<Server> {
 
         let (_, perm) = auth.ok_or_default()?;
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(
-                Error::PermissionDeny("input and output field of testcase is protected").into(),
-            );
+        if !perm.can_root() {
+            return Err(Error::RequirePermission("Root").into());
         }
 
         let parent = auth
@@ -279,7 +247,7 @@ impl TestcaseSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }

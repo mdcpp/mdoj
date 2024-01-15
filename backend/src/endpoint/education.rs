@@ -6,56 +6,6 @@ use crate::grpc::backend::*;
 
 use entity::{education::*, *};
 
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() || perm.can_manage_education() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            return Ok(query);
-        }
-        if perm.can_manage_education() {
-            return Ok(query.filter(education::Column::UserId.eq(user_id)));
-        }
-        Err(Error::Unauthenticated)
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_publish() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't publish education"))
-    }
-
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't link education"))
-    }
-}
-
 impl From<i32> for EducationId {
     fn from(value: i32) -> Self {
         Self { id: value }
@@ -103,7 +53,7 @@ impl EducationSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_education()) {
-            return Err(Error::PermissionDeny("Can't create education").into());
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -171,23 +121,32 @@ impl EducationSet for Arc<Server> {
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (problem, model) = try_join!(
+            spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
+            spawn(Entity::read_by_id(req.education_id.id, &auth)?.one(db))
+        )
+        .unwrap();
+
+        let problem = problem
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("problem"))?;
+        let model = model
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link problem").into());
+            if problem.user_id != user_id {
+                return Err(Error::NotInDB("problem").into());
+            }
+            if model.user_id != user_id {
+                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            }
         }
 
-        let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
-            .columns([Column::Id, Column::ProblemId])
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
-            .into_active_model();
-
+        let mut model = model.into_active_model();
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-
         model.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
@@ -203,10 +162,10 @@ impl EducationSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link problem").into());
+            return Err(Error::RequirePermission("TODO").into());
         }
 
-        let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
+        let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)
             .await
@@ -266,7 +225,7 @@ impl EducationSet for Arc<Server> {
             .get_user(db)
             .await?
             .find_related(problem::Entity)
-            .columns([contest::Column::Id])
+            .columns([problem::Column::Id])
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -278,7 +237,7 @@ impl EducationSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("education"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }

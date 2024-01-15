@@ -15,7 +15,7 @@ impl ImgurSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if (!perm.can_imgur()) & (!perm.can_root()) {
-            return Err(Error::PermissionDeny("need permission bit:8").into());
+            return Err(Error::RequirePermission("image").into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

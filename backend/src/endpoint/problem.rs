@@ -6,59 +6,6 @@ use crate::grpc::backend::*;
 
 use entity::{problem::*, *};
 
-#[async_trait]
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_link() || perm.can_root() || perm.can_manage_problem() {
-                return Ok(query);
-            }
-        }
-        Ok(query.filter(Column::Public.eq(true)))
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_manage_problem() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't write problem"))
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_publish() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't publish problem"))
-    }
-
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't link problem"))
-    }
-}
-
 impl From<i32> for ProblemId {
     fn from(value: i32) -> Self {
         ProblemId { id: value }
@@ -175,7 +122,7 @@ impl ProblemSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -194,7 +141,7 @@ impl ProblemSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PermissionDeny("Can't create problem").into());
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -230,7 +177,7 @@ impl ProblemSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         fill_exist_active_model!(
@@ -275,24 +222,36 @@ impl ProblemSet for Arc<Server> {
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (contest, model) = try_join!(
+            spawn(contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(db)),
+            spawn(Entity::read_by_id(req.problem_id.id, &auth)?.one(db))
+        )
+        .unwrap();
+
+        let contest = contest
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("contest"))?;
+        let model = model
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link problem").into());
+            if contest.hoster != user_id {
+                return Err(Error::NotInDB("contest").into());
+            }
+            if model.user_id != user_id {
+                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            }
+            if !perm.can_manage_contest() {
+                return Err(Error::RequirePermission("Contest").into());
+            }
         }
 
-        let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
-            .columns([Column::Id, Column::ContestId])
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
-            .into_active_model();
-
-        problem.contest_id = ActiveValue::Set(Some(req.contest_id.id));
-
-        problem.save(db).await.map_err(Into::<Error>::into)?;
+        let mut model = model.into_active_model();
+        model.contest_id = ActiveValue::Set(Some(req.problem_id.id));
+        model.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -307,15 +266,15 @@ impl ProblemSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PermissionDeny("Can't link problem").into());
+            return Err(Error::RequirePermission("TODO").into());
         }
 
-        let mut problem = Entity::link_filter(Entity::find_by_id(req.problem_id), &auth)?
+        let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         problem.contest_id = ActiveValue::Set(None);
@@ -328,19 +287,23 @@ impl ProblemSet for Arc<Server> {
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
-        auth.ok_or_default()?;
+        let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
 
-        let mut problem =
-            Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
-                .columns([Column::Id, Column::ContestId])
-                .one(db)
-                .await
-                .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("problem"))?
-                .into_active_model();
+        let mut query = Entity::find_by_id(Into::<i32>::into(req));
+
+        if !perm.can_publish() {
+            query = Entity::write_filter(query, &auth)?;
+        }
+
+        let mut problem = query
+            .columns([Column::Id, Column::ContestId])
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .into_active_model();
 
         problem.public = ActiveValue::Set(true);
 
@@ -352,19 +315,23 @@ impl ProblemSet for Arc<Server> {
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
-        auth.ok_or_default()?;
+        let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
 
-        let mut problem =
-            Entity::publish_filter(Entity::find_by_id(Into::<i32>::into(req)), &auth)?
-                .columns([Column::Id, Column::ContestId])
-                .one(db)
-                .await
-                .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("problem"))?
-                .into_active_model();
+        let mut query = Entity::find_by_id(Into::<i32>::into(req));
+
+        if !perm.can_publish() {
+            query = Entity::write_filter(query, &auth)?;
+        }
+
+        let mut problem = query
+            .columns([Column::Id, Column::ContestId])
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .into_active_model();
 
         problem.public = ActiveValue::Set(false);
 
@@ -396,7 +363,7 @@ impl ProblemSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }

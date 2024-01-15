@@ -7,20 +7,6 @@ use crate::grpc::backend::*;
 use crate::grpc::into_prost;
 use entity::{chat::*, *};
 
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() || perm.can_manage_chat() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-}
-
 impl From<i32> for ChatId {
     fn from(value: i32) -> Self {
         ChatId { id: value }

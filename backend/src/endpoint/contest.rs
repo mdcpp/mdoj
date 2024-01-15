@@ -8,46 +8,6 @@ use crate::grpc::into_prost;
 use entity::{contest::*, *};
 use sea_orm::QueryOrder;
 
-#[async_trait]
-impl Filter for Entity {
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_manage_contest() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::Hoster.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't write contest"))
-    }
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_link() || perm.can_root() || perm.can_manage_contest() {
-                return Ok(query);
-            }
-        }
-        Ok(query.filter(Column::Public.eq(true)))
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::Hoster.eq(user_id)));
-            }
-        }
-        Err(Error::PermissionDeny("Can't link test"))
-    }
-}
-
 impl From<i32> for ContestId {
     fn from(value: i32) -> Self {
         Self { id: value }
@@ -161,7 +121,7 @@ impl ContestSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -181,7 +141,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PermissionDeny("Can't create contest").into());
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -222,14 +182,14 @@ impl ContestSet for Arc<Server> {
         };
 
         if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PermissionDeny("Can't update contest").into());
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
@@ -287,7 +247,7 @@ impl ContestSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         let empty_password = "".to_string();
         if let Some(tar) = model.password {

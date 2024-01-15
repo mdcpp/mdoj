@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{EmptySortBy, HasParent, NoParent, PagerTrait, ParentalTrait};
-use crate::endpoint::util::{auth::Auth, error::Error, filter::Filter};
+use crate::util::{auth::Auth, error::Error, filter::Filter};
 
 #[tonic::async_trait]
 impl ParentalTrait<contest::Entity> for HasParent<contest::Entity> {
@@ -34,6 +34,7 @@ impl PagerTrait for problem::Entity {
         problem::Column::SubmitCount,
         problem::Column::Difficulty,
     ];
+    const DEBUG_NAME: &'static str = "problem";
 
     type ParentMarker = HasParent<contest::Entity>;
     type SortBy = ProblemSortBy;
@@ -73,6 +74,7 @@ impl PagerTrait for announcement::Entity {
     const COL_TEXT: &'static [announcement::Column] = &[announcement::Column::Title];
     const COL_SELECT: &'static [announcement::Column] =
         &[announcement::Column::Id, announcement::Column::Title];
+    const DEBUG_NAME: &'static str = "announcement";
 
     type ParentMarker = HasParent<contest::Entity>;
     type SortBy = AnnouncementSortBy;
@@ -118,6 +120,7 @@ impl PagerTrait for test::Entity {
         test::Column::UserId,
         test::Column::ProblemId,
     ];
+    const DEBUG_NAME: &'static str = "testcase";
 
     type ParentMarker = HasParent<problem::Entity>;
     type SortBy = TestcaseSortBy;
@@ -152,6 +155,7 @@ impl PagerTrait for contest::Entity {
         contest::Column::End,
         contest::Column::Hoster,
     ];
+    const DEBUG_NAME: &'static str = "contest";
 
     type ParentMarker = NoParent;
     type SortBy = ContestSortBy;
@@ -184,17 +188,15 @@ impl PagerTrait for contest::Entity {
 #[tonic::async_trait]
 impl PagerTrait for user::Entity {
     const TYPE_NUMBER: i32 = 1929833;
-
     const COL_ID: Self::Column = user::Column::Id;
-
     const COL_TEXT: &'static [Self::Column] = &[user::Column::Username];
-
     const COL_SELECT: &'static [Self::Column] = &[
         user::Column::Id,
         user::Column::Username,
         user::Column::Permission,
         user::Column::CreateAt,
     ];
+    const DEBUG_NAME: &'static str = "user";
 
     type ParentMarker = NoParent;
     type SortBy = UserSortBy;
@@ -223,11 +225,8 @@ impl PagerTrait for user::Entity {
 #[tonic::async_trait]
 impl PagerTrait for submit::Entity {
     const TYPE_NUMBER: i32 = 539267;
-
     const COL_ID: Self::Column = submit::Column::Id;
-
     const COL_TEXT: &'static [Self::Column] = &[submit::Column::Id];
-
     const COL_SELECT: &'static [Self::Column] = &[
         submit::Column::Committed,
         submit::Column::Id,
@@ -236,6 +235,7 @@ impl PagerTrait for submit::Entity {
         submit::Column::PassCase,
         submit::Column::UploadAt,
     ];
+    const DEBUG_NAME: &'static str = "submit";
 
     type ParentMarker = HasParent<problem::Entity>;
     type SortBy = SubmitSortBy;
@@ -274,12 +274,10 @@ impl PagerTrait for submit::Entity {
 #[tonic::async_trait]
 impl PagerTrait for education::Entity {
     const TYPE_NUMBER: i32 = 183456;
-
     const COL_ID: Self::Column = education::Column::Id;
-
     const COL_TEXT: &'static [Self::Column] = &[education::Column::Title];
-
     const COL_SELECT: &'static [Self::Column] = &[education::Column::Id, education::Column::Title];
+    const DEBUG_NAME: &'static str = "education";
 
     type ParentMarker = HasParent<problem::Entity>;
     type SortBy = EmptySortBy;
@@ -294,12 +292,10 @@ impl PagerTrait for education::Entity {
 
 impl PagerTrait for chat::Entity {
     const TYPE_NUMBER: i32 = 3278361;
-
     const COL_ID: Self::Column = chat::Column::Id;
-
     const COL_TEXT: &'static [Self::Column] = &[chat::Column::Message];
-
     const COL_SELECT: &'static [Self::Column] = &[chat::Column::Id, chat::Column::Message];
+    const DEBUG_NAME: &'static str = "chat";
 
     type ParentMarker = HasParent<problem::Entity>;
     type SortBy = EmptySortBy;
