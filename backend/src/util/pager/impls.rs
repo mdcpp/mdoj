@@ -17,7 +17,7 @@ impl ParentalTrait<contest::Entity> for HasParent<contest::Entity> {
 
     async fn related_filter(auth: &Auth) -> Result<Select<contest::Entity>, Error> {
         let db = DB.get().unwrap();
-
+        // FIXME: write join
         Ok(auth.get_user(db).await?.find_related(contest::Entity))
     }
 }

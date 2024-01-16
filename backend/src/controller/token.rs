@@ -196,15 +196,20 @@ impl TokenController {
 
         Ok(Some(()))
     }
+    /// remove user's token by user id
+    ///
+    /// FIXME: this implementation is error-prone
     #[instrument(skip_all, name="token_removal",level="debug", fields(uid = user_id))]
     pub async fn remove_by_user_id(
         &self,
         user_id: i32,
-        txn: &DatabaseTransaction,
+        // txn: &DatabaseTransaction,
     ) -> Result<(), Error> {
+        let db = DB.get().unwrap();
+
         let models = token::Entity::find()
             .filter(token::Column::UserId.eq(user_id))
-            .all(txn)
+            .all(db)
             .await?;
 
         for model in models {
@@ -212,7 +217,7 @@ impl TokenController {
         }
         token::Entity::delete_many()
             .filter(token::Column::UserId.eq(user_id))
-            .exec(txn)
+            .exec(db)
             .await?;
 
         Ok(())

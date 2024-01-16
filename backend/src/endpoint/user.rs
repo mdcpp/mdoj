@@ -206,15 +206,20 @@ impl UserSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
 
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
+
         self.metrics.user.add(-1, &[]);
 
         // TODO: remove user's token
-        // self.token.remove_by_user_id(user_id, txn);
+
+        self.token.remove_by_user_id(req.id).await?;
 
         Ok(Response::new(()))
     }
@@ -238,23 +243,19 @@ impl UserSet for Arc<Server> {
             return Err(Error::PermissionDeny("password").into());
         }
 
-        for _ in 0..32 {
-            let txn = db.begin().await.map_err(Into::<Error>::into)?;
+        let mut model=model.into_active_model();
+        model.password = ActiveValue::Set(self.crypto.hash(&req.new_password).into());
 
-            Entity::delete_by_id(user_id)
-                .exec(&txn)
-                .await
-                .map_err(Into::<Error>::into)?;
+        model.update(db).await.map_err(Into::<Error>::into)?;
 
-            self.token.remove_by_user_id(user_id, &txn).await?;
+        Entity::delete_by_id(user_id)
+            .exec(db)
+            .await
+            .map_err(Into::<Error>::into)?;
 
-            if txn.commit().await.map_err(Into::<Error>::into).is_ok() {
-                return Ok(Response::new(()));
-            }
-        }
-        Err(Status::aborted(
-            "too many transaction retries, try again later",
-        ))
+        self.token.remove_by_user_id(user_id).await?;
+
+        return Ok(Response::new(()));
     }
 
     #[instrument(skip_all, level = "debug")]

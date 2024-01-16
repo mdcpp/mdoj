@@ -62,10 +62,14 @@ impl ChatSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         self.metrics.chat.add(-1, &[]);
         tracing::debug!(id = req.id, "chat_remove");

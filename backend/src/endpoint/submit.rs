@@ -187,10 +187,14 @@ impl SubmitSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         tracing::debug!(id = req.id);
         self.metrics.submit.add(-1, &[]);

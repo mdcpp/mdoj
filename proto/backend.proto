@@ -687,6 +687,7 @@ message UpdateUserRequest {
 message UpdatePasswordRequest {
   required string username = 1;
   required string password = 2;
+  required string new_password = 3;
 }
 
 enum UserSortBy {
