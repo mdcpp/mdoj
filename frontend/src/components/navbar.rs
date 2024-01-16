@@ -6,7 +6,9 @@ pub fn Navbar() -> impl IntoView {
     view! {
         <nav class="bg-background sticky top-0 p-2 flex flex-row justify-between border-b-2 border-primary">
             <div class="flex flex-row flex-nowrap">
-                <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
+                <A href="/">
+                    <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
+                </A>
                 <ul class="flex flex-row flex-nowrap justify-between items-center">
                     <li class="transition-opacity hover:opacity-60">
                         <A href="/problems" class="text-text text-base px-6">

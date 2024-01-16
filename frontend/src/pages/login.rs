@@ -1,28 +1,41 @@
-use crate::{components::*, grpc};
+use crate::{
+    components::*,
+    config::{login_info, LoginInfo},
+    grpc,
+};
+use anyhow::Ok;
 use leptos::*;
 
 #[component]
 pub fn Login() -> impl IntoView {
-    let (username,set_username)=create_signal("".to_owned());
-    let (password,set_password)=create_signal("".to_owned());
+    let (username, set_username) = create_signal("".to_owned());
+    let (password, set_password) = create_signal("".to_owned());
+    let (login_info, set_login_info, _) = login_info();
+    logging::log!("Login...");
 
     let submit = create_action(move |_: &()| {
         let username = username();
         let password = password();
         async move {
-            logging::log!("Click!");
-            let mut token_set = grpc::TokenSetClient::new(grpc::new_client());
+            let mut token_set = grpc::TokenSetClient::new(grpc::new_client().await?);
             let resp = token_set
                 .create(grpc::LoginRequest {
                     username,
                     password,
                     expiry: None,
                 })
-                .await
-                .unwrap();
-            logging::log!("Token: {}", resp.get_ref().token.signature);
+                .await?;
+            let resp = resp.into_inner();
+            set_login_info(Some(LoginInfo {
+                token: resp.token.signature,
+                // Todo
+                permission: 0,
+                expiry: 0,
+            }));
+            Ok(())
         }
     });
+
     view! {
         <div class="h-full flex items-center justify-center">
             <form
@@ -47,7 +60,11 @@ pub fn Login() -> impl IntoView {
                     <TextInput kind="password" id="password" get=password set=set_password/>
                 </div>
                 <div class="p-4 w-full">
-                    <Button kind="submit" class="w-full">
+                    <Button
+                        kind="submit"
+                        class="w-full disabled:opacity-70"
+                        disabled=submit.pending()
+                    >
                         Login
                     </Button>
                 </div>

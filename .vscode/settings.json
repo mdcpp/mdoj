@@ -10,5 +10,6 @@
     },
     "rust-analyzer.files.excludeDirs": [
         "judger/plugins"
-    ]
+    ],
+    "rust-analyzer.cachePriming.enable": false
 }
