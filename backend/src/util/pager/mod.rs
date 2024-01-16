@@ -3,6 +3,7 @@ pub mod paginate;
 
 use std::{fmt::Debug, marker::PhantomData};
 
+use crate::util::filter::Filter;
 use sea_orm::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::instrument;
@@ -22,7 +23,7 @@ const PAGE_MAX_OFFSET: u64 = 256;
 #[tonic::async_trait]
 pub trait ParentalTrait<P>
 where
-    P: EntityTrait,
+    P: EntityTrait+Filter,
 {
     const COL_ID: P::Column;
     async fn related_filter(auth: &Auth) -> Result<Select<P>, Error>;
@@ -136,7 +137,8 @@ impl<P: EntityTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = HasParent<P>>,
     <E as PagerTrait>::ParentMarker: ParentalTrait<P>,
-    P: Related<E>,
+    P: Related<E>+Filter,
+    <<P as sea_orm::EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType: From<i32>
 {
     #[instrument]
     fn parent_search(ppk: i32, rev: bool) -> Self {
@@ -188,14 +190,18 @@ where
             }
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
-                // TODO: select ID only
-                let query = E::ParentMarker::related_filter(auth).await?;
-                let parent = query
-                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
-                    .columns([E::ParentMarker::COL_ID])
-                    .one(db)
-                    .await?;
 
+                let query = E::ParentMarker::related_filter(auth).await?;
+                let mut parent = query
+                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
+                    .column(E::ParentMarker::COL_ID)
+                    .one(db)
+                    .await.ok().flatten();
+
+                if parent.is_none(){
+                    parent=P::read_by_id(*p_pk, auth)?.one(db).await?;
+                }
+                
                 if parent.is_none() {
                     return Ok(vec![]);
                 }
