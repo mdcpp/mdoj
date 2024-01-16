@@ -1,3 +1,4 @@
+use super::Merge;
 use leptos::*;
 
 #[component]
@@ -11,19 +12,15 @@ pub fn TextInput(
 ) -> impl IntoView {
     view! {
         <input
-            class="text-text outline-none p-2 bg-background border-2 rounded-md border-background focus:border-primary transition-colors"
-            class=class
+            class=Merge(
+                class,
+                "text-text outline-none p-2 bg-background border-2 rounded-md border-background focus:border-primary transition-colors",
+            )
             id=id
             type=kind
-            prop:value=move || get.get()
+            prop:value=get
             placeholder=placeholder
-            on:change=move |e| {
-                if let Some(set) = set {
-                    set.set(event_target_value(&e));
-                }
-            }
-
-            on:keyup=move |e| {
+            on:input=move |e| {
                 if let Some(set) = set {
                     set.set(event_target_value(&e));
                 }
