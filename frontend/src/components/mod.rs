@@ -3,8 +3,6 @@ pub mod footer;
 pub mod navbar;
 pub mod text_input;
 
-use std::rc::Rc;
-
 pub use button::Button;
 pub use footer::Footer;
 pub use navbar::Navbar;
