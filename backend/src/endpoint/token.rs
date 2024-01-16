@@ -37,8 +37,12 @@ impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
         let db = DB.get().unwrap();
-        let (auth, _) = self.parse_request(req).await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        if req.id != user_id && !perm.can_root() {
+            return Err(Error::RequirePermission("user").into());
+        }
 
         let tokens = Entity::find()
             .filter(Column::UserId.eq(user_id))

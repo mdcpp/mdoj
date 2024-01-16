@@ -63,7 +63,7 @@ version = "1.34.0"
 features = ["macros", "rt-multi-thread", "full", "time"]
 
 [dependencies.sea-orm]
-version = "0.12.2"
+version = "0.12.11"
 features = [
     "runtime-actix-rustls",
     "macros",

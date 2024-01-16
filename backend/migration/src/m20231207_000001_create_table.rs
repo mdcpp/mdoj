@@ -227,6 +227,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Contest::Hoster).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-user-hoster")
+                            .from(Contest::Table, Contest::Hoster)
+                            .to(User::Table, User::Id),
+                    )
                     .col(ColumnDef::new(Contest::Begin).date_time().not_null())
                     .col(ColumnDef::new(Contest::End).date_time().not_null())
                     .col(ColumnDef::new(Contest::Title).text().not_null())

@@ -717,6 +717,8 @@ service UserSet {
   rpc Remove(UserId) returns (google.protobuf.Empty);
 
   rpc UpdatePassword(UpdatePasswordRequest) returns (google.protobuf.Empty);
+
+  rpc MyInfo(google.protobuf.Empty) returns (UserInfo);
 }
 
 message TokenInfo {

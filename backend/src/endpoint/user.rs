@@ -256,4 +256,21 @@ impl UserSet for Arc<Server> {
             "too many transaction retries, try again later",
         ))
     }
+
+    #[instrument(skip_all, level = "debug")]
+    async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, _) = auth.ok_or_default()?;
+
+        let model = Entity::find_by_id(user_id)
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::Unreachable(
+                "token should be deleted before user can request its info",
+            ))?;
+
+        Ok(Response::new(model.into()))
+    }
 }

@@ -10,7 +10,7 @@ prepare:
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
 entity-codegen:
-    rm database/backend.sqlite
+    rm database/*
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
     sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o entity/pending
 

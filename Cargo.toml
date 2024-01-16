@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "frontend",
+    # "frontend",
     "backend",
     "judger",
     "testsuit",

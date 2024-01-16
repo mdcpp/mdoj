@@ -53,7 +53,7 @@ impl Filter for announcement::Entity {
                     .or(announcement::Column::UserId.eq(user_id)),
             ));
         }
-        Ok(query.filter(contest::Column::Public.eq(true)))
+        Ok(query.filter(announcement::Column::Public.eq(true)))
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;

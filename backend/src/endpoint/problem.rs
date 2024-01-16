@@ -352,6 +352,7 @@ impl ProblemSet for Arc<Server> {
             .await?
             .find_related(contest::Entity)
             .columns([contest::Column::Id])
+            .filter(contest::Column::Id.eq(Into::<i32>::into(req.contest_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

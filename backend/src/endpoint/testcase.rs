@@ -236,6 +236,7 @@ impl TestcaseSet for Arc<Server> {
             .await?
             .find_related(problem::Entity)
             .columns([problem::Column::Id])
+            .filter(problem::Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -243,7 +244,7 @@ impl TestcaseSet for Arc<Server> {
 
         let model = parent
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
+            .filter(Column::Id.eq(Into::<i32>::into(req.testcase_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

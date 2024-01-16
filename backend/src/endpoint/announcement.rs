@@ -7,6 +7,7 @@ use crate::grpc::into_prost;
 
 use entity::announcement::*;
 use entity::*;
+use sea_orm::QueryTrait;
 
 impl From<i32> for AnnouncementId {
     fn from(value: i32) -> Self {
@@ -341,7 +342,9 @@ impl AnnouncementSet for Arc<Server> {
             .get_user(db)
             .await?
             .find_related(contest::Entity)
+            .select_only()
             .columns([contest::Column::Id])
+            .filter(contest::Column::Id.eq(Into::<i32>::into(req.contest_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
