@@ -9,13 +9,13 @@
 //! - Update pager state(`PagerReflect`)
 //! - Serialize and return pager
 
-pub(self) mod paginate;
+ mod paginate;
 
 use entity::DebugName;
 use paginate::*;
 use tonic::async_trait;
 
-use std::{io::Cursor, marker::PhantomData};
+use std::marker::PhantomData;
 
 use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
 
@@ -34,7 +34,7 @@ impl Dump for () {
         Default::default()
     }
 
-    fn deserialize(raw: &[u8]) -> Result<Self, Error> {
+    fn deserialize(_raw: &[u8]) -> Result<Self, Error> {
         Ok(())
     }
 }
@@ -43,14 +43,16 @@ impl Dump for () {
 ///
 /// In `Education` example, we expect ::entity::education::Entity
 /// to implement it
-pub trait PagerSource<D>
+pub trait PagerSource
 where
     Self: Send,
 {
     type Id: ColumnTrait + Default;
     type Entity: EntityTrait + DebugName;
+    type Data: Send + Sized + Dump;
+    const TYPE_NUMBER: u8;
     /// filter reconstruction
-    fn filter(data: &D) -> Select<Self::Entity>;
+    fn filter(data: &Self::Data) -> Select<Self::Entity>;
 }
 
 /// indicate foreign object is ready for page reflect
@@ -68,12 +70,12 @@ where
 }
 
 #[async_trait]
-pub trait Pager<D: Send>
+pub trait Pager
 where
     Self: Sized + Dump,
 {
-    type Source: PagerSource<D>;
-    type Reflect: PagerReflect<<Self::Source as PagerSource<D>>::Entity> + Send;
+    type Source: PagerSource;
+    type Reflect: PagerReflect<<Self::Source as PagerSource>::Entity> + Send;
     async fn fetch(
         self,
         size: u64,
@@ -81,7 +83,7 @@ where
         rel_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error>;
     async fn new_fetch(
-        data: D,
+        data: <Self::Source as PagerSource>::Data,
         size: u64,
         offset: u64,
         abs_dir: bool,
@@ -89,7 +91,7 @@ where
 }
 
 /// compact primary key pager
-pub struct PkPager<D, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8> {
+pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
@@ -97,17 +99,15 @@ pub struct PkPager<D, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8
     /// original direction
     direction: bool,
     /// data
-    data: D,
+    data: <<PkPager<S, R> as Pager>::Source as PagerSource>::Data,
     source: PhantomData<S>,
     reflect: PhantomData<R>,
 }
 
-impl<D: Dump, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8> Dump
-    for PkPager<D, S, R, T>
-{
+impl<S: PagerSource, R: PagerReflect<S::Entity>> Dump for PkPager<S, R> {
     fn serialize(self) -> Vec<u8> {
         let mut buffer = Vec::with_capacity(2);
-        let mut type_number = T & 0xfc;
+        let mut type_number = S::TYPE_NUMBER & 0xfc;
         if self.last_direction {
             type_number |= 0x2;
         }
@@ -134,7 +134,7 @@ impl<D: Dump, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8> Dump
     fn deserialize(raw: &[u8]) -> Result<Self, Error> {
         let mut c = raw.iter();
         let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
-        if ((notation ^ T) & 0xfc) != 0 {
+        if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
             return Err(Error::PaginationError("type mismatched"));
         }
 
@@ -150,7 +150,7 @@ impl<D: Dump, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8> Dump
                 break;
             }
         }
-        let data = D::deserialize(c.as_slice())?;
+        let data = S::Data::deserialize(c.as_slice())?;
 
         Ok(Self {
             last_id,
@@ -164,9 +164,7 @@ impl<D: Dump, S: PagerSource<D>, R: PagerReflect<S::Entity>, const T: u8> Dump
 }
 
 #[async_trait]
-impl<D: Send + Dump, const T: u8, S: PagerSource<D>, R: PagerReflect<S::Entity>> Pager<D>
-    for PkPager<D, S, R, T>
-{
+impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
     type Source = S;
     type Reflect = R;
 
@@ -177,7 +175,7 @@ impl<D: Send + Dump, const T: u8, S: PagerSource<D>, R: PagerReflect<S::Entity>>
         rel_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let paginator = PaginatePkBuilder::default()
-            .pk(<S as PagerSource<D>>::Id::default())
+            .pk(<S as PagerSource>::Id::default())
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .last_pk(self.last_id)
@@ -193,14 +191,14 @@ impl<D: Send + Dump, const T: u8, S: PagerSource<D>, R: PagerReflect<S::Entity>>
         let models = R::all(query).await?;
 
         if let Some(model) = models.last() {
-            self.last_id = R::get_id(&model);
+            self.last_id = R::get_id(model);
             return Ok((self, models));
         }
 
         Err(Error::NotInDB(S::Entity::DEBUG_NAME))
     }
     async fn new_fetch(
-        data: D,
+        data: S::Data,
         size: u64,
         offset: u64,
         abs_dir: bool,
@@ -222,36 +220,34 @@ impl<D: Send + Dump, const T: u8, S: PagerSource<D>, R: PagerReflect<S::Entity>>
     }
 }
 
-pub trait PagerSortSource<D, R>
+pub trait PagerSortSource<R>
 where
-    Self: PagerSource<D>,
+    Self: PagerSource,
 {
     /// get sort column
-    fn sort_col(data: &D) -> impl ColumnTrait;
-    fn get_val(data: &D) -> impl Into<sea_orm::Value> + Clone;
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait;
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone;
     /// save last value in column
-    fn save_val(data: &mut D, model: &R) -> impl ColumnTrait;
+    fn save_val(data: &mut Self::Data, model: &R) -> impl ColumnTrait;
 }
 
 /// compact column pager
-pub struct ColPager<D, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8> {
+pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
     last_direction: bool,
     /// original direction
     direction: bool,
-    data: D,
+    data: S::Data,
     source: PhantomData<S>,
     reflect: PhantomData<R>,
 }
 
-impl<D: Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8> Dump
-    for ColPager<D, S, R, T>
-{
+impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Dump for ColPager<S, R> {
     fn serialize(self) -> Vec<u8> {
         let mut buffer = Vec::with_capacity(2);
-        let mut type_number = T & 0xfc;
+        let mut type_number = S::TYPE_NUMBER & 0xfc;
         if self.last_direction {
             type_number |= 0x2;
         }
@@ -278,7 +274,7 @@ impl<D: Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8>
     fn deserialize(raw: &[u8]) -> Result<Self, Error> {
         let mut c = raw.iter();
         let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
-        if ((notation ^ T) & 0xfc) != 0 {
+        if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
             return Err(Error::PaginationError("type mismatched"));
         }
 
@@ -294,7 +290,7 @@ impl<D: Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8>
                 break;
             }
         }
-        let data = D::deserialize(c.as_slice())?;
+        let data = S::Data::deserialize(c.as_slice())?;
 
         Ok(Self {
             last_id,
@@ -308,9 +304,7 @@ impl<D: Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8>
 }
 
 #[async_trait]
-impl<D: Send + Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const T: u8> Pager<D>
-    for ColPager<D, S, R, T>
-{
+impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R> {
     type Source = S;
     type Reflect = R;
 
@@ -324,7 +318,7 @@ impl<D: Send + Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const
         let val = S::get_val(&self.data);
 
         let paginator = PaginateColBuilder::default()
-            .pk(<S as PagerSource<D>>::Id::default())
+            .pk(<S as PagerSource>::Id::default())
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .col(col)
@@ -342,14 +336,14 @@ impl<D: Send + Dump, S: PagerSortSource<D, R>, R: PagerReflect<S::Entity>, const
         let models = R::all(query).await?;
 
         if let Some(model) = models.last() {
-            self.last_id = R::get_id(&model);
+            self.last_id = R::get_id(model);
             return Ok((self, models));
         }
 
         Err(Error::NotInDB(S::Entity::DEBUG_NAME))
     }
     async fn new_fetch(
-        data: D,
+        data: S::Data,
         size: u64,
         offset: u64,
         abs_dir: bool,
