@@ -21,12 +21,12 @@ const PAGE_MAX_SIZE: u64 = 64;
 const PAGE_MAX_OFFSET: u64 = 256;
 
 #[tonic::async_trait]
-pub trait ParentalTrait<P>
+pub trait ParentalTrait
 where
-    P: EntityTrait+Filter,
+    Self: EntityTrait + Filter,
 {
-    const COL_ID: P::Column;
-    async fn related_filter(auth: &Auth) -> Result<Select<P>, Error>;
+    const COL_ID: Self::Column;
+    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
 }
 
 pub trait PagerMarker {}
@@ -136,9 +136,9 @@ where
 impl<P: EntityTrait, E: EntityTrait> HasParentPager<P, E> for Pager<E>
 where
     E: PagerTrait<ParentMarker = HasParent<P>>,
-    <E as PagerTrait>::ParentMarker: ParentalTrait<P>,
-    P: Related<E>+Filter,
-    <<P as sea_orm::EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType: From<i32>
+    P: ParentalTrait,
+    P: Related<E> + Filter,
+    <<P as sea_orm::EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType: From<i32>,
 {
     #[instrument]
     fn parent_search(ppk: i32, rev: bool) -> Self {
@@ -191,17 +191,13 @@ where
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
 
-                let query = E::ParentMarker::related_filter(auth).await?;
-                let mut parent = query
-                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
-                    .column(E::ParentMarker::COL_ID)
+                let query = P::related_filter(auth).await?;
+                let parent = query
+                    .filter(P::COL_ID.eq(*p_pk))
+                    .column(P::COL_ID)
                     .one(db)
-                    .await.ok().flatten();
+                    .await?;
 
-                if parent.is_none(){
-                    parent=P::read_by_id(*p_pk, auth)?.one(db).await?;
-                }
-                
                 if parent.is_none() {
                     return Ok(vec![]);
                 }
@@ -235,10 +231,10 @@ where
                 let LastValue(inner_rev, last_val) = last_val;
                 let rev = rev ^ inner_rev;
 
-                let query = E::ParentMarker::related_filter(auth).await?;
+                let query = P::related_filter(auth).await?;
                 let parent = query
-                    .filter(E::ParentMarker::COL_ID.eq(*p_pk))
-                    .columns([E::ParentMarker::COL_ID])
+                    .filter(P::COL_ID.eq(*p_pk))
+                    .columns([P::COL_ID])
                     .one(db)
                     .await?;
 

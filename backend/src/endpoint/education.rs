@@ -225,10 +225,8 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = auth
-            .get_user(db)
+        let parent = problem::Entity::related_filter(&auth)
             .await?
-            .find_related(problem::Entity)
             .columns([problem::Column::Id])
             .filter(problem::Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)

@@ -351,10 +351,8 @@ impl ProblemSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = auth
-            .get_user(db)
+        let parent = contest::Entity::related_filter(&auth)
             .await?
-            .find_related(contest::Entity)
             .columns([contest::Column::Id])
             .filter(contest::Column::Id.eq(Into::<i32>::into(req.contest_id)))
             .one(db)

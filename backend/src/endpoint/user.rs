@@ -243,7 +243,7 @@ impl UserSet for Arc<Server> {
             return Err(Error::PermissionDeny("password").into());
         }
 
-        let mut model=model.into_active_model();
+        let mut model = model.into_active_model();
         model.password = ActiveValue::Set(self.crypto.hash(&req.new_password).into());
 
         model.update(db).await.map_err(Into::<Error>::into)?;

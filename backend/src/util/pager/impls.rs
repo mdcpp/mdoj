@@ -12,13 +12,16 @@ use super::{EmptySortBy, HasParent, NoParent, PagerTrait, ParentalTrait};
 use crate::util::{auth::Auth, error::Error, filter::Filter};
 
 #[tonic::async_trait]
-impl ParentalTrait<contest::Entity> for HasParent<contest::Entity> {
+impl ParentalTrait for contest::Entity {
     const COL_ID: contest::Column = contest::Column::Id;
 
     async fn related_filter(auth: &Auth) -> Result<Select<contest::Entity>, Error> {
         let db = DB.get().unwrap();
-        // FIXME: write join
-        Ok(auth.get_user(db).await?.find_related(contest::Entity))
+        Ok(auth
+            .get_user(db)
+            .await?
+            .find_related(contest::Entity)
+            .join(JoinType::FullOuterJoin, contest::Relation::Hoster.def()))
     }
 }
 
@@ -100,13 +103,12 @@ impl PagerTrait for announcement::Entity {
 }
 
 #[tonic::async_trait]
-impl ParentalTrait<problem::Entity> for HasParent<problem::Entity> {
+impl ParentalTrait for problem::Entity {
     const COL_ID: problem::Column = problem::Column::Id;
 
     async fn related_filter(auth: &Auth) -> Result<Select<problem::Entity>, Error> {
         let db = DB.get().unwrap();
-
-        Ok(auth.get_user(db).await?.find_related(problem::Entity))
+        Ok(auth.get_user(db).await?.find_linked(user::UserToProblem))
     }
 }
 

@@ -235,10 +235,9 @@ impl TestcaseSet for Arc<Server> {
             return Err(Error::RequirePermission("Root").into());
         }
 
-        let parent = auth
-            .get_user(db)
+        //
+        let parent = problem::Entity::related_filter(&auth)
             .await?
-            .find_related(problem::Entity)
             .columns([problem::Column::Id])
             .filter(problem::Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)

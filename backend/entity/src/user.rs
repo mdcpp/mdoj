@@ -2,6 +2,8 @@
 
 use sea_orm::entity::prelude::*;
 
+use crate::{contest, problem, user_contest};
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "user")]
 pub struct Model {
@@ -34,6 +36,8 @@ pub enum Relation {
     Token,
     #[sea_orm(has_many = "super::user_contest::Entity")]
     UserContest,
+    #[sea_orm(has_many = "super::contest::Entity")]
+    OwnContest,
 }
 
 impl Related<super::announcement::Entity> for Entity {
@@ -88,3 +92,22 @@ impl Related<super::contest::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+pub struct UserToProblem;
+
+impl Linked for UserToProblem {
+    type FromEntity = Entity;
+
+    type ToEntity = problem::Entity;
+
+    fn link(&self) -> Vec<RelationDef> {
+        vec![
+            Relation::UserContest.def(),
+            user_contest::Entity::belongs_to(contest::Entity)
+                .from(user_contest::Column::ContestId)
+                .to(contest::Column::Id)
+                .into(),
+            contest::Relation::Problem.def(),
+        ]
+    }
+}

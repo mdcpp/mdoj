@@ -32,6 +32,12 @@ pub enum Relation {
     Problem,
     #[sea_orm(has_many = "super::user_contest::Entity")]
     UserContest,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::Hoster",
+        to = "super::user::Column::Id"
+    )]
+    Hoster,
 }
 
 impl Related<super::announcement::Entity> for Entity {
