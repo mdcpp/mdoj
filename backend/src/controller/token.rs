@@ -4,7 +4,7 @@ use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
 use rand_hc::Hc128Rng;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter,
 };
 use spin::Mutex;
 use std::sync::Arc;
