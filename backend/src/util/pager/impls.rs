@@ -1,10 +1,8 @@
 use ::entity::*;
 use sea_orm::*;
 
-use crate::{
-    grpc::backend::{
-        AnnouncementSortBy, ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy,
-    },
+use crate::grpc::backend::{
+    AnnouncementSortBy, ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy,
 };
 
 use super::{EmptySortBy, HasParent, NoParent, PagerTrait};
