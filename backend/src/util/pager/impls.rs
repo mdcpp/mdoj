@@ -5,10 +5,9 @@ use crate::{
     grpc::backend::{
         AnnouncementSortBy, ContestSortBy, ProblemSortBy, SubmitSortBy, TestcaseSortBy, UserSortBy,
     },
-    init::db::DB,
 };
 
-use super::{EmptySortBy, HasParent, NoParent, PagerTrait, ParentalTrait};
+use super::{EmptySortBy, HasParent, NoParent, PagerTrait};
 use crate::util::{auth::Auth, error::Error, filter::Filter};
 
 impl PagerTrait for problem::Entity {
