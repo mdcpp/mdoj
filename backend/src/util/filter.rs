@@ -3,8 +3,8 @@ use crate::endpoint::tools::DB;
 use super::{auth::Auth, error::Error};
 use entity::*;
 use sea_orm::{
-    sea_query::IntoCondition, ColumnTrait, EntityTrait, JoinType, ModelTrait, PrimaryKeyTrait,
-    QueryFilter, QuerySelect, RelationTrait, Select,
+    sea_query::Alias, ColumnTrait, EntityTrait, JoinType, ModelTrait, PrimaryKeyTrait, QueryFilter,
+    QuerySelect, RelationTrait, Select,
 };
 
 /// Parental filter are useful when list by parent, mainly because we don't want to list all entity
@@ -44,41 +44,17 @@ impl ParentalTrait for contest::Entity {
         Ok(match auth.get_user(db).await {
             Ok(user) => user
                 .find_related(contest::Entity)
-                .join(
+                .join_as(
                     JoinType::FullOuterJoin,
                     contest::Relation::Hoster.def().rev(),
+                    Alias::new("own_contest"),
                 )
-                .join(JoinType::FullOuterJoin, user::Relation::PublicContest.def()),
-            Err(_) => contest::Entity::find().filter(contest::Column::Public.eq(true)),
-        })
-    }
-    async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<contest::Entity>, Error>
-    where
-        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
-            + Into<sea_orm::Value>
-            + Send
-            + Sync
-            + 'static
-            + Copy,
-    {
-        let db = DB.get().unwrap();
-        Ok(match auth.get_user(db).await {
-            Ok(user) => user
-                .find_related(contest::Entity)
-                .join(
+                .join_as(
                     JoinType::FullOuterJoin,
-                    contest::Relation::Hoster
-                        .def()
-                        .rev()
-                        .on_condition(move |_, _| contest::Column::Id.eq(id).into_condition()),
-                )
-                .join(
-                    JoinType::FullOuterJoin,
-                    user::Relation::PublicContest
-                        .def()
-                        .on_condition(move |_, _| contest::Column::Id.eq(id).into_condition()),
+                    user::Relation::PublicContest.def(),
+                    Alias::new("user_contest_unused"),
                 ),
-            Err(_) => contest::Entity::find_by_id(id).filter(contest::Column::Public.eq(true)),
+            Err(_) => contest::Entity::find().filter(contest::Column::Public.eq(true)),
         })
     }
 }
@@ -92,28 +68,17 @@ impl ParentalTrait for problem::Entity {
         Ok(match auth.get_user(db).await {
             Ok(user) => user
                 .find_linked(user::UserToProblem)
-                .join(JoinType::FullOuterJoin, user::Relation::PublicProblem.def()),
+                .join_as(
+                    JoinType::FullOuterJoin,
+                    contest::Relation::Hoster.def().rev(),
+                    Alias::new("own_problem"),
+                )
+                .join_as(
+                    JoinType::FullOuterJoin,
+                    user::Relation::PublicProblem.def(),
+                    Alias::new("problem_unused"),
+                ),
             Err(_) => problem::Entity::find().filter(problem::Column::Public.eq(true)),
-        })
-    }
-    async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<problem::Entity>, Error>
-    where
-        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
-            + Into<sea_orm::Value>
-            + Send
-            + Sync
-            + 'static
-            + Copy,
-    {
-        let db = DB.get().unwrap();
-        Ok(match auth.get_user(db).await {
-            Ok(user) => user.find_linked(user::UserToProblem).join(
-                JoinType::FullOuterJoin,
-                user::Relation::PublicProblem
-                    .def()
-                    .on_condition(move |_, _| problem::Column::Id.eq(id).into_condition()),
-            ),
-            Err(_) => problem::Entity::find_by_id(id).filter(problem::Column::Public.eq(true)),
         })
     }
 }

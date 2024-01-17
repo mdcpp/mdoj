@@ -26,6 +26,7 @@ pub mod endpoints {
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
         PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
     };
+    pub use entity::DebugName;
     pub use std::sync::Arc;
     pub use tonic::*;
     pub use uuid::Uuid;

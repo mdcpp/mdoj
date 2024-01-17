@@ -11,14 +11,18 @@ pub struct Model {
     pub problem_id: i32,
     #[sea_orm(column_type = "Time")]
     pub upload_at: chrono::NaiveDateTime,
+    #[sea_orm(nullable)]
     pub time: Option<i64>,
+    #[sea_orm(nullable)]
     pub accuracy: Option<i64>,
     pub committed: bool,
     pub lang: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub code: Vec<u8>,
+    #[sea_orm(nullable)]
     pub memory: Option<i64>,
     pub pass_case: i32,
+    #[sea_orm(nullable)]
     pub status: Option<u32>,
     pub accept: bool,
     pub score: u32,
@@ -57,3 +61,7 @@ impl Related<super::user::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl super::DebugName for Entity{
+    const DEBUG_NAME: &'static str = "submit";
+}

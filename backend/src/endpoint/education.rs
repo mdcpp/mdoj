@@ -22,7 +22,10 @@ impl From<EducationId> for i32 {
 impl From<Model> for EducationFullInfo {
     fn from(value: Model) -> Self {
         EducationFullInfo {
-            info: value.clone().into(),
+            info: EducationInfo {
+                id: value.id.into(),
+                title: value.title,
+            },
             content: value.content,
             problem: value.problem_id.map(Into::into),
         }

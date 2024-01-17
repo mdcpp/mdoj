@@ -8,6 +8,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub user_id: i32,
+    #[sea_orm(nullable)]
     pub problem_id: Option<i32>,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub input: Vec<u8>,
@@ -49,3 +50,7 @@ impl Related<super::user::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl super::DebugName for Entity{
+    const DEBUG_NAME: &'static str = "testcase";
+}

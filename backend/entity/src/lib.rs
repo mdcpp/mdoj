@@ -8,3 +8,7 @@ pub mod test;
 pub mod token;
 pub mod user;
 pub mod user_contest;
+
+pub trait DebugName{
+    const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";
+}

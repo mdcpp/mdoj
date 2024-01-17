@@ -96,10 +96,10 @@ impl Related<super::user_contest::Entity> for Entity {
 
 impl Related<super::contest::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_contest::Relation::User.def()
+        super::user_contest::Relation::Contest.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_contest::Relation::Contest.def().rev())
+        Some(super::user_contest::Relation::User.def().rev())
     }
 }
 
@@ -122,4 +122,8 @@ impl Linked for UserToProblem {
             contest::Relation::Problem.def(),
         ]
     }
+}
+
+impl super::DebugName for Entity{
+    const DEBUG_NAME: &'static str = "user";
 }

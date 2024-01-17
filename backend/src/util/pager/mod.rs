@@ -36,7 +36,6 @@ pub struct EmptySortBy;
 /// An abstract base class for Paginatable Entity
 ///
 /// The trait enable sort, text search, search by parent Entity
-#[tonic::async_trait]
 pub trait PagerTrait
 where
     Self: EntityTrait,
@@ -44,8 +43,7 @@ where
     const TYPE_NUMBER: i32;
     const COL_ID: Self::Column;
     const COL_TEXT: &'static [Self::Column];
-    const COL_SELECT: &'static [Self::Column];
-    const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";
+
     type ParentMarker: PagerMarker;
     type SortBy: Sized + Serialize + Clone + Debug + DeserializeOwned + Send + Sync + 'static;
 
@@ -206,7 +204,6 @@ where
 
                 query = query.offset(offset).limit(limit);
                 query
-                    .columns(E::COL_SELECT.to_vec())
                     .limit(limit)
                     .offset(offset)
                     .all(DB.get().unwrap())
@@ -244,7 +241,6 @@ where
 
                 query = query.offset(offset).limit(limit);
                 let models = query
-                    .columns(E::COL_SELECT.to_vec())
                     .limit(limit)
                     .offset(offset)
                     .all(DB.get().unwrap())
@@ -377,7 +373,6 @@ where
             }
             query = query.offset(offset).limit(limit);
             Ok(query
-                .columns(E::COL_SELECT.to_vec())
                 .limit(limit)
                 .offset(offset)
                 .all(DB.get().unwrap())
@@ -418,7 +413,6 @@ where
 
             query = query.offset(offset).limit(limit);
             let models = query
-                .columns(E::COL_SELECT.to_vec())
                 .limit(limit)
                 .offset(offset)
                 .all(DB.get().unwrap())

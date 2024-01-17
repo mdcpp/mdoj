@@ -70,6 +70,7 @@ features = [
     "mock",
     "sqlx-sqlite",
     "with-chrono",
+    "debug-print"
 ]
 
 [dependencies.serde]
