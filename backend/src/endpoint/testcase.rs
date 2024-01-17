@@ -3,6 +3,7 @@ use super::tools::*;
 
 use crate::grpc::backend::testcase_set_server::*;
 use crate::grpc::backend::*;
+use crate::util::filter::ParentalTrait;
 
 use entity::{test::*, *};
 
@@ -236,10 +237,8 @@ impl TestcaseSet for Arc<Server> {
         }
 
         //
-        let parent = problem::Entity::related_filter(&auth)
+        let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
             .await?
-            .columns([problem::Column::Id])
-            .filter(problem::Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

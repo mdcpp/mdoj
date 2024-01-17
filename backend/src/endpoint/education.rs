@@ -3,6 +3,7 @@ use super::tools::*;
 
 use crate::grpc::backend::education_set_server::*;
 use crate::grpc::backend::*;
+use crate::util::filter::ParentalTrait;
 
 use entity::{education::*, *};
 
@@ -225,10 +226,8 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = problem::Entity::related_filter(&auth)
+        let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
             .await?
-            .columns([problem::Column::Id])
-            .filter(problem::Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

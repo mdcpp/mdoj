@@ -1,6 +1,122 @@
+use crate::endpoint::tools::DB;
+
 use super::{auth::Auth, error::Error};
 use entity::*;
-use sea_orm::{ColumnTrait, EntityTrait, PrimaryKeyTrait, QueryFilter, Select};
+use sea_orm::{
+    sea_query::IntoCondition, ColumnTrait, EntityTrait, JoinType, ModelTrait, PrimaryKeyTrait,
+    QueryFilter, QuerySelect, RelationTrait, Select,
+};
+
+/// Parental filter are useful when list by parent, mainly because we don't want to list all entity
+///
+/// For example, on page of problem, we only want to show public problem(even user have joined contest)
+#[tonic::async_trait]
+pub trait ParentalTrait
+where
+    Self: EntityTrait + Filter,
+{
+    const COL_ID: Self::Column;
+    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
+    async fn related_read_by_id<T: Send + Sync + Copy>(
+        auth: &Auth,
+        id: T,
+    ) -> Result<Select<Self>, Error>
+    where
+        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
+            + Into<sea_orm::Value>
+            + Send
+            + Sync
+            + 'static
+            + Copy,
+    {
+        Self::related_filter(auth)
+            .await
+            .map(|x| x.filter(Self::COL_ID.eq(id)))
+    }
+}
+
+#[tonic::async_trait]
+impl ParentalTrait for contest::Entity {
+    const COL_ID: contest::Column = contest::Column::Id;
+
+    async fn related_filter(auth: &Auth) -> Result<Select<contest::Entity>, Error> {
+        let db = DB.get().unwrap();
+        Ok(match auth.get_user(db).await {
+            Ok(user) => user
+                .find_related(contest::Entity)
+                .join(
+                    JoinType::FullOuterJoin,
+                    contest::Relation::Hoster.def().rev(),
+                )
+                .join(JoinType::FullOuterJoin, user::Relation::PublicContest.def()),
+            Err(_) => contest::Entity::find().filter(contest::Column::Public.eq(true)),
+        })
+    }
+    async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<contest::Entity>, Error>
+    where
+        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
+            + Into<sea_orm::Value>
+            + Send
+            + Sync
+            + 'static
+            + Copy,
+    {
+        let db = DB.get().unwrap();
+        Ok(match auth.get_user(db).await {
+            Ok(user) => user
+                .find_related(contest::Entity)
+                .join(
+                    JoinType::FullOuterJoin,
+                    contest::Relation::Hoster
+                        .def()
+                        .rev()
+                        .on_condition(move |_, _| contest::Column::Id.eq(id).into_condition()),
+                )
+                .join(
+                    JoinType::FullOuterJoin,
+                    user::Relation::PublicContest
+                        .def()
+                        .on_condition(move |_, _| contest::Column::Id.eq(id).into_condition()),
+                ),
+            Err(_) => contest::Entity::find_by_id(id).filter(contest::Column::Public.eq(true)),
+        })
+    }
+}
+
+#[tonic::async_trait]
+impl ParentalTrait for problem::Entity {
+    const COL_ID: problem::Column = problem::Column::Id;
+
+    async fn related_filter(auth: &Auth) -> Result<Select<problem::Entity>, Error> {
+        let db = DB.get().unwrap();
+        Ok(match auth.get_user(db).await {
+            Ok(user) => user
+                .find_linked(user::UserToProblem)
+                .join(JoinType::FullOuterJoin, user::Relation::PublicProblem.def()),
+            Err(_) => problem::Entity::find().filter(problem::Column::Public.eq(true)),
+        })
+    }
+    async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<problem::Entity>, Error>
+    where
+        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
+            + Into<sea_orm::Value>
+            + Send
+            + Sync
+            + 'static
+            + Copy,
+    {
+        let db = DB.get().unwrap();
+        Ok(match auth.get_user(db).await {
+            Ok(user) => user.find_linked(user::UserToProblem).join(
+                JoinType::FullOuterJoin,
+                user::Relation::PublicProblem
+                    .def()
+                    .on_condition(move |_, _| problem::Column::Id.eq(id).into_condition()),
+            ),
+            Err(_) => problem::Entity::find_by_id(id).filter(problem::Column::Public.eq(true)),
+        })
+    }
+}
 
 /// filter for Entity r/w
 pub trait Filter

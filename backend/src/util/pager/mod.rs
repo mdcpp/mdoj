@@ -14,23 +14,11 @@ use crate::{
     server::Server,
 };
 
-use super::{auth::Auth, error::Error};
+use super::{auth::Auth, error::Error, filter::ParentalTrait};
 
 // TODO: add limit
 const PAGE_MAX_SIZE: u64 = 64;
 const PAGE_MAX_OFFSET: u64 = 256;
-
-#[tonic::async_trait]
-pub trait ParentalTrait
-where
-    Self: EntityTrait + Filter,
-{
-    const COL_ID: Self::Column;
-    async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
-    // async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<Self>, Error>
-    // where
-    //     T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send;
-}
 
 pub trait PagerMarker {}
 
@@ -194,12 +182,8 @@ where
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
 
-                let query = P::related_filter(auth).await?;
-                let parent = query
-                    .filter(P::COL_ID.eq(*p_pk))
-                    .column(P::COL_ID)
-                    .one(db)
-                    .await?;
+                let query = P::related_read_by_id(auth, *p_pk).await?;
+                let parent = query.one(db).await?;
 
                 if parent.is_none() {
                     return Ok(vec![]);
@@ -234,12 +218,8 @@ where
                 let LastValue(inner_rev, last_val) = last_val;
                 let rev = rev ^ inner_rev;
 
-                let query = P::related_filter(auth).await?;
-                let parent = query
-                    .filter(P::COL_ID.eq(*p_pk))
-                    .columns([P::COL_ID])
-                    .one(db)
-                    .await?;
+                let query = P::related_read_by_id(auth, *p_pk).await?;
+                let parent = query.one(db).await?;
 
                 if parent.is_none() {
                     return Ok(vec![]);

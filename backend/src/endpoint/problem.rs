@@ -3,6 +3,7 @@ use super::tools::*;
 
 use crate::grpc::backend::problem_set_server::*;
 use crate::grpc::backend::*;
+use crate::util::filter::ParentalTrait;
 
 use entity::{problem::*, *};
 
@@ -351,10 +352,8 @@ impl ProblemSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = contest::Entity::related_filter(&auth)
+        let parent = contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id))
             .await?
-            // .columns([contest::Column::Id])
-            .filter(contest::Column::Id.eq(Into::<i32>::into(req.contest_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
