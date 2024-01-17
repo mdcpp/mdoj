@@ -22,11 +22,11 @@ pub mod tools {
 pub mod endpoints {
     pub use crate::util::{filter::Filter, pager::*};
     pub use crate::{fill_active_model, fill_exist_active_model, server::Server};
+    pub use entity::DebugName;
     pub use sea_orm::{
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
         PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
     };
-    pub use entity::DebugName;
     pub use std::sync::Arc;
     pub use tonic::*;
     pub use uuid::Uuid;

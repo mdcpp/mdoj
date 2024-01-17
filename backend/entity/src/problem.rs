@@ -105,6 +105,6 @@ impl Related<super::contest::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity{
+impl super::DebugName for Entity {
     const DEBUG_NAME: &'static str = "problem";
 }

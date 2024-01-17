@@ -124,6 +124,6 @@ impl Linked for UserToProblem {
     }
 }
 
-impl super::DebugName for Entity{
+impl super::DebugName for Entity {
     const DEBUG_NAME: &'static str = "user";
 }
