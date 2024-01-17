@@ -21,8 +21,23 @@ impl ParentalTrait for contest::Entity {
             .get_user(db)
             .await?
             .find_related(contest::Entity)
-            .join(JoinType::FullOuterJoin, contest::Relation::Hoster.def()))
+            .join(
+                JoinType::FullOuterJoin,
+                contest::Relation::Hoster.def().rev(),
+            )
+            .join(JoinType::FullOuterJoin, user::Relation::PublicContest.def()))
     }
+    // async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<contest::Entity>, Error>
+    // where
+    //     T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send,
+    // {
+    //     let db = DB.get().unwrap();
+    //     Ok(auth
+    //         .get_user(db)
+    //         .await?
+    //         .find_related(contest::Entity)
+    //         .join(JoinType::FullOuterJoin, contest::Relation::Hoster.def()))
+    // }
 }
 
 #[tonic::async_trait]
@@ -108,8 +123,20 @@ impl ParentalTrait for problem::Entity {
 
     async fn related_filter(auth: &Auth) -> Result<Select<problem::Entity>, Error> {
         let db = DB.get().unwrap();
-        Ok(auth.get_user(db).await?.find_linked(user::UserToProblem))
+        Ok(auth
+            .get_user(db)
+            .await?
+            .find_linked(user::UserToProblem)
+            .join(JoinType::FullOuterJoin, user::Relation::PublicProblem.def()))
     }
+    // async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<problem::Entity>, Error>
+    // where
+    //     T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send,
+    // {
+    //     todo!();
+    //     let db = DB.get().unwrap();
+    //     Ok(auth.get_user(db).await?.find_linked(user::UserToProblem))
+    // }
 }
 
 #[tonic::async_trait]

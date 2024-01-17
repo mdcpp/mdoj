@@ -67,4 +67,10 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
+// impl Related<Entity> for Entity {
+//     fn to() -> RelationDef {
+//         Relation::Public.def()
+//     }
+// }
+
 impl ActiveModelBehavior for ActiveModel {}

@@ -27,6 +27,9 @@ where
 {
     const COL_ID: Self::Column;
     async fn related_filter(auth: &Auth) -> Result<Select<Self>, Error>;
+    // async fn related_read_by_id<T>(auth: &Auth, id: T) -> Result<Select<Self>, Error>
+    // where
+    //     T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType> + Send;
 }
 
 pub trait PagerMarker {}

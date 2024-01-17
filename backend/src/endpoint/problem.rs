@@ -353,7 +353,7 @@ impl ProblemSet for Arc<Server> {
 
         let parent = contest::Entity::related_filter(&auth)
             .await?
-            .columns([contest::Column::Id])
+            // .columns([contest::Column::Id])
             .filter(contest::Column::Id.eq(Into::<i32>::into(req.contest_id)))
             .one(db)
             .await

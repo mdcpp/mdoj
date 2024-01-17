@@ -38,6 +38,18 @@ pub enum Relation {
     UserContest,
     #[sea_orm(has_many = "super::contest::Entity")]
     OwnContest,
+    #[sea_orm(
+        has_many = "super::contest::Entity",
+        on_condition = r#"super::contest::Column::Public.eq(true)"#
+        condition_type = "any",
+    )]
+    PublicContest,
+    #[sea_orm(
+        has_many = "super::problem::Entity",
+        on_condition = r#"super::problem::Column::Public.eq(true)"#
+        condition_type = "any",
+    )]
+    PublicProblem,
 }
 
 impl Related<super::announcement::Entity> for Entity {
