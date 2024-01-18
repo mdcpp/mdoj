@@ -1,5 +1,5 @@
 pub mod impls;
-pub mod paginate;
+pub(self) mod paginate;
 
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -8,11 +8,11 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
-    endpoint::endpoints::paginate::{order_by_bool, PaginateColBuilder, PaginatePkBuilder},
     entity::{Filter, ParentalTrait},
     init::db::DB,
     server::Server,
 };
+use paginate::{order_by_bool, PaginateColBuilder, PaginatePkBuilder};
 
 use super::{auth::Auth, error::Error};
 
