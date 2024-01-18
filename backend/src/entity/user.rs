@@ -30,11 +30,11 @@ impl Model {
     }
 }
 
-#[derive(DerivePartialModel, FromQueryResult)]
-#[sea_orm(entity = "Entity")]
-pub struct IdUser {
-    pub id: i32,
-}
+// #[derive(DerivePartialModel, FromQueryResult)]
+// #[sea_orm(entity = "Entity")]
+// pub struct IdUser {
+//     pub id: i32,
+// }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {

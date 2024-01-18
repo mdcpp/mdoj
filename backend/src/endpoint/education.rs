@@ -1,9 +1,10 @@
 use super::tools::*;
+use crate::entity::util::paginator::Pager;
 
 use crate::grpc::backend::education_set_server::*;
 use crate::grpc::backend::*;
 
-use crate::entity::{education::*, *};
+use crate::entity::{education::Paginator, education::*, *};
 
 impl From<i32> for EducationId {
     fn from(value: i32) -> Self {
@@ -29,8 +30,8 @@ impl From<Model> for EducationFullInfo {
         }
     }
 }
-impl From<Model> for EducationInfo {
-    fn from(value: Model) -> Self {
+impl From<PartialModel> for EducationInfo {
+    fn from(value: PartialModel) -> Self {
         EducationInfo {
             id: value.id.into(),
             title: value.title,
@@ -40,6 +41,28 @@ impl From<Model> for EducationInfo {
 
 #[async_trait]
 impl EducationSet for Arc<Server> {
+    async fn list(
+        &self,
+        req: Request<ListEducationRequest>,
+    ) -> Result<Response<ListEducationResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
+        let rev = req.reverse();
+
+        let (pager, models) = match req.pager {
+            Some(pager) => {
+                let pager: Paginator = self.crypto.decode(pager.session)?;
+                pager.fetch(&auth, size, offset, rev).await
+            }
+            None => Paginator::new_fetch((), &auth, size, offset, rev).await,
+        }?;
+
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
+
+        Ok(Response::new(ListEducationResponse { list, next_session }))
+    }
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
@@ -186,30 +209,22 @@ impl EducationSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+                ParentPaginator::new_fetch(ppk, &auth, size, offset, true).await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListEducationResponse { list, next_session }))
     }

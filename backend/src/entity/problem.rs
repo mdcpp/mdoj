@@ -29,7 +29,7 @@ pub struct Model {
 
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Entity")]
-pub struct PartialProblem {
+pub struct PartialModel {
     pub id: i32,
     pub user_id: i32,
     pub contest_id: Option<i32>,
@@ -37,6 +37,42 @@ pub struct PartialProblem {
     pub ac_rate: f32,
     pub public: bool,
     pub title: String,
+}
+
+#[derive(DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "Entity")]
+pub struct IdModel {
+    pub id: i32,
+    pub user_id: i32,
+    pub contest_id: Option<i32>,
+    pub public: bool,
+}
+
+impl IdModel {
+    /// create new model with only id(foreign and pirmary), useful for query
+    ///
+    /// Be careful never save it
+    pub fn upgrade(self) -> Model {
+        Model {
+            id: self.id,
+            user_id: self.user_id,
+            contest_id: self.contest_id,
+            accept_count: Default::default(),
+            submit_count: Default::default(),
+            ac_rate: Default::default(),
+            memory: Default::default(),
+            time: Default::default(),
+            difficulty: Default::default(),
+            public: self.public,
+            tags: Default::default(),
+            title: Default::default(),
+            content: Default::default(),
+            create_at: Default::default(),
+            update_at: Default::default(),
+            match_rule: Default::default(),
+            order: Default::default(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

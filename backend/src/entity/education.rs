@@ -15,7 +15,7 @@ pub struct Model {
 
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Entity")]
-pub struct PartialEducation {
+pub struct PartialModel {
     pub id: i32,
     pub problem_id: Option<i32>,
     pub user_id: i32,
@@ -82,3 +82,83 @@ impl super::Filter for Entity {
         Err(Error::PermissionDeny("Can't write education"))
     }
 }
+
+#[async_trait]
+impl PagerReflect<Entity> for PartialModel {
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+
+    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
+        let db = DB.get().unwrap();
+        query
+            .into_model::<Self>()
+            .all(db)
+            .await
+            .map_err(Into::<Error>::into)
+    }
+}
+
+pub struct PagerTrait;
+
+#[async_trait]
+impl PagerSource for PagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = ();
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+pub type Paginator = PkPager<PagerTrait, PartialModel>;
+
+pub struct TextPagerTrait;
+
+#[async_trait]
+impl PagerSource for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = String;
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Title.like(data)))
+    }
+}
+
+pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
+
+pub struct ParentPagerTrait;
+
+#[async_trait]
+impl PagerSource for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = i32;
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        let db = DB.get().unwrap();
+        let parent: problem::IdModel = problem::Entity::related_read_by_id(auth, *data)
+            .into_partial_model()
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+
+        Ok(parent.upgrade().find_related(Entity))
+    }
+}
+
+pub type ParentPaginator = PkPager<ParentPagerTrait, PartialModel>;

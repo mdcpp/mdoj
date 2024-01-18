@@ -11,6 +11,7 @@ pub mod token;
 pub mod user;
 
 mod tools {
+    // pub use crate::entity::util::paginator::Pager;
     pub use crate::entity::DebugName;
     pub use crate::entity::*;
     pub use crate::grpc::TonicStream;

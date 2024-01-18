@@ -1,3 +1,5 @@
+use crate::grpc::backend::ContestSortBy;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -32,6 +34,8 @@ pub struct PartialModel {
     pub title: String,
     pub password: Option<Vec<u8>>,
     pub public: bool,
+    pub update_at: chrono::NaiveDateTime,
+    pub create_at: chrono::NaiveDateTime,
 }
 
 #[derive(DerivePartialModel, FromQueryResult)]
@@ -163,3 +167,81 @@ impl super::Filter for Entity {
         Err(Error::PermissionDeny("Can't write contest"))
     }
 }
+
+#[async_trait]
+impl PagerReflect<Entity> for PartialModel {
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+
+    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
+        let db = DB.get().unwrap();
+        query
+            .into_model::<Self>()
+            .all(db)
+            .await
+            .map_err(Into::<Error>::into)
+    }
+}
+
+pub struct TextPagerTrait;
+
+#[async_trait]
+impl PagerSource for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = String;
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Title.like(data)))
+    }
+}
+
+pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
+
+pub struct ColPagerTrait;
+
+#[async_trait]
+impl PagerSource for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    // FIXME: we need optional support
+    type Data = (ContestSortBy, String);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<PartialModel> for ColPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        match data.0 {
+            ContestSortBy::UpdateDate => Column::UpdateAt,
+            ContestSortBy::CreateDate => Column::CreateAt,
+            ContestSortBy::Begin => Column::Begin,
+            ContestSortBy::End => Column::End,
+        }
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        &data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
+        match data.0 {
+            ContestSortBy::UpdateDate => data.1 = model.update_at.to_string(),
+            ContestSortBy::CreateDate => data.1 = model.create_at.to_string(),
+            ContestSortBy::Begin => data.1 = model.begin.to_string(),
+            ContestSortBy::End => data.1 = model.end.to_string(),
+        }
+    }
+}
+
+pub type ColPaginator = ColPager<ColPagerTrait, PartialModel>;

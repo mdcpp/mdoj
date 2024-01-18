@@ -173,6 +173,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             .offset(offset);
         let models = R::all(query).await?;
 
+        // FIXME: use different http status
         if let Some(model) = models.last() {
             self.last_id = R::get_id(model);
             return Ok((self, models));
@@ -187,20 +188,30 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         offset: u64,
         abs_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
-        // FIXME: this is consider some kind of hack, only work with sqlite
-        let last_id = match abs_dir {
-            true => i32::MAX,
-            false => i32::MIN,
-        };
-        let pager = Self {
-            last_id,
-            last_direction: true,
-            direction: abs_dir,
-            data,
-            source: PhantomData,
-            reflect: PhantomData,
-        };
-        pager.fetch(auth, size, offset, abs_dir).await
+        let query = order_by_bool(
+            S::filter(auth, &data).await?,
+            <S as PagerSource>::ID,
+            abs_dir,
+        );
+
+        let models = R::all(query).await?;
+
+        // FIXME: use different http status
+        if let Some(model) = models.last() {
+            return Ok((
+                Self {
+                    last_id: R::get_id(model),
+                    last_direction: abs_dir,
+                    direction: abs_dir,
+                    data,
+                    source: PhantomData,
+                    reflect: PhantomData,
+                },
+                models,
+            ));
+        }
+
+        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
     }
 }
 
@@ -323,25 +334,41 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         Err(Error::NotInDB(S::Entity::DEBUG_NAME))
     }
     async fn new_fetch(
-        data: S::Data,
+        mut data: S::Data,
         auth: &Auth,
         size: u64,
         offset: u64,
         abs_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
-        let last_id = match abs_dir {
-            true => i32::MAX,
-            false => i32::MIN,
-        };
-        let pager = Self {
-            last_id,
-            last_direction: true,
-            direction: abs_dir,
-            data,
-            source: PhantomData,
-            reflect: PhantomData,
-        };
-        pager.fetch(auth, size, offset, abs_dir).await
+        let col = S::sort_col(&data);
+
+        let query = order_by_bool(
+            S::filter(auth, &data).await?,
+            <S as PagerSource>::ID,
+            abs_dir,
+        );
+        let query = order_by_bool(query, col, abs_dir);
+
+        let models = R::all(query).await?;
+
+        // FIXME: use different http status
+        if let Some(model) = models.last() {
+            S::save_val(&mut data, model);
+
+            return Ok((
+                Self {
+                    last_id: R::get_id(model),
+                    last_direction: abs_dir,
+                    direction: abs_dir,
+                    data,
+                    source: PhantomData,
+                    reflect: PhantomData,
+                },
+                models,
+            ));
+        }
+
+        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
     }
 }
 
@@ -423,10 +450,6 @@ pub struct PaginatePk<PK: ColumnTrait> {
 impl<PK: ColumnTrait> PaginatePk<PK> {
     pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
         let query = query.filter(com_eq(self.include, self.rev, self.last_pk, self.pk));
-        let _ord = match self.rev {
-            true => Order::Desc,
-            false => Order::Asc,
-        };
 
         order_by_bool(query, self.pk, self.rev)
     }

@@ -1,5 +1,5 @@
-use super::tools::util::paginator::Pager;
 use super::tools::*;
+use crate::entity::util::paginator::Pager;
 
 use crate::grpc::backend::announcement_set_server::*;
 use crate::grpc::backend::*;
@@ -78,14 +78,7 @@ impl AnnouncementSet for Arc<Server> {
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_announcement_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
-                    (
-                        create.sort_by(),
-                        if create.reverse {
-                            chrono::NaiveDateTime::MIN
-                        } else {
-                            chrono::NaiveDateTime::MAX
-                        },
-                    ),
+                    (create.sort_by(), Default::default()),
                     &auth,
                     size,
                     offset,
@@ -381,14 +374,8 @@ impl AnnouncementSet for Arc<Server> {
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(id) => {
-                ParentPaginator::new_fetch(
-                    (id, chrono::NaiveDateTime::MAX),
-                    &auth,
-                    size,
-                    offset,
-                    true,
-                )
-                .await
+                ParentPaginator::new_fetch((id, Default::default()), &auth, size, offset, true)
+                    .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;

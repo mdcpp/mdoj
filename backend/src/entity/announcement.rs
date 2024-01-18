@@ -1,9 +1,6 @@
 use crate::grpc::backend::AnnouncementSortBy;
 
-use super::{
-    util::paginator::{ColPager, PagerSortSource},
-    *,
-};
+use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
