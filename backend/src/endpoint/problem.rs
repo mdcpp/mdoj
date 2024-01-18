@@ -266,12 +266,6 @@ impl ProblemSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::RequirePermission("TODO").into());
-        }
-
         let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(db)

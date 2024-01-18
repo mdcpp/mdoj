@@ -10,12 +10,12 @@ pub mod testcase;
 pub mod token;
 pub mod user;
 
-pub(self) mod tools {
+mod tools {
     pub use crate::entity::DebugName;
     pub use crate::entity::*;
     pub use crate::grpc::TonicStream;
     pub use crate::init::db::DB;
-    pub use crate::util::auth::Auth;
+
     pub use crate::util::error::Error;
     pub use crate::util::pager::*;
     pub use crate::{fill_active_model, fill_exist_active_model, server::Server};

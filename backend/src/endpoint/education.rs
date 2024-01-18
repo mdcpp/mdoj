@@ -165,12 +165,6 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::RequirePermission("TODO").into());
-        }
-
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)

@@ -315,8 +315,8 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         let models = R::all(query).await?;
 
         if let Some(model) = models.last() {
-            S::save_val(&mut self.data, &model);
-            self.last_id = R::get_id(&model);
+            S::save_val(&mut self.data, model);
+            self.last_id = R::get_id(model);
             return Ok((self, models));
         }
 

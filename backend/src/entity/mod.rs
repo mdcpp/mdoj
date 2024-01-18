@@ -1,4 +1,4 @@
-pub(self) use sea_orm::{
+use sea_orm::{
     entity::prelude::*,
     sea_query::{Alias, JoinType},
     EntityTrait, FromQueryResult, PrimaryKeyTrait, QueryFilter, QuerySelect, Select,
@@ -18,11 +18,11 @@ pub mod user;
 pub mod user_contest;
 pub mod util;
 
-pub(self) use crate::init::db::DB;
-pub(self) use crate::util::{auth::Auth, error::Error};
-pub(self) use tonic::async_trait;
+use crate::init::db::DB;
+use crate::util::{auth::Auth, error::Error};
+use tonic::async_trait;
 
-pub(self) use util::paginator::{PagerReflect, PagerSource, PkPager};
+use util::paginator::{PagerReflect, PagerSource, PkPager};
 
 pub trait DebugName {
     const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";

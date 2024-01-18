@@ -122,12 +122,31 @@ impl PagerSource for PagerTrait {
 
     const TYPE_NUMBER: u8 = 4;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }
 
-pub type ListPager = PkPager<PagerTrait, PartialModel>;
+pub type Paginator = PkPager<PagerTrait, PartialModel>;
+
+pub struct TextPagerTrait;
+
+#[async_trait]
+impl PagerSource for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = String;
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Title.like(data)))
+    }
+}
+
+pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
 
 pub struct ParentPagerTrait;
 
@@ -155,7 +174,7 @@ impl PagerSource for ParentPagerTrait {
 
 #[async_trait]
 impl PagerSortSource<PartialModel> for ParentPagerTrait {
-    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+    fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::UpdateAt
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -166,7 +185,7 @@ impl PagerSortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentListPager = ColPager<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = ColPager<ParentPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
@@ -180,7 +199,7 @@ impl PagerSource for ColPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }
@@ -204,4 +223,4 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColListPager = ColPager<ColPagerTrait, PartialModel>;
+pub type ColPaginator = ColPager<ColPagerTrait, PartialModel>;

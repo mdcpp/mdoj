@@ -1,5 +1,5 @@
 pub mod impls;
-pub(self) mod paginate;
+mod paginate;
 
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -149,12 +149,7 @@ where
     }
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
-        let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
-            .map_err(|e| {
-                tracing::trace!(err=?e,"base64_deserialize");
-                Error::PaginationError("Not base64")
-            })?;
-        let pager = server.crypto.decode::<Pager<_>>(byte).map_err(|e| {
+        let pager = server.crypto.decode::<Pager<_>>(s).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;
@@ -269,12 +264,7 @@ where
     #[instrument(name = "pagination_deserialize", level = "trace", skip(server))]
     #[instrument(skip_all, name = "pagination_deserialize", level = "trace")]
     fn from_raw(s: String, server: &Server) -> Result<Pager<E>, Error> {
-        let byte = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, s)
-            .map_err(|e| {
-                tracing::trace!(err=?e,"base64_deserialize");
-                Error::PaginationError("Not base64")
-            })?;
-        let pager = server.crypto.decode::<Pager<_>>(byte).map_err(|e| {
+        let pager = server.crypto.decode::<Pager<_>>(s).map_err(|e| {
             tracing::debug!(err=?e,"bincode_deserialize");
             Error::PaginationError("Malformated pager")
         })?;

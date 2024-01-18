@@ -1,3 +1,4 @@
+use super::tools::util::paginator::Pager;
 use super::tools::*;
 
 use crate::grpc::backend::announcement_set_server::*;
@@ -6,7 +7,6 @@ use crate::grpc::into_prost;
 
 use crate::entity::announcement::*;
 use crate::entity::*;
-use sea_orm::QueryTrait;
 
 impl From<i32> for AnnouncementId {
     fn from(value: i32) -> Self {
@@ -45,6 +45,16 @@ impl From<Model> for AnnouncementInfo {
     }
 }
 
+impl From<PartialModel> for AnnouncementInfo {
+    fn from(value: PartialModel) -> Self {
+        AnnouncementInfo {
+            id: value.id.into(),
+            title: value.title,
+            update_date: into_prost(value.update_at),
+        }
+    }
+}
+
 impl From<AnnouncementSortBy> for Column {
     fn from(value: AnnouncementSortBy) -> Self {
         match value {
@@ -62,41 +72,35 @@ impl AnnouncementSet for Arc<Server> {
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let mut reverse = false;
+        let size = req.size;
+        let offset = req.offset();
 
-        // match req.request.ok_or(Error::NotInPayload("request"))? {
-        //     list_announcement_request::Request::Create(create) => {
-        //         let cursor: Cursor<SelectModel<PartialModel>> = Entity::read_find(&auth)?
-        //             .cursor_by(Into::<Column>::into(create.sort_by()))
-        //             .into_partial_model();
-        //     }
-        //     list_announcement_request::Request::Pager(pager) => {
-        //         let cursor: CursorGuard<SelectModel<PartialModel>> =
-        //             self.paginator.get(pager.session, &auth).await?;
-        //     }
-        // };
-
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_announcement_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+                ColPaginator::new_fetch(
+                    (
+                        create.sort_by(),
+                        if create.reverse {
+                            chrono::NaiveDateTime::MIN
+                        } else {
+                            chrono::NaiveDateTime::MAX
+                        },
+                    ),
+                    &auth,
+                    size,
+                    offset,
+                    create.reverse,
+                )
+                .await
             }
             list_announcement_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
@@ -109,27 +113,21 @@ impl AnnouncementSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => {
-                tracing::trace!(search = create);
-                Pager::text_search(create)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(text) => {
+                TextPaginator::new_fetch(text, &auth, size, offset, true).await
             }
             text_search_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session, self)?
+                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
@@ -284,12 +282,6 @@ impl AnnouncementSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::RequirePermission("TODO").into());
-        }
-
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(db)
@@ -384,32 +376,28 @@ impl AnnouncementSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut cursor = Entity::read_find(&auth)?.cursor_by(Column::Id);
-        // let announcement=contest::Entity::related_read_by_id(auth, req.);
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_sorted_search(ppk, AnnouncementSortBy::UpdateDate, false)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::ParentId(id) => {
+                ParentPaginator::new_fetch(
+                    (id, chrono::NaiveDateTime::MAX),
+                    &auth,
+                    size,
+                    offset,
+                    true,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
