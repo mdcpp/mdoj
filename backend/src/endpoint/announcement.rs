@@ -26,7 +26,7 @@ impl From<Model> for AnnouncementFullInfo {
             info: AnnouncementInfo {
                 id: value.id.into(),
                 title: value.title,
-                upload_date: into_prost(value.create_at),
+                update_date: into_prost(value.update_at),
             },
             author: value.user_id.into(),
             content: value.content,
@@ -40,7 +40,16 @@ impl From<Model> for AnnouncementInfo {
         AnnouncementInfo {
             id: value.id.into(),
             title: value.title,
-            upload_date: into_prost(value.create_at),
+            update_date: into_prost(value.update_at),
+        }
+    }
+}
+
+impl From<AnnouncementSortBy> for Column {
+    fn from(value: AnnouncementSortBy) -> Self {
+        match value {
+            AnnouncementSortBy::UpdateDate => Column::UpdateAt,
+            AnnouncementSortBy::CreateDate => Column::CreateAt,
         }
     }
 }
@@ -53,8 +62,20 @@ impl AnnouncementSet for Arc<Server> {
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-
         let mut reverse = false;
+
+        // match req.request.ok_or(Error::NotInPayload("request"))? {
+        //     list_announcement_request::Request::Create(create) => {
+        //         let cursor: Cursor<SelectModel<PartialModel>> = Entity::read_find(&auth)?
+        //             .cursor_by(Into::<Column>::into(create.sort_by()))
+        //             .into_partial_model();
+        //     }
+        //     list_announcement_request::Request::Pager(pager) => {
+        //         let cursor: CursorGuard<SelectModel<PartialModel>> =
+        //             self.paginator.get(pager.session, &auth).await?;
+        //     }
+        // };
+
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_announcement_request::Request::Create(create) => {
                 Pager::sort_search(create.sort_by(), create.reverse)
@@ -342,7 +363,6 @@ impl AnnouncementSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
 
         let parent = contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id))
-            .await?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -366,10 +386,12 @@ impl AnnouncementSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
 
         let mut reverse = false;
+        let mut cursor = Entity::read_find(&auth)?.cursor_by(Column::Id);
+        // let announcement=contest::Entity::related_read_by_id(auth, req.);
         let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_sorted_search(ppk, AnnouncementSortBy::UploadDate, false)
+                Pager::parent_sorted_search(ppk, AnnouncementSortBy::UpdateDate, false)
             }
             list_by_request::Request::Pager(old) => {
                 reverse = old.reverse;

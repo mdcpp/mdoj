@@ -14,6 +14,28 @@ pub struct Model {
     pub create_at: chrono::NaiveDateTime,
 }
 
+impl Model {
+    /// create new model with only id and permission, useful for query
+    ///
+    /// Be careful never save it
+    pub fn new_with_auth(auth: &Auth) -> Option<Self> {
+        auth.ok_or_default().ok().map(|(id, permission)| Self {
+            id,
+            permission: permission.0,
+            score: Default::default(),
+            username: Default::default(),
+            password: Default::default(),
+            create_at: Default::default(),
+        })
+    }
+}
+
+#[derive(DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "Entity")]
+pub struct IdUser {
+    pub id: i32,
+}
+
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::announcement::Entity")]

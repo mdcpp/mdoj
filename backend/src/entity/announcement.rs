@@ -1,4 +1,9 @@
-use super::*;
+use crate::grpc::backend::AnnouncementSortBy;
+
+use super::{
+    util::paginator::{ColPager, PagerSortSource},
+    *,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
@@ -26,6 +31,7 @@ pub struct PartialModel {
     pub user_id: i32,
     pub public: bool,
     pub create_at: chrono::NaiveDateTime,
+    pub update_at: chrono::NaiveDateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -88,22 +94,6 @@ impl super::Filter for Entity {
     }
 }
 
-pub struct ListPagerTrait;
-
-impl PagerSource for ListPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
-    type Data = ();
-
-    const TYPE_NUMBER: u8 = 1;
-
-    fn filter(auth: &Auth, data: &Self::Data) -> Select<Self::Entity> {
-        Entity::find().filter(Column::Public.eq(true))
-    }
-}
-
 #[async_trait]
 impl PagerReflect<Entity> for PartialModel {
     fn get_id(&self) -> i32 {
@@ -120,4 +110,98 @@ impl PagerReflect<Entity> for PartialModel {
     }
 }
 
-pub type ListPager = PkPager<ListPagerTrait, PartialModel>;
+pub struct PagerTrait;
+
+#[async_trait]
+impl PagerSource for PagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = ();
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+pub type ListPager = PkPager<PagerTrait, PartialModel>;
+
+pub struct ParentPagerTrait;
+
+#[async_trait]
+impl PagerSource for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (i32, chrono::NaiveDateTime);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        let db = DB.get().unwrap();
+        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0)
+            .into_partial_model()
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+
+        Ok(parent.upgrade().find_related(Entity))
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<PartialModel> for ParentPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        Column::UpdateAt
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
+        data.1 = model.update_at
+    }
+}
+
+pub type ParentListPager = ColPager<ParentPagerTrait, PartialModel>;
+
+pub struct ColPagerTrait;
+
+#[async_trait]
+impl PagerSource for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (AnnouncementSortBy, chrono::NaiveDateTime);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<PartialModel> for ColPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        match data.0 {
+            AnnouncementSortBy::UpdateDate => Column::UpdateAt,
+            AnnouncementSortBy::CreateDate => Column::CreateAt,
+        }
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
+        match data.0 {
+            AnnouncementSortBy::UpdateDate => data.1 = model.update_at,
+            AnnouncementSortBy::CreateDate => data.1 = model.create_at,
+        }
+    }
+}
+
+pub type ColListPager = ColPager<ColPagerTrait, PartialModel>;

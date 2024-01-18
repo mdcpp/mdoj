@@ -135,7 +135,7 @@ message Language {
 }
 
 enum SubmitSortBy {
-  SUBMIT_SORT_BY_UPLOAD_DATE = 0;
+  SUBMIT_SORT_BY_UPDATE_DATE = 0;
   SUBMIT_SORT_BY_SCORE = 1;
   SUBMIT_SORT_BY_TIME = 2;
   SUBMIT_SORT_BY_COMMITTED = 3;
@@ -178,7 +178,7 @@ message AnnouncementId { required int32 id = 1; }
 message AnnouncementInfo {
   required AnnouncementId id = 1;
   required string title = 2;
-  required google.protobuf.Timestamp upload_date = 3;
+  required google.protobuf.Timestamp update_date = 3;
 }
 
 message AnnouncementFullInfo {
@@ -218,7 +218,7 @@ message UpdateAnnouncementRequest {
 }
 
 enum AnnouncementSortBy {
-  ANNOUNCEMENT_SORT_BY_UPLOAD_DATE = 0;
+  ANNOUNCEMENT_SORT_BY_UPDATE_DATE = 0;
   ANNOUNCEMENT_SORT_BY_CREATE_DATE = 1;
 }
 
@@ -386,7 +386,7 @@ message UpdateProblemRequest {
 }
 
 enum ProblemSortBy {
-  PROBLEM_SORT_BY_UPLOAD_DATE = 0;
+  PROBLEM_SORT_BY_UPDATE_DATE = 0;
   PROBLEM_SORT_BY_CREATE_DATE = 1;
   PROBLEM_SORT_BY_AC_RATE = 2;
   PROBLEM_SORT_BY_SUBMIT_COUNT = 3;
@@ -575,7 +575,7 @@ message JoinContestRequest {
 
 enum ContestSortBy {
   CONTEST_SORT_BY_CREATE_DATE = 0;
-  CONTEST_SORT_BY_UPLOAD_DATE = 1;
+  CONTEST_SORT_BY_UPDATE_DATE = 1;
   CONTEST_SORT_BY_BEGIN = 2;
   CONTEST_SORT_BY_END = 3;
 }

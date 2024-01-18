@@ -13,6 +13,7 @@ use crate::{init::db::DB, report_internal};
 
 use super::metrics::RateMetrics;
 
+const CACHE_SIZE: usize = 800;
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type Rand = [u8; 20];
 
@@ -69,7 +70,7 @@ impl TokenController {
     #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
     pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
-        let cache = Cache::new(500);
+        let cache = Cache::new(CACHE_SIZE);
         let self_ = Arc::new(Self {
             cache,
             rng: Mutex::new(Hc128Rng::from_entropy()),

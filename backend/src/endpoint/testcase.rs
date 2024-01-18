@@ -236,7 +236,6 @@ impl TestcaseSet for Arc<Server> {
 
         //
         let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
-            .await?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

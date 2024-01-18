@@ -228,7 +228,6 @@ impl EducationSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
 
         let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
-            .await?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

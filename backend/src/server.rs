@@ -4,7 +4,7 @@ use tonic::transport;
 use tracing::{span, Instrument, Level};
 
 use crate::{
-    controller::*,
+    controller::{*},
     grpc::backend::{
         announcement_set_server::AnnouncementSetServer, chat_set_server::ChatSetServer,
         contest_set_server::ContestSetServer, education_set_server::EducationSetServer,

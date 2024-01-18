@@ -180,7 +180,7 @@ where
             SearchDep::Parent(p_pk) => {
                 let db = DB.get().unwrap();
 
-                let query = P::related_read_by_id(auth, *p_pk).await?;
+                let query = P::related_read_by_id(auth, *p_pk);
                 let parent = query.one(db).await?;
 
                 if parent.is_none() {
@@ -215,7 +215,7 @@ where
                 let LastValue(inner_rev, last_val) = last_val;
                 let rev = rev ^ inner_rev;
 
-                let query = P::related_read_by_id(auth, *p_pk).await?;
+                let query = P::related_read_by_id(auth, *p_pk);
                 let parent = query.one(db).await?;
 
                 if parent.is_none() {

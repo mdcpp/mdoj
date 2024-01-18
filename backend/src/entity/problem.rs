@@ -107,14 +107,12 @@ impl super::DebugName for Entity {
     const DEBUG_NAME: &'static str = "problem";
 }
 
-#[tonic::async_trait]
 impl super::ParentalTrait for Entity {
     const COL_ID: Column = Column::Id;
 
-    async fn related_filter(auth: &Auth) -> Result<Select<Entity>, Error> {
-        let db = DB.get().unwrap();
-        Ok(match auth.get_user(db).await {
-            Ok(user) => user
+    fn related_filter(auth: &Auth) -> Select<Entity> {
+        match user::Model::new_with_auth(auth) {
+            Some(user) => user
                 .find_linked(user::UserToProblem)
                 .join_as(
                     JoinType::FullOuterJoin,
@@ -125,9 +123,10 @@ impl super::ParentalTrait for Entity {
                     JoinType::FullOuterJoin,
                     user::Relation::PublicProblem.def(),
                     Alias::new("problem_unused"),
-                ),
-            Err(_) => Entity::find().filter(Column::Public.eq(true)),
-        })
+                )
+                .distinct(),
+            None => Entity::find().filter(Column::Public.eq(true)),
+        }
     }
 }
 

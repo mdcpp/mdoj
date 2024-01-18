@@ -10,6 +10,8 @@
 //! - Serialize and return pager
 
 use crate::{entity::DebugName, util::auth::Auth};
+use sea_orm::{sea_query::SimpleExpr, *};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
 
 use std::marker::PhantomData;
@@ -18,38 +20,21 @@ use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
 
 use crate::util::error::Error;
 
-pub trait Dump
-where
-    Self: Sized,
-{
-    fn serialize(self) -> Vec<u8>;
-    fn deserialize(raw: &[u8]) -> Result<Self, Error>;
-}
-
-impl Dump for () {
-    fn serialize(self) -> Vec<u8> {
-        Default::default()
-    }
-
-    fn deserialize(_raw: &[u8]) -> Result<Self, Error> {
-        Ok(())
-    }
-}
-
 /// indicate foreign object is ready for page source
 ///
 /// In `Education` example, we expect ::entity::education::Entity
 /// to implement it
+#[async_trait]
 pub trait PagerSource
 where
     Self: Send,
 {
     const ID: <Self::Entity as EntityTrait>::Column;
     type Entity: EntityTrait + DebugName;
-    type Data: Send + Sized + Dump;
+    type Data: Send + Sized + Serialize + DeserializeOwned;
     const TYPE_NUMBER: u8;
     /// filter reconstruction
-    fn filter(auth: &Auth, data: &Self::Data) -> Select<Self::Entity>;
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error>;
 }
 
 /// indicate foreign object is ready for page reflect
@@ -69,7 +54,7 @@ where
 #[async_trait]
 pub trait Pager
 where
-    Self: Sized + Dump,
+    Self: Sized + Serialize + DeserializeOwned,
 {
     type Source: PagerSource;
     type Reflect: PagerReflect<<Self::Source as PagerSource>::Entity> + Send;
@@ -90,6 +75,7 @@ where
 }
 
 /// compact primary key pager
+#[derive(Serialize, Deserialize)]
 pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     /// last primary
     last_id: i32,
@@ -98,69 +84,66 @@ pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     /// original direction
     direction: bool,
     /// data
+    #[serde(bound(
+        deserialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: DeserializeOwned"
+    ))]
+    #[serde(bound(
+        serialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: Serialize"
+    ))]
     data: <<PkPager<S, R> as Pager>::Source as PagerSource>::Data,
+    #[serde(bound(serialize = ""))]
+    #[serde(bound(deserialize = ""))]
     source: PhantomData<S>,
+    #[serde(bound(serialize = ""))]
+    #[serde(bound(deserialize = ""))]
     reflect: PhantomData<R>,
 }
 
-impl<S: PagerSource, R: PagerReflect<S::Entity>> Dump for PkPager<S, R> {
-    fn serialize(self) -> Vec<u8> {
-        let mut buffer = Vec::with_capacity(2);
-        let mut type_number = S::TYPE_NUMBER & 0xfc;
-        if self.last_direction {
-            type_number |= 0x2;
-        }
-        if self.direction {
-            type_number |= 0x1;
-        }
-        buffer.push(type_number.to_be());
+// impl<S: PagerSource, R: PagerReflect<S::Entity>> Serialize+DeserializeOwned for PkPager<S, R> {
+//     fn serialize(self) -> Vec<u8> {
+//         let mut buffer = [0_u8; 1];
+//         let mut type_number = S::TYPE_NUMBER & 0xfc;
+//         if self.last_direction {
+//             type_number |= 0x2;
+//         }
+//         if self.direction {
+//             type_number |= 0x1;
+//         }
+//         buffer[0] = type_number.to_be();
 
-        let mut value = self.last_id as i64;
-        loop {
-            let mut tmp: i16 = (value & 0b0111_1111) as i16;
-            value >>= 7;
-            if value != 0 {
-                tmp |= 0b1000_0000;
-            }
-            buffer.push((tmp as i8).to_be_bytes()[0]);
-            if value == 0 {
-                break;
-            }
-        }
+//         [
+//             buffer.to_vec(),
+//             self.last_id.serialize(),
+//             self.data.serialize(),
+//         ]
+//         .concat()
+//     }
+//     fn deserialize(raw: &[u8]) -> Result<(&[u8], Self), Error> {
+//         let mut c = raw.iter();
+//         let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
+//         if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
+//             return Err(Error::PaginationError("type mismatched"));
+//         }
 
-        [buffer, self.data.serialize()].concat()
-    }
-    fn deserialize(raw: &[u8]) -> Result<Self, Error> {
-        let mut c = raw.iter();
-        let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
-        if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
-            return Err(Error::PaginationError("type mismatched"));
-        }
+//         let last_direction = (notation & 0x2) != 0;
+//         let direction = (notation & 0x1) != 0;
 
-        let last_direction = (notation & 0x2) != 0;
-        let direction = (notation & 0x1) != 0;
+//         let (raw, last_id) = i32::deserialize(raw)?;
+//         let (slice, data) = S::Data::deserialize(raw)?;
 
-        let mut last_id: i32 = 0;
-        for num_read in 0..5 {
-            let read = *c.next().ok_or(Error::PaginationError("Not enough byte"))? as i32;
-            let value = read & 0b0111_1111;
-            last_id |= value << (7 * num_read);
-            if (read & 0b1000_0000) == 0 {
-                break;
-            }
-        }
-        let data = S::Data::deserialize(c.as_slice())?;
-
-        Ok(Self {
-            last_id,
-            source: PhantomData,
-            reflect: PhantomData,
-            data,
-            last_direction,
-            direction,
-        })
-    }
-}
+//         Ok((
+//             slice,
+//             Self {
+//                 last_id,
+//                 source: PhantomData,
+//                 reflect: PhantomData,
+//                 data,
+//                 last_direction,
+//                 direction,
+//             },
+//         ))
+//     }
+// }
 
 #[async_trait]
 impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
@@ -185,7 +168,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         self.last_direction = rel_dir;
 
         let query = paginator
-            .apply(S::filter(auth, &self.data))
+            .apply(S::filter(auth, &self.data).await?)
             .limit(size)
             .offset(offset);
         let models = R::all(query).await?;
@@ -227,12 +210,13 @@ where
 {
     /// get sort column
     fn sort_col(data: &Self::Data) -> impl ColumnTrait;
-    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone;
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send;
     /// save last value in column
-    fn save_val(data: &mut Self::Data, model: &R) -> impl ColumnTrait;
+    fn save_val(data: &mut Self::Data, model: &R);
 }
 
 /// compact column pager
+#[derive(Serialize, Deserialize)]
 pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
     /// last primary
     last_id: i32,
@@ -240,69 +224,62 @@ pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
     last_direction: bool,
     /// original direction
     direction: bool,
+    #[serde(bound(deserialize = "S::Data: DeserializeOwned"))]
+    #[serde(bound(serialize = "S::Data: Serialize"))]
     data: S::Data,
+    #[serde(bound(deserialize = ""))]
+    #[serde(bound(serialize = ""))]
     source: PhantomData<S>,
+    #[serde(bound(deserialize = ""))]
+    #[serde(bound(serialize = ""))]
     reflect: PhantomData<R>,
 }
 
-impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Dump for ColPager<S, R> {
-    fn serialize(self) -> Vec<u8> {
-        let mut buffer = Vec::with_capacity(2);
-        let mut type_number = S::TYPE_NUMBER & 0xfc;
-        if self.last_direction {
-            type_number |= 0x2;
-        }
-        if self.direction {
-            type_number |= 0x1;
-        }
-        buffer.push(type_number.to_be());
+// impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Serialize+DeserializeOwned for ColPager<S, R> {
+//     fn serialize(self) -> Vec<u8> {
+//         let mut buffer = [0_u8; 1];
+//         let mut type_number = S::TYPE_NUMBER & 0xfc;
+//         if self.last_direction {
+//             type_number |= 0x2;
+//         }
+//         if self.direction {
+//             type_number |= 0x1;
+//         }
+//         buffer[0] = type_number.to_be();
 
-        let mut value = self.last_id as i64;
-        loop {
-            let mut tmp: i16 = (value & 0b0111_1111) as i16;
-            value >>= 7;
-            if value != 0 {
-                tmp |= 0b1000_0000;
-            }
-            buffer.push((tmp as i8).to_be_bytes()[0]);
-            if value == 0 {
-                break;
-            }
-        }
+//         [
+//             buffer.to_vec(),
+//             self.last_id.serialize(),
+//             self.data.serialize(),
+//         ]
+//         .concat()
+//     }
+//     fn deserialize(raw: &[u8]) -> Result<(&[u8], Self), Error> {
+//         let mut c = raw.iter();
+//         let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
+//         if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
+//             return Err(Error::PaginationError("type mismatched"));
+//         }
 
-        [buffer, self.data.serialize()].concat()
-    }
-    fn deserialize(raw: &[u8]) -> Result<Self, Error> {
-        let mut c = raw.iter();
-        let notation = *c.next().ok_or(Error::PaginationError("Not enough byte"))?;
-        if ((notation ^ S::TYPE_NUMBER) & 0xfc) != 0 {
-            return Err(Error::PaginationError("type mismatched"));
-        }
+//         let last_direction = (notation & 0x2) != 0;
+//         let direction = (notation & 0x1) != 0;
 
-        let last_direction = (notation & 0x2) != 0;
-        let direction = (notation & 0x1) != 0;
+//         let (raw, last_id) = i32::deserialize(raw)?;
+//         let (slice, data) = S::Data::deserialize(raw)?;
 
-        let mut last_id: i32 = 0;
-        for num_read in 0..5 {
-            let read = *c.next().ok_or(Error::PaginationError("Not enough byte"))? as i32;
-            let value = read & 0b0111_1111;
-            last_id |= value << (7 * num_read);
-            if (read & 0b1000_0000) == 0 {
-                break;
-            }
-        }
-        let data = S::Data::deserialize(c.as_slice())?;
-
-        Ok(Self {
-            last_id,
-            source: PhantomData,
-            reflect: PhantomData,
-            data,
-            last_direction,
-            direction,
-        })
-    }
-}
+//         Ok((
+//             slice,
+//             Self {
+//                 last_id,
+//                 source: PhantomData,
+//                 reflect: PhantomData,
+//                 data,
+//                 last_direction,
+//                 direction,
+//             },
+//         ))
+//     }
+// }
 
 #[async_trait]
 impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R> {
@@ -332,13 +309,14 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         self.last_direction = rel_dir;
 
         let query = paginator
-            .apply(S::filter(auth, &self.data))
+            .apply(S::filter(auth, &self.data).await?)
             .limit(size)
             .offset(offset);
         let models = R::all(query).await?;
 
         if let Some(model) = models.last() {
-            self.last_id = R::get_id(model);
+            S::save_val(&mut self.data, &model);
+            self.last_id = R::get_id(&model);
             return Ok((self, models));
         }
 
@@ -366,8 +344,6 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         pager.fetch(auth, size, offset, abs_dir).await
     }
 }
-
-use sea_orm::{sea_query::SimpleExpr, *};
 
 #[inline]
 pub fn order_by_bool<E: EntityTrait>(

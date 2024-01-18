@@ -351,7 +351,6 @@ impl ProblemSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
 
         let parent = contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id))
-            .await?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

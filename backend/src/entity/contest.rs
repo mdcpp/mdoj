@@ -1,3 +1,7 @@
+use std::default;
+
+use sea_orm::{ActiveValue, TryIntoModel};
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -24,7 +28,7 @@ pub struct Model {
 
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Entity")]
-pub struct PartialContest {
+pub struct PartialModel {
     pub id: i32,
     pub hoster: i32,
     pub begin: chrono::NaiveDateTime,
@@ -32,6 +36,35 @@ pub struct PartialContest {
     pub title: String,
     pub password: Option<Vec<u8>>,
     pub public: bool,
+}
+
+#[derive(DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "Entity")]
+pub struct IdModel {
+    pub id: i32,
+    pub hoster: i32,
+    pub public: bool,
+}
+
+impl IdModel {
+    /// upgrade IdModel to Model to call find_related
+    ///
+    /// Be careful not to save it
+    pub fn upgrade(self) -> Model {
+        Model {
+            id: self.id,
+            hoster: self.hoster,
+            begin: Default::default(),
+            end: Default::default(),
+            title: Default::default(),
+            content: Default::default(),
+            tags: Default::default(),
+            password: Default::default(),
+            create_at: Default::default(),
+            update_at: Default::default(),
+            public: self.public,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -93,10 +126,9 @@ impl super::DebugName for Entity {
 impl ParentalTrait for Entity {
     const COL_ID: Column = Column::Id;
 
-    async fn related_filter(auth: &Auth) -> Result<Select<Entity>, Error> {
-        let db = DB.get().unwrap();
-        Ok(match auth.get_user(db).await {
-            Ok(user) => user
+    fn related_filter(auth: &Auth) -> Select<Entity> {
+        match user::Model::new_with_auth(auth) {
+            Some(user) => user
                 .find_related(Entity)
                 .join_as(
                     JoinType::FullOuterJoin,
@@ -108,8 +140,9 @@ impl ParentalTrait for Entity {
                     user::Relation::PublicContest.def(),
                     Alias::new("user_contest_unused"),
                 ),
-            Err(_) => Entity::find().filter(Column::Public.eq(true)),
-        })
+            None => Entity::find().filter(Column::Public.eq(true)),
+        }
+        .distinct()
     }
 }
 
