@@ -1,4 +1,4 @@
-use entity::user;
+use crate::entity::user;
 use sea_orm::{EntityTrait, QuerySelect};
 
 use super::error::Error;

@@ -1,4 +1,4 @@
-use ::entity::*;
+use crate::entity::*;
 use sea_orm::*;
 
 use crate::grpc::backend::{
@@ -6,7 +6,8 @@ use crate::grpc::backend::{
 };
 
 use super::{EmptySortBy, HasParent, NoParent, PagerTrait};
-use crate::util::{auth::Auth, error::Error, filter::Filter};
+use crate::entity::Filter;
+use crate::util::{auth::Auth, error::Error};
 
 impl PagerTrait for problem::Entity {
     const TYPE_NUMBER: i32 = 1591223;

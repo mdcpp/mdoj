@@ -34,7 +34,7 @@ use self::{
     route::*,
 };
 use super::code::Code;
-use entity::*;
+use crate::entity::*;
 
 const PALYGROUND_TIME: u64 = 500 * 1000;
 const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;

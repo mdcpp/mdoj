@@ -1,11 +1,11 @@
 use super::endpoints::*;
 use super::tools::*;
 
+use crate::entity::{contest::*, *};
 use crate::grpc::backend::contest_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
 use crate::grpc::into_prost;
-use entity::{contest::*, *};
 use sea_orm::QueryOrder;
 
 impl From<i32> for ContestId {

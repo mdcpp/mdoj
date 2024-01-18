@@ -9,9 +9,9 @@
 //! - Update pager state(`PagerReflect`)
 //! - Serialize and return pager
 
- mod paginate;
+mod paginate;
 
-use entity::DebugName;
+use crate::entity::DebugName;
 use paginate::*;
 use tonic::async_trait;
 

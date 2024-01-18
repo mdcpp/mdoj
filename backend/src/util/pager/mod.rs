@@ -3,18 +3,18 @@ pub mod paginate;
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::util::filter::Filter;
 use sea_orm::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
     endpoint::endpoints::paginate::{order_by_bool, PaginateColBuilder, PaginatePkBuilder},
+    entity::{Filter, ParentalTrait},
     init::db::DB,
     server::Server,
 };
 
-use super::{auth::Auth, error::Error, filter::ParentalTrait};
+use super::{auth::Auth, error::Error};
 
 // TODO: add limit
 const PAGE_MAX_SIZE: u64 = 64;

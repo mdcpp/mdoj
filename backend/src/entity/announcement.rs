@@ -2,6 +2,9 @@
 
 use sea_orm::{entity::prelude::*, FromQueryResult};
 
+use crate::endpoint::tools::Auth;
+use crate::util::error::Error;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
 pub struct Model {
@@ -66,4 +69,26 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl super::DebugName for Entity {
     const DEBUG_NAME: &'static str = "announcement";
+}
+
+impl super::Filter for Entity {
+    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        if let Ok((user_id, perm)) = auth.ok_or_default() {
+            if perm.can_root() {
+                return Ok(query);
+            }
+            return Ok(query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))));
+        }
+        Ok(query.filter(Column::Public.eq(true)))
+    }
+    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
+        let (user_id, perm) = auth.ok_or_default()?;
+        if perm.can_root() {
+            return Ok(query);
+        }
+        if perm.can_manage_announcement() {
+            return Ok(query.filter(Column::UserId.eq(user_id)));
+        }
+        Err(Error::PermissionDeny("Can't write announcement"))
+    }
 }

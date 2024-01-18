@@ -9,7 +9,7 @@ use crate::grpc::backend::*;
 use crate::grpc::into_prost;
 use crate::grpc::judger::LangInfo;
 
-use entity::{submit::*, *};
+use crate::entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;

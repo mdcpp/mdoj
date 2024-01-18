@@ -1,5 +1,5 @@
+use crate::entity::token;
 use chrono::{Duration, Local, NaiveDateTime};
-use entity::token;
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
 use rand_hc::Hc128Rng;
@@ -95,7 +95,7 @@ impl TokenController {
     #[instrument(skip_all, name="token_create_controller",level="debug",fields(user = user.id))]
     pub async fn add(
         &self,
-        user: &entity::user::Model,
+        user: &crate::entity::user::Model,
         dur: Duration,
     ) -> Result<(String, NaiveDateTime), Error> {
         let db = DB.get().unwrap();

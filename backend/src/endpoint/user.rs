@@ -5,8 +5,8 @@ use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
-use entity::user;
-use entity::user::*;
+use crate::entity::user;
+use crate::entity::user::*;
 
 impl From<i32> for UserId {
     fn from(value: i32) -> Self {

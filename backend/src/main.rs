@@ -2,6 +2,7 @@ use tikv_jemallocator::Jemalloc;
 
 pub mod controller;
 pub mod endpoint;
+pub mod entity;
 pub mod grpc;
 pub mod init;
 pub mod macro_tool;

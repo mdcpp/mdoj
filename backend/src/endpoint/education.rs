@@ -3,9 +3,8 @@ use super::tools::*;
 
 use crate::grpc::backend::education_set_server::*;
 use crate::grpc::backend::*;
-use crate::util::filter::ParentalTrait;
 
-use entity::{education::*, *};
+use crate::entity::{education::*, *};
 
 impl From<i32> for EducationId {
     fn from(value: i32) -> Self {

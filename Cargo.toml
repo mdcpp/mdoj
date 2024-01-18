@@ -5,7 +5,6 @@ members = [
     "backend",
     "judger",
     "testsuit",
-    "backend/entity",
     "backend/migration",
 ]
 

@@ -43,7 +43,7 @@ pub async fn init(config: &config::Database, crypto: &CryptoController, span: &S
 
 #[instrument(skip_all, name = "construct_admin")]
 pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
-    if entity::user::Entity::find().count(db).await.unwrap() != 0 {
+    if crate::entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;
     }
 
@@ -59,7 +59,7 @@ pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     perm.grant_manage_submit(true);
     perm.grant_manage_contest(true);
 
-    entity::user::ActiveModel {
+    crate::entity::user::ActiveModel {
         permission: ActiveValue::Set(perm.0),
         username: ActiveValue::Set("admin".to_owned()),
         password: ActiveValue::Set(crypto.hash("admin").into()),

@@ -4,10 +4,9 @@ use super::tools::*;
 use crate::grpc::backend::announcement_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_prost;
-use crate::util::filter::ParentalTrait;
 
-use entity::announcement::*;
-use entity::*;
+use crate::entity::announcement::*;
+use crate::entity::*;
 use sea_orm::QueryTrait;
 
 impl From<i32> for AnnouncementId {

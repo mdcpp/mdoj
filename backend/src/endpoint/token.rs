@@ -9,8 +9,8 @@ use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
 use crate::grpc::into_prost;
 
-use entity::token::*;
-use entity::*;
+use crate::entity::token::*;
+use crate::entity::*;
 use tracing::Level;
 
 const TOKEN_LIMIT: u64 = 32;

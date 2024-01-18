@@ -3,9 +3,8 @@ use super::tools::*;
 
 use crate::grpc::backend::testcase_set_server::*;
 use crate::grpc::backend::*;
-use crate::util::filter::ParentalTrait;
 
-use entity::{test::*, *};
+use crate::entity::{test::*, *};
 
 impl From<i32> for TestcaseId {
     fn from(value: i32) -> Self {
