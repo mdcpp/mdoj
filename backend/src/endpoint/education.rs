@@ -1,5 +1,4 @@
 use super::tools::*;
-use crate::entity::util::paginator::Pager;
 
 use crate::grpc::backend::education_set_server::*;
 use crate::grpc::backend::*;

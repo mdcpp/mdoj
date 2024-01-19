@@ -17,8 +17,8 @@ impl From<ProblemId> for i32 {
     }
 }
 
-impl From<Model> for ProblemInfo {
-    fn from(value: Model) -> Self {
+impl From<PartialModel> for ProblemInfo {
+    fn from(value: PartialModel) -> Self {
         ProblemInfo {
             id: value.id.into(),
             title: value.title,
@@ -37,7 +37,12 @@ impl From<Model> for ProblemFullInfo {
             public: value.public,
             time: value.time as u64,
             memory: value.memory as u64,
-            info: value.into(),
+            info: ProblemInfo {
+                id: value.id.into(),
+                title: value.title,
+                submit_count: value.submit_count,
+                ac_rate: value.ac_rate,
+            },
         }
     }
 }
@@ -50,29 +55,28 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_problem_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+                ColPaginator::new_fetch(
+                    (create.sort_by(), Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.reverse,
+                )
+                .await
             }
             list_problem_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -82,27 +86,21 @@ impl ProblemSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => {
-                tracing::trace!(search = create);
-                Pager::text_search(create)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(text) => {
+                TextPaginator::new_fetch(text, &auth, size, offset, true).await
             }
             text_search_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<_> as HasParentPager<contest::Entity, Entity>>::from_raw(old.session, self)?
+                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }
@@ -366,30 +364,23 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_sorted_search(ppk, ProblemSortBy::Order, false)
+                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
+                    .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<contest::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListProblemResponse { list, next_session }))
     }

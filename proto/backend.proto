@@ -482,19 +482,9 @@ message UpdateTestcaseRequest {
   required string request_id = 3;
 }
 
-enum TestcaseSortBy {
-  TESTCASE_SORT_BY_SCORE = 0;
-}
-
 message ListTestcaseRequest {
-  message Create {
-    required TestcaseSortBy sort_by = 1;
-    required bool reverse = 2;
-  }
-  oneof request {
-    Create create = 1;
-    Paginator pager = 2;
-  }
+  optional Paginator pager = 5;
+  optional bool reverse = 6;
   required uint64 size = 3;
   optional uint64 offset = 4;
 }

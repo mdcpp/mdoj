@@ -27,7 +27,25 @@ impl From<SubmitId> for i32 {
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
-        // TODO: solve devation aand uncommitted submit!
+        // TODO: solve devation and uncommitted submit!
+        let db_code: Code = value.status.unwrap().try_into().unwrap();
+        SubmitInfo {
+            id: value.id.into(),
+            upload_time: into_prost(value.upload_at),
+            score: value.score,
+            state: JudgeResult {
+                code: Into::<BackendCode>::into(db_code).into(),
+                accuracy: value.accuracy.map(|x| x as u64),
+                time: value.time.map(|x| x as u64),
+                memory: value.memory.map(|x| x as u64),
+            },
+        }
+    }
+}
+
+impl From<PartialModel> for SubmitInfo {
+    fn from(value: PartialModel) -> Self {
+        // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
             id: value.id.into(),
@@ -51,29 +69,21 @@ impl SubmitSet for Arc<Server> {
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_submit_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, true).await
             }
             list_submit_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
@@ -84,30 +94,22 @@ impl SubmitSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
+                    .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }

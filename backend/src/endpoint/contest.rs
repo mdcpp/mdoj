@@ -49,6 +49,18 @@ impl From<Model> for ContestInfo {
     }
 }
 
+impl From<PartialModel> for ContestInfo {
+    fn from(value: PartialModel) -> Self {
+        ContestInfo {
+            id: value.id.into(),
+            title: value.title,
+            begin: into_prost(value.begin),
+            end: into_prost(value.end),
+            need_password: value.password.is_some(),
+        }
+    }
+}
+
 #[async_trait]
 impl ContestSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
@@ -57,26 +69,28 @@ impl ContestSet for Arc<Server> {
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_contest_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+                ColPaginator::new_fetch(
+                    (create.sort_by(), Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.reverse,
+                )
+                .await
             }
             list_contest_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session, self)?
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
@@ -86,24 +100,21 @@ impl ContestSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => Pager::text_search(create),
-            text_search_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<_> as NoParentPager<Entity>>::from_raw(old.session, self)?
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(text) => {
+                TextPaginator::new_fetch(text, &auth, size, offset, true).await
             }
-        };
+            text_search_request::Request::Pager(old) => {
+                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
+            }
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }

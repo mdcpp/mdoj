@@ -44,29 +44,19 @@ impl TestcaseSet for Arc<Server> {
         req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_testcase_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+        let (pager, models) = match req.pager {
+            Some(old) => {
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-            list_testcase_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
-            }
-        };
+            None => ColPaginator::new_fetch(Default::default(), &auth, size, offset, true).await,
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }
@@ -251,30 +241,22 @@ impl TestcaseSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
+                    .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }

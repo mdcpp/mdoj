@@ -11,6 +11,8 @@ pub mod token;
 pub mod user;
 
 mod tools {
+    pub use crate::entity::util::paginator::Pager;
+
     // pub use crate::entity::util::paginator::Pager;
     pub use crate::entity::DebugName;
     pub use crate::entity::*;
@@ -18,7 +20,7 @@ mod tools {
     pub use crate::init::db::DB;
 
     pub use crate::util::error::Error;
-    pub use crate::util::pager::*;
+    // pub use crate::util::pager::*;
     pub use crate::{fill_active_model, fill_exist_active_model, server::Server};
     pub use sea_orm::{
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,

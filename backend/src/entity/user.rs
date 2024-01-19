@@ -1,3 +1,5 @@
+use crate::grpc::backend::UserSortBy;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -30,7 +32,7 @@ impl Model {
     }
 }
 
-// #[derive(DerivePartialModel, FromQueryResult)]
+// #[derive(DeriveModel, FromQueryResult)]
 // #[sea_orm(entity = "Entity")]
 // pub struct IdUser {
 //     pub id: i32,
@@ -159,3 +161,72 @@ impl super::Filter for Entity {
         Ok(query.filter(Column::Id.eq(user_id)))
     }
 }
+
+#[async_trait]
+impl PagerReflect<Entity> for Model {
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+
+    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
+        let db = DB.get().unwrap();
+        query.all(db).await.map_err(Into::<Error>::into)
+    }
+}
+
+pub struct TextPagerTrait;
+
+#[async_trait]
+impl PagerSource for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = String;
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Username.like(data)))
+    }
+}
+
+pub type TextPaginator = PkPager<TextPagerTrait, Model>;
+
+pub struct ColPagerTrait;
+
+#[async_trait]
+impl PagerSource for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (UserSortBy, String);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<Model> for ColPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        match data.0 {
+            UserSortBy::Score => Column::Score,
+            UserSortBy::CreateDate => Column::CreateAt,
+        }
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        &data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &Model) {
+        data.1 = match data.0 {
+            UserSortBy::Score => model.score.to_string(),
+            UserSortBy::CreateDate => model.create_at.to_string(),
+        }
+    }
+}
+
+pub type ColPaginator = ColPager<ColPagerTrait, Model>;

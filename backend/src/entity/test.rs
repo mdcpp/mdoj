@@ -74,3 +74,90 @@ impl super::Filter for Entity {
         Err(Error::PermissionDeny("Can't write testcase"))
     }
 }
+
+#[async_trait]
+impl PagerReflect<Entity> for Model {
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+
+    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
+        let db = DB.get().unwrap();
+        query
+            .into_model::<Self>()
+            .all(db)
+            .await
+            .map_err(Into::<Error>::into)
+    }
+}
+
+pub struct ParentPagerTrait;
+
+#[async_trait]
+impl PagerSource for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (i32, u32);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        let db = DB.get().unwrap();
+        let parent: problem::IdModel = problem::Entity::related_read_by_id(auth, data.0)
+            .into_partial_model()
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(problem::Entity::DEBUG_NAME))?;
+
+        Ok(parent.upgrade().find_related(Entity))
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<Model> for ParentPagerTrait {
+    fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
+        Column::Score
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &Model) {
+        data.1 = model.score
+    }
+}
+
+pub type ParentPaginator = ColPager<ParentPagerTrait, Model>;
+
+pub struct ColPagerTrait;
+
+#[async_trait]
+impl PagerSource for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = u32;
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<Model> for ColPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        Column::Score
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        data.clone()
+    }
+    fn save_val(data: &mut Self::Data, model: &Model) {
+        *data = model.score
+    }
+}
+
+pub type ColPaginator = ColPager<ColPagerTrait, Model>;

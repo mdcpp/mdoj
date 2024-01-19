@@ -2,4 +2,3 @@
 /database
 /config
 /src/pending
-/src/controller/paginator.rs

@@ -1,3 +1,5 @@
+use crate::grpc::backend::ProblemSortBy;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -35,8 +37,12 @@ pub struct PartialModel {
     pub contest_id: Option<i32>,
     pub submit_count: u32,
     pub ac_rate: f32,
+    pub difficulty: u32,
     pub public: bool,
     pub title: String,
+    pub create_at: chrono::NaiveDateTime,
+    pub update_at: chrono::NaiveDateTime,
+    pub order: f32,
 }
 
 #[derive(DerivePartialModel, FromQueryResult)]
@@ -187,3 +193,126 @@ impl super::Filter for Entity {
         Err(Error::PermissionDeny("Can't write problem"))
     }
 }
+
+#[async_trait]
+impl PagerReflect<Entity> for PartialModel {
+    fn get_id(&self) -> i32 {
+        self.id
+    }
+
+    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
+        let db = DB.get().unwrap();
+        query
+            .into_model::<Self>()
+            .all(db)
+            .await
+            .map_err(Into::<Error>::into)
+    }
+}
+
+pub struct PagerTrait;
+
+pub struct TextPagerTrait;
+
+#[async_trait]
+impl PagerSource for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = String;
+
+    const TYPE_NUMBER: u8 = 4;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+            .map(|x| x.filter(Column::Title.like(data).or(Column::Tags.like(data))))
+    }
+}
+
+pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
+
+pub struct ParentPagerTrait;
+
+#[async_trait]
+impl PagerSource for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (i32, f32);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        let db = DB.get().unwrap();
+        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0)
+            .into_partial_model()
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+
+        Ok(parent.upgrade().find_related(Entity))
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<PartialModel> for ParentPagerTrait {
+    fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
+        Column::Order
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
+        data.1 = model.order
+    }
+}
+
+pub type ParentPaginator = ColPager<ParentPagerTrait, PartialModel>;
+
+pub struct ColPagerTrait;
+
+#[async_trait]
+impl PagerSource for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+
+    type Entity = Entity;
+
+    type Data = (ProblemSortBy, String);
+
+    const TYPE_NUMBER: u8 = 8;
+
+    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+        Entity::read_filter(Entity::find(), auth)
+    }
+}
+
+#[async_trait]
+impl PagerSortSource<PartialModel> for ColPagerTrait {
+    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+        match data.0 {
+            ProblemSortBy::UpdateDate => Column::UpdateAt,
+            ProblemSortBy::CreateDate => Column::CreateAt,
+            ProblemSortBy::AcRate => Column::AcRate,
+            ProblemSortBy::SubmitCount => Column::SubmitCount,
+            ProblemSortBy::Difficulty => Column::Difficulty,
+            ProblemSortBy::Order => Column::Order,
+        }
+    }
+    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+        &data.1
+    }
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
+        data.1 = match data.0 {
+            ProblemSortBy::UpdateDate => model.update_at.to_string(),
+            ProblemSortBy::CreateDate => model.create_at.to_string(),
+            ProblemSortBy::AcRate => model.ac_rate.to_string(),
+            ProblemSortBy::SubmitCount => model.submit_count.to_string(),
+            ProblemSortBy::Difficulty => model.difficulty.to_string(),
+            ProblemSortBy::Order => model.order.to_string(),
+        }
+    }
+}
+
+pub type ColPaginator = ColPager<ColPagerTrait, PartialModel>;
