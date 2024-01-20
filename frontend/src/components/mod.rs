@@ -15,6 +15,7 @@ pub use redirect_if::RedirectIf;
 pub use text_input::TextInput;
 
 use leptos::*;
+use std::rc::Rc;
 
 /// Merge 2 attribute into 1
 pub struct Merge<A: IntoAttribute, B: IntoAttribute>(A, B);
