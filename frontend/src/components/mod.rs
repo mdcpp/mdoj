@@ -11,6 +11,7 @@ pub use navbar::Navbar;
 pub use text_input::TextInput;
 
 use leptos::*;
+use std::rc::Rc;
 
 /// A Optional generic function
 pub struct Caller<I>(Option<Box<dyn Fn(I)>>);
