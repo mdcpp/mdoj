@@ -1,14 +1,11 @@
-pub mod case;
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
+
 pub mod client;
 pub mod constant;
+pub mod empty;
 pub mod grpc;
-pub mod user;
+pub mod prepare;
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    // env_logger::builder()
-    //     .filter_module("testsuit", log::LevelFilter::Trace)
-    //     .init();
-
-    // user::run().await;
-}
+fn main() {}
