@@ -429,7 +429,6 @@ dependencies = [
  "quick_cache",
  "rand",
  "rand_hc",
- "rand_pcg",
  "reqwest",
  "sea-orm",
  "serde",
@@ -2784,15 +2783,6 @@ name = "rand_hc"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b363d4f6370f88d62bf586c80405657bde0f0e1b8945d47d2ad59b906cb4f54"
-dependencies = [
- "rand_core",
-]
-
-[[package]]
-name = "rand_pcg"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
 dependencies = [
  "rand_core",
 ]

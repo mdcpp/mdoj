@@ -1,4 +1,3 @@
-use hickory_resolver::proto::error;
 use k256::ecdsa::{
     signature::{Signer, Verifier},
     Signature, SigningKey, VerifyingKey,

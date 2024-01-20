@@ -138,8 +138,8 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
     async fn new_fetch(
         data: S::Data,
         auth: &Auth,
-        size: u64,
-        offset: u64,
+        _size: u64,
+        _offset: u64,
         abs_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let query = order_by_bool(
@@ -244,8 +244,8 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
     async fn new_fetch(
         mut data: S::Data,
         auth: &Auth,
-        size: u64,
-        offset: u64,
+        _size: u64,
+        _offset: u64,
         abs_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let col = S::sort_col(&data);

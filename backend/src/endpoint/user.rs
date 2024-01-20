@@ -98,7 +98,7 @@ impl UserSet for Arc<Server> {
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn full_info(&self, req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
+    async fn full_info(&self, _req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
         Err(Status::cancelled("deprecated"))
     }
     #[instrument(skip_all, level = "debug")]
@@ -137,10 +137,8 @@ impl UserSet for Arc<Server> {
         model.password = ActiveValue::set(hash);
 
         let new_perm: PermLevel = req.info.permission().into();
-        if !perm.root() {
-            if new_perm >= perm {
-                return Err(Error::RequirePermission(new_perm).into());
-            }
+        if !perm.root() && new_perm >= perm {
+            return Err(Error::RequirePermission(new_perm).into());
         }
 
         fill_active_model!(model, req.info, username);
@@ -192,10 +190,8 @@ impl UserSet for Arc<Server> {
             if !perm.admin() {
                 return Err(Error::RequirePermission(PermLevel::Admin).into());
             }
-            if !perm.root() {
-                if new_perm > perm {
-                    return Err(Error::RequirePermission(PermLevel::Root).into());
-                }
+            if !perm.root() && new_perm > perm {
+                return Err(Error::RequirePermission(PermLevel::Root).into());
             }
             model.permission = ActiveValue::set(new_perm as i32);
             todo!();

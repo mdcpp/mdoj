@@ -149,11 +149,11 @@ impl PagerSource for ColPagerTrait {
 
 #[async_trait]
 impl PagerSortSource<Model> for ColPagerTrait {
-    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+    fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
-        data.clone()
+        *data
     }
     fn save_val(data: &mut Self::Data, model: &Model) {
         *data = model.score

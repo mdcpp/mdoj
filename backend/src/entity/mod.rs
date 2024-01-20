@@ -5,7 +5,7 @@ use sea_orm::{
 };
 
 use sea_orm::ColumnTrait;
-pub(self) use util::paginator::{ColPager, PagerSortSource};
+use util::paginator::{ColPager, PagerSortSource};
 
 pub mod announcement;
 pub mod chat;

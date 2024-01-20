@@ -48,7 +48,7 @@ pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     }
 
     tracing::info!("Setting up admin@admin");
-    let mut perm = PermLevel::Root;
+    let perm = PermLevel::Root;
 
     crate::entity::user::ActiveModel {
         permission: ActiveValue::Set(perm as i32),

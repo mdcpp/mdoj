@@ -73,7 +73,7 @@ impl SubmitSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_submit_request::Request::Create(create) => {
+            list_submit_request::Request::Create(_create) => {
                 ColPaginator::new_fetch(Default::default(), &auth, size, offset, true).await
             }
             list_submit_request::Request::Pager(old) => {
