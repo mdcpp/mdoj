@@ -508,7 +508,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Token::Rand).binary().not_null())
                     .col(
                         ColumnDef::new(Token::Permission)
-                            .big_unsigned()
+                            .integer()
                             .not_null()
                             .default(0),
                     )

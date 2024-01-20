@@ -1,6 +1,5 @@
 use super::tools::*;
 
-use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
@@ -29,17 +28,17 @@ impl From<Model> for UserInfo {
     }
 }
 
-impl From<UserPermBytes> for Permission {
-    fn from(value: UserPermBytes) -> Self {
-        Permission { flags: value.0 }
-    }
-}
+// impl From<PermLevel> for Permission {
+//     fn from(value: PermLevel) -> Self {
+//         Permission { flags: value }
+//     }
+// }
 
-impl From<Permission> for UserPermBytes {
-    fn from(value: Permission) -> Self {
-        UserPermBytes(value.flags)
-    }
-}
+// impl From<Permission> for PermLevel {
+//     fn from(value: Permission) -> Self {
+//         PermLevel(value.flags)
+//     }
+// }
 
 #[async_trait]
 impl UserSet for Arc<Server> {
@@ -100,12 +99,6 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
-        let (auth, _) = self.parse_request(req).await?;
-
-        if !auth.is_root() {
-            return Err(Error::Unauthenticated.into());
-        }
-
         Err(Status::cancelled("deprecated"))
     }
     #[instrument(skip_all, level = "debug")]
@@ -114,12 +107,16 @@ impl UserSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        if !perm.admin(){
+            return Err(Error::RequirePermission("Admin").into());
+        }
+
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_user()) {
+        if !(perm.admin()) {
             return Err(Error::PermissionDeny("Can't create user").into());
         }
 
@@ -136,16 +133,21 @@ impl UserSet for Arc<Server> {
             return Err(Error::AlreadyExist("").into());
         }
 
-        fill_active_model!(model, req.info, username);
 
         let hash = self.crypto.hash(req.info.password.as_str()).into();
         model.password = ActiveValue::set(hash);
-        let new_perm = Into::<UserPermBytes>::into(req.info.permission);
 
-        if new_perm != UserPermBytes::default() && !perm.can_root() {
-            return Err(Error::PermissionDeny("Can't set permission").into());
+        let new_perm:PermLevel=req.info.permission().into();
+        if !perm.root() {
+            if new_perm >= perm{
+                return Err(Error::PermissionDeny("Can't set permission").into());
+
+            }
         }
-        model.permission = ActiveValue::set(new_perm.0);
+
+        fill_active_model!(model, req.info, username);
+
+        model.permission = ActiveValue::set(new_perm as i32);
 
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
@@ -168,7 +170,7 @@ impl UserSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_user()) {
+        if !(perm.admin()) {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -186,11 +188,19 @@ impl UserSet for Arc<Server> {
             let hash = self.crypto.hash(password.as_str()).into();
             model.password = ActiveValue::set(hash);
         }
-        if let Some(permission) = req.info.permission {
-            if !perm.can_root() {
-                return Err(Error::PermissionDeny("Can't set permission").into());
+        if let Some(new_perm) = req.info.permission {
+            let new_perm:Role =new_perm.try_into().unwrap_or_default();
+            let new_perm:PermLevel=new_perm.into();
+            if !perm.admin() {
+                return Err(Error::RequirePermission("Admin").into());
             }
-            model.permission = ActiveValue::set(Into::<UserPermBytes>::into(permission).0);
+            if !perm.root(){
+                if new_perm>perm{
+                return Err(Error::RequirePermission("Root").into());
+                }
+            }
+            model.permission = ActiveValue::set(new_perm as i32);
+            todo!();
         }
 
         let model = model.update(db).await.map_err(Into::<Error>::into)?;

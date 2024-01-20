@@ -13,6 +13,9 @@ pub mod user;
 mod tools {
     pub use crate::entity::util::paginator::Pager;
 
+    pub use crate::util::auth::PermLevel;
+    pub use crate::util::auth::Auth;
+
     // pub use crate::entity::util::paginator::Pager;
     pub use crate::entity::DebugName;
     pub use crate::entity::*;

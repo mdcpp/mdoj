@@ -149,7 +149,7 @@ impl ParentalTrait for Entity {
 impl super::Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
-            if perm.can_root() {
+            if perm.admin() {
                 return Ok(query);
             }
             return Ok(query.filter(Column::Public.eq(true).or(Column::Hoster.eq(user_id))));
@@ -158,10 +158,10 @@ impl super::Filter for Entity {
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
+        if perm.admin() {
             return Ok(query);
         }
-        if perm.can_manage_contest() {
+        if perm.super_user() {
             return Ok(query.filter(Column::Hoster.eq(user_id)));
         }
         Err(Error::PermissionDeny("Can't write contest"))

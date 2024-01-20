@@ -76,7 +76,7 @@ impl EducationSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_education()) {
+        if !(perm.super_user()) {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -164,7 +164,7 @@ impl EducationSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-        if !(perm.can_root() || perm.can_link()) {
+        if !(perm.super_user()) {
             if problem.user_id != user_id {
                 return Err(Error::NotInDB("problem").into());
             }

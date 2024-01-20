@@ -159,7 +159,7 @@ impl AnnouncementSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_announcement()) {
+        if perm.super_user() {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -235,6 +235,10 @@ impl AnnouncementSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        if !perm.super_user() {
+            return  Err(Error::RequirePermission("super").into());
+        }
+
         let (contest, model) = try_join!(
             spawn(contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(db)),
             spawn(Entity::read_by_id(req.announcement_id.id, &auth)?.one(db))
@@ -248,15 +252,12 @@ impl AnnouncementSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-        if !(perm.can_root() || perm.can_link()) {
+        if !perm.admin() {
             if contest.hoster != user_id {
                 return Err(Error::NotInDB("contest").into());
             }
             if model.user_id != user_id {
                 return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
-            }
-            if !perm.can_manage_contest() {
-                return Err(Error::RequirePermission("Contest").into());
             }
         }
 
@@ -292,10 +293,11 @@ impl AnnouncementSet for Arc<Server> {
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
 
-        if !auth.is_root() {
+        if !perm.admin() {
             return Err(Error::RequirePermission("Root").into());
         }
 
@@ -317,10 +319,11 @@ impl AnnouncementSet for Arc<Server> {
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
 
-        if !auth.is_root() {
+        if !perm.admin() {
             return Err(Error::RequirePermission("Root").into());
         }
 

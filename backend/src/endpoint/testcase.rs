@@ -74,7 +74,7 @@ impl TestcaseSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
+        if !(perm.super_user()) {
             return Err(Error::RequirePermission("Problem").into());
         }
 
@@ -146,6 +146,10 @@ impl TestcaseSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        if !perm.super_user(){
+            return Err(Error::RequirePermission("Super").into());
+        }
+
         let (problem, model) = try_join!(
             spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
             spawn(Entity::read_by_id(req.testcase_id.id, &auth)?.one(db))
@@ -159,15 +163,12 @@ impl TestcaseSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-        if !(perm.can_root() || perm.can_link()) {
+        if !(perm.admin()) {
             if problem.user_id != user_id {
                 return Err(Error::Add("problem").into());
             }
             if model.user_id != user_id {
                 return Err(Error::Add(Entity::DEBUG_NAME).into());
-            }
-            if !perm.can_manage_problem() {
-                return Err(Error::RequirePermission("Problem").into());
             }
         }
 
@@ -214,7 +215,7 @@ impl TestcaseSet for Arc<Server> {
 
         let (_, perm) = auth.ok_or_default()?;
 
-        if !perm.can_root() {
+        if !perm.admin() {
             return Err(Error::RequirePermission("Root").into());
         }
 

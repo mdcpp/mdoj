@@ -8,7 +8,7 @@ pub struct Model {
     pub user_id: i32,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub rand: Vec<u8>,
-    pub permission: u32,
+    pub permission: i32,
     #[sea_orm(column_type = "Time")]
     pub expiry: chrono::NaiveDateTime,
 }

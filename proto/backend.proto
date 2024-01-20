@@ -633,10 +633,17 @@ message CreateUserRequest {
   message Info {
     required string username = 1;
     required string password = 2;
-    required Permission permission = 3;
+    required Role permission = 4;
   }
   required Info info = 1;
   required string request_id = 3;
+}
+
+enum Role{
+  User=1;
+  Super=2;
+  Admin=3;
+  Root=4;
 }
 
 // permission of a user
@@ -644,39 +651,39 @@ message CreateUserRequest {
 // recommanded permission:
 // 1. allow user to create contest(like codeforce): 0x20e
 // 2. don't allow: 0x200
-message Permission {
-  enum Flags {
-    // Allow all, note that root is require to publish announcement(except contest announcement)
-    Root = 0x001;
-    // Create Unpublished Problem
-    Problem = 0x002;
-    // Create Education, must be added to problem before visible
-    Education = 0x004;
-    // Create Unpublished Announcement
-    Announcement = 0x008;
-    // Delete/Rejudge
-    Submit = 0x010;
-    // Publish unowned problem and contest
-    Publish = 0x020;
-    // Add unowned entity to Any
-    AddTo = 0x040;
-    // Create Contest
-    Contest = 0x080;
-    // Create User(allow privilege escalation to same level)
-    User = 0x100;
-    // Upload Images
-    Image = 0x200;
-    // Delete Message
-    Message = 0x400;
-  }
-  required uint32 flags = 1;
-}
+// message Role {
+//   enum Flags {
+//     // Allow all, note that root is require to publish announcement(except contest announcement)
+//     Root = 0x001;
+//     // Create Unpublished Problem
+//     Problem = 0x002;
+//     // Create Education, must be added to problem before visible
+//     Education = 0x004;
+//     // Create Unpublished Announcement
+//     Announcement = 0x008;
+//     // Delete/Rejudge
+//     Submit = 0x010;
+//     // Publish unowned problem and contest
+//     Publish = 0x020;
+//     // Add unowned entity to Any
+//     AddTo = 0x040;
+//     // Create Contest
+//     Contest = 0x080;
+//     // Create User(allow privilege escalation to same level)
+//     User = 0x100;
+//     // Upload Images
+//     Image = 0x200;
+//     // Delete Message
+//     Message = 0x400;
+//   }
+//   required int32 flags = 1;
+// }
 
 message UpdateUserRequest {
   message Info {
     optional string username = 1;
     optional string password = 2;
-    optional Permission permission = 3;
+    optional Role permission = 3;
   }
   required Info info = 1;
   required UserId id = 2;
@@ -723,7 +730,7 @@ service UserSet {
 
 message TokenInfo {
   required Token token = 1;
-  required Permission permission = 2;
+  required Role permission = 2;
   required google.protobuf.Timestamp expiry = 3;
 }
 

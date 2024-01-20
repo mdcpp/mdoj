@@ -94,10 +94,8 @@ impl super::Filter for Entity {
     }
 
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_manage_submit() || perm.can_root() {
-                return Ok(query);
-            }
+        if auth.user_perm().admin(){
+            return Ok(query);
         }
         Err(Error::Unauthenticated)
     }

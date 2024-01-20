@@ -150,7 +150,7 @@ impl ContestSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_contest()) {
+        if !perm.super_user() {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -191,7 +191,7 @@ impl ContestSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_contest()) {
+        if !perm.super_user() {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -203,7 +203,7 @@ impl ContestSet for Arc<Server> {
 
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
-                if auth.is_root() || self.crypto.hash_eq(&src, tar) {
+                if perm.root() || self.crypto.hash_eq(&src, tar) {
                     let hash = self.crypto.hash(&src).into();
                     model.password = Some(hash);
                 } else {
@@ -254,8 +254,7 @@ impl ContestSet for Arc<Server> {
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
             .one(db)
@@ -265,7 +264,7 @@ impl ContestSet for Arc<Server> {
 
         let empty_password = "".to_string();
         if let Some(tar) = model.password {
-            if (!auth.is_root())
+            if (!perm.root())
                 && (!self
                     .crypto
                     .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))

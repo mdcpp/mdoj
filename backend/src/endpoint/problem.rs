@@ -137,7 +137,7 @@ impl ProblemSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
+        if !(perm.super_user()) {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
@@ -225,6 +225,10 @@ impl ProblemSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        if !perm.admin() {
+            return Err(Error::RequirePermission("Root").into());
+        }
+
         let (contest, model) = try_join!(
             spawn(contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(db)),
             spawn(Entity::read_by_id(req.problem_id.id, &auth)?.one(db))
@@ -238,17 +242,14 @@ impl ProblemSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-        if !(perm.can_root() || perm.can_link()) {
-            if contest.hoster != user_id {
-                return Err(Error::NotInDB("contest").into());
+            if !perm.admin() {
+                if contest.hoster != user_id {
+                    return Err(Error::NotInDB("contest").into());
+                }
+                if model.user_id != user_id {
+                    return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+                }
             }
-            if model.user_id != user_id {
-                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
-            }
-            if !perm.can_manage_contest() {
-                return Err(Error::RequirePermission("Contest").into());
-            }
-        }
 
         let mut model = model.into_active_model();
         model.contest_id = ActiveValue::Set(Some(req.problem_id.id));
@@ -288,7 +289,7 @@ impl ProblemSet for Arc<Server> {
 
         let mut query = Entity::find_by_id(Into::<i32>::into(req));
 
-        if !perm.can_publish() {
+        if !perm.admin() {
             query = Entity::write_filter(query, &auth)?;
         }
 
@@ -316,7 +317,7 @@ impl ProblemSet for Arc<Server> {
 
         let mut query = Entity::find_by_id(Into::<i32>::into(req));
 
-        if !perm.can_publish() {
+        if !perm.super_user() {
             query = Entity::write_filter(query, &auth)?;
         }
 

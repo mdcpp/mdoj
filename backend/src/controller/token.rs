@@ -1,4 +1,4 @@
-use crate::entity::token;
+use crate::{entity::token, util::auth::PermLevel};
 use chrono::{Duration, Local, NaiveDateTime};
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
@@ -46,7 +46,7 @@ impl From<Error> for tonic::Status {
 #[derive(Clone)]
 struct CachedToken {
     user_id: i32,
-    permission: u32,
+    permission: i32,
     expiry: NaiveDateTime,
 }
 
@@ -123,7 +123,7 @@ impl TokenController {
     }
 
     #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
-    pub async fn verify(&self, token: &str) -> Result<(i32, UserPermBytes), Error> {
+    pub async fn verify(&self, token: &str) -> Result<(i32, PermLevel), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
@@ -176,7 +176,7 @@ impl TokenController {
             return Err(Error::Expired);
         }
 
-        Ok((token.user_id, UserPermBytes(token.permission)))
+        Ok((token.user_id, token.permission.try_into().unwrap()))
     }
     #[instrument(skip_all, name="token_remove_controller",level="debug", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
@@ -223,42 +223,42 @@ impl TokenController {
     }
 }
 
-macro_rules! set_bit_value {
-    ($item:ident,$name:ident,$pos:expr) => {
-        paste::paste! {
-            impl $item{
-                pub fn [<can_ $name>](&self)->bool{
-                    let filter = 1_u32<<($pos);
-                    (self.0&filter) == filter
-                }
-                pub fn [<grant_ $name>](&mut self,value:bool){
-                    let filter = 1_u32<<($pos);
-                    if (self.0&filter == filter) ^ value{
-                        self.0 ^= filter;
-                    }
-                }
-            }
-        }
-    };
-}
+// macro_rules! set_bit_value {
+//     ($item:ident,$name:ident,$pos:expr) => {
+//         paste::paste! {
+//             impl $item{
+//                 pub fn [<can_ $name>](&self)->bool{
+//                     let filter = 1_u32<<($pos);
+//                     (self.0&filter) == filter
+//                 }
+//                 pub fn [<grant_ $name>](&mut self,value:bool){
+//                     let filter = 1_u32<<($pos);
+//                     if (self.0&filter == filter) ^ value{
+//                         self.0 ^= filter;
+//                     }
+//                 }
+//             }
+//         }
+//     };
+// }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct UserPermBytes(pub u32);
+// #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+// pub struct PermLevel(pub u32);
 
-impl UserPermBytes {
-    pub fn strict_ge(&self, other: Self) -> bool {
-        (self.0 | other.0) == other.0
-    }
-}
+// impl PermLevel {
+//     pub fn strict_ge(&self, other: Self) -> bool {
+//         (self.0 | other.0) == other.0
+//     }
+// }
 
-set_bit_value!(UserPermBytes, root, 0);
-set_bit_value!(UserPermBytes, manage_problem, 1);
-set_bit_value!(UserPermBytes, manage_education, 2);
-set_bit_value!(UserPermBytes, manage_announcement, 3);
-set_bit_value!(UserPermBytes, manage_submit, 4);
-set_bit_value!(UserPermBytes, publish, 5);
-set_bit_value!(UserPermBytes, link, 6);
-set_bit_value!(UserPermBytes, manage_contest, 7);
-set_bit_value!(UserPermBytes, manage_user, 8);
-set_bit_value!(UserPermBytes, imgur, 9);
-set_bit_value!(UserPermBytes, manage_chat, 10);
+// set_bit_value!(PermLevel, root, 0);
+// set_bit_value!(PermLevel, manage_problem, 1);
+// set_bit_value!(PermLevel, manage_education, 2);
+// set_bit_value!(PermLevel, manage_announcement, 3);
+// set_bit_value!(PermLevel, manage_submit, 4);
+// set_bit_value!(PermLevel, publish, 5);
+// set_bit_value!(PermLevel, link, 6);
+// set_bit_value!(PermLevel, manage_contest, 7);
+// set_bit_value!(PermLevel, manage_user, 8);
+// set_bit_value!(PermLevel, imgur, 9);
+// set_bit_value!(PermLevel, manage_chat, 10);

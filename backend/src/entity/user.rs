@@ -7,7 +7,7 @@ use super::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub permission: u32,
+    pub permission: i32,
     pub score: u32,
     pub username: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
@@ -23,7 +23,7 @@ impl Model {
     pub fn new_with_auth(auth: &Auth) -> Option<Self> {
         auth.ok_or_default().ok().map(|(id, permission)| Self {
             id,
-            permission: permission.0,
+            permission: permission as i32,
             score: Default::default(),
             username: Default::default(),
             password: Default::default(),
@@ -155,7 +155,7 @@ impl super::Filter for Entity {
 
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() || perm.can_manage_user() {
+        if perm.admin() {
             return Ok(query);
         }
         Ok(query.filter(Column::Id.eq(user_id)))

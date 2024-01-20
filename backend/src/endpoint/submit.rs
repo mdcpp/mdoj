@@ -229,7 +229,7 @@ impl SubmitSet for Arc<Server> {
 
         let submit_id = req.id.id;
 
-        if !(perm.can_root() || perm.can_manage_submit()) {
+        if !(perm.super_user()) {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 

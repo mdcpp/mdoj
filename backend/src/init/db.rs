@@ -7,7 +7,7 @@ use tokio::sync::OnceCell;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
-use crate::controller::{crypto::CryptoController, token::UserPermBytes};
+use crate::{controller::{crypto::CryptoController}, util::auth::PermLevel};
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -48,19 +48,10 @@ pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     }
 
     tracing::info!("Setting up admin@admin");
-    let mut perm = UserPermBytes::default();
-
-    perm.grant_link(true);
-    perm.grant_root(true);
-    perm.grant_publish(true);
-    perm.grant_manage_announcement(true);
-    perm.grant_manage_education(true);
-    perm.grant_manage_problem(true);
-    perm.grant_manage_submit(true);
-    perm.grant_manage_contest(true);
+    let mut perm = PermLevel::Root;
 
     crate::entity::user::ActiveModel {
-        permission: ActiveValue::Set(perm.0),
+        permission: ActiveValue::Set(perm as i32),
         username: ActiveValue::Set("admin".to_owned()),
         password: ActiveValue::Set(crypto.hash("admin").into()),
         ..Default::default()

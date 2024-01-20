@@ -55,12 +55,11 @@ impl super::Filter for Entity {
         Ok(query)
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() || perm.can_manage_chat() {
-                return Ok(query);
-            }
+        if auth.user_perm().admin(){
+            return Ok(query);
+
         }
-        Err(Error::Unauthenticated)
+        Err(Error::RequirePermission("Admin"))
     }
 }
 

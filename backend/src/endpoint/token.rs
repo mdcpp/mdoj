@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use super::tools::*;
 
-use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::token_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
@@ -10,6 +9,7 @@ use crate::grpc::into_prost;
 
 use crate::entity::token::*;
 use crate::entity::*;
+use crate::util::auth::PermLevel;
 use tracing::Level;
 
 const TOKEN_LIMIT: u64 = 32;
@@ -39,7 +39,7 @@ impl TokenSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        if req.id != user_id && !perm.can_root() {
+        if req.id != user_id && !perm.root() {
             return Err(Error::RequirePermission("user").into());
         }
 
@@ -81,7 +81,7 @@ impl TokenSet for Arc<Server> {
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: UserPermBytes(model.permission).into(),
+                permission: model.permission,
                 expiry: into_prost(expiry),
             }))
         } else {
@@ -119,7 +119,7 @@ impl TokenSet for Arc<Server> {
             let (token, expiry) = self.token.add(&user, dur).await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: perm.into(),
+                permission: perm as i32,
                 expiry: into_prost(expiry),
             }));
         }
