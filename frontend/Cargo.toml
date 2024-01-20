@@ -31,7 +31,6 @@ gloo-storage = "0.3.0"
 [dependencies.leptos-use]
 version = "0.9.0"
 features = ["serde"]
-
 [dependencies.tonic]
 workspace = true
 default-features = false
