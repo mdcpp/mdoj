@@ -77,7 +77,7 @@ impl EducationSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();

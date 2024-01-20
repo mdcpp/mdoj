@@ -160,7 +160,7 @@ impl AnnouncementSet for Arc<Server> {
         };
 
         if perm.super_user() {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -236,7 +236,7 @@ impl AnnouncementSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
-            return  Err(Error::RequirePermission("super").into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let (contest, model) = try_join!(
@@ -293,12 +293,12 @@ impl AnnouncementSet for Arc<Server> {
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
 
         if !perm.admin() {
-            return Err(Error::RequirePermission("Root").into());
+            return Err(Error::RequirePermission(PermLevel::Root).into());
         }
 
         let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
@@ -319,12 +319,12 @@ impl AnnouncementSet for Arc<Server> {
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
 
         if !perm.admin() {
-            return Err(Error::RequirePermission("Root").into());
+            return Err(Error::RequirePermission(PermLevel::Root).into());
         }
 
         let mut announcement = Entity::find_by_id(Into::<i32>::into(req))

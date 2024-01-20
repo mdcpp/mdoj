@@ -75,7 +75,7 @@ impl TestcaseSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission("Problem").into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -146,8 +146,8 @@ impl TestcaseSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        if !perm.super_user(){
-            return Err(Error::RequirePermission("Super").into());
+        if !perm.super_user() {
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let (problem, model) = try_join!(
@@ -216,7 +216,7 @@ impl TestcaseSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
-            return Err(Error::RequirePermission("Root").into());
+            return Err(Error::RequirePermission(PermLevel::Root).into());
         }
 
         //

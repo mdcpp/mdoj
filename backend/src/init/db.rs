@@ -7,7 +7,7 @@ use tokio::sync::OnceCell;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
-use crate::{controller::{crypto::CryptoController}, util::auth::PermLevel};
+use crate::{controller::crypto::CryptoController, util::auth::PermLevel};
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 

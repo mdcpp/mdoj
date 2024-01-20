@@ -164,7 +164,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::Hoster.eq(user_id)));
         }
-        Err(Error::PermissionDeny("Can't write contest"))
+        Err(Error::NotInDB(Entity::DEBUG_NAME))
     }
 }
 

@@ -1,3 +1,5 @@
+use crate::util::auth::PermLevel;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -55,11 +57,10 @@ impl super::Filter for Entity {
         Ok(query)
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if auth.user_perm().admin(){
+        if auth.user_perm().admin() {
             return Ok(query);
-
         }
-        Err(Error::RequirePermission("Admin"))
+        Err(Error::RequirePermission(PermLevel::Admin))
     }
 }
 

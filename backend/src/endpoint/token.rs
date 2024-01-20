@@ -3,13 +3,10 @@ use std::time::Duration;
 use super::tools::*;
 
 use crate::grpc::backend::token_set_server::*;
-use crate::grpc::backend::*;
-use crate::grpc::into_chrono;
-use crate::grpc::into_prost;
+use crate::grpc::{backend::*, into_chrono, into_prost};
 
 use crate::entity::token::*;
 use crate::entity::*;
-use crate::util::auth::PermLevel;
 use tracing::Level;
 
 const TOKEN_LIMIT: u64 = 32;
@@ -40,7 +37,7 @@ impl TokenSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if req.id != user_id && !perm.root() {
-            return Err(Error::RequirePermission("user").into());
+            return Err(Error::Unauthenticated.into());
         }
 
         let tokens = Entity::find()
@@ -86,7 +83,7 @@ impl TokenSet for Arc<Server> {
             }))
         } else {
             tracing::trace!("password_mismatch");
-            Err(Error::PermissionDeny("password").into())
+            Err(Error::PermissionDeny("wrong password").into())
         }
     }
     #[instrument(skip_all, level = "debug")]

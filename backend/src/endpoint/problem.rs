@@ -138,7 +138,7 @@ impl ProblemSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -226,7 +226,7 @@ impl ProblemSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
-            return Err(Error::RequirePermission("Root").into());
+            return Err(Error::RequirePermission(PermLevel::Root).into());
         }
 
         let (contest, model) = try_join!(
@@ -242,14 +242,14 @@ impl ProblemSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-            if !perm.admin() {
-                if contest.hoster != user_id {
-                    return Err(Error::NotInDB("contest").into());
-                }
-                if model.user_id != user_id {
-                    return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
-                }
+        if !perm.admin() {
+            if contest.hoster != user_id {
+                return Err(Error::NotInDB("contest").into());
             }
+            if model.user_id != user_id {
+                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            }
+        }
 
         let mut model = model.into_active_model();
         model.contest_id = ActiveValue::Set(Some(req.problem_id.id));

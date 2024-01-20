@@ -107,8 +107,8 @@ impl UserSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        if !perm.admin(){
-            return Err(Error::RequirePermission("Admin").into());
+        if !perm.admin() {
+            return Err(Error::RequirePermission(PermLevel::Admin).into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
@@ -117,7 +117,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.admin()) {
-            return Err(Error::PermissionDeny("Can't create user").into());
+            return Err(Error::RequirePermission(PermLevel::Admin).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -133,15 +133,13 @@ impl UserSet for Arc<Server> {
             return Err(Error::AlreadyExist("").into());
         }
 
-
         let hash = self.crypto.hash(req.info.password.as_str()).into();
         model.password = ActiveValue::set(hash);
 
-        let new_perm:PermLevel=req.info.permission().into();
+        let new_perm: PermLevel = req.info.permission().into();
         if !perm.root() {
-            if new_perm >= perm{
-                return Err(Error::PermissionDeny("Can't set permission").into());
-
+            if new_perm >= perm {
+                return Err(Error::RequirePermission(new_perm).into());
             }
         }
 
@@ -171,7 +169,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.admin()) {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Admin).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -189,14 +187,14 @@ impl UserSet for Arc<Server> {
             model.password = ActiveValue::set(hash);
         }
         if let Some(new_perm) = req.info.permission {
-            let new_perm:Role =new_perm.try_into().unwrap_or_default();
-            let new_perm:PermLevel=new_perm.into();
+            let new_perm: Role = new_perm.try_into().unwrap_or_default();
+            let new_perm: PermLevel = new_perm.into();
             if !perm.admin() {
-                return Err(Error::RequirePermission("Admin").into());
+                return Err(Error::RequirePermission(PermLevel::Admin).into());
             }
-            if !perm.root(){
-                if new_perm>perm{
-                return Err(Error::RequirePermission("Root").into());
+            if !perm.root() {
+                if new_perm > perm {
+                    return Err(Error::RequirePermission(PermLevel::Root).into());
                 }
             }
             model.permission = ActiveValue::set(new_perm as i32);
@@ -225,8 +223,6 @@ impl UserSet for Arc<Server> {
 
         self.metrics.user.add(-1, &[]);
 
-        // TODO: remove user's token
-
         self.token.remove_by_user_id(req.id).await?;
 
         Ok(Response::new(()))
@@ -248,7 +244,7 @@ impl UserSet for Arc<Server> {
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
-            return Err(Error::PermissionDeny("password").into());
+            return Err(Error::PermissionDeny("wrong original password").into());
         }
 
         let mut model = model.into_active_model();

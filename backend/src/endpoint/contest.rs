@@ -151,7 +151,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -192,7 +192,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
+            return Err(Error::RequirePermission(PermLevel::Super).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -208,7 +208,7 @@ impl ContestSet for Arc<Server> {
                     model.password = Some(hash);
                 } else {
                     return Err(Error::PermissionDeny(
-                        "password should match in order to update password!",
+                        "mismatch password(root can update password without entering original password)",
                     )
                     .into());
                 }
@@ -270,7 +270,7 @@ impl ContestSet for Arc<Server> {
                     .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
                 && model.public
             {
-                return Err(Error::PermissionDeny("contest password mismatch").into());
+                return Err(Error::PermissionDeny("mismatched password").into());
             }
         }
 

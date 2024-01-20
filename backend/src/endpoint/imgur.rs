@@ -11,11 +11,7 @@ impl ImgurSet for Arc<Server> {
         req: Request<UploadRequest>,
     ) -> Result<Response<UploadResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, perm) = auth.ok_or_default()?;
-
-        // if (!perm.can_imgur()) & (!perm.can_root()) {
-        //     return Err(Error::RequirePermission("image").into());
-        // }
+        let (user_id, _) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
 

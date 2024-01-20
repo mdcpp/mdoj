@@ -190,7 +190,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::PermissionDeny("Can't write problem"))
+        Err(Error::NotInDB(Entity::DEBUG_NAME))
     }
 }
 

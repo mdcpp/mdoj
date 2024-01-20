@@ -84,7 +84,6 @@ impl ChatSet for Arc<Server> {
         let size = req.size;
         let offset = req.offset();
 
-        let mut reverse = false;
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);

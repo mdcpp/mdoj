@@ -2,6 +2,8 @@ use tonic::Status;
 
 use crate::report_internal;
 
+use super::auth::PermLevel;
+
 /// Centralized Error for endpoint, usually calling with `Into::into()`
 /// to tramsform it into `Status` immediately
 #[derive(Debug, thiserror::Error)]
@@ -18,8 +20,6 @@ pub enum Error {
     Unauthenticated,
     #[error("Not in database: `{0}`")]
     NotInDB(&'static str),
-    #[error("Invaild Pager`{0}`")]
-    PaginationError(&'static str),
     #[error("Invaild request_id")]
     InvaildUUID(#[from] uuid::Error),
     #[error("Function should be unreachable!")]
@@ -33,7 +33,7 @@ pub enum Error {
     #[error("You need to own `{0}` to add thing onto it")]
     Add(&'static str),
     #[error("require permission `{0}`")]
-    RequirePermission(&'static str),
+    RequirePermission(PermLevel),
 }
 
 impl From<Error> for Status {
@@ -59,10 +59,6 @@ impl From<Error> for Status {
             Error::NotInDB(x) => {
                 tracing::trace!(entity = x, "database_notfound");
                 Status::not_found("")
-            }
-            Error::PaginationError(x) => {
-                tracing::debug!(hint = x, "pager_invaild");
-                Status::failed_precondition(x)
             }
             Error::InvaildUUID(err) => {
                 tracing::trace!(reason=?err,"requestid_invaild");
