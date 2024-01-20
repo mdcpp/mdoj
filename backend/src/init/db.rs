@@ -7,7 +7,7 @@ use tokio::sync::OnceCell;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
-use crate::{controller::crypto::CryptoController, util::auth::PermLevel};
+use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
 pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -48,7 +48,7 @@ pub async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     }
 
     tracing::info!("Setting up admin@admin");
-    let perm = PermLevel::Root;
+    let perm = RoleLv::Root;
 
     crate::entity::user::ActiveModel {
         permission: ActiveValue::Set(perm as i32),

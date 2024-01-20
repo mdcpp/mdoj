@@ -49,12 +49,14 @@ impl EducationSet for Arc<Server> {
         let offset = req.offset();
         let rev = req.reverse();
 
-        let (pager, models) = match req.pager {
-            Some(pager) => {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_education_request::Request::Pager(pager) => {
                 let pager: Paginator = self.crypto.decode(pager.session)?;
                 pager.fetch(&auth, size, offset, rev).await
             }
-            None => Paginator::new_fetch((), &auth, size, offset, rev).await,
+            list_education_request::Request::StartFromEnd(rev) => {
+                Paginator::new_fetch((), &auth, size, offset, rev).await
+            }
         }?;
 
         let next_session = self.crypto.encode(pager)?;
@@ -77,7 +79,7 @@ impl EducationSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -212,9 +214,16 @@ impl EducationSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                ParentPaginator::new_fetch(ppk, &auth, size, offset, true).await
+            list_by_request::Request::Create(create) => {
+                tracing::debug!(id = create.parent_id);
+                ParentPaginator::new_fetch(
+                    create.parent_id,
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;

@@ -78,7 +78,7 @@ impl TokenSet for Arc<Server> {
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: model.permission,
+                role: model.permission,
                 expiry: into_prost(expiry),
             }))
         } else {
@@ -116,7 +116,7 @@ impl TokenSet for Arc<Server> {
             let (token, expiry) = self.token.add(&user, dur).await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: perm as i32,
+                role: perm as i32,
                 expiry: into_prost(expiry),
             }));
         }

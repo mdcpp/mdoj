@@ -28,7 +28,7 @@ pub async fn inner_admin_token() -> String {
 
     let res = res.into_inner();
 
-    assert_eq!(res.permission(), Role::Root);
+    assert_eq!(res.role(), Role::Root);
 
     res.token.signature
 }

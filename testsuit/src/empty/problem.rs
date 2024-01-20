@@ -24,7 +24,7 @@ async fn list_problem(#[case] size: u64, #[case] code: Code) {
             request: Some(list_problem_request::Request::Create(
                 list_problem_request::Create {
                     sort_by: ProblemSortBy::Order as i32,
-                    reverse: false,
+                    start_from_end: Some(false),
                 },
             )),
         })
@@ -45,7 +45,8 @@ async fn list_problem_by_contest(#[case] size: u64, #[case] code: Code) {
         .list_by_contest(crate::grpc::backend::ListByRequest {
             size,
             offset: Some(0),
-            request: Some(list_by_request::Request::ParentId(1)),
+            request: Some(list_by_request::Request::Create(list_by_request::Create { parent_id: 1, start_from_end:false })),
+            reverse:None
         })
         .await;
 

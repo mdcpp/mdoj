@@ -85,10 +85,16 @@ impl ChatSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
-                    .await
+            list_by_request::Request::Create(create) => {
+                tracing::debug!(id = create.parent_id);
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;

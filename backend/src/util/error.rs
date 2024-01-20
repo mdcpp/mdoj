@@ -2,7 +2,7 @@ use tonic::Status;
 
 use crate::report_internal;
 
-use super::auth::PermLevel;
+use super::auth::RoleLv;
 
 /// Centralized Error for endpoint, usually calling with `Into::into()`
 /// to tramsform it into `Status` immediately
@@ -33,7 +33,7 @@ pub enum Error {
     #[error("You need to own `{0}` to add thing onto it")]
     Add(&'static str),
     #[error("require permission `{0}`")]
-    RequirePermission(PermLevel),
+    RequirePermission(RoleLv),
 }
 
 impl From<Error> for Status {

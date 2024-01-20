@@ -7,7 +7,7 @@ use super::error::Error;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Debug)]
 #[repr(i32)]
-pub enum PermLevel {
+pub enum RoleLv {
     Guest = 0,
     User = 1,
     Super = 2,
@@ -15,30 +15,30 @@ pub enum PermLevel {
     Root = 4,
 }
 
-impl Display for PermLevel {
+impl Display for RoleLv {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PermLevel::Guest => write!(f, "\"Guest\""),
-            PermLevel::User => write!(f, "\"User\""),
-            PermLevel::Super => write!(f, "\"Super User\""),
-            PermLevel::Admin => write!(f, "\"Admin\""),
-            PermLevel::Root => write!(f, "\"Root\""),
+            RoleLv::Guest => write!(f, "\"Guest\""),
+            RoleLv::User => write!(f, "\"User\""),
+            RoleLv::Super => write!(f, "\"Super User\""),
+            RoleLv::Admin => write!(f, "\"Admin\""),
+            RoleLv::Root => write!(f, "\"Root\""),
         }
     }
 }
 
-impl From<Role> for PermLevel {
+impl From<Role> for RoleLv {
     fn from(value: Role) -> Self {
         match value {
-            Role::User => PermLevel::User,
-            Role::Super => PermLevel::Super,
-            Role::Admin => PermLevel::Admin,
-            Role::Root => PermLevel::Root,
+            Role::User => RoleLv::User,
+            Role::Super => RoleLv::Super,
+            Role::Admin => RoleLv::Admin,
+            Role::Root => RoleLv::Root,
         }
     }
 }
 
-impl TryFrom<i32> for PermLevel {
+impl TryFrom<i32> for RoleLv {
     type Error = super::error::Error;
 
     fn try_from(value: i32) -> Result<Self, Self::Error> {
@@ -48,12 +48,12 @@ impl TryFrom<i32> for PermLevel {
             2 => Ok(Self::Super),
             3 => Ok(Self::Admin),
             4 => Ok(Self::Root),
-            _ => Err(Error::Unreachable("Invaild PermLevel")),
+            _ => Err(Error::Unreachable("Invaild RoleLv")),
         }
     }
 }
 
-impl PermLevel {
+impl RoleLv {
     pub fn user(&self) -> bool {
         *self as i32 >= 1
     }
@@ -70,17 +70,17 @@ impl PermLevel {
 
 pub enum Auth {
     Guest,
-    User((i32, PermLevel)),
+    User((i32, RoleLv)),
 }
 
 impl Auth {
     pub fn is_guest(&self) -> bool {
         matches!(self, Auth::Guest)
     }
-    pub fn user_perm(&self) -> PermLevel {
+    pub fn user_perm(&self) -> RoleLv {
         match self {
             Auth::User((_, x)) => *x,
-            _ => PermLevel::Guest,
+            _ => RoleLv::Guest,
         }
     }
     pub fn user_id(&self) -> Option<i32> {
@@ -89,13 +89,13 @@ impl Auth {
             _ => None,
         }
     }
-    pub fn ok_or(&self, err: Error) -> Result<(i32, PermLevel), Error> {
+    pub fn ok_or(&self, err: Error) -> Result<(i32, RoleLv), Error> {
         match self {
             Auth::User(x) => Ok(*x),
             _ => Err(err),
         }
     }
-    pub fn ok_or_default(&self) -> Result<(i32, PermLevel), Error> {
+    pub fn ok_or_default(&self) -> Result<(i32, RoleLv), Error> {
         self.ok_or(Error::PermissionDeny(
             "Only signed in user is allow in this endpoint",
         ))

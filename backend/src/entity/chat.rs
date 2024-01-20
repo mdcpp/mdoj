@@ -1,4 +1,4 @@
-use crate::util::auth::PermLevel;
+use crate::util::auth::RoleLv;
 
 use super::*;
 
@@ -60,7 +60,7 @@ impl super::Filter for Entity {
         if auth.user_perm().admin() {
             return Ok(query);
         }
-        Err(Error::RequirePermission(PermLevel::Admin))
+        Err(Error::RequirePermission(RoleLv::Admin))
     }
 }
 

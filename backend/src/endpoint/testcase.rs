@@ -47,12 +47,14 @@ impl TestcaseSet for Arc<Server> {
         let size = req.size;
         let offset = req.offset();
 
-        let (pager, models) = match req.pager {
-            Some(old) => {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_testcase_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
                 pager.fetch(&auth, size, offset, old.reverse).await
             }
-            None => ColPaginator::new_fetch(Default::default(), &auth, size, offset, true).await,
+            list_testcase_request::Request::StartFromEnd(rev) => {
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev).await
+            }
         }?;
 
         let next_session = self.crypto.encode(pager)?;
@@ -75,7 +77,7 @@ impl TestcaseSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -147,7 +149,7 @@ impl TestcaseSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let (problem, model) = try_join!(
@@ -216,7 +218,7 @@ impl TestcaseSet for Arc<Server> {
         let (_, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
-            return Err(Error::RequirePermission(PermLevel::Root).into());
+            return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
         //
@@ -246,9 +248,15 @@ impl TestcaseSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
-                    .await
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;

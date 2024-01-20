@@ -28,15 +28,15 @@ impl From<Model> for UserInfo {
     }
 }
 
-// impl From<PermLevel> for Permission {
-//     fn from(value: PermLevel) -> Self {
+// impl From<RoleLv> for Permission {
+//     fn from(value: RoleLv) -> Self {
 //         Permission { flags: value }
 //     }
 // }
 
-// impl From<Permission> for PermLevel {
+// impl From<Permission> for RoleLv {
 //     fn from(value: Permission) -> Self {
-//         PermLevel(value.flags)
+//         RoleLv(value.flags)
 //     }
 // }
 
@@ -58,7 +58,7 @@ impl UserSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.reverse,
+                    create.start_from_end,
                 )
                 .await
             }
@@ -108,7 +108,7 @@ impl UserSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
-            return Err(Error::RequirePermission(PermLevel::Admin).into());
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
@@ -117,7 +117,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.admin()) {
-            return Err(Error::RequirePermission(PermLevel::Admin).into());
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -136,7 +136,7 @@ impl UserSet for Arc<Server> {
         let hash = self.crypto.hash(req.info.password.as_str()).into();
         model.password = ActiveValue::set(hash);
 
-        let new_perm: PermLevel = req.info.permission().into();
+        let new_perm: RoleLv = req.info.role().into();
         if !perm.root() && new_perm >= perm {
             return Err(Error::RequirePermission(new_perm).into());
         }
@@ -167,7 +167,7 @@ impl UserSet for Arc<Server> {
         };
 
         if !(perm.admin()) {
-            return Err(Error::RequirePermission(PermLevel::Admin).into());
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -184,14 +184,14 @@ impl UserSet for Arc<Server> {
             let hash = self.crypto.hash(password.as_str()).into();
             model.password = ActiveValue::set(hash);
         }
-        if let Some(new_perm) = req.info.permission {
+        if let Some(new_perm) = req.info.role {
             let new_perm: Role = new_perm.try_into().unwrap_or_default();
-            let new_perm: PermLevel = new_perm.into();
+            let new_perm: RoleLv = new_perm.into();
             if !perm.admin() {
-                return Err(Error::RequirePermission(PermLevel::Admin).into());
+                return Err(Error::RequirePermission(RoleLv::Admin).into());
             }
             if !perm.root() && new_perm > perm {
-                return Err(Error::RequirePermission(PermLevel::Root).into());
+                return Err(Error::RequirePermission(RoleLv::Root).into());
             }
             model.permission = ActiveValue::set(new_perm as i32);
             todo!();

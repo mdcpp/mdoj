@@ -298,6 +298,7 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
             ProblemSortBy::SubmitCount => Column::SubmitCount,
             ProblemSortBy::Difficulty => Column::Difficulty,
             ProblemSortBy::Order => Column::Order,
+            ProblemSortBy::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -311,6 +312,7 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
             ProblemSortBy::SubmitCount => model.submit_count.to_string(),
             ProblemSortBy::Difficulty => model.difficulty.to_string(),
             ProblemSortBy::Order => model.order.to_string(),
+            ProblemSortBy::Public => model.public.to_string(),
         }
     }
 }

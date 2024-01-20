@@ -47,12 +47,17 @@ message TextSearchRequest {
 }
 
 message ListByRequest {
+  message Create{
+    required int32 parent_id = 1;
+    required bool start_from_end =3;
+  }
   oneof request {
-    int32 parent_id = 1;
+    Create create=1;
     Paginator pager = 2;
   }
   required uint64 size = 3;
   optional uint64 offset = 4;
+  optional bool reverse = 5 ;
 }
 
 message Case {
@@ -145,7 +150,7 @@ enum SubmitSortBy {
 message ListSubmitRequest {
   message Create {
     required SubmitSortBy sort_by = 1;
-    required bool reverse = 2;
+    required bool start_from_end =3;
   }
   oneof request {
     Create create = 1;
@@ -153,6 +158,7 @@ message ListSubmitRequest {
   }
   required uint64 size = 3;
   optional uint64 offset = 4;
+  optional bool reverse = 5 ;
 }
 
 service SubmitSet {
@@ -220,12 +226,13 @@ message UpdateAnnouncementRequest {
 enum AnnouncementSortBy {
   ANNOUNCEMENT_SORT_BY_UPDATE_DATE = 0;
   ANNOUNCEMENT_SORT_BY_CREATE_DATE = 1;
+  ANNOUNCEMENT_SORT_BY_PUBLIC = 2;
 }
 
 message ListAnnouncementRequest {
   message Create {
     required AnnouncementSortBy sort_by = 1;
-    required bool reverse = 2;
+    required bool start_from_end =7;
   }
   oneof request {
     Create create = 1;
@@ -233,6 +240,7 @@ message ListAnnouncementRequest {
   }
   required uint64 size = 3;
   optional uint64 offset = 4;
+  optional bool reverse=5;
 }
 
 service AnnouncementSet {
@@ -310,7 +318,10 @@ message UpdateEducationRequest {
 }
 
 message ListEducationRequest {
-  optional Paginator pager = 2;
+  oneof request {
+    bool start_from_end =1;
+    Paginator pager =2;
+  }
   optional bool reverse = 5;
   required uint64 size = 3;
   optional uint64 offset = 4;
@@ -401,12 +412,13 @@ enum ProblemSortBy {
   PROBLEM_SORT_BY_SUBMIT_COUNT = 3;
   PROBLEM_SORT_BY_DIFFICULTY = 4;
   PROBLEM_SORT_BY_ORDER = 5;
+  PROBLEM_SORT_BY_PUBLIC = 6;
 }
 
 message ListProblemRequest {
   message Create {
     required ProblemSortBy sort_by = 1;
-    required bool reverse = 2;
+    optional bool start_from_end =2;
   }
   oneof request {
     Create create = 1;
@@ -483,7 +495,10 @@ message UpdateTestcaseRequest {
 }
 
 message ListTestcaseRequest {
-  optional Paginator pager = 5;
+  oneof request{
+    bool start_from_end = 2;
+    Paginator pager = 5;
+  } 
   optional bool reverse = 6;
   required uint64 size = 3;
   optional uint64 offset = 4;
@@ -577,17 +592,19 @@ enum ContestSortBy {
   CONTEST_SORT_BY_UPDATE_DATE = 1;
   CONTEST_SORT_BY_BEGIN = 2;
   CONTEST_SORT_BY_END = 3;
+  CONTEST_SORT_BY_PUBLIC = 4;
 }
 
 message ListContestRequest {
   message Create {
     required ContestSortBy sort_by = 1;
-    required bool reverse = 2;
+    required bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
+  optional bool reverse = 6;
   required uint64 size = 3;
   optional uint64 offset = 4;
 }
@@ -633,7 +650,7 @@ message CreateUserRequest {
   message Info {
     required string username = 1;
     required string password = 2;
-    required Role permission = 4;
+    required Role role = 4;
   }
   required Info info = 1;
   required string request_id = 3;
@@ -646,44 +663,11 @@ enum Role{
   Root=4;
 }
 
-// permission of a user
-//
-// recommanded permission:
-// 1. allow user to create contest(like codeforce): 0x20e
-// 2. don't allow: 0x200
-// message Role {
-//   enum Flags {
-//     // Allow all, note that root is require to publish announcement(except contest announcement)
-//     Root = 0x001;
-//     // Create Unpublished Problem
-//     Problem = 0x002;
-//     // Create Education, must be added to problem before visible
-//     Education = 0x004;
-//     // Create Unpublished Announcement
-//     Announcement = 0x008;
-//     // Delete/Rejudge
-//     Submit = 0x010;
-//     // Publish unowned problem and contest
-//     Publish = 0x020;
-//     // Add unowned entity to Any
-//     AddTo = 0x040;
-//     // Create Contest
-//     Contest = 0x080;
-//     // Create User(allow privilege escalation to same level)
-//     User = 0x100;
-//     // Upload Images
-//     Image = 0x200;
-//     // Delete Message
-//     Message = 0x400;
-//   }
-//   required int32 flags = 1;
-// }
-
 message UpdateUserRequest {
   message Info {
     optional string username = 1;
     optional string password = 2;
-    optional Role permission = 3;
+    optional Role role = 3;
   }
   required Info info = 1;
   required UserId id = 2;
@@ -704,12 +688,13 @@ enum UserSortBy {
 message ListUserRequest {
   message Create {
     required UserSortBy sort_by = 1;
-    required bool reverse = 2;
+    required bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
+  optional bool reverse = 6;
   required uint64 size = 3;
   optional uint64 offset = 4;
 }
@@ -730,7 +715,7 @@ service UserSet {
 
 message TokenInfo {
   required Token token = 1;
-  required Role permission = 2;
+  required Role role = 2;
   required google.protobuf.Timestamp expiry = 3;
 }
 
@@ -740,7 +725,6 @@ message Tokens { repeated Token list = 1; }
 message LoginRequest {
   required string username = 1;
   required string password = 2;
-  // in second
   optional uint64 expiry = 3;
 }
 
@@ -808,7 +792,7 @@ message CreateChatRequest{
 }
 
 service ChatSet {
-  // unlike other entity, there is no such permission as manage_chat
+  // unlike other entity, there is no such role as manage_chat
   // everyone(except guest) can create chat
   rpc Create(CreateChatRequest) returns (ChatId);
   rpc Remove(ChatId) returns (google.protobuf.Empty);

@@ -229,17 +229,19 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
             ContestSortBy::CreateDate => Column::CreateAt,
             ContestSortBy::Begin => Column::Begin,
             ContestSortBy::End => Column::End,
+            ContestSortBy::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
         &data.1
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
-        match data.0 {
-            ContestSortBy::UpdateDate => data.1 = model.update_at.to_string(),
-            ContestSortBy::CreateDate => data.1 = model.create_at.to_string(),
-            ContestSortBy::Begin => data.1 = model.begin.to_string(),
-            ContestSortBy::End => data.1 = model.end.to_string(),
+        data.1 = match data.0 {
+            ContestSortBy::UpdateDate => model.update_at.to_string(),
+            ContestSortBy::CreateDate => model.create_at.to_string(),
+            ContestSortBy::Begin => model.begin.to_string(),
+            ContestSortBy::End => model.end.to_string(),
+            ContestSortBy::Public => model.public.to_string(),
         }
     }
 }

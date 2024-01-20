@@ -13,7 +13,7 @@ pub mod user;
 mod tools {
     pub use crate::entity::util::paginator::Pager;
 
-    pub use crate::util::auth::PermLevel;
+    pub use crate::util::auth::RoleLv;
 
     // pub use crate::entity::util::paginator::Pager;
     pub use crate::entity::DebugName;

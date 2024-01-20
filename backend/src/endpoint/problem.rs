@@ -65,7 +65,7 @@ impl ProblemSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.reverse,
+                    create.start_from_end(),
                 )
                 .await
             }
@@ -138,7 +138,7 @@ impl ProblemSet for Arc<Server> {
         };
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -226,7 +226,7 @@ impl ProblemSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
-            return Err(Error::RequirePermission(PermLevel::Root).into());
+            return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
         let (contest, model) = try_join!(
@@ -369,10 +369,16 @@ impl ProblemSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
-                    .await
+            list_by_request::Request::Create(create) => {
+                tracing::debug!(id = create.parent_id);
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;

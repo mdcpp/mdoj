@@ -192,7 +192,7 @@ impl PagerSource for ColPagerTrait {
 
     type Entity = Entity;
 
-    type Data = (AnnouncementSortBy, chrono::NaiveDateTime);
+    type Data = (AnnouncementSortBy, String);
 
     const TYPE_NUMBER: u8 = 8;
 
@@ -207,15 +207,17 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
         match data.0 {
             AnnouncementSortBy::UpdateDate => Column::UpdateAt,
             AnnouncementSortBy::CreateDate => Column::CreateAt,
+            AnnouncementSortBy::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
-        data.1
+        &data.1
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
-        match data.0 {
-            AnnouncementSortBy::UpdateDate => data.1 = model.update_at,
-            AnnouncementSortBy::CreateDate => data.1 = model.create_at,
+        data.1 =match data.0 {
+            AnnouncementSortBy::UpdateDate => model.update_at.to_string(),
+            AnnouncementSortBy::CreateDate =>  model.create_at.to_string(),
+            AnnouncementSortBy::Public => model.public.to_string(),
         }
     }
 }

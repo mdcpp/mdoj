@@ -79,7 +79,7 @@ impl ContestSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.reverse,
+                    create.start_from_end,
                 )
                 .await
             }
@@ -151,7 +151,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -192,7 +192,7 @@ impl ContestSet for Arc<Server> {
         };
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?

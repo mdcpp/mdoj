@@ -98,9 +98,15 @@ impl SubmitSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
-                    .await
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
@@ -230,7 +236,7 @@ impl SubmitSet for Arc<Server> {
         let submit_id = req.id.id;
 
         if !(perm.super_user()) {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

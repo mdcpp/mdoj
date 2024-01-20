@@ -326,7 +326,7 @@ impl MigrationTrait for Migration {
                             .from(Problem::Table, Problem::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(Problem::ContestId).integer().not_null())
+                    .col(ColumnDef::new(Problem::ContestId).integer())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-problem-contest")

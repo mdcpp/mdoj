@@ -1,4 +1,4 @@
-use crate::{entity::token, util::auth::PermLevel};
+use crate::{entity::token, util::auth::RoleLv};
 use chrono::{Duration, Local, NaiveDateTime};
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
@@ -123,7 +123,7 @@ impl TokenController {
     }
 
     #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
-    pub async fn verify(&self, token: &str) -> Result<(i32, PermLevel), Error> {
+    pub async fn verify(&self, token: &str) -> Result<(i32, RoleLv), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
@@ -243,22 +243,22 @@ impl TokenController {
 // }
 
 // #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-// pub struct PermLevel(pub u32);
+// pub struct RoleLv(pub u32);
 
-// impl PermLevel {
+// impl RoleLv {
 //     pub fn strict_ge(&self, other: Self) -> bool {
 //         (self.0 | other.0) == other.0
 //     }
 // }
 
-// set_bit_value!(PermLevel, root, 0);
-// set_bit_value!(PermLevel, manage_problem, 1);
-// set_bit_value!(PermLevel, manage_education, 2);
-// set_bit_value!(PermLevel, manage_announcement, 3);
-// set_bit_value!(PermLevel, manage_submit, 4);
-// set_bit_value!(PermLevel, publish, 5);
-// set_bit_value!(PermLevel, link, 6);
-// set_bit_value!(PermLevel, manage_contest, 7);
-// set_bit_value!(PermLevel, manage_user, 8);
-// set_bit_value!(PermLevel, imgur, 9);
-// set_bit_value!(PermLevel, manage_chat, 10);
+// set_bit_value!(RoleLv, root, 0);
+// set_bit_value!(RoleLv, manage_problem, 1);
+// set_bit_value!(RoleLv, manage_education, 2);
+// set_bit_value!(RoleLv, manage_announcement, 3);
+// set_bit_value!(RoleLv, manage_submit, 4);
+// set_bit_value!(RoleLv, publish, 5);
+// set_bit_value!(RoleLv, link, 6);
+// set_bit_value!(RoleLv, manage_contest, 7);
+// set_bit_value!(RoleLv, manage_user, 8);
+// set_bit_value!(RoleLv, imgur, 9);
+// set_bit_value!(RoleLv, manage_chat, 10);

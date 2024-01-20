@@ -54,15 +54,6 @@ impl From<PartialModel> for AnnouncementInfo {
     }
 }
 
-impl From<AnnouncementSortBy> for Column {
-    fn from(value: AnnouncementSortBy) -> Self {
-        match value {
-            AnnouncementSortBy::UpdateDate => Column::UpdateAt,
-            AnnouncementSortBy::CreateDate => Column::CreateAt,
-        }
-    }
-}
-
 #[async_trait]
 impl AnnouncementSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
@@ -81,7 +72,7 @@ impl AnnouncementSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.reverse,
+                    create.start_from_end,
                 )
                 .await
             }
@@ -160,7 +151,7 @@ impl AnnouncementSet for Arc<Server> {
         };
 
         if perm.super_user() {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -236,7 +227,7 @@ impl AnnouncementSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
-            return Err(Error::RequirePermission(PermLevel::Super).into());
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let (contest, model) = try_join!(
@@ -298,7 +289,7 @@ impl AnnouncementSet for Arc<Server> {
         tracing::debug!(id = req.id);
 
         if !perm.admin() {
-            return Err(Error::RequirePermission(PermLevel::Root).into());
+            return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
         let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
@@ -324,7 +315,7 @@ impl AnnouncementSet for Arc<Server> {
         tracing::debug!(id = req.id);
 
         if !perm.admin() {
-            return Err(Error::RequirePermission(PermLevel::Root).into());
+            return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
         let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
@@ -375,9 +366,16 @@ impl AnnouncementSet for Arc<Server> {
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(id) => {
-                ParentPaginator::new_fetch((id, Default::default()), &auth, size, offset, true)
-                    .await
+            list_by_request::Request::Create(create) => {
+                tracing::debug!(id = create.parent_id);
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
