@@ -43,6 +43,7 @@ impl From<Model> for ProblemFullInfo {
                 submit_count: value.submit_count,
                 ac_rate: value.ac_rate,
             },
+            author: value.user_id.into(),
         }
     }
 }

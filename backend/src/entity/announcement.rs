@@ -214,9 +214,9 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
         &data.1
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
-        data.1 =match data.0 {
+        data.1 = match data.0 {
             AnnouncementSortBy::UpdateDate => model.update_at.to_string(),
-            AnnouncementSortBy::CreateDate =>  model.create_at.to_string(),
+            AnnouncementSortBy::CreateDate => model.create_at.to_string(),
             AnnouncementSortBy::Public => model.public.to_string(),
         }
     }

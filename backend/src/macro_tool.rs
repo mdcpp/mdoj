@@ -54,8 +54,3 @@ macro_rules! ofl {
         $n.try_into().map_err(|_| Error::NumberTooLarge)?
     };
 }
-
-#[macro_export]
-macro_rules! default_pager_source {
-    () => {};
-}
