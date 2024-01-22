@@ -309,19 +309,9 @@ impl ContestSet for Arc<Server> {
     async fn rank(&self, req: Request<ContestId>) -> Result<Response<Users>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (user_id, _) = auth.ok_or_default()?;
 
-        let user = user::Entity::find_by_id(user_id)
-            .column(user::Column::Id)
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
-
-        let contest = user
-            .find_related(Entity)
-            .column(Column::Id)
-            .filter(Column::Id.eq(Into::<i32>::into(req.id)))
+        let contest: IdModel = Entity::related_read_by_id(&auth, req.id)
+            .into_partial_model()
             .one(db)
             .await
             .map_err(Into::<Error>::into)?

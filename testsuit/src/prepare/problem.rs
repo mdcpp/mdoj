@@ -18,16 +18,14 @@ use crate::{
 };
 
 #[rstest]
-async fn create_problem(#[future]admin_token: String) {
+async fn create_problem(#[future] admin_token: String) {
     create_problem_inner(admin_token.await).await
 }
 
 #[cached]
 async fn create_problem_inner(admin_token: String) {
-    let mut client = ProblemSetClient::with_origin(
-        connect_with_token(admin_token),
-        SERVER.try_into().unwrap(),
-    );
+    let mut client =
+        ProblemSetClient::with_origin(connect_with_token(admin_token), SERVER.try_into().unwrap());
 
     let mut last = None;
     for secquence in 1..11 {
