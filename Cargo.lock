@@ -415,6 +415,7 @@ dependencies = [
  "derive_builder",
  "futures",
  "hickory-resolver",
+ "ip_network",
  "k256",
  "leaky-bucket",
  "log",
@@ -1749,6 +1750,15 @@ dependencies = [
  "hermit-abi",
  "libc",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "ip_network"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa2f047c0a98b2f299aa5d6d7088443570faae494e9ae1305e48be000c9e0eb1"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -30,6 +30,7 @@ tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
+ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
 opentelemetry = { version = "0.21.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio", "metrics"] }

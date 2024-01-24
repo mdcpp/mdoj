@@ -27,7 +27,8 @@ pub struct Server {
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
     pub imgur: imgur::ImgurController,
-    config: GlobalConfig,
+    pub rate_limit: rate_limit::RateLimitController,
+    pub config: GlobalConfig,
     _otel_guard: OtelGuard,
 }
 
@@ -56,6 +57,7 @@ impl Server {
             crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
             imgur: imgur::ImgurController::new(&config.imgur),
+            rate_limit: rate_limit::RateLimitController::new(&config.trust_host),
             config,
             _otel_guard: otel_guard,
         })

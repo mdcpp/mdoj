@@ -34,6 +34,8 @@ pub enum Error {
     Add(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
+    #[error("rate limit reached")]
+    RateLimit,
 }
 
 impl From<Error> for Status {
@@ -78,6 +80,7 @@ impl From<Error> for Status {
             Error::RequirePermission(x) => {
                 Status::permission_denied(format!("require permission {}", x))
             }
+            Error::RateLimit => Status::resource_exhausted("rate limit reached!"),
         }
     }
 }

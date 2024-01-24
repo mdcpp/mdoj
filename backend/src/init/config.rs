@@ -1,5 +1,6 @@
-use std::path::PathBuf;
+use std::{net::IpAddr, path::PathBuf};
 
+use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
@@ -21,7 +22,9 @@ pub struct GlobalConfig {
     pub opentelemetry: Option<bool>,
     #[serde(default)]
     pub imgur: Imgur,
+    pub trust_host: Vec<IpNetwork>,
 }
+
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
 }
