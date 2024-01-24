@@ -1,13 +1,13 @@
 use core::time;
-use std::{future::IntoFuture, net::IpAddr, sync::Arc};
+use std::{net::IpAddr, sync::Arc};
 
 use ip_network::IpNetwork;
 use leaky_bucket::RateLimiter;
 use quick_cache::sync::Cache;
-use tonic::metadata::MetadataMap;
+
 use tracing::instrument;
 
-use crate::util::{auth::Auth, error::Error};
+use crate::util::error::Error;
 
 const BUCKET_WIDTH: usize = 256;
 

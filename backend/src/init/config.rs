@@ -1,4 +1,4 @@
-use std::{net::IpAddr, path::PathBuf};
+use std::path::PathBuf;
 
 use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
