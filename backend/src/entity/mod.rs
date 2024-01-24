@@ -32,23 +32,9 @@ pub trait DebugName {
 /// Parental filter are useful when list by parent, mainly because we don't want to list all entity
 ///
 /// For example, on page of problem, we only want to show public problem(even user have joined contest)
-pub trait ParentalTrait
-where
-    Self: EntityTrait + Filter,
-{
-    const COL_ID: Self::Column;
-    fn related_filter(auth: &Auth) -> Select<Self>;
-    fn related_read_by_id<T: Send + Sync + Copy>(auth: &Auth, id: T) -> Select<Self>
-    where
-        T: Into<<Self::PrimaryKey as PrimaryKeyTrait>::ValueType>
-            + Into<sea_orm::Value>
-            + Send
-            + Sync
-            + 'static
-            + Copy,
-    {
-        Self::related_filter(auth).filter(Self::COL_ID.eq(id))
-    }
+#[async_trait]
+pub trait ParentalTrait<M> {
+    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<M, Error>;
 }
 
 /// filter for Entity r/w

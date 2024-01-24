@@ -69,8 +69,8 @@ impl ContestSet for Arc<Server> {
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_contest_request::Request::Create(create) => {
@@ -100,8 +100,8 @@ impl ContestSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             text_search_request::Request::Text(text) => {
@@ -310,12 +310,7 @@ impl ContestSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let contest: IdModel = Entity::related_read_by_id(&auth, req.id)
-            .into_partial_model()
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
+        let contest: IdModel = Entity::related_read_by_id(&auth, req.id).await?;
 
         let list = user_contest::Entity::find()
             .filter(user_contest::Column::ContestId.eq(contest.id))

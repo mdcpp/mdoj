@@ -159,11 +159,7 @@ impl PagerSource for ParentPagerTrait {
 
     async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
         let db = DB.get().unwrap();
-        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0)
-            .into_partial_model()
-            .one(db)
-            .await?
-            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0).await?;
 
         Ok(parent.upgrade().find_related(Entity))
     }

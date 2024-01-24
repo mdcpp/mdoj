@@ -68,9 +68,19 @@ impl RoleLv {
     }
 }
 
+#[derive(Debug)]
 pub enum Auth {
     Guest,
     User((i32, RoleLv)),
+}
+
+impl Display for Auth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Auth::Guest => write!(f, "Guest"),
+            Auth::User((uid, role)) => write!(f, "{}({})", role, uid),
+        }
+    }
 }
 
 impl Auth {

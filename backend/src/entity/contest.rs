@@ -1,4 +1,7 @@
-use crate::grpc::backend::ContestSortBy;
+use sea_orm::{DatabaseBackend, Statement};
+use sea_query::SqliteQueryBuilder;
+
+use crate::{grpc::backend::ContestSortBy, union};
 
 use super::*;
 
@@ -110,12 +113,6 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
-// impl Related<Entity> for Entity {
-//     fn to() -> RelationDef {
-//         Relation::Public.def()
-//     }
-// }
-
 impl ActiveModelBehavior for ActiveModel {}
 
 impl super::DebugName for Entity {
@@ -123,26 +120,35 @@ impl super::DebugName for Entity {
 }
 
 #[tonic::async_trait]
-impl ParentalTrait for Entity {
-    const COL_ID: Column = Column::Id;
-
-    fn related_filter(auth: &Auth) -> Select<Entity> {
+impl super::ParentalTrait<IdModel> for Entity {
+    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<IdModel, Error> {
+        let db = DB.get().unwrap();
         match user::Model::new_with_auth(auth) {
-            Some(user) => user
-                .find_related(Entity)
-                .join_as(
-                    JoinType::FullOuterJoin,
-                    Relation::Hoster.def().rev(),
-                    Alias::new("own_contest"),
+            Some(user) => {
+                let (query, param) = union!(
+                    user.find_related(Entity),
+                    Entity::find().filter(Column::Public.eq(true)),
+                    Entity::find().filter(Column::Hoster.eq(user.id))
                 )
-                .join_as(
-                    JoinType::FullOuterJoin,
-                    user::Relation::PublicContest.def(),
-                    Alias::new("user_contest_unused"),
-                ),
-            None => Entity::find().filter(Column::Public.eq(true)),
+                .and_where(Column::Id.eq(id))
+                .build(SqliteQueryBuilder);
+
+                IdModel::find_by_statement(Statement::from_sql_and_values(
+                    DatabaseBackend::Sqlite,
+                    query,
+                    param,
+                ))
+                .one(db)
+                .await?
+                .ok_or(Error::NotInDB(Entity::DEBUG_NAME))
+            }
+            None => Entity::find_by_id(id)
+                .filter(Column::Public.eq(true))
+                .into_partial_model()
+                .one(db)
+                .await?
+                .ok_or(Error::NotInDB(Entity::DEBUG_NAME)),
         }
-        .distinct()
     }
 }
 

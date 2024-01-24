@@ -69,8 +69,8 @@ impl SubmitSet for Arc<Server> {
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_submit_request::Request::Create(_create) => {
@@ -94,8 +94,8 @@ impl SubmitSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {

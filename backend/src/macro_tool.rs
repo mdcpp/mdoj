@@ -48,9 +48,42 @@ macro_rules! fill_active_model {
     };
 }
 
+/// overflow protection
 #[macro_export]
 macro_rules! ofl {
     ($n:expr) => {
         $n.try_into().map_err(|_| Error::NumberTooLarge)?
     };
+}
+
+/// bound check
+#[macro_export]
+macro_rules! bound {
+    ($n:expr,$limit:literal) => {{
+        if $n > $limit {
+            return Err(Error::NumberTooLarge.into());
+        }
+        $n
+    }};
+}
+
+#[macro_export]
+macro_rules! union {
+    ($a:expr,$b:expr) => {{
+        use sea_orm::QueryTrait;
+        $a.into_query()
+            .union(sea_query::UnionType::Distinct, $b.into_query())
+            .to_owned()
+    }};
+    ($a:expr,$b:expr,$c:expr) => {{
+        use sea_orm::QueryTrait;
+        $a.into_query()
+            .union(
+                sea_query::UnionType::Distinct,
+                $b.into_query()
+                    .union(sea_query::UnionType::Distinct, $c.into_query())
+                    .to_owned(),
+            )
+            .to_owned()
+    }};
 }

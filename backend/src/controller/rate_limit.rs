@@ -39,12 +39,15 @@ macro_rules! check_rate_limit {
 impl RateLimitController {
     pub fn new(trusts: &[IpNetwork]) -> Self {
         Self {
-            limiter: Cache::new(256),
+            limiter: Cache::new(BUCKET_WIDTH),
             trusts: trusts.to_vec(),
         }
     }
     #[instrument(skip_all, level = "debug")]
     pub fn check_ip<T>(&self, req: &tonic::Request<T>, permits: usize) -> Result<(), Error> {
+        if self.trusts.is_empty() {
+            return Ok(());
+        }
         if req.remote_addr().is_none() {
             tracing::warn!(msg = "cannot not retrieve remote address", "config");
             return Ok(());
@@ -68,6 +71,7 @@ impl RateLimitController {
         Err(Error::RateLimit)
     }
 
+    #[instrument(skip_all, level = "debug")]
     fn acquire(&self, ip: IpAddr, permits: usize) -> Result<(), Error> {
         let limiter = self
             .limiter

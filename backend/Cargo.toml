@@ -30,6 +30,7 @@ tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
+sea-query = "0.30.4"
 ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
 opentelemetry = { version = "0.21.0", features = ["metrics"] }
@@ -85,6 +86,20 @@ features = ["transport", "channel", "codegen", "prost","tls"]
 [dependencies.spin]
 version = "0.9.8"
 features = ["mutex", "spin_mutex", "rwlock"]
+
+[dev-dependencies]
+migration = { path = "./migration" }
+sea-orm-cli = "0.12.12"
+
+[dev-dependencies.sea-orm-migration]
+workspace = true
+features = [
+  # Enable at least one `ASYNC_RUNTIME` and `DATABASE_DRIVER` feature if you want to run migration via CLI.
+  # View the list of supported features at https://www.sea-ql.org/SeaORM/docs/install-and-config/database-and-async-runtime.
+  # e.g.
+  "runtime-tokio-native-tls",
+  "sqlx-sqlite","with-chrono"
+]
 
 [build-dependencies]
 tonic-build = { workspace = true }

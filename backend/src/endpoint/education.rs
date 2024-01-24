@@ -45,8 +45,8 @@ impl EducationSet for Arc<Server> {
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
         let rev = req.reverse();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -210,8 +210,8 @@ impl EducationSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {
@@ -244,13 +244,10 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
-
+        let parent: problem::IdModel =
+            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id)).await?;
         let model = parent
+            .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.education_id)))
             .one(db)
