@@ -89,7 +89,7 @@ impl PagerSource for ParentPagerTrait {
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let db = DB.get().unwrap();
+        let _db = DB.get().unwrap();
         let parent: problem::IdModel = problem::Entity::related_read_by_id(auth, data.0).await?;
         Ok(parent.upgrade().find_related(Entity))
     }

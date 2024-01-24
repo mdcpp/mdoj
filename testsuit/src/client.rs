@@ -57,18 +57,18 @@ pub fn connect_with_token(token: String) -> GrpcWebClientService<AuthService<Cli
             token: token.parse().unwrap(),
         })
         .service(client);
-    let endpoint = tower::ServiceBuilder::new()
-        .layer(GrpcWebClientLayer::new())
-        .service(client_w);
+    
 
-    endpoint
+    tower::ServiceBuilder::new()
+        .layer(GrpcWebClientLayer::new())
+        .service(client_w)
 }
 
 pub fn connect() -> GrpcWebClientService<Client> {
     let client = hyper::Client::builder().build_http();
 
-    let endpoint = tower::ServiceBuilder::new()
+    
+    tower::ServiceBuilder::new()
         .layer(GrpcWebClientLayer::new())
-        .service(client);
-    endpoint
+        .service(client)
 }
