@@ -1,20 +1,18 @@
-use async_std::task;
-use cached::proc_macro::cached;
-use rstest::*;
-
+use super::Error;
 use crate::{
+    assert_eq_error,
     client::connect,
     constant::*,
     grpc::backend::{token_set_client::TokenSetClient, LoginRequest, Role},
 };
+use serde::{Deserialize, Serialize};
 
-#[fixture]
-pub async fn admin_token() -> String {
-    inner_admin_token().await
+#[derive(Serialize, Deserialize)]
+pub struct AdminToken {
+    signature: String,
 }
 
-#[cached]
-pub async fn inner_admin_token() -> String {
+pub async fn login() -> Result<AdminToken, super::Error> {
     let mut client = TokenSetClient::with_origin(connect(), SERVER.try_into().unwrap());
 
     let res = client
@@ -28,12 +26,9 @@ pub async fn inner_admin_token() -> String {
 
     let res = res.into_inner();
 
-    assert_eq!(res.role(), Role::Root);
+    assert_eq_error!(res.role(), Role::Root, "admin@admin login fail");
 
-    res.token.signature
-}
-
-#[rstest]
-async fn test(#[future] admin_token: String) {
-    admin_token.await;
+    Ok(AdminToken {
+        signature: res.token.signature,
+    })
 }

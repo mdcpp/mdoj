@@ -1,8 +1,8 @@
-use async_std::task;
-use rstest::*;
+use super::Error;
 use tonic::Code;
 
 use crate::{
+    assert_eq_error,
     client::connect,
     constant::SERVER,
     grpc::backend::{
@@ -11,10 +11,9 @@ use crate::{
     },
 };
 
-#[rstest]
-#[case::not_found(1, Code::NotFound)]
-#[case::large_number(1000, Code::InvalidArgument)]
-async fn list_problem(#[case] size: u64, #[case] code: Code) {
+// #[case::not_found(1, Code::NotFound)]
+// #[case::large_number(1000, Code::InvalidArgument)]
+pub async fn list(size: u64, code: Code) -> Result<(), Error> {
     let mut client = ProblemSetClient::with_origin(connect(), SERVER.try_into().unwrap());
 
     let res = client
@@ -32,13 +31,13 @@ async fn list_problem(#[case] size: u64, #[case] code: Code) {
 
     let err = res.unwrap_err();
 
-    assert_eq!(err.code(), code)
+    assert_eq_error!(err.code(), code, "list_problem should error");
+    Ok(())
 }
 
-#[rstest]
-#[case::not_found(1, Code::NotFound)]
-#[case::large_number(1000, Code::InvalidArgument)]
-async fn list_problem_by_contest(#[case] size: u64, #[case] code: Code) {
+// #[case::not_found(1, Code::NotFound)]
+// #[case::large_number(1000, Code::InvalidArgument)]
+pub async fn list_by(size: u64, code: Code) -> Result<(), Error> {
     let mut client = ProblemSetClient::with_origin(connect(), SERVER.try_into().unwrap());
 
     let res = client
@@ -55,5 +54,6 @@ async fn list_problem_by_contest(#[case] size: u64, #[case] code: Code) {
 
     let err = res.unwrap_err();
 
-    assert_eq!(err.code(), code)
+    assert_eq_error!(err.code(), code, "list_problem should error");
+    Ok(())
 }
