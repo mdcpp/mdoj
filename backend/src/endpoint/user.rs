@@ -48,8 +48,8 @@ impl UserSet for Arc<Server> {
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_user_request::Request::Create(create) => {
@@ -79,8 +79,8 @@ impl UserSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             text_search_request::Request::Text(text) => {

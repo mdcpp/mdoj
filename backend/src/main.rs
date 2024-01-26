@@ -7,6 +7,8 @@ pub mod grpc;
 pub mod init;
 pub mod macro_tool;
 pub mod server;
+#[cfg(test)]
+pub mod test;
 pub mod util;
 
 #[global_allocator]

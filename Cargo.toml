@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    # "frontend",
+    "frontend",
     "backend",
     "judger",
     "testsuit",
@@ -18,6 +18,8 @@ tonic-web = "0.10.2"
 version = "0.10.2"
 default-features = false
 
+[workspace.dependencies.sea-orm-migration]
+version = "0.12.11"
 
 [profile.wasm-release]
 inherits = "release"

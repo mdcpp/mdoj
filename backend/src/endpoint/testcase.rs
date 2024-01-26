@@ -44,8 +44,8 @@ impl TestcaseSet for Arc<Server> {
         req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_testcase_request::Request::Pager(old) => {
@@ -221,14 +221,11 @@ impl TestcaseSet for Arc<Server> {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        //
-        let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+        let parent: problem::IdModel =
+            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id)).await?;
 
         let model = parent
+            .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.testcase_id)))
             .one(db)
@@ -244,8 +241,8 @@ impl TestcaseSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {

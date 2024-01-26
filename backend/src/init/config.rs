@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
+use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
 static CONFIG_PATH: &str = "config/config.toml";
+static CONFIG_DIR: &str = "config";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
@@ -21,7 +23,10 @@ pub struct GlobalConfig {
     pub opentelemetry: Option<bool>,
     #[serde(default)]
     pub imgur: Imgur,
+    #[serde(default)]
+    pub trust_host: Vec<IpNetwork>,
 }
+
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
 }
@@ -102,6 +107,7 @@ impl Default for Imgur {
 }
 
 pub async fn init() -> GlobalConfig {
+    fs::create_dir_all(CONFIG_DIR).await.unwrap();
     if fs::metadata(CONFIG_PATH).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)

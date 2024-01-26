@@ -135,10 +135,7 @@ impl Linked for UserToProblem {
     fn link(&self) -> Vec<RelationDef> {
         vec![
             Relation::UserContest.def(),
-            user_contest::Entity::belongs_to(contest::Entity)
-                .from(user_contest::Column::ContestId)
-                .to(contest::Column::Id)
-                .into(),
+            user_contest::Relation::Contest.def(),
             contest::Relation::Problem.def(),
         ]
     }

@@ -13,6 +13,7 @@ use crate::{entity::DebugName, util::auth::Auth};
 use sea_orm::{sea_query::SimpleExpr, *};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
+use tracing::instrument;
 
 use std::marker::PhantomData;
 
@@ -133,7 +134,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             return Ok((self, models));
         }
 
-        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
     }
     async fn new_fetch(
         data: S::Data,
@@ -165,7 +166,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             ));
         }
 
-        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
     }
 }
 
@@ -205,6 +206,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
     type Source = S;
     type Reflect = R;
 
+    #[instrument(skip(self), level = "debug")]
     async fn fetch(
         mut self,
         auth: &Auth,
@@ -233,19 +235,24 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             .offset(offset);
         let models = R::all(query).await?;
 
+        if size as usize != models.len() {
+            tracing::debug!(size = size, len = models.len(), "miss_data")
+        }
+
         if let Some(model) = models.last() {
             S::save_val(&mut self.data, model);
             self.last_id = R::get_id(model);
             return Ok((self, models));
         }
 
-        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
     }
+    #[instrument(skip(data), level = "debug")]
     async fn new_fetch(
         mut data: S::Data,
         auth: &Auth,
-        _size: u64,
-        _offset: u64,
+        size: u64,
+        offset: u64,
         abs_dir: bool,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let col = S::sort_col(&data);
@@ -255,10 +262,15 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             <S as PagerSource>::ID,
             abs_dir,
         );
-        let query = order_by_bool(query, col, abs_dir);
+        let query = order_by_bool(query, col, abs_dir)
+            .limit(size)
+            .offset(offset);
 
         let models = R::all(query).await?;
 
+        if size as usize != models.len() {
+            tracing::debug!(size = size, len = models.len(), "miss_data")
+        }
         // FIXME: use different http status
         if let Some(model) = models.last() {
             S::save_val(&mut data, model);
@@ -276,7 +288,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             ));
         }
 
-        Err(Error::NotInDB(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
     }
 }
 

@@ -1,4 +1,10 @@
-use crate::grpc::backend::ProblemSortBy;
+// use sea_orm::{DatabaseBackend, DbBackend, QueryTrait, Statement, StatementBuilder};
+// use sea_query::{UnionType, QueryStatementWriter, SqliteQueryBuilder};
+
+use sea_orm::{DatabaseBackend, Statement};
+use sea_query::SqliteQueryBuilder;
+
+use crate::{grpc::backend::ProblemSortBy, union};
 
 use super::*;
 
@@ -149,25 +155,34 @@ impl super::DebugName for Entity {
     const DEBUG_NAME: &'static str = "problem";
 }
 
-impl super::ParentalTrait for Entity {
-    const COL_ID: Column = Column::Id;
-
-    fn related_filter(auth: &Auth) -> Select<Entity> {
+#[async_trait]
+impl super::ParentalTrait<IdModel> for Entity {
+    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<IdModel, Error> {
+        let db = DB.get().unwrap();
         match user::Model::new_with_auth(auth) {
-            Some(user) => user
-                .find_linked(user::UserToProblem)
-                .join_as(
-                    JoinType::FullOuterJoin,
-                    contest::Relation::Hoster.def().rev(),
-                    Alias::new("own_problem"),
+            Some(user) => {
+                let (query, param) = union!(
+                    user.find_related(Entity),
+                    Entity::find().filter(Column::Public.eq(true))
                 )
-                .join_as(
-                    JoinType::FullOuterJoin,
-                    user::Relation::PublicProblem.def(),
-                    Alias::new("problem_unused"),
-                )
-                .distinct(),
-            None => Entity::find().filter(Column::Public.eq(true)),
+                .and_where(Column::Id.eq(id))
+                .build(SqliteQueryBuilder);
+
+                IdModel::find_by_statement(Statement::from_sql_and_values(
+                    DatabaseBackend::Sqlite,
+                    query,
+                    param,
+                ))
+                .one(db)
+                .await?
+                .ok_or(Error::NotInDB(Entity::DEBUG_NAME))
+            }
+            None => Entity::find_by_id(id)
+                .filter(Column::Public.eq(true))
+                .into_partial_model()
+                .one(db)
+                .await?
+                .ok_or(Error::NotInDB(Entity::DEBUG_NAME)),
         }
     }
 }
@@ -245,12 +260,8 @@ impl PagerSource for ParentPagerTrait {
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let db = DB.get().unwrap();
-        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0)
-            .into_partial_model()
-            .one(db)
-            .await?
-            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+        let _db = DB.get().unwrap();
+        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0).await?;
 
         Ok(parent.upgrade().find_related(Entity))
     }

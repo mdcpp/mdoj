@@ -360,6 +360,7 @@ message ProblemFullInfo {
   required bool public = 5;
   required uint64 time = 6;
   required uint64 memory = 7;
+  required UserId author = 9;
 }
 
 message ListProblemResponse {

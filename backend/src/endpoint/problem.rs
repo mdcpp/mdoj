@@ -43,6 +43,7 @@ impl From<Model> for ProblemFullInfo {
                 submit_count: value.submit_count,
                 ac_rate: value.ac_rate,
             },
+            author: value.user_id.into(),
         }
     }
 }
@@ -55,8 +56,8 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_problem_request::Request::Create(create) => {
@@ -86,8 +87,8 @@ impl ProblemSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             text_search_request::Request::Text(text) => {
@@ -343,13 +344,11 @@ impl ProblemSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id))
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+        let parent: contest::IdModel =
+            contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id)).await?;
 
         let model = parent
+            .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(db)
@@ -365,8 +364,8 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = req.size;
-        let offset = req.offset();
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {

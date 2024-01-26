@@ -158,12 +158,8 @@ impl PagerSource for ParentPagerTrait {
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let db = DB.get().unwrap();
-        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0)
-            .into_partial_model()
-            .one(db)
-            .await?
-            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+        let _db = DB.get().unwrap();
+        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0).await?;
 
         Ok(parent.upgrade().find_related(Entity))
     }
@@ -214,9 +210,9 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
         &data.1
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
-        data.1 =match data.0 {
+        data.1 = match data.0 {
             AnnouncementSortBy::UpdateDate => model.update_at.to_string(),
-            AnnouncementSortBy::CreateDate =>  model.create_at.to_string(),
+            AnnouncementSortBy::CreateDate => model.create_at.to_string(),
             AnnouncementSortBy::Public => model.public.to_string(),
         }
     }

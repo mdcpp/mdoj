@@ -20,6 +20,8 @@ pub enum Error {
     Unauthenticated,
     #[error("Not in database: `{0}`")]
     NotInDB(&'static str),
+    #[error("Not in database(out of range): `{0}`")]
+    NotInDBList(&'static str),
     #[error("Invaild request_id")]
     InvaildUUID(#[from] uuid::Error),
     #[error("Function should be unreachable!")]
@@ -34,6 +36,8 @@ pub enum Error {
     Add(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
+    #[error("rate limit reached")]
+    RateLimit,
 }
 
 impl From<Error> for Status {
@@ -58,7 +62,11 @@ impl From<Error> for Status {
             }
             Error::NotInDB(x) => {
                 tracing::trace!(entity = x, "database_notfound");
-                Status::not_found("")
+                Status::not_found(x)
+            }
+            Error::NotInDBList(x) => {
+                tracing::trace!(entity = x, "database_notfound");
+                Status::out_of_range(x)
             }
             Error::InvaildUUID(err) => {
                 tracing::trace!(reason=?err,"requestid_invaild");
@@ -78,6 +86,7 @@ impl From<Error> for Status {
             Error::RequirePermission(x) => {
                 Status::permission_denied(format!("require permission {}", x))
             }
+            Error::RateLimit => Status::resource_exhausted("rate limit reached!"),
         }
     }
 }
