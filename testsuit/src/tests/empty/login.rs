@@ -2,14 +2,14 @@ use super::Error;
 use crate::{
     assert_eq_error,
     client::connect,
-    constant::*,
+    constants::*,
     grpc::backend::{token_set_client::TokenSetClient, LoginRequest, Role},
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct AdminToken {
-    signature: String,
+    pub signature: String,
 }
 
 pub async fn login() -> Result<AdminToken, super::Error> {

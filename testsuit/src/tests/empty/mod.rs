@@ -7,7 +7,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tonic::{async_trait, Code};
 
 pub use super::Error;
-use super::State;
+use super::{ui::UI, State};
 
 pub mod login;
 pub mod problem;
@@ -19,17 +19,14 @@ impl super::Test for Test {
     type Error = Error;
     const NAME: &'static str = "Empty dataset";
     async fn run(state: &mut State) -> Result<(), Self::Error> {
-        let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
-            .unwrap()
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
+        let mut ui = UI::new(&state.bar, 3);
 
-        let pb = state.bar.add(ProgressBar::new(4));
-        pb.set_style(spinner_style.clone());
-        pb.set_prefix(format!("[{}/?]", 4));
-
+        ui.inc("list problem(1)");
         problem::list(1, Code::NotFound).await?;
+        ui.inc("list problem(2)");
         problem::list(1000, Code::InvalidArgument).await?;
 
+        ui.inc("admin login");
         let token = login::login().await?;
 
         state.admin_token = Some(token);

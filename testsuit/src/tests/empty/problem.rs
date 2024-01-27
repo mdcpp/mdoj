@@ -4,7 +4,7 @@ use tonic::Code;
 use crate::{
     assert_eq_error,
     client::connect,
-    constant::SERVER,
+    constants::SERVER,
     grpc::backend::{
         list_by_request, list_problem_request, problem_set_client::ProblemSetClient,
         ListProblemRequest, ProblemSortBy,

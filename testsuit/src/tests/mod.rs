@@ -1,22 +1,59 @@
+pub mod add_to;
+pub mod create;
 pub mod empty;
+pub mod ui;
+pub mod operate;
 
+use std::path::Path;
+
+use async_std::fs;
 use indicatif::*;
 use serde::{Deserialize, Serialize};
 use tonic::async_trait;
+use tower::buffer::error;
+
+use self::{create::StartOfId, ui::UI};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("assert fail `{0}`")]
     AssertFail(&'static str),
+    #[error("expect rpc to success: `{0}`")]
+    Tonic(#[from] tonic::Status),
 }
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct State {
     step: u64,
-    pub admin_token: Option<crate::tests::empty::login::AdminToken>,
     #[serde(skip_deserializing, skip_serializing)]
     pub bar: MultiProgress,
+    pub admin_token: Option<crate::tests::empty::login::AdminToken>,
+    pub problem: Option<StartOfId<10>>,
+    pub testcase: Option<StartOfId<3>>,
+    pub contest: Option<StartOfId<1>>,
+    pub user: Option<StartOfId<2>>,
 }
+// all testcase was added to the first problem
+// the second and third problem was added to the only contest
+
+impl State {
+    pub async fn load() -> Self {
+        let path = Path::new(crate::constants::DATA_PATH);
+        match path.exists() {
+            true => {
+                let raw = fs::read(path).await.unwrap();
+                toml::from_str(&String::from_utf8_lossy(&raw)).unwrap()
+            }
+            false => State::default(),
+        }
+    }
+    pub async fn save(self) {
+        let path = Path::new(crate::constants::DATA_PATH);
+        let raw = toml::to_string_pretty(&self).unwrap();
+        fs::write(path, raw).await.unwrap();
+    }
+}
+
 
 #[async_trait]
 pub trait Test {
@@ -26,16 +63,23 @@ pub trait Test {
 }
 
 pub async fn run(mut state: State) -> State {
-    let title_style = ProgressStyle::with_template("Running {prefix} {wide_msg}").unwrap();
+    let mut ui = UI::new(&state.bar, 3);
 
-    let title = state.bar.add(ProgressBar::new(1));
-    title.set_style(title_style);
+    macro_rules! handle {
+        ($e:ident) => {
+            ui.inc($e::Test::NAME);
+            if let Err(err)=$e::Test::run(&mut state).await{
+                log::error!("Error at {}, test stop, progress saved!",err);
+                return state;
+            }
+        };
+        ($x:ident, $($y:ident),+)=>{
+            handle!($x);
+            handle!($($y),+);
+        }
+    }
 
-    title.set_message(empty::Test::NAME);
-    empty::Test::run(&mut state).await.unwrap();
-
+    handle!(empty,create,add_to);
     state.bar.clear().unwrap();
     state
 }
-
-// pub struct TaskRunner
