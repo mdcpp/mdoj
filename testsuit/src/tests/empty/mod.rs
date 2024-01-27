@@ -22,7 +22,7 @@ impl super::Test for Test {
         let mut ui = UI::new(&state.bar, 3);
 
         ui.inc("list problem(1)");
-        problem::list(1, Code::NotFound).await?;
+        problem::list(1, Code::OutOfRange).await?;
         ui.inc("list problem(2)");
         problem::list(1000, Code::InvalidArgument).await?;
 

@@ -145,13 +145,13 @@ impl SubmitSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
-        if req.info.code.len() > SUBMIT_CODE_LEN {
+        if req.code.len() > SUBMIT_CODE_LEN {
             return Err(Error::BufferTooLarge("info.code").into());
         }
 
-        let lang = Uuid::parse_str(req.info.lang.as_str()).map_err(Into::<Error>::into)?;
+        let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
-        let problem = problem::Entity::find_by_id(req.info.problem_id)
+        let problem = problem::Entity::find_by_id(req.problem_id)
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -172,7 +172,7 @@ impl SubmitSet for Arc<Server> {
         }
 
         let submit = SubmitBuilder::default()
-            .code(req.info.code)
+            .code(req.code)
             .lang(lang)
             .time_limit(problem.time)
             .memory_limit(problem.memory)

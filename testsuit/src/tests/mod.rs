@@ -1,8 +1,8 @@
 pub mod add_to;
 pub mod create;
 pub mod empty;
-pub mod ui;
 pub mod operate;
+pub mod ui;
 
 use std::path::Path;
 
@@ -24,7 +24,7 @@ pub enum Error {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct State {
-    step: u64,
+    pub step: u64,
     #[serde(skip_deserializing, skip_serializing)]
     pub bar: MultiProgress,
     pub admin_token: Option<crate::tests::empty::login::AdminToken>,
@@ -54,7 +54,6 @@ impl State {
     }
 }
 
-
 #[async_trait]
 pub trait Test {
     type Error: std::error::Error;
@@ -66,20 +65,24 @@ pub async fn run(mut state: State) -> State {
     let mut ui = UI::new(&state.bar, 3);
 
     macro_rules! handle {
-        ($e:ident) => {
-            ui.inc($e::Test::NAME);
-            if let Err(err)=$e::Test::run(&mut state).await{
-                log::error!("Error at {}, test stop, progress saved!",err);
-                return state;
+        ($cc:expr,$e:ident) => {
+            if ($cc)==state.step{
+                log::info!("step {}",state.step);
+                ui.inc($e::Test::NAME);
+                if let Err(err)=$e::Test::run(&mut state).await{
+                    log::error!("Error at {}, test stop, progress saved!",err);
+                    return state;
+                }
+                state.step+=1;
             }
         };
-        ($x:ident, $($y:ident),+)=>{
-            handle!($x);
-            handle!($($y),+);
+        ($cc:expr,$x:ident, $($y:ident),+)=>{
+            handle!($cc,$x);
+            handle!($cc+1,$($y),+);
         }
     }
 
-    handle!(empty,create,add_to);
+    handle!(0, empty, create, add_to,operate);
     state.bar.clear().unwrap();
     state
 }

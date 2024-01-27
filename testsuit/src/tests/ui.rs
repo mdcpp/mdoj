@@ -6,6 +6,12 @@ pub struct UI {
     progress: u64,
 }
 
+impl Drop for UI {
+    fn drop(&mut self) {
+        self.pb.finish();
+    }
+}
+
 impl UI {
     pub fn new(m: &MultiProgress, len: u64) -> Self {
         let pb = m.add(ProgressBar::new_spinner());
@@ -13,7 +19,7 @@ impl UI {
         pb.set_message("");
         pb.set_prefix(format!("[0/{}]", len));
 
-        let style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} Running{wide_msg}")
+        let style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} Running {wide_msg}")
             .unwrap()
             .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
 
@@ -26,6 +32,7 @@ impl UI {
         }
     }
     pub fn inc(&mut self, msg: &'static str) {
+        log::warn!("ui inc");
         self.progress += 1;
         self.pb.set_message(msg);
         self.pb

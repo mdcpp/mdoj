@@ -29,8 +29,7 @@ pub async fn create(state: &mut State) -> Result<(), Error> {
                 },
                 request_id: Uuid::new_v4().to_string(),
             })
-            .await
-            .unwrap();
+            .await?;
 
         let res = res.into_inner();
         if let Some(x) = last {
