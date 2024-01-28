@@ -48,7 +48,6 @@ pub fn Login() -> impl IntoView {
                     submit.dispatch(());
                 }
             >
-
                 <img src="https://placehold.co/200" alt="Logo" class="mt-8 mb-4"/>
 
                 <div class="p-4 flex flex-col">
