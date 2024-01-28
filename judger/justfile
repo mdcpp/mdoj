@@ -33,7 +33,6 @@ test:
 
 run:
     sudo rm -rf .temp/* 
-    mkdir -p .temp
     cargo run
 
 ci-test:

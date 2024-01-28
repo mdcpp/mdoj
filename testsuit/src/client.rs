@@ -1,8 +1,6 @@
-use std::{borrow::BorrowMut, fmt};
-
 use http_body::combinators::UnsyncBoxBody;
 use hyper::{client::HttpConnector, header::HeaderValue, Request};
-use tonic::{metadata::MetadataValue, IntoRequest};
+
 use tonic_web::{GrpcWebCall, GrpcWebClientLayer, GrpcWebClientService};
 use tower::{Layer, Service};
 
@@ -57,7 +55,6 @@ pub fn connect_with_token(token: String) -> GrpcWebClientService<AuthService<Cli
             token: token.parse().unwrap(),
         })
         .service(client);
-    
 
     tower::ServiceBuilder::new()
         .layer(GrpcWebClientLayer::new())
@@ -67,7 +64,6 @@ pub fn connect_with_token(token: String) -> GrpcWebClientService<AuthService<Cli
 pub fn connect() -> GrpcWebClientService<Client> {
     let client = hyper::Client::builder().build_http();
 
-    
     tower::ServiceBuilder::new()
         .layer(GrpcWebClientLayer::new())
         .service(client)

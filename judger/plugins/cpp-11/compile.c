@@ -9,6 +9,7 @@
     if (e == x) \
     { \
         printf("4: %m\n", errno); \
+        fflush(stdout); \
         return 1; \
     } \
 }
@@ -39,5 +40,5 @@ int main()
 
     handle(wait(NULL),-1);
     printf("0: success!\n");
-    return 1;
+    return 0;
 }

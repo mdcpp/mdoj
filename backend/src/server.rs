@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tonic::transport;
+use tonic::transport::{self, Identity, ServerTlsConfig};
 use tracing::{span, Instrument, Level};
 
 use crate::{
@@ -57,14 +57,36 @@ impl Server {
             crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
             imgur: imgur::ImgurController::new(&config.imgur),
-            rate_limit: rate_limit::RateLimitController::new(&config.trust_host),
+            rate_limit: rate_limit::RateLimitController::new(&config.grpc.trust_host),
             config,
             _otel_guard: otel_guard,
         })
     }
     pub async fn start(self: Arc<Self>) {
-        transport::Server::builder()
-            .accept_http1(true)
+        let mut identity = None;
+
+        if self.config.grpc.private_pem.is_some() {
+            let private_pem = self.config.grpc.private_pem.as_ref().unwrap();
+            let public_pem = self
+                .config
+                .grpc
+                .public_pem
+                .as_ref()
+                .expect("public pem should set if private pem is set");
+
+            let cert = std::fs::read_to_string(public_pem).expect("cannot read public pem");
+            let key = std::fs::read_to_string(private_pem).expect("cannot read private pem");
+
+            identity = Some(Identity::from_pem(cert, key));
+        }
+
+        let server = match identity {
+            Some(identity) => transport::Server::builder()
+                .tls_config(ServerTlsConfig::new().identity(identity))
+                .unwrap(),
+            None => transport::Server::builder().accept_http1(true),
+        };
+        server
             .max_frame_size(Some(MAX_FRAME_SIZE))
             .add_service(tonic_web::enable(ProblemSetServer::new(self.clone())))
             .add_service(tonic_web::enable(EducationSetServer::new(self.clone())))

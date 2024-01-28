@@ -5,10 +5,14 @@ use crate::{grpc::prelude::JudgeMatchRule, init::config::CONFIG, langs::prelude:
 async fn test_hello_world(factory: &mut ArtifactFactory, uuid: Uuid, code: &[u8]) {
     let mut compiled = factory.compile(&uuid, code).await.unwrap();
 
+    assert!(compiled.get_expection().is_none());
+
     let mut result = compiled
         .judge(b"", 1000 * 1000, 1024 * 1024 * 128)
         .await
         .unwrap();
+
+    assert!(compiled.get_expection().is_none());
 
     assert!(result.assert(b"hello world", JudgeMatchRule::SkipSnl));
 }

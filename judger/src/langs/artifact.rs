@@ -216,7 +216,7 @@ impl<'a> CompiledArtifact<'a> {
 
         // TODO: We should handle SysError here
         if !process.succeed() {
-            // log::debug!("process status: {:?}", process.status);
+            log::debug!("process status: {:?}", process.status);
             return Ok(TaskResult::Fail(JudgerCode::Re));
         }
 
