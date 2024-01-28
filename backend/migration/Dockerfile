@@ -12,7 +12,7 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 
 WORKDIR /complier
 COPY . .
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path migration
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend/migration
 
 FROM scratch
 COPY --from=builder /usr/local/cargo/bin/migration /
