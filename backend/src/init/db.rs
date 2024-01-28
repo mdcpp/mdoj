@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ConnectionTrait, Database, DatabaseBackend, DatabaseConnection,
     EntityTrait, PaginatorTrait, Statement,

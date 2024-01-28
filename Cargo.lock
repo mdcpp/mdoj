@@ -932,37 +932,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> c489107 (fix(Testsuit): :bug: bring nighty frontend)
-name = "bytestring"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74d80203ea6b29df88012294f62733de21cfeab47f17b41af3a38bc30a03ee72"
-dependencies = [
- "bytes",
-]
-
-[[package]]
-name = "cached"
-version = "0.45.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90eb5776f28a149524d1d8623035760b4454ec881e8cf3838fa8d7e1b11254b3"
-dependencies = [
- "cached_proc_macro",
- "cached_proc_macro_types",
- "hashbrown 0.13.2",
- "instant",
- "once_cell",
- "thiserror",
-<<<<<<< HEAD
-=======
-=======
-]
-
-[[package]]
->>>>>>> c489107 (fix(Testsuit): :bug: bring nighty frontend)
 name = "cached"
 version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -978,7 +947,6 @@ dependencies = [
  "once_cell",
  "thiserror",
  "tokio",
->>>>>>> dbe551f (feat(Testsuit): :sparkles: make testsuit an cli application instead of a collection of rstest)
 ]
 
 [[package]]
@@ -2739,7 +2707,7 @@ version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b31087173c60e25c329a1c6786756dd9ee97750b378622df4d780db160a09040"
 dependencies = [
- "cached 0.45.1",
+ "cached",
  "cfg-if",
  "gloo-net",
  "itertools 0.12.0",
@@ -4270,19 +4238,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "rstml"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe542870b8f59dd45ad11d382e5339c9a1047cde059be136a7016095bbdefa77"
-dependencies = [
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 2.0.48",
- "syn_derive",
- "thiserror",
-=======
 name = "rstest"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4309,7 +4264,6 @@ dependencies = [
  "rustc_version",
  "syn 2.0.48",
  "unicode-ident",
->>>>>>> dbe551f (feat(Testsuit): :sparkles: make testsuit an cli application instead of a collection of rstest)
 ]
 
 [[package]]
@@ -5334,7 +5288,6 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "base64",
- "cached 0.47.0",
  "chrono",
  "clap",
  "futures",
@@ -5347,11 +5300,6 @@ dependencies = [
  "pretty_env_logger",
  "prost 0.12.3",
  "prost-types 0.12.3",
-<<<<<<< HEAD
- "serde",
- "thiserror",
- "toml 0.7.8",
-=======
  "rstest",
  "serde",
  "thiserror",
