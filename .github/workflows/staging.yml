@@ -10,6 +10,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   check:
@@ -41,52 +43,65 @@ jobs:
         uses: taiki-e/install-action@just
       - name: Install sea-orm-cli
         run: cargo install sea-orm-cli
+      - name: Install docker
+        uses: docker-practice/actions-setup-docker@master
       - name: Lint
         run: |
           cargo fmt --all -- --check
           cargo clippy -- -D warnings
       - name: Check
         run: cargo check
-      - name: Run Backend Test
-        run: cd backend && just ci-test
-      - name: Run Frontend Test
-        run: cargo test -p frontend
-      - name: Run Judger test
-        run: cd judger && just ci-test
-      - name: Run testsuit
-        run: cd testsuit && just ci-run
-      - name: Build judger binary
-        run: cargo install --target $(uname -m)-unknown-linux-musl --path judger
-      - name: Build backend binary
-        run: cargo install --target $(uname -m)-unknown-linux-musl --path backend
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
-      - name: Create Draft Release
-        id: release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: build nsjail
+        run: cd judger && just build-nsjail
+      - name: build judger docker
+        run: cd judger && release-docker
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Checkout submodules
+        run: git submodule update --init --recursive
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          tag_name: staging-${{ steps.date.outputs.date }}
-          release_name: staging-${{ steps.date.outputs.date }}
-          draft: true
-          prerelease: false
-      - name: upload judger
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          toolchain: nightly
+          targets: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
+      - name: Install Just
+        uses: taiki-e/install-action@just
+      - name: Install sea-orm-cli
+        run: cargo install sea-orm-cli
+      - name: Install docker
+        uses: docker-practice/actions-setup-docker@master
+      - name: build nsjail
+        run: cd judger && just build-nsjail
+      - name: build rlua-54
+        run: cd judger && just release-docker
+      - name: Log in to the Container registry
+        uses: docker/login-action
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: target/x86_64-unknown-linux-musl/release/judger
-          asset_name: mdoj-judger
-          asset_content_type: application/octet-stream
-      - name: upload backend
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build judger
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: target/x86_64-unknown-linux-musl/release/backend
-          asset_name: mdoj-backend
-          asset_content_type: application/octet-stream
+          context: "judger"
+          push: true
+          tags: "staging"
+          labels: "judger"
+      - name: build backend
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: "backend"
+          push: true
+          tags: "staging"
+          labels: "backend"
+      - name: build migration
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: "backend/migration"
+          push: true
+          tags: "staging"
+          labels: "backend/migration"

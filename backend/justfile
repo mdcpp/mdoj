@@ -13,9 +13,6 @@ entity-codegen:
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
     sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o src/pending
 
-release-docker:
-    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
-
 run:
     cargo run
 
