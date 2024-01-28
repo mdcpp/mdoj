@@ -244,7 +244,7 @@ impl PagerSource for TextPagerTrait {
     async fn filter(
         auth: &Auth,
         data: &Self::Data,
-        db: &DatabaseConnection,
+        _db: &DatabaseConnection,
     ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
             .map(|x| x.filter(Column::Title.like(data).or(Column::Tags.like(data))))
@@ -307,7 +307,7 @@ impl PagerSource for ColPagerTrait {
     async fn filter(
         auth: &Auth,
         _data: &Self::Data,
-        db: &DatabaseConnection,
+        _db: &DatabaseConnection,
     ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
