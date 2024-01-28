@@ -1,65 +1,81 @@
 use super::tools::*;
 
-use crate::grpc::backend::problem_set_server::*;
+use crate::grpc::backend::announcement_set_server::*;
 use crate::grpc::backend::*;
+use crate::grpc::into_prost;
 
-use crate::entity::{problem::*, *};
+use crate::entity::announcement::*;
+use crate::entity::*;
 
-impl From<i32> for ProblemId {
+impl From<i32> for AnnouncementId {
     fn from(value: i32) -> Self {
-        ProblemId { id: value }
+        Self { id: value }
     }
 }
 
-impl From<ProblemId> for i32 {
-    fn from(value: ProblemId) -> Self {
+impl From<AnnouncementId> for i32 {
+    fn from(value: AnnouncementId) -> Self {
         value.id
     }
 }
 
-impl From<PartialModel> for ProblemInfo {
-    fn from(value: PartialModel) -> Self {
-        ProblemInfo {
-            id: value.id.into(),
-            title: value.title,
-            submit_count: value.submit_count,
-            ac_rate: value.ac_rate,
+impl From<Model> for AnnouncementFullInfo {
+    fn from(value: Model) -> Self {
+        AnnouncementFullInfo {
+            info: AnnouncementInfo {
+                id: value.id.into(),
+                title: value.title,
+                update_date: into_prost(value.update_at),
+            },
+            author: value.user_id.into(),
+            content: value.content,
+            public: value.public,
         }
     }
 }
 
-impl From<Model> for ProblemFullInfo {
+impl From<Model> for AnnouncementInfo {
     fn from(value: Model) -> Self {
-        ProblemFullInfo {
-            content: value.content.clone(),
-            tags: value.tags.clone(),
-            difficulty: value.difficulty,
-            public: value.public,
-            time: value.time as u64,
-            memory: value.memory as u64,
-            info: ProblemInfo {
-                id: value.id.into(),
-                title: value.title,
-                submit_count: value.submit_count,
-                ac_rate: value.ac_rate,
-            },
+        AnnouncementInfo {
+            id: value.id.into(),
+            title: value.title,
+            update_date: into_prost(value.update_at),
+        }
+    }
+}
+
+impl From<PartialModel> for AnnouncementInfo {
+    fn from(value: PartialModel) -> Self {
+        AnnouncementInfo {
+            id: value.id.into(),
+            title: value.title,
+            update_date: into_prost(value.update_at),
+        }
+    }
+}
+
+impl From<AnnouncementSortBy> for Column {
+    fn from(value: AnnouncementSortBy) -> Self {
+        match value {
+            AnnouncementSortBy::UpdateDate => Column::UpdateAt,
+            AnnouncementSortBy::CreateDate => Column::CreateAt,
         }
     }
 }
 
 #[async_trait]
-impl ProblemSet for Arc<Server> {
+impl AnnouncementSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListProblemRequest>,
-    ) -> Result<Response<ListProblemResponse>, Status> {
+        req: Request<ListAnnouncementRequest>,
+    ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
         let size = req.size;
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_problem_request::Request::Create(create) => {
+            list_announcement_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
                     (create.sort_by(), Default::default()),
                     &auth,
@@ -69,7 +85,7 @@ impl ProblemSet for Arc<Server> {
                 )
                 .await
             }
-            list_problem_request::Request::Pager(old) => {
+            list_announcement_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
                 pager.fetch(&auth, size, offset, old.reverse).await
             }
@@ -78,13 +94,16 @@ impl ProblemSet for Arc<Server> {
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListAnnouncementResponse {
+            list,
+            next_session,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
-    ) -> Result<Response<ListProblemResponse>, Status> {
+    ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
         let size = req.size;
         let offset = req.offset();
@@ -102,17 +121,20 @@ impl ProblemSet for Arc<Server> {
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListAnnouncementResponse {
+            list,
+            next_session,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(
         &self,
-        req: Request<ProblemId>,
-    ) -> Result<Response<ProblemFullInfo>, Status> {
+        req: Request<AnnouncementId>,
+    ) -> Result<Response<AnnouncementFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        tracing::debug!(problem_id = req.id);
+        tracing::debug!(announcement_id = req.id);
 
         let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
         let model = query
@@ -126,8 +148,8 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
-        req: Request<CreateProblemRequest>,
-    ) -> Result<Response<ProblemId>, Status> {
+        req: Request<CreateAnnouncementRequest>,
+    ) -> Result<Response<AnnouncementId>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
@@ -137,27 +159,28 @@ impl ProblemSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.super_user()) {
+        if perm.super_user() {
             return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
         model.user_id = ActiveValue::Set(user_id);
 
-        fill_active_model!(
-            model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
-        );
+        fill_active_model!(model, req.info, title, content);
 
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
-        tracing::debug!(id = model.id.clone().unwrap(), "problem_created");
+        tracing::debug!(id = model.id.clone().unwrap(), "announcement_created");
 
         Ok(Response::new(model.id.unwrap().into()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
+    async fn update(
+        &self,
+        req: Request<UpdateAnnouncementRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -177,20 +200,7 @@ impl ProblemSet for Arc<Server> {
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
-        fill_exist_active_model!(
-            model,
-            req.info,
-            title,
-            difficulty,
-            time,
-            memory,
-            tags,
-            content,
-            match_rule,
-            ac_rate,
-            submit_count,
-            order
-        );
+        fill_exist_active_model!(model, req.info, title, content);
 
         let model = model.update(db).await.map_err(Into::<Error>::into)?;
 
@@ -199,7 +209,7 @@ impl ProblemSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -219,19 +229,19 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn add_to_contest(
         &self,
-        req: Request<AddProblemToContestRequest>,
+        req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        if !perm.admin() {
-            return Err(Error::RequirePermission("Root").into());
+        if !perm.super_user() {
+            return  Err(Error::RequirePermission("super").into());
         }
 
         let (contest, model) = try_join!(
             spawn(contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(db)),
-            spawn(Entity::read_by_id(req.problem_id.id, &auth)?.one(db))
+            spawn(Entity::read_by_id(req.announcement_id.id, &auth)?.one(db))
         )
         .unwrap();
 
@@ -242,17 +252,17 @@ impl ProblemSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
-            if !perm.admin() {
-                if contest.hoster != user_id {
-                    return Err(Error::NotInDB("contest").into());
-                }
-                if model.user_id != user_id {
-                    return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
-                }
+        if !perm.admin() {
+            if contest.hoster != user_id {
+                return Err(Error::NotInDB("contest").into());
             }
+            if model.user_id != user_id {
+                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            }
+        }
 
         let mut model = model.into_active_model();
-        model.contest_id = ActiveValue::Set(Some(req.problem_id.id));
+        model.contest_id = ActiveValue::Set(Some(req.contest_id.id));
         model.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
@@ -260,12 +270,12 @@ impl ProblemSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn remove_from_contest(
         &self,
-        req: Request<AddProblemToContestRequest>,
+        req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let mut problem = Entity::write_by_id(req.problem_id, &auth)?
+        let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(db)
             .await
@@ -273,73 +283,69 @@ impl ProblemSet for Arc<Server> {
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
-        problem.contest_id = ActiveValue::Set(None);
+        announcement.contest_id = ActiveValue::Set(None);
 
-        problem.save(db).await.map_err(Into::<Error>::into)?;
+        announcement.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+    async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
-
-        let mut query = Entity::find_by_id(Into::<i32>::into(req));
 
         if !perm.admin() {
-            query = Entity::write_filter(query, &auth)?;
+            return Err(Error::RequirePermission("Root").into());
         }
 
-        let mut problem = query
+        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB("announcement"))?
             .into_active_model();
 
-        problem.public = ActiveValue::Set(true);
+        announcement.public = ActiveValue::Set(true);
 
-        problem.save(db).await.map_err(Into::<Error>::into)?;
+        announcement.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
+    async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
 
-        let mut query = Entity::find_by_id(Into::<i32>::into(req));
-
-        if !perm.super_user() {
-            query = Entity::write_filter(query, &auth)?;
+        if !perm.admin() {
+            return Err(Error::RequirePermission("Root").into());
         }
 
-        let mut problem = query
+        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB("announcement"))?
             .into_active_model();
 
-        problem.public = ActiveValue::Set(false);
+        announcement.public = ActiveValue::Set(false);
 
-        problem.save(db).await.map_err(Into::<Error>::into)?;
+        announcement.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_contest(
         &self,
-        req: Request<AddProblemToContestRequest>,
-    ) -> Result<Response<ProblemFullInfo>, Status> {
+        req: Request<AddAnnouncementToContestRequest>,
+    ) -> Result<Response<AnnouncementFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
@@ -351,7 +357,7 @@ impl ProblemSet for Arc<Server> {
 
         let model = parent
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
+            .filter(Column::Id.eq(Into::<i32>::into(req.announcement_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -363,15 +369,14 @@ impl ProblemSet for Arc<Server> {
     async fn list_by_contest(
         &self,
         req: Request<ListByRequest>,
-    ) -> Result<Response<ListProblemResponse>, Status> {
+    ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
         let size = req.size;
         let offset = req.offset();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                ParentPaginator::new_fetch((ppk, Default::default()), &auth, size, offset, true)
+            list_by_request::Request::ParentId(id) => {
+                ParentPaginator::new_fetch((id, Default::default()), &auth, size, offset, true)
                     .await
             }
             list_by_request::Request::Pager(old) => {
@@ -383,6 +388,9 @@ impl ProblemSet for Arc<Server> {
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListAnnouncementResponse {
+            list,
+            next_session,
+        }))
     }
 }

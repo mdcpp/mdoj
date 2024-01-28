@@ -10,14 +10,11 @@ prepare:
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
 entity-codegen:
-    rm database/backend.sqlite
+    rm database/*
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
-    sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o entity/src
-    rm entity/src/mod.rs
-    rm entity/src/prelude.rs
+    sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o src/pending
 
 release-docker:
-    just prepare
     sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
 
 run:

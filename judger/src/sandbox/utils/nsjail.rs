@@ -101,7 +101,9 @@ impl MountBuilder {
 
         self
     }
-    pub fn done(self) -> CommonBuilder {
+    pub fn done(mut self) -> CommonBuilder {
+        self.cmds.push(Cow::Borrowed("--tmpfsmount"));
+        self.cmds.push(Cow::Borrowed("/tmp"));
         CommonBuilder { cmds: self.cmds }
     }
 }

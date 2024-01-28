@@ -1,11 +1,13 @@
+use tonic::Status;
+
 use crate::report_internal;
 
 /// Centralized Error for endpoint, usually calling with `Into::into()`
-/// to tramsform it into `tonic::Status` immediately
+/// to tramsform it into `Status` immediately
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Premission deny: `{0}`")]
-    PremissionDeny(&'static str),
+    #[error("Permission deny: `{0}`")]
+    PermissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
     DBErr(#[from] sea_orm::DbErr),
     #[error("payload.`{0}` is not a vaild argument")]
@@ -28,50 +30,57 @@ pub enum Error {
     BufferTooLarge(&'static str),
     #[error("Already exist")]
     AlreadyExist(&'static str),
+    #[error("You need to own `{0}` to add thing onto it")]
+    Add(&'static str),
+    #[error("require permission `{0}`")]
+    RequirePermission(&'static str),
 }
 
-impl From<Error> for tonic::Status {
+impl From<Error> for Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::PremissionDeny(x) => {
-                tracing::debug!(hint = x, "premission_invaild");
-                tonic::Status::permission_denied(x)
+            Error::PermissionDeny(x) => {
+                tracing::debug!(hint = x, "permission_invaild");
+                Status::permission_denied(x)
             }
             Error::DBErr(x) => report_internal!(error, "{}", x),
             Error::BadArgument(x) => {
                 tracing::trace!(miss_type = x, "argument_invaild");
-                tonic::Status::invalid_argument(x)
+                Status::invalid_argument(x)
             }
             Error::NotInPayload(x) => {
                 tracing::trace!(miss_type = x, "argument_missing");
-                tonic::Status::invalid_argument(format!("payload.{} is not found", x))
+                Status::invalid_argument(format!("payload.{} is not found", x))
             }
             Error::Unauthenticated => {
                 tracing::trace!("Client sent invaild or no token");
-                tonic::Status::unauthenticated("")
+                Status::unauthenticated("")
             }
             Error::NotInDB(x) => {
                 tracing::trace!(entity = x, "database_notfound");
-                tonic::Status::not_found("")
+                Status::not_found("")
             }
             Error::PaginationError(x) => {
                 tracing::debug!(hint = x, "pager_invaild");
-                tonic::Status::failed_precondition(x)
+                Status::failed_precondition(x)
             }
             Error::InvaildUUID(err) => {
                 tracing::trace!(reason=?err,"requestid_invaild");
-                tonic::Status::invalid_argument(
-                    "Invaild request_id(should be a client generated UUIDv4)",
-                )
+                Status::invalid_argument("Invaild request_id(should be a client generated UUIDv4)")
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
-            Error::NumberTooLarge => tonic::Status::invalid_argument("number too large"),
-            Error::BufferTooLarge(x) => {
-                tonic::Status::invalid_argument(format!("buffer {} too large", x))
-            }
+            Error::NumberTooLarge => Status::invalid_argument("number too large"),
+            Error::BufferTooLarge(x) => Status::invalid_argument(format!("buffer {} too large", x)),
             Error::AlreadyExist(x) => {
                 tracing::trace!(hint = x, "entity_exist");
-                tonic::Status::already_exists(x)
+                Status::already_exists(x)
+            }
+            Error::Add(x) => {
+                tracing::trace!(hint = x, "add_fail");
+                Status::failed_precondition(format!("You need to own {} to add thing onto it", x))
+            }
+            Error::RequirePermission(x) => {
+                Status::permission_denied(format!("require permission {}", x))
             }
         }
     }

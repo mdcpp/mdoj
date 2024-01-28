@@ -1,5 +1,5 @@
 # memory in byte, time in microsecond
-info = "A Lua 5.4 runtime build both real workloads and sandbox tests"
+info = "A lightweight Lua 5.4 runtime build for both secure sandboxing and modj-sandbox test"
 extension = "lua" # same extension means same language
 name = "rlua-54" # must be same as dictionary name
 uid = "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" # be sure it's unique

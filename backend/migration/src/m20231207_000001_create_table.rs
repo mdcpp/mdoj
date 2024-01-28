@@ -33,6 +33,9 @@ macro_rules! index {
 enum Announcement {
     Table,
     Id,
+    ContestId,
+    UserId,
+    Public,
     Title,
     Content,
     CreateAt,
@@ -172,10 +175,29 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Announcement::Title).string().not_null())
                     .col(
+                        ColumnDef::new(Announcement::Public)
+                            .boolean()
+                            .default(false),
+                    )
+                    .col(
                         ColumnDef::new(Announcement::Content)
                             .string()
                             .not_null()
                             .default(""),
+                    )
+                    .col(ColumnDef::new(Announcement::ContestId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-contest")
+                            .from(Announcement::Table, Announcement::ContestId)
+                            .to(Contest::Table, Contest::Id),
+                    )
+                    .col(ColumnDef::new(Announcement::UserId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-user")
+                            .from(Announcement::Table, Announcement::UserId)
+                            .to(User::Table, User::Id),
                     )
                     .col(
                         ColumnDef::new(Announcement::CreateAt)
@@ -205,6 +227,12 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(Contest::Hoster).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-announcement-user-hoster")
+                            .from(Contest::Table, Contest::Hoster)
+                            .to(User::Table, User::Id),
+                    )
                     .col(ColumnDef::new(Contest::Begin).date_time().not_null())
                     .col(ColumnDef::new(Contest::End).date_time().not_null())
                     .col(ColumnDef::new(Contest::Title).text().not_null())
@@ -298,7 +326,13 @@ impl MigrationTrait for Migration {
                             .from(Problem::Table, Problem::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(Problem::ContestId).integer().null())
+                    .col(ColumnDef::new(Problem::ContestId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-problem-contest")
+                            .from(Problem::Table, Problem::ContestId)
+                            .to(Contest::Table, Contest::Id),
+                    )
                     .col(
                         ColumnDef::new(Problem::AcceptCount)
                             .integer()
@@ -474,7 +508,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Token::Rand).binary().not_null())
                     .col(
                         ColumnDef::new(Token::Permission)
-                            .big_unsigned()
+                            .integer()
                             .not_null()
                             .default(0),
                     )

@@ -4,7 +4,7 @@ ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
-RUN apt install musl-tools protobuf-compiler -y
+RUN apt install musl-tools protobuf-compiler pkg-config make -y
 
 RUN cargo install just
 
@@ -15,20 +15,18 @@ COPY . .
 
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path judger
 
-WORKDIR /environment
-RUN mkdir -p .temp
-
 FROM scratch
 WORKDIR /database
 WORKDIR /config
 WORKDIR /.temp
-WORKDIR /plugins/rootfs
 WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/judger /
-COPY nsjail-3.1 /
-# don't load plugins, should be mounted manually in runtime
-WORKDIR /
-COPY plugins/rlua-54/rootfs /plugins
-COPY plugins/rlua-54/spec.toml /plugins
 
+COPY judger/nsjail-3.1 /
+
+WORKDIR /plugins/rlua-54
+COPY judger/plugins/rlua-54/rootfs .
+COPY judger/plugins/rlua-54/spec.toml .
+
+WORKDIR /
 CMD ["/judger"]

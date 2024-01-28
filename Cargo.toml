@@ -5,7 +5,6 @@ members = [
     "backend",
     "judger",
     "testsuit",
-    "backend/entity",
     "backend/migration",
     "grpc",
 ]
@@ -23,6 +22,10 @@ tonic-web = "0.10.2"
 prost-wkt = "0.5"
 prost-wkt-types = "0.5"
 prost-wkt-build = "0.5"
+
+[workspace.dependencies.tonic-build]
+version = "0.10.2"
+default-features = false
 
 [workspace.dependencies.tonic-build]
 version = "0.10.2"

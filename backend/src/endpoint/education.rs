@@ -1,60 +1,9 @@
-use super::endpoints::*;
 use super::tools::*;
 
 use crate::grpc::backend::education_set_server::*;
 use crate::grpc::backend::*;
 
-use entity::{education::*, *};
-
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() || perm.can_manage_education() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            return Ok(query);
-        }
-        if perm.can_manage_education() {
-            return Ok(query.filter(education::Column::UserId.eq(user_id)));
-        }
-        Err(Error::Unauthenticated)
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn publish_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_publish() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't publish education"))
-    }
-
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't link education"))
-    }
-}
+use crate::entity::{education::Paginator, education::*, *};
 
 impl From<i32> for EducationId {
     fn from(value: i32) -> Self {
@@ -71,14 +20,17 @@ impl From<EducationId> for i32 {
 impl From<Model> for EducationFullInfo {
     fn from(value: Model) -> Self {
         EducationFullInfo {
-            info: value.clone().into(),
+            info: EducationInfo {
+                id: value.id.into(),
+                title: value.title,
+            },
             content: value.content,
             problem: value.problem_id.map(Into::into),
         }
     }
 }
-impl From<Model> for EducationInfo {
-    fn from(value: Model) -> Self {
+impl From<PartialModel> for EducationInfo {
+    fn from(value: PartialModel) -> Self {
         EducationInfo {
             id: value.id.into(),
             title: value.title,
@@ -88,6 +40,28 @@ impl From<Model> for EducationInfo {
 
 #[async_trait]
 impl EducationSet for Arc<Server> {
+    async fn list(
+        &self,
+        req: Request<ListEducationRequest>,
+    ) -> Result<Response<ListEducationResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
+        let rev = req.reverse();
+
+        let (pager, models) = match req.pager {
+            Some(pager) => {
+                let pager: Paginator = self.crypto.decode(pager.session)?;
+                pager.fetch(&auth, size, offset, rev).await
+            }
+            None => Paginator::new_fetch((), &auth, size, offset, rev).await,
+        }?;
+
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
+
+        Ok(Response::new(ListEducationResponse { list, next_session }))
+    }
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
@@ -102,8 +76,8 @@ impl EducationSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_education()) {
-            return Err(Error::PremissionDeny("Can't create education").into());
+        if !(perm.super_user()) {
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -154,10 +128,14 @@ impl EducationSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         tracing::debug!(id = req.id);
         self.metrics.education.add(-1, &[]);
@@ -165,42 +143,51 @@ impl EducationSet for Arc<Server> {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
+    async fn add_to_problem(
+        &self,
+        req: Request<AddEducationToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (problem, model) = try_join!(
+            spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
+            spawn(Entity::read_by_id(req.education_id.id, &auth)?.one(db))
+        )
+        .unwrap();
 
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
+        let problem = problem
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB("problem"))?;
+        let model = model
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+
+        if !(perm.super_user()) {
+            if problem.user_id != user_id {
+                return Err(Error::NotInDB("problem").into());
+            }
+            if model.user_id != user_id {
+                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            }
         }
 
-        let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
-            .columns([Column::Id, Column::ProblemId])
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
-            .into_active_model();
-
+        let mut model = model.into_active_model();
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-
         model.save(db).await.map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<EducationLink>) -> Result<Response<()>, Status> {
+    async fn remove_from_problem(
+        &self,
+        req: Request<AddEducationToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link problem").into());
-        }
-
-        let mut model = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
+        let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(db)
             .await
@@ -221,46 +208,34 @@ impl EducationSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::ParentId(ppk) => {
                 tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+                ParentPaginator::new_fetch(ppk, &auth, size, offset, true).await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListEducationResponse { list, next_session }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
-        req: Request<EducationLink>,
+        req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let parent = auth
-            .get_user(db)
-            .await?
-            .find_related(problem::Entity)
-            .columns([contest::Column::Id])
+        let parent = problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
@@ -268,11 +243,11 @@ impl EducationSet for Arc<Server> {
 
         let model = parent
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
+            .filter(Column::Id.eq(Into::<i32>::into(req.education_id)))
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("education"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }

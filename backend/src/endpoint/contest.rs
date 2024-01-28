@@ -1,52 +1,11 @@
-use super::endpoints::*;
 use super::tools::*;
 
+use crate::entity::{contest::*, *};
 use crate::grpc::backend::contest_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
 use crate::grpc::into_prost;
-use entity::{contest::*, *};
 use sea_orm::QueryOrder;
-
-#[async_trait]
-impl Filter for Entity {
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_manage_contest() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::Hoster.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't write contest"))
-    }
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_link() || perm.can_root() || perm.can_manage_contest() {
-                return Ok(query);
-            }
-        }
-        Ok(query.filter(Column::Public.eq(true)))
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::Hoster.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't link test"))
-    }
-}
 
 impl From<i32> for ContestId {
     fn from(value: i32) -> Self {
@@ -90,34 +49,48 @@ impl From<Model> for ContestInfo {
     }
 }
 
+impl From<PartialModel> for ContestInfo {
+    fn from(value: PartialModel) -> Self {
+        ContestInfo {
+            id: value.id.into(),
+            title: value.title,
+            begin: into_prost(value.begin),
+            end: into_prost(value.end),
+            need_password: value.password.is_some(),
+        }
+    }
+}
+
 #[async_trait]
 impl ContestSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_contest_request::Request::Create(create) => {
+                ColPaginator::new_fetch(
+                    (create.sort_by(), Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.reverse,
+                )
+                .await
             }
-            list_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session, self)?
+            list_contest_request::Request::Pager(old) => {
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
@@ -127,24 +100,21 @@ impl ContestSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = req.size;
+        let offset = req.offset();
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => Pager::text_search(create),
-            text_search_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<_> as NoParentPager<Entity>>::from_raw(old.session, self)?
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(text) => {
+                TextPaginator::new_fetch(text, &auth, size, offset, true).await
             }
-        };
+            text_search_request::Request::Pager(old) => {
+                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
+            }
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListContestResponse { list, next_session }))
     }
@@ -161,7 +131,7 @@ impl ContestSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -180,8 +150,8 @@ impl ContestSet for Arc<Server> {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PremissionDeny("Can't create contest").into());
+        if !perm.super_user() {
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -221,23 +191,23 @@ impl ContestSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_contest()) {
-            return Err(Error::PremissionDeny("Can't update contest").into());
+        if !perm.super_user() {
+            return Err(Error::RequirePermission(Entity::DEBUG_NAME).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
-                if auth.is_root() || self.crypto.hash_eq(&src, tar) {
+                if perm.root() || self.crypto.hash_eq(&src, tar) {
                     let hash = self.crypto.hash(&src).into();
                     model.password = Some(hash);
                 } else {
-                    return Err(Error::PremissionDeny(
+                    return Err(Error::PermissionDeny(
                         "password should match in order to update password!",
                     )
                     .into());
@@ -266,10 +236,14 @@ impl ContestSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         self.metrics.contest.add(-1, &[]);
         tracing::debug!(id = req.id, "contest_remove");
@@ -280,24 +254,23 @@ impl ContestSet for Arc<Server> {
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("contest"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         let empty_password = "".to_string();
         if let Some(tar) = model.password {
-            if (!auth.is_root())
+            if (!perm.root())
                 && (!self
                     .crypto
                     .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
                 && model.public
             {
-                return Err(Error::PremissionDeny("contest password mismatch").into());
+                return Err(Error::PermissionDeny("contest password mismatch").into());
             }
         }
 

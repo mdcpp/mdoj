@@ -39,16 +39,16 @@ jobs:
         uses: arduino/setup-protoc@v2
       - name: Install Just
         uses: taiki-e/install-action@just
-      - name: Lint
-        run: |
-          cargo fmt --all -- --check
-          cargo clippy
       - name: Check
         run: cargo check
       - name: Run Backend Unit Test
         run: mkdir -p backend/config && cargo test -p backend
       - name: Run Frontend Unit Test
         run: cargo test -p frontend
+      - name: Lint
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy
       # judger need to build plugin first(which take long time)
       # - name: Run Judger test
       #   run: cd judger && just test
