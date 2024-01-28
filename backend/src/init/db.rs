@@ -50,6 +50,18 @@ async fn migrate(db: &DatabaseConnection) {
     .expect("Unable to setup database migration");
 }
 
+#[cfg(feature = "standalone")]
+async fn migrate(db: &DatabaseConnection) {
+    run_migrate(
+        ::migration::Migrator,
+        db,
+        Some(MigrateSubcommands::Up { num: None }),
+        false,
+    )
+    .await
+    .expect("Unable to setup database migration");
+}
+
 #[instrument(skip_all, name = "construct_admin")]
 async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     if crate::entity::user::Entity::find().count(db).await.unwrap() != 0 {

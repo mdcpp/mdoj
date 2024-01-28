@@ -160,8 +160,6 @@ pub async fn init() {
 
                     fs::create_dir_all(CONFIG_DIR).await.unwrap();
 
-                    fs::create_dir_all(CONFIG_DIR).await.unwrap();
-
                     let config: GlobalConfig = toml::from_str("").unwrap();
 
                     let config_txt = toml::to_string(&config).unwrap();

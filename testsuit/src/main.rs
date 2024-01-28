@@ -25,9 +25,6 @@ struct Args {
     /// check backend/judger config
     #[arg(long, default_value_t = false)]
     config: bool,
-    /// run jaeger
-    #[arg(long, default_value_t = true)]
-    jaeger: bool,
     /// run judger
     #[arg(long, default_value_t = true)]
     judger: bool,
