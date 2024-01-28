@@ -1,6 +1,6 @@
 release-docker:
     cd plugins/rlua-54 && sh ./build.sh
-    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
+    # sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
 
 build-plugin:
     mkdir -p config plugins-out
