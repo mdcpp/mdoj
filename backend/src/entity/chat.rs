@@ -70,8 +70,7 @@ impl PagerReflect<Entity> for Model {
         self.id
     }
 
-    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
-        let db = DB.get().unwrap();
+    async fn all(query: Select<Entity>, db: &DatabaseConnection) -> Result<Vec<Self>, Error> {
         query.all(db).await.map_err(Into::<Error>::into)
     }
 }
@@ -88,9 +87,13 @@ impl PagerSource for ParentPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let _db = DB.get().unwrap();
-        let parent: problem::IdModel = problem::Entity::related_read_by_id(auth, data.0).await?;
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
+        let parent: problem::IdModel =
+            problem::Entity::related_read_by_id(auth, data.0, db).await?;
         Ok(parent.upgrade().find_related(Entity))
     }
 }

@@ -3,16 +3,17 @@ use sea_orm::{
     EntityTrait, PaginatorTrait, Statement,
 };
 
-use tokio::sync::OnceCell;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
-pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
-
 #[instrument(skip_all, name = "construct_db",parent=span)]
-pub async fn init(config: &config::Database, crypto: &CryptoController, span: &Span) {
+pub async fn init(
+    config: &config::Database,
+    crypto: &CryptoController,
+    span: &Span,
+) -> DatabaseConnection {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
     let db = Database::connect(&uri)
@@ -34,7 +35,19 @@ pub async fn init(config: &config::Database, crypto: &CryptoController, span: &S
 
     init_user(&db, crypto).await;
 
-    DB.set(db).ok();
+    db
+}
+
+#[cfg(feature = "standalone")]
+async fn migrate(db: &DatabaseConnection) {
+    run_migrate(
+        ::migration::Migrator,
+        db,
+        Some(MigrateSubcommands::Up { num: None }),
+        false,
+    )
+    .await
+    .expect("Unable to setup database migration");
 }
 
 #[cfg(feature = "standalone")]

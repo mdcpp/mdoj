@@ -2,9 +2,12 @@ mod pubsub;
 mod route;
 mod score;
 
-use std::sync::{
-    atomic::{AtomicI64, Ordering},
-    Arc,
+use std::{
+    ops::Deref,
+    sync::{
+        atomic::{AtomicI64, Ordering},
+        Arc,
+    },
 };
 use tokio_stream::StreamExt;
 
@@ -16,18 +19,15 @@ use crate::{
 use futures::Future;
 use leaky_bucket::RateLimiter;
 use opentelemetry::{global, metrics::ObservableGauge};
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, QueryOrder};
+use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tonic::Status;
 use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
-use crate::{
-    grpc::{
-        backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
-        judger::*,
-    },
-    init::db::DB,
+use crate::grpc::{
+    backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
+    judger::*,
 };
 
 use self::{
@@ -157,11 +157,16 @@ pub struct JudgerController {
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
     limiter: Arc<RateLimiter>,
     running_meter: (AtomicI64, ObservableGauge<i64>),
+    db: Arc<DatabaseConnection>,
 }
 
 impl JudgerController {
     #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
-    pub async fn new(config: Vec<config::Judger>, span: &Span) -> Result<Self, Error> {
+    pub async fn new(
+        config: Vec<config::Judger>,
+        db: Arc<DatabaseConnection>,
+        span: &Span,
+    ) -> Result<Self, Error> {
         let router = Router::new(config, span)?;
         Ok(JudgerController {
             router,
@@ -180,6 +185,7 @@ impl JudgerController {
                     .i64_observable_gauge("running_judge")
                     .init(),
             ),
+            db,
         })
     }
     fn record(&self) -> MeterGuard {
@@ -257,14 +263,14 @@ impl JudgerController {
         model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
 
         model
-            .update(DB.get().unwrap())
+            .update(self.db.deref())
             .in_current_span()
             .await
             .map_err(Into::<Error>::into)
     }
     pub async fn submit(self: &Arc<Self>, req: Submit) -> Result<i32, Error> {
         check_rate_limit!(self);
-        let db = DB.get().unwrap();
+        let db = self.db.deref();
 
         let mut binding = problem::Entity::find_by_id(req.problem)
             .find_with_related(test::Entity)
@@ -315,6 +321,7 @@ impl JudgerController {
         conn.report_success();
 
         let self_ = self.clone();
+        let db = self.db.clone();
         tokio::spawn(async move {
             match self_
                 .stream(tx, res.into_inner(), submit_model, scores, submit_id)
@@ -322,7 +329,7 @@ impl JudgerController {
             {
                 Ok(submit) => {
                     score::ScoreUpload::new(req.user, problem, submit.score)
-                        .upload()
+                        .upload(&db)
                         .await;
                 }
                 Err(err) => {

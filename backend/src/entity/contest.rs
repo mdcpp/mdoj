@@ -121,8 +121,11 @@ impl super::DebugName for Entity {
 
 #[tonic::async_trait]
 impl super::ParentalTrait<IdModel> for Entity {
-    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<IdModel, Error> {
-        let db = DB.get().unwrap();
+    async fn related_read_by_id(
+        auth: &Auth,
+        id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<IdModel, Error> {
         match user::Model::new_with_auth(auth) {
             Some(user) => {
                 let (query, param) = union!(
@@ -180,8 +183,7 @@ impl PagerReflect<Entity> for PartialModel {
         self.id
     }
 
-    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
-        let db = DB.get().unwrap();
+    async fn all(query: Select<Entity>, db: &DatabaseConnection) -> Result<Vec<Self>, Error> {
         query
             .into_model::<Self>()
             .all(db)
@@ -202,7 +204,11 @@ impl PagerSource for TextPagerTrait {
 
     const TYPE_NUMBER: u8 = 4;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        _db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Title.like(data)))
     }
 }
@@ -222,7 +228,11 @@ impl PagerSource for ColPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        _data: &Self::Data,
+        _db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }

@@ -1,9 +1,5 @@
 ci-run:
-    echo start judger
-    cd ../judger && just judger &
-    echo start backend
-    cd ../backend && just run &
     echo run testsuit
-    cargo run
+    cargo run -- --force-restart --jaeger
     echo kill all process
     kill $(jobs -p)

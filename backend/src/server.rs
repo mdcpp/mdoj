@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use sea_orm::DatabaseConnection;
 use tonic::transport::{self, Identity, ServerTlsConfig};
 use tracing::{span, Instrument, Level};
 
@@ -29,6 +30,7 @@ pub struct Server {
     pub imgur: imgur::ImgurController,
     pub rate_limit: rate_limit::RateLimitController,
     pub config: GlobalConfig,
+    pub db: Arc<DatabaseConnection>,
     _otel_guard: OtelGuard,
 }
 
@@ -37,28 +39,29 @@ impl Server {
         let config = config::init().await;
 
         let otel_guard = logger::init(&config);
-
         let span = span!(Level::INFO, "server_construct");
-
         let crypto = crypto::CryptoController::new(&config, &span);
-        crate::init::db::init(&config.database, &crypto, &span)
-            .in_current_span()
-            .await;
-
-        let judger = judger::JudgerController::new(config.judger.clone(), &span)
-            .in_current_span()
-            .await
-            .unwrap();
+        let db = Arc::new(
+            crate::init::db::init(&config.database, &crypto, &span)
+                .in_current_span()
+                .await,
+        );
 
         Arc::new(Server {
-            token: token::TokenController::new(&span),
-            judger: Arc::new(judger),
+            token: token::TokenController::new(&span, db.clone()),
+            judger: Arc::new(
+                judger::JudgerController::new(config.judger.clone(), db.clone(), &span)
+                    .in_current_span()
+                    .await
+                    .unwrap(),
+            ),
             dup: duplicate::DupController::new(&span),
             crypto,
             metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
             imgur: imgur::ImgurController::new(&config.imgur),
             rate_limit: rate_limit::RateLimitController::new(&config.grpc.trust_host),
             config,
+            db,
             _otel_guard: otel_guard,
         })
     }

@@ -3,13 +3,15 @@ use chrono::{Duration, Local, NaiveDateTime};
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
 use rand_hc::Hc128Rng;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use spin::Mutex;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 use tokio::time;
 use tracing::{instrument, Instrument, Span};
 
-use crate::{init::db::DB, report_internal};
+use crate::report_internal;
 
 use super::metrics::RateMetrics;
 
@@ -64,27 +66,28 @@ pub struct TokenController {
     cache: Cache<Rand, CachedToken>,
     rng: Mutex<Hc128Rng>,
     cache_meter: RateMetrics<30>,
+    db: Arc<DatabaseConnection>,
 }
 
 impl TokenController {
     #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
-    pub fn new(span: &Span) -> Arc<Self> {
+    pub fn new(span: &Span, db: Arc<DatabaseConnection>) -> Arc<Self> {
         log::debug!("Setup TokenController");
         let cache = Cache::new(CACHE_SIZE);
         let self_ = Arc::new(Self {
             cache,
             rng: Mutex::new(Hc128Rng::from_entropy()),
             cache_meter: RateMetrics::new("hitrate_token"),
+            db: db.clone(),
         });
         tokio::spawn(async move {
-            let db = DB.get().unwrap();
             loop {
                 time::sleep(CLEAN_DUR).await;
                 let now = Local::now().naive_local();
 
                 if let Err(err) = token::Entity::delete_many()
                     .filter(token::Column::Expiry.lte(now))
-                    .exec(db)
+                    .exec(db.deref())
                     .await
                 {
                     log::error!("Token clean failed: {}", err);
@@ -99,8 +102,6 @@ impl TokenController {
         user: &crate::entity::user::Model,
         dur: Duration,
     ) -> Result<(String, NaiveDateTime), Error> {
-        let db = DB.get().unwrap();
-
         let rand: Rand = { self.rng.lock().gen() };
 
         let expiry = (Local::now() + dur).naive_local();
@@ -112,7 +113,7 @@ impl TokenController {
             permission: ActiveValue::Set(user.permission),
             ..Default::default()
         }
-        .insert(db)
+        .insert(self.db.deref())
         .in_current_span()
         .await?;
 
@@ -125,7 +126,6 @@ impl TokenController {
     #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
     pub async fn verify(&self, token: &str) -> Result<(i32, RoleLv), Error> {
         let now = Local::now().naive_local();
-        let db = DB.get().unwrap();
 
         let rand =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
@@ -156,7 +156,7 @@ impl TokenController {
             None => {
                 token = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
-                    .one(db)
+                    .one(self.db.deref())
                     .in_current_span()
                     .await?
                     .ok_or(Error::NonExist)?)
@@ -180,15 +180,13 @@ impl TokenController {
     }
     #[instrument(skip_all, name="token_remove_controller",level="debug", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
-        let db = DB.get().unwrap();
-
         let rand =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
         let rand: Rand = rand.try_into().map_err(|_| Error::InvalidTokenLength)?;
 
         token::Entity::delete_many()
             .filter(token::Column::Rand.eq(rand.to_vec()))
-            .exec(db)
+            .exec(self.db.deref())
             .await?;
 
         self.cache.remove(&rand);
@@ -204,7 +202,7 @@ impl TokenController {
         user_id: i32,
         // txn: &DatabaseTransaction,
     ) -> Result<(), Error> {
-        let db = DB.get().unwrap();
+        let db = self.db.deref();
 
         let models = token::Entity::find()
             .filter(token::Column::UserId.eq(user_id))

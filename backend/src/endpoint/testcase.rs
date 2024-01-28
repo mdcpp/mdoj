@@ -50,10 +50,13 @@ impl TestcaseSet for Arc<Server> {
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_testcase_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
             list_testcase_request::Request::StartFromEnd(rev) => {
-                ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev).await
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev, &self.db)
+                    .await
             }
         }?;
 
@@ -67,7 +70,6 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<CreateTestcaseRequest>,
     ) -> Result<Response<TestcaseId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -85,7 +87,10 @@ impl TestcaseSet for Arc<Server> {
 
         fill_active_model!(model, req.info, input, output, score);
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
@@ -95,7 +100,6 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
@@ -107,7 +111,7 @@ impl TestcaseSet for Arc<Server> {
         tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
@@ -115,7 +119,10 @@ impl TestcaseSet for Arc<Server> {
 
         fill_exist_active_model!(model, req.info, input, output, score);
 
-        let model = model.update(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id);
 
@@ -123,11 +130,10 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -144,7 +150,6 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -153,30 +158,29 @@ impl TestcaseSet for Arc<Server> {
         }
 
         let (problem, model) = try_join!(
-            spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
-            spawn(Entity::read_by_id(req.testcase_id.id, &auth)?.one(db))
+            problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
+            Entity::read_by_id(req.testcase_id.id, &auth)?.one(self.db.deref())
         )
-        .unwrap();
+        .map_err(Into::<Error>::into)?;
 
-        let problem = problem
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
-        let model = model
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+        let problem = problem.ok_or(Error::NotInDB("problem"))?;
+        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !(perm.admin()) {
             if problem.user_id != user_id {
-                return Err(Error::Add("problem").into());
+                return Err(Error::UnownedAdd("problem").into());
             }
             if model.user_id != user_id {
-                return Err(Error::Add(Entity::DEBUG_NAME).into());
+                return Err(Error::UnownedAdd(Entity::DEBUG_NAME).into());
             }
         }
 
         let mut model = model.into_active_model();
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-        model.save(db).await.map_err(Into::<Error>::into)?;
+        model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -185,12 +189,11 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let mut test = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
@@ -198,7 +201,9 @@ impl TestcaseSet for Arc<Server> {
 
         test.problem_id = ActiveValue::Set(None);
 
-        test.save(db).await.map_err(Into::<Error>::into)?;
+        test.save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -207,7 +212,6 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         tracing::debug!(
@@ -222,13 +226,14 @@ impl TestcaseSet for Arc<Server> {
         }
 
         let parent: problem::IdModel =
-            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id)).await?;
+            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)
+                .await?;
 
         let model = parent
             .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.testcase_id)))
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
@@ -252,12 +257,15 @@ impl TestcaseSet for Arc<Server> {
                     size,
                     offset,
                     create.start_from_end,
+                    &self.db,
                 )
                 .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 

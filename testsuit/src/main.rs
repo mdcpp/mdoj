@@ -25,9 +25,12 @@ struct Args {
     /// check backend/judger config
     #[arg(long, default_value_t = false)]
     config: bool,
-    /// run jaeger
+    /// run judger
     #[arg(long, default_value_t = true)]
-    jaeger: bool,
+    judger: bool,
+    /// run backend
+    #[arg(long, default_value_t = true)]
+    backend: bool,
 }
 
 #[async_std::main]

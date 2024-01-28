@@ -17,7 +17,6 @@ pub mod user;
 pub mod user_contest;
 pub mod util;
 
-use crate::init::db::DB;
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;
 
@@ -32,7 +31,7 @@ pub trait DebugName {
 /// For example, on page of problem, we only want to show public problem(even user have joined contest)
 #[async_trait]
 pub trait ParentalTrait<M> {
-    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<M, Error>;
+    async fn related_read_by_id(auth: &Auth, id: i32, db: &DatabaseConnection) -> Result<M, Error>;
 }
 
 /// filter for Entity r/w

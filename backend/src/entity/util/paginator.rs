@@ -35,7 +35,11 @@ where
     type Data: Send + Sized + Serialize + DeserializeOwned;
     const TYPE_NUMBER: u8;
     /// filter reconstruction
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error>;
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error>;
 }
 
 /// indicate foreign object is ready for page reflect
@@ -49,7 +53,7 @@ where
 {
     /// get id of primary key
     fn get_id(&self) -> i32;
-    async fn all(query: Select<E>) -> Result<Vec<Self>, Error>;
+    async fn all(query: Select<E>, db: &DatabaseConnection) -> Result<Vec<Self>, Error>;
 }
 
 #[async_trait]
@@ -65,6 +69,7 @@ where
         size: u64,
         offset: u64,
         rel_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error>;
     async fn new_fetch(
         data: <Self::Source as PagerSource>::Data,
@@ -72,6 +77,7 @@ where
         size: u64,
         offset: u64,
         abs_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error>;
 }
 
@@ -111,6 +117,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         size: u64,
         offset: u64,
         rel_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let paginator = PaginatePkBuilder::default()
             .pk(<S as PagerSource>::ID)
@@ -123,10 +130,10 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         self.last_direction = rel_dir;
 
         let query = paginator
-            .apply(S::filter(auth, &self.data).await?)
+            .apply(S::filter(auth, &self.data, db).await?)
             .limit(size)
             .offset(offset);
-        let models = R::all(query).await?;
+        let models = R::all(query, db).await?;
 
         // FIXME: use different http status
         if let Some(model) = models.last() {
@@ -142,14 +149,15 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         _size: u64,
         _offset: u64,
         abs_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let query = order_by_bool(
-            S::filter(auth, &data).await?,
+            S::filter(auth, &data, db).await?,
             <S as PagerSource>::ID,
             abs_dir,
         );
 
-        let models = R::all(query).await?;
+        let models = R::all(query, db).await?;
 
         // FIXME: use different http status
         if let Some(model) = models.last() {
@@ -213,6 +221,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         size: u64,
         offset: u64,
         rel_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let col = S::sort_col(&self.data);
         let val = S::get_val(&self.data);
@@ -230,10 +239,10 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         self.last_direction = rel_dir;
 
         let query = paginator
-            .apply(S::filter(auth, &self.data).await?)
+            .apply(S::filter(auth, &self.data, db).await?)
             .limit(size)
             .offset(offset);
-        let models = R::all(query).await?;
+        let models = R::all(query, db).await?;
 
         if size as usize != models.len() {
             tracing::debug!(size = size, len = models.len(), "miss_data")
@@ -254,11 +263,12 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         size: u64,
         offset: u64,
         abs_dir: bool,
+        db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error> {
         let col = S::sort_col(&data);
 
         let query = order_by_bool(
-            S::filter(auth, &data).await?,
+            S::filter(auth, &data, db).await?,
             <S as PagerSource>::ID,
             abs_dir,
         );
@@ -266,7 +276,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             .limit(size)
             .offset(offset);
 
-        let models = R::all(query).await?;
+        let models = R::all(query, db).await?;
 
         if size as usize != models.len() {
             tracing::debug!(size = size, len = models.len(), "miss_data")

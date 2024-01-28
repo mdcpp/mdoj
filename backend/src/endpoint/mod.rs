@@ -12,6 +12,7 @@ mod user;
 
 mod tools {
     pub use crate::entity::util::paginator::Pager;
+    pub use std::ops::Deref;
 
     pub use crate::util::auth::RoleLv;
 
@@ -19,7 +20,6 @@ mod tools {
     pub use crate::entity::DebugName;
     pub use crate::entity::*;
     pub use crate::grpc::TonicStream;
-    pub use crate::init::db::DB;
 
     pub use crate::util::error::Error;
     // pub use crate::util::pager::*;
@@ -29,7 +29,6 @@ mod tools {
         PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
     };
     pub use std::sync::Arc;
-    pub use tokio::spawn;
     pub use tokio::try_join;
     pub use tonic::*;
     pub use tracing::instrument;
