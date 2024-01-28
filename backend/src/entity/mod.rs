@@ -1,6 +1,5 @@
 use sea_orm::{
-    entity::prelude::*,
-    EntityTrait, FromQueryResult, PrimaryKeyTrait, QueryFilter, Select,
+    entity::prelude::*, EntityTrait, FromQueryResult, PrimaryKeyTrait, QueryFilter, Select,
 };
 
 use sea_orm::ColumnTrait;

@@ -135,7 +135,7 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(model.into()))
     }
-    #[instrument(skip_all, level = "debug")] 
+    #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateContestRequest>,
