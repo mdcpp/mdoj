@@ -11,7 +11,7 @@ release-plugin:
     cd plugins sh export-all.sh
     
 build-nsjail:
-    cd nsjail-docker && sudo make nsjail-3.1
+    cd nsjail-docker && sudo make nsjail-3.1 > /dev/null
     cp nsjail-docker/output/*-linux-musl/nsjail-* .
 
 prepare:

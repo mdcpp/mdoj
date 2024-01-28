@@ -68,27 +68,14 @@ jobs:
           components: clippy, rustfmt
       - name: Install Just
         uses: taiki-e/install-action@just
-      - name: Install sea-orm-cli
-        run: cargo install sea-orm-cli
       - name: Install docker
         uses: docker-practice/actions-setup-docker@master
-      - name: build nsjail
-        run: cd judger && just build-nsjail
-      - name: build rlua-54
-        run: cd judger && just release-docker
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: build judger
-        uses: docker/build-push-action@v5
-        with:
-          context: "judger"
-          push: true
-          tags: "staging"
-          labels: "judger"
       - name: build backend
         uses: docker/build-push-action@v5
         with:
@@ -103,4 +90,14 @@ jobs:
           push: true
           tags: "staging"
           labels: "backend/migration"
-      
+      - name: build nsjail
+        run: cd judger && just build-nsjail
+      - name: build rlua-54
+        run: cd judger && just release-docker
+      - name: build judger
+        uses: docker/build-push-action@v5
+        with:
+          context: "judger"
+          push: true
+          tags: "staging"
+          labels: "judger"
