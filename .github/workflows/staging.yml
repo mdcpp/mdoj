@@ -79,6 +79,7 @@ jobs:
       - name: build backend
         uses: docker/build-push-action@v5
         with:
+          build-args: ARCH=x86_64
           context: "backend"
           push: true
           tags: "staging"
@@ -86,6 +87,7 @@ jobs:
       - name: build migration
         uses: docker/build-push-action@v5
         with:
+          build-args: ARCH=x86_64
           context: "backend/migration"
           push: true
           tags: "staging"
@@ -97,6 +99,7 @@ jobs:
       - name: build judger
         uses: docker/build-push-action@v5
         with:
+          build-args: ARCH=x86_64
           context: "judger"
           push: true
           tags: "staging"
