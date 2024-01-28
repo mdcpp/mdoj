@@ -1,16 +1,15 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use crate::{
     assert_eq_error,
     client::connect_with_token,
     grpc::backend::{
-        create_testcase_request, submit_set_client::SubmitSetClient, CreateSubmitRequest,
-        CreateTestcaseRequest, JudgeResult, ProblemId, StateCode, SubmitId,
+        submit_set_client::SubmitSetClient, CreateSubmitRequest, ProblemId, StateCode,
     },
     tests::{Error, State},
 };
-use async_std::{stream::StreamExt, task::sleep};
-use prost_types::Timestamp;
+use async_std::task::sleep;
+
 use uuid::Uuid;
 
 use crate::constants::SERVER;

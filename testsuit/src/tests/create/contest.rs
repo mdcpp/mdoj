@@ -1,11 +1,9 @@
 use std::str::FromStr;
 
 use crate::{
-    assert_eq_error,
     client::connect_with_token,
     grpc::backend::{
-        contest_set_client::ContestSetClient, create_contest_request, create_testcase_request,
-        testcase_set_client::TestcaseSetClient, CreateContestRequest, CreateTestcaseRequest,
+        contest_set_client::ContestSetClient, create_contest_request, CreateContestRequest,
     },
     tests::{Error, State},
 };

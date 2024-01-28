@@ -13,7 +13,7 @@ async fn test_hello_world(factory: &mut ArtifactFactory, uuid: Uuid, code: &[u8]
         .unwrap();
 
     assert!(compiled.get_expection().is_none());
-    
+
     assert!(result.assert(b"hello world", JudgeMatchRule::SkipSnl));
 }
 #[tokio::test]

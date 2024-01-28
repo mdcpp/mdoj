@@ -10,7 +10,10 @@ use std::time::Duration;
 use clap::Parser;
 use indicatif::ProgressBar;
 
-use async_std::{io::{self,Read, ReadExt}, task::sleep};
+use async_std::{
+    io::{self, ReadExt},
+    task::sleep,
+};
 
 /// testsuit for backend/judger
 #[derive(Parser, Debug)]
@@ -32,8 +35,8 @@ async fn main() {
     let args = Args::parse();
 
     let mut state = tests::State::load().await;
-    if args.force_restart{
-        state.step=0;
+    if args.force_restart {
+        state.step = 0;
     }
 
     let logger = pretty_env_logger::formatted_builder().build();

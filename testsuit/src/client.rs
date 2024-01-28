@@ -1,8 +1,6 @@
-use std::{borrow::BorrowMut, fmt};
-
 use http_body::combinators::UnsyncBoxBody;
 use hyper::{client::HttpConnector, header::HeaderValue, Request};
-use tonic::{metadata::MetadataValue, IntoRequest};
+
 use tonic_web::{GrpcWebCall, GrpcWebClientLayer, GrpcWebClientService};
 use tower::{Layer, Service};
 

@@ -3,7 +3,6 @@
 //!
 //! The purpose of empty test is to ensure basic functionality
 
-use indicatif::{ProgressBar, ProgressStyle};
 use tonic::{async_trait, Code};
 
 pub use super::Error;

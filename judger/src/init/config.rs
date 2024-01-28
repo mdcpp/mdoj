@@ -157,7 +157,7 @@ pub async fn init() {
                 }
                 Err(_) => {
                     println!("Unable to find {}, generating default config", CONFIG_PATH);
-                    
+
                     fs::create_dir_all(CONFIG_DIR).await.unwrap();
 
                     let config: GlobalConfig = toml::from_str("").unwrap();
