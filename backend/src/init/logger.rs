@@ -1,5 +1,6 @@
 use opentelemetry::global;
 use opentelemetry::KeyValue;
+use opentelemetry_sdk::metrics::reader::MetricReader;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::{
     metrics::{
@@ -35,6 +36,19 @@ fn resource() -> Resource {
     )
 }
 
+// Construct MeterProvider for MetricsLayer
+fn init_meter_provider(reader: impl MetricReader) -> MeterProvider {
+    let meter_provider = MeterProvider::builder()
+        .with_resource(resource())
+        .with_reader(reader)
+        .build();
+
+    global::set_meter_provider(meter_provider.clone());
+
+    meter_provider
+}
+
+// Construct Tracer for OpenTelemetryLayer
 fn init_tracer() -> Tracer {
     opentelemetry_otlp::new_pipeline()
         .tracing()
@@ -54,39 +68,43 @@ fn init_tracer() -> Tracer {
         .unwrap()
 }
 
-fn init_meter_provider(opentelemetry: bool) -> MeterProvider {
-    // For debugging in development
-    let stdout_reader = PeriodicReader::builder(
-        opentelemetry_stdout::MetricsExporter::default(),
-        runtime::Tokio,
-    )
-    .build();
+// Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
+fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
+    let meter_provider = init_meter_provider(match opentelemetry {
+        true => {
+            let exporter = opentelemetry_otlp::new_exporter()
+                .tonic()
+                .build_metrics_exporter(
+                    Box::new(DefaultAggregationSelector::new()),
+                    Box::new(DefaultTemporalitySelector::new()),
+                )
+                .unwrap();
+            PeriodicReader::builder(exporter, runtime::Tokio)
+                .with_interval(std::time::Duration::from_secs(30))
+                .build()
+        }
+        false => PeriodicReader::builder(
+            opentelemetry_stdout::MetricsExporter::default(),
+            runtime::Tokio,
+        )
+        .build(),
+    });
 
-    let mut meter_provider = MeterProvider::builder()
-        .with_resource(resource())
-        .with_reader(stdout_reader);
+    match opentelemetry {
+        true => tracing_subscriber::registry()
+            .with(tracing_subscriber::filter::LevelFilter::from_level(level))
+            .with(tracing_subscriber::fmt::layer())
+            .with(MetricsLayer::new(meter_provider.clone()))
+            .with(OpenTelemetryLayer::new(init_tracer()))
+            .init(),
+        false => tracing_subscriber::registry()
+            .with(tracing_subscriber::filter::LevelFilter::from_level(level))
+            .with(tracing_subscriber::fmt::layer())
+            .with(MetricsLayer::new(meter_provider.clone()))
+            .init(),
+    };
 
-    if opentelemetry {
-        let exporter = opentelemetry_otlp::new_exporter()
-            .tonic()
-            .build_metrics_exporter(
-                Box::new(DefaultAggregationSelector::new()),
-                Box::new(DefaultTemporalitySelector::new()),
-            )
-            .unwrap();
-
-        let otlp_reader = PeriodicReader::builder(exporter, runtime::Tokio)
-            .with_interval(std::time::Duration::from_secs(30))
-            .build();
-
-        meter_provider = meter_provider.with_reader(otlp_reader);
-    }
-
-    let meter_provider = meter_provider.build();
-
-    global::set_meter_provider(meter_provider.clone());
-
-    meter_provider
+    OtelGuard { meter_provider }
 }
 
 pub struct OtelGuard {
@@ -101,16 +119,8 @@ impl Drop for OtelGuard {
         opentelemetry::global::shutdown_tracer_provider();
     }
 }
-fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
-    let meter_provider = init_meter_provider(opentelemetry);
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::filter::LevelFilter::from_level(level))
-        .with(tracing_subscriber::fmt::layer().with_thread_ids(false))
-        .with(MetricsLayer::new(meter_provider.clone()))
-        .with(OpenTelemetryLayer::new(init_tracer()))
-        .init();
-
+fn init_panic_hook() {
     std::panic::set_hook(Box::new(|panic| {
         if let Some(location) = panic.location() {
             tracing::error!(
@@ -123,11 +133,11 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
             tracing::error!(message = %panic);
         }
     }));
-
-    OtelGuard { meter_provider }
 }
 
 pub fn init(config: &GlobalConfig) -> OtelGuard {
+    init_panic_hook();
+
     let level = match config.log_level {
         0 => Level::TRACE,
         1 => Level::DEBUG,

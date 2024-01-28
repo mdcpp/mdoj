@@ -1,9 +1,11 @@
+use std::process::ExitCode;
+
 mod compile;
 mod execute;
 mod violate;
 const LUA_SRC: &str = "/src/code.txt";
 
-fn main() {
+fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
 
     let cmd=args.get(1).unwrap().as_str();
@@ -22,4 +24,6 @@ fn main() {
         "hello" => println!("hello world"),
         _ => println!("4: Invalid command: \"{}\"", cmd),
     };
+
+    ExitCode::from(0)
 }

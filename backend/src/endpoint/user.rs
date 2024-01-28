@@ -1,26 +1,10 @@
-use super::endpoints::*;
 use super::tools::*;
 
-use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::user_set_server::*;
 use crate::grpc::backend::*;
 
-use entity::user;
-use entity::user::*;
-
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() || perm.can_manage_user() {
-            return Ok(query);
-        }
-        Ok(query.filter(Column::Id.eq(user_id)))
-    }
-}
+use crate::entity::user;
+use crate::entity::user::*;
 
 impl From<i32> for UserId {
     fn from(value: i32) -> Self {
@@ -44,91 +28,48 @@ impl From<Model> for UserInfo {
     }
 }
 
-impl From<UserPermBytes> for Permission {
-    fn from(value: UserPermBytes) -> Self {
-        Permission {
-            can_manage_contest: value.can_manage_contest(),
-            can_manage_problem: value.can_manage_problem(),
-            can_manage_announcement: value.can_manage_announcement(),
-            can_manage_education: value.can_manage_education(),
-            can_manage_user: value.can_manage_user(),
-            can_root: value.can_root(),
-            can_link: value.can_link(),
-            can_publish: value.can_publish(),
-            can_manage_submit: value.can_manage_submit(),
-            can_imgur: value.can_imgur(),
-            can_manage_chat: value.can_manage_chat(),
-        }
-    }
-}
+// impl From<RoleLv> for Permission {
+//     fn from(value: RoleLv) -> Self {
+//         Permission { flags: value }
+//     }
+// }
 
-impl From<Permission> for UserPermBytes {
-    fn from(value: Permission) -> Self {
-        let mut perm = UserPermBytes::default();
-
-        if value.can_manage_contest {
-            perm.grant_manage_contest(true);
-        }
-        if value.can_manage_problem {
-            perm.grant_manage_problem(true);
-        }
-        if value.can_manage_announcement {
-            perm.grant_manage_announcement(true);
-        }
-        if value.can_manage_education {
-            perm.grant_manage_education(true);
-        }
-        if value.can_manage_user {
-            perm.grant_manage_user(true);
-        }
-        if value.can_root {
-            perm.grant_root(true);
-        }
-        if value.can_link {
-            perm.grant_link(true);
-        }
-        if value.can_publish {
-            perm.grant_publish(true);
-        }
-        if value.can_manage_submit {
-            perm.grant_manage_submit(true);
-        }
-        if value.can_imgur {
-            perm.grant_imgur(true);
-        }
-        if value.can_manage_chat {
-            perm.grant_manage_chat(true);
-        }
-
-        perm
-    }
-}
+// impl From<Permission> for RoleLv {
+//     fn from(value: Permission) -> Self {
+//         RoleLv(value.flags)
+//     }
+// }
 
 #[async_trait]
 impl UserSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
-    async fn list(&self, req: Request<ListRequest>) -> Result<Response<ListUserResponse>, Status> {
+    async fn list(
+        &self,
+        req: Request<ListUserRequest>,
+    ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_user_request::Request::Create(create) => {
+                ColPaginator::new_fetch(
+                    (create.sort_by(), Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                )
+                .await
             }
-            list_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as NoParentPager<Entity>>::from_raw(old.session, self)?
+            list_user_request::Request::Pager(old) => {
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
@@ -138,35 +79,26 @@ impl UserSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            text_search_request::Request::Text(create) => Pager::text_search(create),
-            text_search_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<_> as NoParentPager<Entity>>::from_raw(old.session, self)?
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            text_search_request::Request::Text(text) => {
+                TextPaginator::new_fetch(text, &auth, size, offset, true).await
             }
-        };
+            text_search_request::Request::Pager(old) => {
+                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, old.reverse).await
+            }
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn full_info(&self, req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
-        let (auth, _) = self.parse_request(req).await?;
-
-        if !auth.is_root() {
-            return Err(Error::Unauthenticated.into());
-        }
-
+    async fn full_info(&self, _req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
         Err(Status::cancelled("deprecated"))
     }
     #[instrument(skip_all, level = "debug")]
@@ -175,13 +107,17 @@ impl UserSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        if !perm.admin() {
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
+        }
+
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_user()) {
-            return Err(Error::PremissionDeny("Can't create user").into());
+        if !(perm.admin()) {
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -197,16 +133,17 @@ impl UserSet for Arc<Server> {
             return Err(Error::AlreadyExist("").into());
         }
 
-        fill_active_model!(model, req.info, username);
-
         let hash = self.crypto.hash(req.info.password.as_str()).into();
         model.password = ActiveValue::set(hash);
-        let new_perm = Into::<UserPermBytes>::into(req.info.permission);
 
-        if new_perm != UserPermBytes::default() && !perm.can_root() {
-            return Err(Error::PremissionDeny("Can't set permission").into());
+        let new_perm: RoleLv = req.info.role().into();
+        if !perm.root() && new_perm >= perm {
+            return Err(Error::RequirePermission(new_perm).into());
         }
-        model.permission = ActiveValue::set(new_perm.0);
+
+        fill_active_model!(model, req.info, username);
+
+        model.permission = ActiveValue::set(new_perm as i32);
 
         let model = model.save(db).await.map_err(Into::<Error>::into)?;
 
@@ -229,15 +166,15 @@ impl UserSet for Arc<Server> {
             return Ok(Response::new(()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't update user").into());
+        if !(perm.admin()) {
+            return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         if let Some(username) = req.info.username {
@@ -247,11 +184,17 @@ impl UserSet for Arc<Server> {
             let hash = self.crypto.hash(password.as_str()).into();
             model.password = ActiveValue::set(hash);
         }
-        if let Some(permission) = req.info.permission {
-            if !perm.can_root() {
-                return Err(Error::PremissionDeny("Can't set permission").into());
+        if let Some(new_perm) = req.info.role {
+            let new_perm: Role = new_perm.try_into().unwrap_or_default();
+            let new_perm: RoleLv = new_perm.into();
+            if !perm.admin() {
+                return Err(Error::RequirePermission(RoleLv::Admin).into());
             }
-            model.permission = ActiveValue::set(Into::<UserPermBytes>::into(permission).0);
+            if !perm.root() && new_perm > perm {
+                return Err(Error::RequirePermission(RoleLv::Root).into());
+            }
+            model.permission = ActiveValue::set(new_perm as i32);
+            todo!();
         }
 
         let model = model.update(db).await.map_err(Into::<Error>::into)?;
@@ -265,15 +208,18 @@ impl UserSet for Arc<Server> {
         let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(db)
             .await
             .map_err(Into::<Error>::into)?;
 
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
+
         self.metrics.user.add(-1, &[]);
 
-        // TODO: remove user's token
-        // self.token.remove_by_user_id(user_id, txn);
+        self.token.remove_by_user_id(req.id).await?;
 
         Ok(Response::new(()))
     }
@@ -291,28 +237,41 @@ impl UserSet for Arc<Server> {
             .one(db)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
-            return Err(Error::PremissionDeny("password").into());
+            return Err(Error::PermissionDeny("wrong original password").into());
         }
 
-        for _ in 0..32 {
-            let txn = db.begin().await.map_err(Into::<Error>::into)?;
+        let mut model = model.into_active_model();
+        model.password = ActiveValue::Set(self.crypto.hash(&req.new_password).into());
 
-            Entity::delete_by_id(user_id)
-                .exec(&txn)
-                .await
-                .map_err(Into::<Error>::into)?;
+        model.update(db).await.map_err(Into::<Error>::into)?;
 
-            self.token.remove_by_user_id(user_id, &txn).await?;
+        Entity::delete_by_id(user_id)
+            .exec(db)
+            .await
+            .map_err(Into::<Error>::into)?;
 
-            if txn.commit().await.map_err(Into::<Error>::into).is_ok() {
-                return Ok(Response::new(()));
-            }
-        }
-        Err(Status::aborted(
-            "too many transaction retries, try again later",
-        ))
+        self.token.remove_by_user_id(user_id).await?;
+
+        return Ok(Response::new(()));
+    }
+
+    #[instrument(skip_all, level = "debug")]
+    async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
+        let db = DB.get().unwrap();
+        let (auth, _req) = self.parse_request(req).await?;
+        let (user_id, _) = auth.ok_or_default()?;
+
+        let model = Entity::find_by_id(user_id)
+            .one(db)
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::Unreachable(
+                "token should be deleted before user can request its info",
+            ))?;
+
+        Ok(Response::new(model.into()))
     }
 }

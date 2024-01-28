@@ -1,5 +1,6 @@
 mod pubsub;
 mod route;
+mod score;
 
 use std::sync::{
     atomic::{AtomicI64, Ordering},
@@ -34,7 +35,7 @@ use self::{
     route::*,
 };
 use super::code::Code;
-use entity::*;
+use crate::entity::*;
 
 const PALYGROUND_TIME: u64 = 500 * 1000;
 const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
@@ -195,7 +196,7 @@ impl JudgerController {
         mut model: submit::ActiveModel,
         mut scores: Vec<u32>,
         submit_id: i32,
-    ) {
+    ) -> Result<submit::Model, Error> {
         let _ = self.record();
         let mut result = 0;
         let mut running_case = 1;
@@ -255,16 +256,17 @@ impl JudgerController {
         model.time = ActiveValue::Set(Some(time.try_into().unwrap_or(i64::MAX)));
         model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
 
-        match model.update(DB.get().unwrap()).in_current_span().await {
-            Err(err) => tracing::warn!(err=?err,"database_disconnect"),
-            _ => tracing::debug!("submit_committed"),
-        }
+        model
+            .update(DB.get().unwrap())
+            .in_current_span()
+            .await
+            .map_err(Into::<Error>::into)
     }
-    pub async fn submit(self: &Arc<Self>, submit: Submit) -> Result<i32, Error> {
+    pub async fn submit(self: &Arc<Self>, req: Submit) -> Result<i32, Error> {
         check_rate_limit!(self);
         let db = DB.get().unwrap();
 
-        let mut binding = problem::Entity::find_by_id(submit.problem)
+        let mut binding = problem::Entity::find_by_id(req.problem)
             .find_with_related(test::Entity)
             .order_by_asc(test::Column::Score)
             .all(db)
@@ -273,12 +275,12 @@ impl JudgerController {
 
         // create uncommited submit
         let submit_model = submit::ActiveModel {
-            user_id: ActiveValue::Set(Some(submit.user)),
-            problem_id: ActiveValue::Set(submit.user),
+            user_id: ActiveValue::Set(Some(req.user)),
+            problem_id: ActiveValue::Set(req.user),
             committed: ActiveValue::Set(false),
-            lang: ActiveValue::Set(submit.lang.clone().to_string()),
-            code: ActiveValue::Set(submit.code.clone()),
-            memory: ActiveValue::Set(Some(submit.memory_limit)),
+            lang: ActiveValue::Set(req.lang.clone().to_string()),
+            code: ActiveValue::Set(req.code.clone()),
+            memory: ActiveValue::Set(Some(req.memory_limit)),
             ..Default::default()
         }
         .save(db)
@@ -297,14 +299,14 @@ impl JudgerController {
             })
             .collect::<Vec<_>>();
 
-        let mut conn = self.router.get(&submit.lang).await?;
+        let mut conn = self.router.get(&req.lang).await?;
 
         let res = conn
             .judge(JudgeRequest {
-                lang_uid: submit.lang.to_string(),
-                code: submit.code,
-                memory: submit.memory_limit as u64,
-                time: submit.time_limit as u64,
+                lang_uid: req.lang.to_string(),
+                code: req.code,
+                memory: req.memory_limit as u64,
+                time: req.time_limit as u64,
                 rule: problem.match_rule,
                 tests,
             })
@@ -312,10 +314,22 @@ impl JudgerController {
 
         conn.report_success();
 
-        tokio::spawn(
-            self.clone()
-                .stream(tx, res.into_inner(), submit_model, scores, submit_id),
-        );
+        let self_ = self.clone();
+        tokio::spawn(async move {
+            match self_
+                .stream(tx, res.into_inner(), submit_model, scores, submit_id)
+                .await
+            {
+                Ok(submit) => {
+                    score::ScoreUpload::new(req.user, problem, submit.score)
+                        .upload()
+                        .await;
+                }
+                Err(err) => {
+                    tracing::warn!(err = err.to_string(), "judge_fail");
+                }
+            }
+        });
 
         Ok(submit_id)
     }

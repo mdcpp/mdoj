@@ -1,4 +1,4 @@
-FROM rust:1.74.0-slim-buster AS builder
+FROM rust:1.75.0-slim-buster AS builder
 
 ARG ARCH
 WORKDIR /complier

@@ -4,20 +4,19 @@
 #     DATABASE_URL=sqlite://backend.sqlite sea-orm-cli migrate refresh
 #     sea-orm-cli generate entity -u sqlite://backend.sqlite -o entities
 
+regen-database:
+    rm database/*
+    sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
+
 prepare:
     mkdir -p database
     mkdir -p config
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
 entity-codegen:
-    rm database/backend.sqlite
+    rm database/*
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
-    sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o entity/src
-    rm entity/src/mod.rs
-    rm entity/src/prelude.rs
-
-release-docker:
-    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-backend ..
+    sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o src/pending
 
 run:
     cargo run

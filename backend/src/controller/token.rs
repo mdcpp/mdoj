@@ -1,11 +1,9 @@
+use crate::{entity::token, util::auth::RoleLv};
 use chrono::{Duration, Local, NaiveDateTime};
-use entity::token;
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
 use rand_hc::Hc128Rng;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use spin::Mutex;
 use std::sync::Arc;
 use tokio::time;
@@ -15,6 +13,7 @@ use crate::{init::db::DB, report_internal};
 
 use super::metrics::RateMetrics;
 
+const CACHE_SIZE: usize = 800;
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
 type Rand = [u8; 20];
 
@@ -47,7 +46,7 @@ impl From<Error> for tonic::Status {
 #[derive(Clone)]
 struct CachedToken {
     user_id: i32,
-    permission: u32,
+    permission: i32,
     expiry: NaiveDateTime,
 }
 
@@ -71,7 +70,7 @@ impl TokenController {
     #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
     pub fn new(span: &Span) -> Arc<Self> {
         log::debug!("Setup TokenController");
-        let cache = Cache::new(500);
+        let cache = Cache::new(CACHE_SIZE);
         let self_ = Arc::new(Self {
             cache,
             rng: Mutex::new(Hc128Rng::from_entropy()),
@@ -97,7 +96,7 @@ impl TokenController {
     #[instrument(skip_all, name="token_create_controller",level="debug",fields(user = user.id))]
     pub async fn add(
         &self,
-        user: &entity::user::Model,
+        user: &crate::entity::user::Model,
         dur: Duration,
     ) -> Result<(String, NaiveDateTime), Error> {
         let db = DB.get().unwrap();
@@ -124,7 +123,7 @@ impl TokenController {
     }
 
     #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
-    pub async fn verify(&self, token: &str) -> Result<(i32, UserPermBytes), Error> {
+    pub async fn verify(&self, token: &str) -> Result<(i32, RoleLv), Error> {
         let now = Local::now().naive_local();
         let db = DB.get().unwrap();
 
@@ -177,7 +176,7 @@ impl TokenController {
             return Err(Error::Expired);
         }
 
-        Ok((token.user_id, UserPermBytes(token.permission)))
+        Ok((token.user_id, token.permission.try_into().unwrap()))
     }
     #[instrument(skip_all, name="token_remove_controller",level="debug", fields(token = token))]
     pub async fn remove(&self, token: String) -> Result<Option<()>, Error> {
@@ -196,15 +195,20 @@ impl TokenController {
 
         Ok(Some(()))
     }
+    /// remove user's token by user id
+    ///
+    /// FIXME: this implementation is error-prone
     #[instrument(skip_all, name="token_removal",level="debug", fields(uid = user_id))]
     pub async fn remove_by_user_id(
         &self,
         user_id: i32,
-        txn: &DatabaseTransaction,
+        // txn: &DatabaseTransaction,
     ) -> Result<(), Error> {
+        let db = DB.get().unwrap();
+
         let models = token::Entity::find()
             .filter(token::Column::UserId.eq(user_id))
-            .all(txn)
+            .all(db)
             .await?;
 
         for model in models {
@@ -212,49 +216,49 @@ impl TokenController {
         }
         token::Entity::delete_many()
             .filter(token::Column::UserId.eq(user_id))
-            .exec(txn)
+            .exec(db)
             .await?;
 
         Ok(())
     }
 }
 
-macro_rules! set_bit_value {
-    ($item:ident,$name:ident,$pos:expr) => {
-        paste::paste! {
-            impl $item{
-                pub fn [<can_ $name>](&self)->bool{
-                    let filter = 1_u32<<($pos);
-                    (self.0&filter) == filter
-                }
-                pub fn [<grant_ $name>](&mut self,value:bool){
-                    let filter = 1_u32<<($pos);
-                    if (self.0&filter == filter) ^ value{
-                        self.0 ^= filter;
-                    }
-                }
-            }
-        }
-    };
-}
+// macro_rules! set_bit_value {
+//     ($item:ident,$name:ident,$pos:expr) => {
+//         paste::paste! {
+//             impl $item{
+//                 pub fn [<can_ $name>](&self)->bool{
+//                     let filter = 1_u32<<($pos);
+//                     (self.0&filter) == filter
+//                 }
+//                 pub fn [<grant_ $name>](&mut self,value:bool){
+//                     let filter = 1_u32<<($pos);
+//                     if (self.0&filter == filter) ^ value{
+//                         self.0 ^= filter;
+//                     }
+//                 }
+//             }
+//         }
+//     };
+// }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct UserPermBytes(pub u32);
+// #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+// pub struct RoleLv(pub u32);
 
-impl UserPermBytes {
-    pub fn strict_ge(&self, other: Self) -> bool {
-        (self.0 | other.0) == other.0
-    }
-}
+// impl RoleLv {
+//     pub fn strict_ge(&self, other: Self) -> bool {
+//         (self.0 | other.0) == other.0
+//     }
+// }
 
-set_bit_value!(UserPermBytes, root, 0);
-set_bit_value!(UserPermBytes, manage_problem, 1);
-set_bit_value!(UserPermBytes, manage_education, 2);
-set_bit_value!(UserPermBytes, manage_announcement, 3);
-set_bit_value!(UserPermBytes, manage_submit, 4);
-set_bit_value!(UserPermBytes, publish, 5);
-set_bit_value!(UserPermBytes, link, 6);
-set_bit_value!(UserPermBytes, manage_contest, 7);
-set_bit_value!(UserPermBytes, manage_user, 8);
-set_bit_value!(UserPermBytes, imgur, 9);
-set_bit_value!(UserPermBytes, manage_chat, 10);
+// set_bit_value!(RoleLv, root, 0);
+// set_bit_value!(RoleLv, manage_problem, 1);
+// set_bit_value!(RoleLv, manage_education, 2);
+// set_bit_value!(RoleLv, manage_announcement, 3);
+// set_bit_value!(RoleLv, manage_submit, 4);
+// set_bit_value!(RoleLv, publish, 5);
+// set_bit_value!(RoleLv, link, 6);
+// set_bit_value!(RoleLv, manage_contest, 7);
+// set_bit_value!(RoleLv, manage_user, 8);
+// set_bit_value!(RoleLv, imgur, 9);
+// set_bit_value!(RoleLv, manage_chat, 10);

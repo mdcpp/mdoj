@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
+use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
 static CONFIG_PATH: &str = "config/config.toml";
+static CONFIG_DIR: &str = "config";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
@@ -17,11 +19,16 @@ pub struct GlobalConfig {
     pub judger: Vec<Judger>,
     #[serde(default)]
     pub grpc: GrpcOption,
-    #[serde(default)]
+    #[serde(default = "default_opentelemetry")]
     pub opentelemetry: Option<bool>,
     #[serde(default)]
     pub imgur: Imgur,
 }
+
+fn default_opentelemetry() -> Option<bool> {
+    Some(true)
+}
+
 fn default_bind_address() -> String {
     "0.0.0.0:8081".to_string()
 }
@@ -37,6 +44,9 @@ fn default_judger() -> Vec<Judger> {
 pub struct Database {
     pub path: String,
     pub salt: String,
+    #[cfg(feature = "standalone")]
+    #[serde(default)]
+    pub migrate: Option<bool>,
 }
 
 impl Default for Database {
@@ -44,6 +54,8 @@ impl Default for Database {
         Self {
             path: "database/backend.sqlite".to_owned(),
             salt: "be sure to change it".to_owned(),
+            #[cfg(feature = "standalone")]
+            migrate: Some(true),
         }
     }
 }
@@ -71,17 +83,18 @@ impl Default for JudgerType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GrpcOption {
-    pub trust_x_forwarded_for: bool,
-    pub public_pem: PathBuf,
-    pub private_pem: PathBuf,
+    pub public_pem: Option<PathBuf>,
+    pub private_pem: Option<PathBuf>,
+    #[serde(default)]
+    pub trust_host: Vec<IpNetwork>,
 }
 
 impl Default for GrpcOption {
     fn default() -> Self {
         Self {
-            trust_x_forwarded_for: false,
-            public_pem: "cert.pem".into(),
-            private_pem: "key.pem".into(),
+            public_pem: Some("cert.pem".into()),
+            private_pem: Some("key.pem".into()),
+            trust_host: vec![IpNetwork::from_str("255.255.255.255/32").unwrap()],
         }
     }
 }
@@ -102,6 +115,7 @@ impl Default for Imgur {
 }
 
 pub async fn init() -> GlobalConfig {
+    fs::create_dir_all(CONFIG_DIR).await.unwrap();
     if fs::metadata(CONFIG_PATH).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)

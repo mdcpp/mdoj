@@ -5,7 +5,6 @@ members = [
     "backend",
     "judger",
     "testsuit",
-    "backend/entity",
     "backend/migration",
 ]
 
@@ -14,11 +13,15 @@ prost = "0.12.3"
 prost-types = "0.12.3"
 tonic-build = "0.10.2"
 tonic-web = "0.10.2"
+serde = "1.0.163"
+toml = "0.7.4"
 
 [workspace.dependencies.tonic]
 version = "0.10.2"
 default-features = false
 
+[workspace.dependencies.sea-orm-migration]
+version = "0.12.11"
 
 [profile.wasm-release]
 inherits = "release"
