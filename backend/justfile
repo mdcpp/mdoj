@@ -4,13 +4,8 @@
 #     DATABASE_URL=sqlite://backend.sqlite sea-orm-cli migrate refresh
 #     sea-orm-cli generate entity -u sqlite://backend.sqlite -o entities
 
-regen-database:
-    rm database/*
-    sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
-
 prepare:
     mkdir -p database
-    mkdir -p config
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
 entity-codegen:

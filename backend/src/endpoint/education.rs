@@ -52,10 +52,10 @@ impl EducationSet for Arc<Server> {
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_education_request::Request::Pager(pager) => {
                 let pager: Paginator = self.crypto.decode(pager.session)?;
-                pager.fetch(&auth, size, offset, rev).await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
             list_education_request::Request::StartFromEnd(rev) => {
-                Paginator::new_fetch((), &auth, size, offset, rev).await
+                Paginator::new_fetch((), &auth, size, offset, rev, &self.db).await
             }
         }?;
 
@@ -69,7 +69,6 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<CreateEducationRequest>,
     ) -> Result<Response<EducationId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -87,7 +86,10 @@ impl EducationSet for Arc<Server> {
 
         fill_active_model!(model, req.info, title, content);
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
@@ -98,7 +100,6 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (user_id, _perm) = auth.ok_or_default()?;
@@ -111,7 +112,7 @@ impl EducationSet for Arc<Server> {
         tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?
@@ -119,7 +120,10 @@ impl EducationSet for Arc<Server> {
 
         fill_exist_active_model!(model, req.info, title, content);
 
-        let model = model.update(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id);
 
@@ -127,11 +131,10 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -149,22 +152,17 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let (problem, model) = try_join!(
-            spawn(problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(db)),
-            spawn(Entity::read_by_id(req.education_id.id, &auth)?.one(db))
+            problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
+            Entity::read_by_id(req.education_id.id, &auth)?.one(self.db.deref())
         )
-        .unwrap();
+        .map_err(Into::<Error>::into)?;
 
-        let problem = problem
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
-        let model = model
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+        let problem = problem.ok_or(Error::NotInDB("problem"))?;
+        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         if !(perm.super_user()) {
             if problem.user_id != user_id {
@@ -177,7 +175,10 @@ impl EducationSet for Arc<Server> {
 
         let mut model = model.into_active_model();
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-        model.save(db).await.map_err(Into::<Error>::into)?;
+        model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -186,12 +187,11 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?
@@ -199,7 +199,10 @@ impl EducationSet for Arc<Server> {
 
         model.problem_id = ActiveValue::Set(None);
 
-        model.save(db).await.map_err(Into::<Error>::into)?;
+        model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
@@ -222,12 +225,15 @@ impl EducationSet for Arc<Server> {
                     size,
                     offset,
                     create.start_from_end,
+                    &self.db,
                 )
                 .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -241,16 +247,16 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let parent: problem::IdModel =
-            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id)).await?;
+            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)
+                .await?;
         let model = parent
             .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.education_id)))
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;

@@ -165,8 +165,7 @@ impl PagerReflect<Entity> for Model {
         self.id
     }
 
-    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
-        let db = DB.get().unwrap();
+    async fn all(query: Select<Entity>, db: &DatabaseConnection) -> Result<Vec<Self>, Error> {
         query.all(db).await.map_err(Into::<Error>::into)
     }
 }
@@ -183,7 +182,11 @@ impl PagerSource for TextPagerTrait {
 
     const TYPE_NUMBER: u8 = 4;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Username.like(data)))
     }
 }
@@ -202,7 +205,11 @@ impl PagerSource for ColPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        _data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }

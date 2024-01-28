@@ -28,6 +28,12 @@ struct Args {
     /// run jaeger
     #[arg(long, default_value_t = true)]
     jaeger: bool,
+    /// run judger
+    #[arg(long, default_value_t = true)]
+    judger: bool,
+    /// run backend
+    #[arg(long, default_value_t = true)]
+    backend: bool,
 }
 
 #[async_std::main]
