@@ -80,7 +80,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           build-args: ARCH=x86_64
-          context: "backend"
+          context: "."
+          file: "backend/Dockerfile"
           push: true
           tags: "staging"
           labels: "backend"
@@ -88,7 +89,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           build-args: ARCH=x86_64
-          context: "backend/migration"
+          context: "."
+          file: "backend/migration/Dockerfile"
           push: true
           tags: "staging"
           labels: "backend/migration"
@@ -100,7 +102,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           build-args: ARCH=x86_64
-          context: "judger"
+          context: "."
+          file: "judger/Dockerfile"
           push: true
           tags: "staging"
           labels: "judger"
