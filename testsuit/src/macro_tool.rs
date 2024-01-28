@@ -10,6 +10,6 @@ macro_rules! assert_error {
 #[macro_export]
 macro_rules! assert_eq_error {
     ($left:expr,$right:expr,$msg:expr) => {
-        $crate::assert_error!($left == $right, $msg)
+        crate::assert_error!($left == $right, $msg)
     };
 }
