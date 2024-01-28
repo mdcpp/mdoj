@@ -45,6 +45,8 @@ impl RateLimitController {
     }
     #[instrument(skip_all, level = "debug")]
     pub fn check_ip<T>(&self, req: &tonic::Request<T>, permits: usize) -> Result<(), Error> {
+        #[cfg(debug_assertions)]
+        return Ok(());
         if self.trusts.is_empty() {
             return Ok(());
         }
