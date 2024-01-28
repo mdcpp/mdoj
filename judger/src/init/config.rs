@@ -6,6 +6,7 @@ use tokio::{fs, io::AsyncReadExt, sync::OnceCell};
 pub static CONFIG: OnceCell<GlobalConfig> = OnceCell::const_new();
 
 static CONFIG_PATH: &str = "config/config.toml";
+static CONFIG_DIR: &str = "config";
 
 // config
 #[derive(Serialize, Deserialize, Debug)]
@@ -156,6 +157,8 @@ pub async fn init() {
                 }
                 Err(_) => {
                     println!("Unable to find {}, generating default config", CONFIG_PATH);
+                    
+                    fs::create_dir_all(CONFIG_DIR).await.unwrap();
 
                     let config: GlobalConfig = toml::from_str("").unwrap();
 

@@ -4,12 +4,14 @@ pub mod cgroup;
 pub mod check;
 pub mod config;
 pub mod logger;
+pub mod volumn;
 
 pub async fn new() {
     config::init().await;
     logger::init();
     cgroup::init();
     check::init();
+    volumn::init().await;
 }
 
 #[derive(Error, Debug)]

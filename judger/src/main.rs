@@ -8,7 +8,8 @@ pub mod init;
 pub mod langs;
 pub mod sandbox;
 pub mod server;
-pub mod test;
+#[cfg(test)]
+pub mod tests;
 
 #[tokio::main]
 async fn main() {
