@@ -25,7 +25,10 @@ mod tools {
 
     pub use crate::util::error::Error;
     // pub use crate::util::pager::*;
-    pub use crate::{fill_active_model, fill_exist_active_model, server::Server,check_length,check_exist_length};
+    pub use crate::{
+        check_exist_length, check_length, fill_active_model, fill_exist_active_model,
+        server::Server,
+    };
     pub use sea_orm::{
         ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
         PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,

@@ -136,9 +136,9 @@ impl ProblemSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        check_length!(SHORT_ART_SIZE,req.info, title,tags);
-        check_length!(LONG_ART_SIZE,req.info, content);
-        
+        check_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_length!(LONG_ART_SIZE, req.info, content);
+
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
@@ -171,8 +171,8 @@ impl ProblemSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
-        check_exist_length!(SHORT_ART_SIZE,req.info, title,tags);
-        check_exist_length!(LONG_ART_SIZE,req.info, content);
+        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_exist_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {

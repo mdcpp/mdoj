@@ -4,7 +4,6 @@
 use std::ops::Deref;
 
 use sea_orm::{DatabaseBackend, Statement};
-use sea_query::SqliteQueryBuilder;
 
 use crate::{grpc::backend::ProblemSortBy, partial_union};
 
