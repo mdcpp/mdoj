@@ -4,7 +4,7 @@ ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
-RUN apt install musl-tools protobuf-compiler pkg-config make -y
+RUN apt install musl-tools protobuf-compiler pkg-config openssl make -y
 
 RUN cargo install just
 
@@ -14,7 +14,7 @@ WORKDIR /complier
 COPY . .
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend/migration
 
-FROM scratch
+FROM debian
 COPY --from=builder /usr/local/cargo/bin/migration /
-
+RUN apt install openssl -y
 CMD ["/migration"]

@@ -8,10 +8,12 @@ RUN apt install musl-tools protobuf-compiler pkg-config make -y
 
 RUN cargo install just
 
-RUN rustup target add ${ARCH}-unknown-linux-musl
 
 WORKDIR /complier
 COPY . .
+
+RUN rustup target add ${ARCH}-unknown-linux-musl
+
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch

@@ -20,6 +20,9 @@ toml = "0.7.4"
 version = "0.10.2"
 default-features = false
 
+[workspace.dependencies.sea-orm]
+version = "0.12.11"
+
 [workspace.dependencies.sea-orm-migration]
 version = "0.12.11"
 

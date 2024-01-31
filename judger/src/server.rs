@@ -130,8 +130,10 @@ async fn judger_stream(
 ) -> Result<(), Status> {
     log::debug!("start streaming");
 
-    let mode = JudgeMatchRule::from_i32(payload.rule)
-        .ok_or(Status::failed_precondition("Invaild judge matching rule"))?;
+    let mode: JudgeMatchRule = payload
+        .rule
+        .try_into()
+        .map_err(|_| Status::failed_precondition("Invaild judge matching rule"))?;
     let lang = parse_uid(&payload.lang_uid)?;
 
     let mut compile = factory.compile(&lang, &payload.code).await?;
