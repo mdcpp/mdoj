@@ -145,8 +145,10 @@ impl ContestSet for Arc<Server> {
         req: Request<CreateContestRequest>,
     ) -> Result<Response<ContestId>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_length!(LONG_ART_SIZE, req.info,  content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
@@ -188,8 +190,10 @@ impl ContestSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_exist_length!(LONG_ART_SIZE, req.info,  content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
@@ -206,6 +210,7 @@ impl ContestSet for Arc<Server> {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
+        check_exist_length!(SHORT_ART_SIZE, req.info, password);
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
                 if perm.root() || self.crypto.hash_eq(&src, tar) {

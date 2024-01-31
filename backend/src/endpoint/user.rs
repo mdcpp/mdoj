@@ -111,6 +111,8 @@ impl UserSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
+        check_length!(SHORT_ART_SIZE, req.info, username);
+
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Admin).into());
         }

@@ -1,10 +1,12 @@
 // use sea_orm::{DatabaseBackend, DbBackend, QueryTrait, Statement, StatementBuilder};
 // use sea_query::{UnionType, QueryStatementWriter, SqliteQueryBuilder};
 
+use std::ops::Deref;
+
 use sea_orm::{DatabaseBackend, Statement};
 use sea_query::SqliteQueryBuilder;
 
-use crate::{grpc::backend::ProblemSortBy, union};
+use crate::{grpc::backend::ProblemSortBy, partial_union};
 
 use super::*;
 
@@ -164,12 +166,22 @@ impl super::ParentalTrait<IdModel> for Entity {
     ) -> Result<IdModel, Error> {
         match user::Model::new_with_auth(auth) {
             Some(user) => {
-                let (query, param) = union!(
-                    user.find_related(Entity),
-                    Entity::find().filter(Column::Public.eq(true))
-                )
-                .and_where(Column::Id.eq(id))
-                .build(SqliteQueryBuilder);
+                let (query, param) = {
+                    let builder = db.get_database_backend().get_query_builder();
+
+                    partial_union!(
+                        [
+                            Column::Id,
+                            Column::UserId,
+                            Column::ContestId,
+                            Column::Public
+                        ],
+                        user.find_related(Entity),
+                        Entity::find().filter(Column::Public.eq(true))
+                    )
+                    .and_where(Column::Id.eq(id))
+                    .build_any(builder.deref())
+                };
 
                 IdModel::find_by_statement(Statement::from_sql_and_values(
                     DatabaseBackend::Sqlite,

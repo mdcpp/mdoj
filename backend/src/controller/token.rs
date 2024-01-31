@@ -38,7 +38,7 @@ impl From<Error> for tonic::Status {
         match value {
             Error::Database(x) => report_internal!(error, "`{}`", x),
             Error::NonExist | Error::Expired | Error::InvalidTokenLength => {
-                tonic::Status::invalid_argument("invaild token")
+                tonic::Status::unauthenticated("invaild token")
             }
             Error::Base64(_) => tonic::Status::invalid_argument("token should be base64"),
         }

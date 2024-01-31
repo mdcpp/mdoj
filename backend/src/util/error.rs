@@ -74,7 +74,7 @@ impl From<Error> for Status {
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
-            Error::BufferTooLarge(x) => Status::invalid_argument(format!("buffer {} too large", x)),
+            Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
             Error::AlreadyExist(x) => {
                 tracing::trace!(hint = x, "entity_exist");
                 Status::already_exists(x)

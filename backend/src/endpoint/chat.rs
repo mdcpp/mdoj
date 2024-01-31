@@ -36,6 +36,8 @@ impl ChatSet for Arc<Server> {
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
+        check_length!(LONG_ART_SIZE, req, message);
+
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
