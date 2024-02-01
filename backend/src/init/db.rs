@@ -10,7 +10,7 @@ use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
 #[instrument(skip_all, name = "construct_db",parent=span)]
 /// initialize the database and connection
-/// 
+///
 /// 1. Connect to database.
 /// 2. Check and run migration.(skip when not(feature="standalone"))
 /// 3. insert user admin@admin if there is no user.

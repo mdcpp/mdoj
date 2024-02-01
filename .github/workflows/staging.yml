@@ -83,7 +83,7 @@ jobs:
           context: .
           file: "./backend/Dockerfile"
           push: true
-          tags: "staging"
+          tags: "ghcr.io/mdcpp/mdoj/backend:staging"
           labels: "backend"
       - name: build migration
         uses: docker/build-push-action@v5
@@ -92,8 +92,8 @@ jobs:
           context: .
           file: "./backend/migration/Dockerfile"
           push: true
-          tags: "staging"
-          labels: "backend/migration"
+          tags: "ghcr.io/mdcpp/mdoj/migration:staging"
+          labels: "migration"
       - name: build nsjail
         run: cd judger && just build-nsjail
       - name: build rlua-54
@@ -105,5 +105,5 @@ jobs:
           context: .
           file: "./judger/Dockerfile"
           push: true
-          tags: "staging"
+          tags: "ghcr.io/mdcpp/mdoj/judger:staging"
           labels: "judger"
