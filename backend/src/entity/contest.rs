@@ -1,7 +1,6 @@
 use std::ops::Deref;
 
 use sea_orm::{DatabaseBackend, Statement};
-use sea_query::QueryStatementBuilder;
 
 use crate::{grpc::backend::ContestSortBy, partial_union};
 

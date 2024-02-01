@@ -1,3 +1,4 @@
+//! collection of endpoint implementation
 mod announcement;
 mod chat;
 mod contest;

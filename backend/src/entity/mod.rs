@@ -1,3 +1,4 @@
+//! collection of entity
 use sea_orm::{
     entity::prelude::*, EntityTrait, FromQueryResult, PrimaryKeyTrait, QueryFilter, Select,
 };

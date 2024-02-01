@@ -21,6 +21,9 @@ use crate::{
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
+/// A wrapper to launch server
+/// 
+/// [`Server`] doesn't hold state
 pub struct Server {
     pub token: Arc<token::TokenController>,
     pub judger: Arc<judger::JudgerController>,
@@ -35,6 +38,15 @@ pub struct Server {
 }
 
 impl Server {
+    /// Create a new server
+    /// 
+    /// It will initialize project's stateful components in following order:
+    /// 1. Config
+    /// 2. Logger
+    /// 3. Crypto Controller
+    /// 4. Other Controller
+    /// 
+    /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
     pub async fn new() -> Arc<Self> {
         let config = config::init().await;
 
@@ -65,6 +77,7 @@ impl Server {
             _otel_guard: otel_guard,
         })
     }
+    /// Start the server
     pub async fn start(self: Arc<Self>) {
         let mut identity = None;
 

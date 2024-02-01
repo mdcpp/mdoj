@@ -9,6 +9,12 @@ use super::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
 #[instrument(skip_all, name = "construct_db",parent=span)]
+/// initialize the database and connection
+/// 
+/// 1. Connect to database.
+/// 2. Check and run migration.(skip when not(feature="standalone"))
+/// 3. insert user admin@admin if there is no user.
+/// 4. return DatabaseConnection
 pub async fn init(
     config: &config::Database,
     crypto: &CryptoController,
@@ -39,18 +45,7 @@ pub async fn init(
 }
 
 #[cfg(feature = "standalone")]
-async fn migrate(db: &DatabaseConnection) {
-    run_migrate(
-        ::migration::Migrator,
-        db,
-        Some(MigrateSubcommands::Up { num: None }),
-        false,
-    )
-    .await
-    .expect("Unable to setup database migration");
-}
-
-#[cfg(feature = "standalone")]
+/// Run migration
 async fn migrate(db: &DatabaseConnection) {
     run_migrate(
         ::migration::Migrator,
@@ -63,6 +58,7 @@ async fn migrate(db: &DatabaseConnection) {
 }
 
 #[instrument(skip_all, name = "construct_admin")]
+/// check if any user exist or inser user admin@admin
 async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     if crate::entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;

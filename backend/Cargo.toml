@@ -37,7 +37,7 @@ opentelemetry-stdout = { version = "0.2.0", features = ["metrics"] }
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
 migration = { path = "./migration",optional = true }
-sea-orm-cli = "0.12.12"
+sea-orm-cli = {version = "0.12.12",optional = true}
 
 [dependencies.chrono]
 workspace = true
@@ -72,7 +72,7 @@ features = ["macros", "rt-multi-thread", "full", "time"]
 version = "0.12.11"
 default-features = false
 features = [
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "macros",
     "mock",
     "sqlx-sqlite",
@@ -106,4 +106,4 @@ tonic-build = { workspace = true }
 
 [features]
 default = []
-standalone = ["dep:migration","dep:sea-orm-migration"]
+standalone = ["dep:migration","dep:sea-orm-migration","dep:sea-orm-cli"]
