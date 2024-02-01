@@ -59,12 +59,15 @@ impl UserSet for Arc<Server> {
                     size,
                     offset,
                     create.start_from_end,
+                    &self.db,
                 )
                 .await
             }
             list_user_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -84,11 +87,13 @@ impl UserSet for Arc<Server> {
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
             }
             text_search_request::Request::Pager(old) => {
                 let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -103,9 +108,10 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_length!(SHORT_ART_SIZE, req.info, username);
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Admin).into());
@@ -126,7 +132,7 @@ impl UserSet for Arc<Server> {
 
         let same_name = Entity::find()
             .filter(Column::Username.eq(req.info.username.clone()))
-            .count(db)
+            .count(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
         if same_name != 0 {
@@ -145,7 +151,10 @@ impl UserSet for Arc<Server> {
 
         model.permission = ActiveValue::set(new_perm as i32);
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.metrics.user.add(1, &[]);
 
@@ -156,7 +165,6 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let (user_id, perm) = auth.ok_or_default()?;
@@ -171,7 +179,7 @@ impl UserSet for Arc<Server> {
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
@@ -197,7 +205,10 @@ impl UserSet for Arc<Server> {
             todo!();
         }
 
-        let model = model.update(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id);
 
@@ -205,11 +216,10 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -228,13 +238,12 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
@@ -246,10 +255,13 @@ impl UserSet for Arc<Server> {
         let mut model = model.into_active_model();
         model.password = ActiveValue::Set(self.crypto.hash(&req.new_password).into());
 
-        model.update(db).await.map_err(Into::<Error>::into)?;
+        model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Entity::delete_by_id(user_id)
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -260,12 +272,11 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, _req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::find_by_id(user_id)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::Unreachable(

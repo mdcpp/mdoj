@@ -1,10 +1,11 @@
 // use sea_orm::{DatabaseBackend, DbBackend, QueryTrait, Statement, StatementBuilder};
 // use sea_query::{UnionType, QueryStatementWriter, SqliteQueryBuilder};
 
-use sea_orm::{DatabaseBackend, Statement};
-use sea_query::SqliteQueryBuilder;
+use std::ops::Deref;
 
-use crate::{grpc::backend::ProblemSortBy, union};
+use sea_orm::{DatabaseBackend, Statement};
+
+use crate::{grpc::backend::ProblemSortBy, partial_union};
 
 use super::*;
 
@@ -157,16 +158,29 @@ impl super::DebugName for Entity {
 
 #[async_trait]
 impl super::ParentalTrait<IdModel> for Entity {
-    async fn related_read_by_id(auth: &Auth, id: i32) -> Result<IdModel, Error> {
-        let db = DB.get().unwrap();
+    async fn related_read_by_id(
+        auth: &Auth,
+        id: i32,
+        db: &DatabaseConnection,
+    ) -> Result<IdModel, Error> {
         match user::Model::new_with_auth(auth) {
             Some(user) => {
-                let (query, param) = union!(
-                    user.find_related(Entity),
-                    Entity::find().filter(Column::Public.eq(true))
-                )
-                .and_where(Column::Id.eq(id))
-                .build(SqliteQueryBuilder);
+                let (query, param) = {
+                    let builder = db.get_database_backend().get_query_builder();
+
+                    partial_union!(
+                        [
+                            Column::Id,
+                            Column::UserId,
+                            Column::ContestId,
+                            Column::Public
+                        ],
+                        user.find_related(Entity),
+                        Entity::find().filter(Column::Public.eq(true))
+                    )
+                    .and_where(Column::Id.eq(id))
+                    .build_any(builder.deref())
+                };
 
                 IdModel::find_by_statement(Statement::from_sql_and_values(
                     DatabaseBackend::Sqlite,
@@ -215,8 +229,7 @@ impl PagerReflect<Entity> for PartialModel {
         self.id
     }
 
-    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
-        let db = DB.get().unwrap();
+    async fn all(query: Select<Entity>, db: &DatabaseConnection) -> Result<Vec<Self>, Error> {
         query
             .into_model::<Self>()
             .all(db)
@@ -239,7 +252,11 @@ impl PagerSource for TextPagerTrait {
 
     const TYPE_NUMBER: u8 = 4;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        _db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
             .map(|x| x.filter(Column::Title.like(data).or(Column::Tags.like(data))))
     }
@@ -259,9 +276,13 @@ impl PagerSource for ParentPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let _db = DB.get().unwrap();
-        let parent: contest::IdModel = contest::Entity::related_read_by_id(auth, data.0).await?;
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
+        let parent: contest::IdModel =
+            contest::Entity::related_read_by_id(auth, data.0, db).await?;
 
         Ok(parent.upgrade().find_related(Entity))
     }
@@ -294,7 +315,11 @@ impl PagerSource for ColPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        _data: &Self::Data,
+        _db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }

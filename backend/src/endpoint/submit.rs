@@ -74,11 +74,14 @@ impl SubmitSet for Arc<Server> {
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_submit_request::Request::Create(_create) => {
-                ColPaginator::new_fetch(Default::default(), &auth, size, offset, true).await
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, true, &self.db)
+                    .await
             }
             list_submit_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -105,12 +108,15 @@ impl SubmitSet for Arc<Server> {
                     size,
                     offset,
                     create.start_from_end,
+                    &self.db,
                 )
                 .await
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -122,13 +128,12 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         tracing::debug!(id = req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
@@ -141,7 +146,6 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<CreateSubmitRequest>,
     ) -> Result<Response<SubmitId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
@@ -152,7 +156,7 @@ impl SubmitSet for Arc<Server> {
         let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
         let problem = problem::Entity::find_by_id(req.problem_id)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;
@@ -160,12 +164,12 @@ impl SubmitSet for Arc<Server> {
         if (problem.user_id != user_id) && (!problem.public) {
             problem
                 .find_related(contest::Entity)
-                .one(db)
+                .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("contest"))?
                 .find_related(user::Entity)
-                .one(db)
+                .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("user"))?;
@@ -191,11 +195,10 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -229,7 +232,6 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -247,14 +249,14 @@ impl SubmitSet for Arc<Server> {
         tracing::debug!(req.id = submit_id);
 
         let submit = submit::Entity::find_by_id(submit_id)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         let problem = submit
             .find_related(problem::Entity)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;

@@ -8,6 +8,7 @@ RUN apt install musl-tools protobuf-compiler pkg-config make -y
 
 RUN cargo install just
 
+
 RUN --mount=type=cache,target=~/.cargo/bin/
 RUN --mount=type=cache,target=~/.cargo/registry/index/
 RUN --mount=type=cache,target=~/.cargo/registry/cache/
@@ -19,12 +20,9 @@ COPY . .
 RUN --mount=type=cache,target=target
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend/migration
 
 FROM scratch
-# WORKDIR are used instead of mkdir
-WORKDIR /database
-WORKDIR /config
-COPY --from=builder /usr/local/cargo/bin/backend /
+COPY --from=builder /usr/local/cargo/bin/migration /
 
-CMD ["/backend"]
+CMD ["/migration"]

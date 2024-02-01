@@ -33,7 +33,7 @@ pub enum Error {
     #[error("Already exist")]
     AlreadyExist(&'static str),
     #[error("You need to own `{0}` to add thing onto it")]
-    Add(&'static str),
+    UnownedAdd(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
     #[error("rate limit reached")]
@@ -74,12 +74,12 @@ impl From<Error> for Status {
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
-            Error::BufferTooLarge(x) => Status::invalid_argument(format!("buffer {} too large", x)),
+            Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
             Error::AlreadyExist(x) => {
                 tracing::trace!(hint = x, "entity_exist");
                 Status::already_exists(x)
             }
-            Error::Add(x) => {
+            Error::UnownedAdd(x) => {
                 tracing::trace!(hint = x, "add_fail");
                 Status::failed_precondition(format!("You need to own {} to add thing onto it", x))
             }

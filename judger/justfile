@@ -1,6 +1,6 @@
 release-docker:
     cd plugins/rlua-54 && sh ./build.sh
-    sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
+    # sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
 
 build-plugin:
     mkdir -p config plugins-out
@@ -11,7 +11,7 @@ release-plugin:
     cd plugins sh export-all.sh
     
 build-nsjail:
-    cd nsjail-docker && sudo make nsjail-3.1
+    cd nsjail-docker && sudo make nsjail-3.1 > /dev/null
     cp nsjail-docker/output/*-linux-musl/nsjail-* .
 
 prepare:

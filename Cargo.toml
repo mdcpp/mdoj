@@ -27,12 +27,20 @@ prost-wkt-build = "0.5"
 version = "0.10.2"
 default-features = false
 
+[workspace.dependencies.chrono]
+version = "0.4.26"
+
 [workspace.dependencies.tonic]
 version = "0.10.2"
 default-features = false
 
+[workspace.dependencies.sea-orm]
+version = "0.12.11"
+default-features = false
+
 [workspace.dependencies.sea-orm-migration]
 version = "0.12.11"
+default-features = false
 
 [profile.wasm-release]
 inherits = "release"

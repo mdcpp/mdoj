@@ -3,16 +3,23 @@ use sea_orm::{
     EntityTrait, PaginatorTrait, Statement,
 };
 
-use tokio::sync::OnceCell;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
-pub static DB: OnceCell<DatabaseConnection> = OnceCell::const_new();
-
 #[instrument(skip_all, name = "construct_db",parent=span)]
-pub async fn init(config: &config::Database, crypto: &CryptoController, span: &Span) {
+/// initialize the database and connection
+///
+/// 1. Connect to database.
+/// 2. Check and run migration.(skip when not(feature="standalone"))
+/// 3. insert user admin@admin if there is no user.
+/// 4. return DatabaseConnection
+pub async fn init(
+    config: &config::Database,
+    crypto: &CryptoController,
+    span: &Span,
+) -> DatabaseConnection {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
     let db = Database::connect(&uri)
@@ -34,10 +41,11 @@ pub async fn init(config: &config::Database, crypto: &CryptoController, span: &S
 
     init_user(&db, crypto).await;
 
-    DB.set(db).ok();
+    db
 }
 
 #[cfg(feature = "standalone")]
+/// Run migration
 async fn migrate(db: &DatabaseConnection) {
     run_migrate(
         ::migration::Migrator,
@@ -50,6 +58,7 @@ async fn migrate(db: &DatabaseConnection) {
 }
 
 #[instrument(skip_all, name = "construct_admin")]
+/// check if any user exist or inser user admin@admin
 async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     if crate::entity::user::Entity::find().count(db).await.unwrap() != 0 {
         return;

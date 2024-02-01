@@ -107,8 +107,7 @@ impl PagerReflect<Entity> for PartialModel {
         self.id
     }
 
-    async fn all(query: Select<Entity>) -> Result<Vec<Self>, Error> {
-        let db = DB.get().unwrap();
+    async fn all(query: Select<Entity>, db: &DatabaseConnection) -> Result<Vec<Self>, Error> {
         query
             .into_model::<Self>()
             .all(db)
@@ -129,9 +128,13 @@ impl PagerSource for ParentPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
-        let _db = DB.get().unwrap();
-        let parent: problem::IdModel = problem::Entity::related_read_by_id(auth, data.0).await?;
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
+        let parent: problem::IdModel =
+            problem::Entity::related_read_by_id(auth, data.0, db).await?;
         Ok(parent.upgrade().find_related(Entity))
     }
 }
@@ -163,7 +166,11 @@ impl PagerSource for ColPagerTrait {
 
     const TYPE_NUMBER: u8 = 8;
 
-    async fn filter(auth: &Auth, _data: &Self::Data) -> Result<Select<Self::Entity>, Error> {
+    async fn filter(
+        auth: &Auth,
+        _data: &Self::Data,
+        _db: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
         Entity::read_filter(Entity::find(), auth)
     }
 }

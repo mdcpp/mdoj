@@ -80,12 +80,15 @@ impl ContestSet for Arc<Server> {
                     size,
                     offset,
                     create.start_from_end,
+                    &self.db,
                 )
                 .await
             }
             list_contest_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -105,11 +108,13 @@ impl ContestSet for Arc<Server> {
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
             }
             text_search_request::Request::Pager(old) => {
                 let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, old.reverse).await
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
         }?;
 
@@ -123,12 +128,11 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<ContestId>,
     ) -> Result<Response<ContestFullInfo>, Status> {
-        let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
 
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
@@ -140,10 +144,11 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<CreateContestRequest>,
     ) -> Result<Response<ContestId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
@@ -170,7 +175,10 @@ impl ContestSet for Arc<Server> {
         model.begin = ActiveValue::Set(into_chrono(req.info.begin));
         model.end = ActiveValue::Set(into_chrono(req.info.end));
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
@@ -181,10 +189,11 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
-
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
+        check_exist_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
@@ -196,11 +205,12 @@ impl ContestSet for Arc<Server> {
         }
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
+        check_exist_length!(SHORT_ART_SIZE, req.info, password);
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
                 if perm.root() || self.crypto.hash_eq(&src, tar) {
@@ -225,7 +235,10 @@ impl ContestSet for Arc<Server> {
             model.end = ActiveValue::Set(into_chrono(x));
         }
 
-        let model = model.update(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id);
 
@@ -233,11 +246,10 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -252,12 +264,11 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
@@ -280,7 +291,10 @@ impl ContestSet for Arc<Server> {
             ..Default::default()
         };
 
-        pivot.save(db).await.map_err(Into::<Error>::into)?;
+        pivot
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         tracing::debug!(user_id = user_id, contest_id = req.id.id);
 
@@ -288,14 +302,13 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         user_contest::Entity::delete_many()
             .filter(user_contest::Column::UserId.eq(user_id))
             .filter(user_contest::Column::ContestId.eq(req.id))
-            .exec(db)
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -307,16 +320,15 @@ impl ContestSet for Arc<Server> {
     #[doc = " return up to 10 user"]
     #[instrument(skip_all, level = "debug")]
     async fn rank(&self, req: Request<ContestId>) -> Result<Response<Users>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        let contest: IdModel = Entity::related_read_by_id(&auth, req.id).await?;
+        let contest: IdModel = Entity::related_read_by_id(&auth, req.id, &self.db).await?;
 
         let list = user_contest::Entity::find()
             .filter(user_contest::Column::ContestId.eq(contest.id))
             .order_by_desc(user_contest::Column::Score)
             .limit(10)
-            .all(db)
+            .all(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 

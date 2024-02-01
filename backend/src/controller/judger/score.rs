@@ -1,11 +1,11 @@
 use super::{user_contest, DebugName};
 use crate::{
     entity::{contest, problem, user},
-    init::db::DB,
     util::error::Error,
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait, TransactionTrait,
+    ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
+    TransactionTrait,
 };
 use tracing::instrument;
 
@@ -27,10 +27,10 @@ impl ScoreUpload {
         }
     }
     #[instrument(skip(self))]
-    pub async fn upload(self) {
+    pub async fn upload(self, db: &DatabaseConnection) {
         let self_ = self;
         let mut retries = MAX_RETRY;
-        while let Err(err) = self_.upload_contest().await {
+        while let Err(err) = self_.upload_contest(db).await {
             tracing::debug!(err = err.to_string(), "retry_upload");
             match retries.checked_sub(1) {
                 None => {
@@ -42,7 +42,7 @@ impl ScoreUpload {
                 }
             }
         }
-        while let Err(err) = self_.upload_user().await {
+        while let Err(err) = self_.upload_user(db).await {
             tracing::debug!(err = err.to_string(), "retry_upload");
             match retries.checked_sub(1) {
                 None => {
@@ -55,9 +55,7 @@ impl ScoreUpload {
             }
         }
     }
-    async fn upload_user(&self) -> Result<(), Error> {
-        let db = DB.get().unwrap();
-
+    async fn upload_user(&self, db: &DatabaseConnection) -> Result<(), Error> {
         let txn = db.begin().await?;
 
         if self.user_id == self.problem.user_id {
@@ -83,9 +81,7 @@ impl ScoreUpload {
 
         txn.commit().await.map_err(Into::<Error>::into)
     }
-    async fn upload_contest(&self) -> Result<(), Error> {
-        let db = DB.get().unwrap();
-
+    async fn upload_contest(&self, db: &DatabaseConnection) -> Result<(), Error> {
         let txn = db.begin().await?;
 
         if self.user_id == self.problem.user_id {
