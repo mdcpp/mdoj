@@ -1,25 +1,10 @@
-use super::endpoints::*;
 use super::tools::*;
 
 use crate::grpc::backend::chat_set_server::*;
 use crate::grpc::backend::*;
 
+use crate::entity::{chat::*, *};
 use crate::grpc::into_prost;
-use entity::{chat::*, *};
-
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() || perm.can_manage_chat() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-}
 
 impl From<i32> for ChatId {
     fn from(value: i32) -> Self {
@@ -48,9 +33,10 @@ impl From<Model> for ChatInfo {
 #[tonic::async_trait]
 impl ChatSet for Arc<Server> {
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
+
+        check_length!(LONG_ART_SIZE, req, message);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
@@ -62,7 +48,10 @@ impl ChatSet for Arc<Server> {
 
         fill_active_model!(model, req, message);
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
@@ -73,13 +62,16 @@ impl ChatSet for Arc<Server> {
     }
 
     async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         self.metrics.chat.add(-1, &[]);
         tracing::debug!(id = req.id, "chat_remove");
@@ -92,30 +84,32 @@ impl ChatSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::Create(create) => {
+                tracing::debug!(id = create.parent_id);
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                    &self.db,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListChatResponse { list, next_session }))
     }

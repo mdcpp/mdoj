@@ -1,4 +1,3 @@
-use super::endpoints::*;
 use super::tools::*;
 
 use crate::controller::code::Code;
@@ -9,25 +8,10 @@ use crate::grpc::backend::*;
 use crate::grpc::into_prost;
 use crate::grpc::judger::LangInfo;
 
-use entity::{submit::*, *};
+use crate::entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;
-
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
-    }
-
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_manage_submit() || perm.can_root() {
-                return Ok(query);
-            }
-        }
-        Err(Error::Unauthenticated)
-    }
-}
 
 impl From<i32> for SubmitId {
     fn from(value: i32) -> Self {
@@ -43,7 +27,25 @@ impl From<SubmitId> for i32 {
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
-        // TODO: solve devation aand uncommitted submit!
+        // TODO: solve devation and uncommitted submit!
+        let db_code: Code = value.status.unwrap().try_into().unwrap();
+        SubmitInfo {
+            id: value.id.into(),
+            upload_time: into_prost(value.upload_at),
+            score: value.score,
+            state: JudgeResult {
+                code: Into::<BackendCode>::into(db_code).into(),
+                accuracy: value.accuracy.map(|x| x as u64),
+                time: value.time.map(|x| x as u64),
+                memory: value.memory.map(|x| x as u64),
+            },
+        }
+    }
+}
+
+impl From<PartialModel> for SubmitInfo {
+    fn from(value: PartialModel) -> Self {
+        // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
             id: value.id.into(),
@@ -64,32 +66,27 @@ impl SubmitSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_submit_request::Request::Create(_create) => {
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, true, &self.db)
+                    .await
             }
-            list_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+            list_submit_request::Request::Pager(old) => {
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
@@ -100,46 +97,46 @@ impl SubmitSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                    &self.db,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListSubmitResponse { list, next_session }))
     }
 
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         tracing::debug!(id = req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("submit"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -149,38 +146,37 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<CreateSubmitRequest>,
     ) -> Result<Response<SubmitId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
-        if req.info.code.len() > SUBMIT_CODE_LEN {
+        if req.code.len() > SUBMIT_CODE_LEN {
             return Err(Error::BufferTooLarge("info.code").into());
         }
 
-        let lang = Uuid::parse_str(req.info.lang.as_str()).map_err(Into::<Error>::into)?;
+        let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
-        let problem = problem::Entity::find_by_id(req.info.problem_id)
-            .one(db)
+        let problem = problem::Entity::find_by_id(req.problem_id)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;
 
-        if !problem.public {
+        if (problem.user_id != user_id) && (!problem.public) {
             problem
                 .find_related(contest::Entity)
-                .one(db)
+                .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("contest"))?
                 .find_related(user::Entity)
-                .one(db)
+                .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("user"))?;
         }
 
         let submit = SubmitBuilder::default()
-            .code(req.info.code)
+            .code(req.code)
             .lang(lang)
             .time_limit(problem.time)
             .memory_limit(problem.memory)
@@ -199,13 +195,16 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
-            .exec(db)
+        let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         tracing::debug!(id = req.id);
         self.metrics.submit.add(-1, &[]);
@@ -233,14 +232,13 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let submit_id = req.id.id;
 
-        if !(perm.can_root() || perm.can_manage_submit()) {
-            return Err(Error::PremissionDeny("Can't rejudge").into());
+        if !(perm.super_user()) {
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
@@ -251,14 +249,14 @@ impl SubmitSet for Arc<Server> {
         tracing::debug!(req.id = submit_id);
 
         let submit = submit::Entity::find_by_id(submit_id)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("submit"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         let problem = submit
             .find_related(problem::Entity)
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("problem"))?;

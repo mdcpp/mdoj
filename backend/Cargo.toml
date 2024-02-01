@@ -12,8 +12,6 @@ paste = "1.0.12"
 prost = { workspace = true }
 toml = { workspace = true }
 prost-types = { workspace = true }
-entity = { path = "./entity" }
-chrono = "0.4.26"
 thiserror = "1.0.44"
 derive_builder = { workspace = true }
 futures = "0.3.29"
@@ -30,15 +28,24 @@ tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
+sea-query = "0.30.4"
+ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
 opentelemetry = { version = "0.21.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio", "metrics"] }
 opentelemetry-stdout = { version = "0.2.0", features = ["metrics"] }
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
+migration = { path = "./migration",optional = true }
+sea-orm-cli = {version = "0.12.12",optional = true}
+
+[dependencies.chrono]
+workspace = true
+features = ["serde"]
 
 [dependencies.reqwest]
 version = "0.11.22"
+default-features = false
 features = ["rustls-tls", "json"]
 
 [dependencies.k256]
@@ -62,13 +69,15 @@ workspace = true
 features = ["macros", "rt-multi-thread", "full", "time"]
 
 [dependencies.sea-orm]
-version = "0.12.2"
+version = "0.12.11"
+default-features = false
 features = [
-    "runtime-actix-rustls",
+    "runtime-tokio",
     "macros",
     "mock",
     "sqlx-sqlite",
     "with-chrono",
+    "debug-print"
 ]
 
 [dependencies.serde]
@@ -77,17 +86,24 @@ features = ["derive"]
 
 [dependencies.tonic]
 version = "0.10.2"
-features = ["transport", "channel", "codegen", "prost"]
+features = ["transport", "channel", "codegen", "prost","tls"]
 
 [dependencies.spin]
 version = "0.9.8"
 features = ["mutex", "spin_mutex", "rwlock"]
 
-[build-dependencies.tonic-build]
-workspace = true
-features = ["transport", "prost"]
+[dependencies.sea-orm-migration]
+# workspace = true
+version = "0.12.11"
+optional = true
+features = [
+  "runtime-tokio-rustls",
+  "sqlx-sqlite","with-chrono"
+]
+
+[build-dependencies]
+tonic-build = { workspace = true }
 
 [features]
-default = ["single-instance"]
-unsecured-log = []
-single-instance = []
+default = []
+standalone = ["dep:migration","dep:sea-orm-migration","dep:sea-orm-cli"]

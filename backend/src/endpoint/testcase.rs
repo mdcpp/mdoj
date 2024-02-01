@@ -1,52 +1,9 @@
-use super::endpoints::*;
 use super::tools::*;
 
 use crate::grpc::backend::testcase_set_server::*;
 use crate::grpc::backend::*;
 
-use entity::{test::*, *};
-
-#[async_trait]
-impl Filter for Entity {
-    fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
-        if perm.can_root() {
-            return Ok(query);
-        }
-        if perm.can_manage_problem() {
-            return Ok(query.filter(test::Column::UserId.eq(user_id)));
-        }
-        Err(Error::Unauthenticated)
-    }
-    fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_manage_problem() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't write test"))
-    }
-}
-
-#[async_trait]
-impl ParentalFilter for Entity {
-    fn link_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Some(perm) = auth.user_perm() {
-            if perm.can_root() {
-                return Ok(query);
-            }
-            if perm.can_link() {
-                let user_id = auth.user_id().unwrap();
-                return Ok(query.filter(Column::UserId.eq(user_id)));
-            }
-        }
-        Err(Error::PremissionDeny("Can't link test"))
-    }
-}
+use crate::entity::{test::*, *};
 
 impl From<i32> for TestcaseId {
     fn from(value: i32) -> Self {
@@ -84,32 +41,27 @@ impl TestcaseSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
-        req: Request<ListRequest>,
+        req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_request::Request::Create(create) => {
-                Pager::sort_search(create.sort_by(), create.reverse)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_testcase_request::Request::Pager(old) => {
+                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
-            list_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+            list_testcase_request::Request::StartFromEnd(rev) => {
+                ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev, &self.db)
+                    .await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }
@@ -118,17 +70,18 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<CreateTestcaseRequest>,
     ) -> Result<Response<TestcaseId>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, perm) = auth.ok_or_default()?;
+
+        check_length!(LONG_ART_SIZE, req.info, input, output);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check_i32(user_id, &uuid) {
             return Ok(Response::new(x.into()));
         };
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(Error::PremissionDeny("Can't create test").into());
+        if !(perm.super_user()) {
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
         let mut model: ActiveModel = Default::default();
@@ -136,7 +89,10 @@ impl TestcaseSet for Arc<Server> {
 
         fill_active_model!(model, req.info, input, output, score);
 
-        let model = model.save(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
 
@@ -146,9 +102,10 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
+
+        check_exist_length!(LONG_ART_SIZE, req.info, input, output);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if self.dup.check_i32(user_id, &uuid).is_some() {
@@ -158,15 +115,18 @@ impl TestcaseSet for Arc<Server> {
         tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, input, output, score);
 
-        let model = model.update(db).await.map_err(Into::<Error>::into)?;
+        let model = model
+            .update(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         self.dup.store_i32(user_id, uuid, model.id);
 
@@ -174,74 +134,88 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
-        Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(db)
+        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+            .exec(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+        }
 
         tracing::debug!(id = req.id);
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn link(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
+    async fn add_to_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link test").into());
+        if !perm.super_user() {
+            return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
-            .columns([Column::Id, Column::ProblemId])
-            .one(db)
+        let (problem, model) = try_join!(
+            problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
+            Entity::read_by_id(req.testcase_id.id, &auth)?.one(self.db.deref())
+        )
+        .map_err(Into::<Error>::into)?;
+
+        let problem = problem.ok_or(Error::NotInDB("problem"))?;
+        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+
+        if !(perm.admin()) {
+            if problem.user_id != user_id {
+                return Err(Error::UnownedAdd("problem").into());
+            }
+            if model.user_id != user_id {
+                return Err(Error::UnownedAdd(Entity::DEBUG_NAME).into());
+            }
+        }
+
+        let mut model = model.into_active_model();
+        model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
+        model
+            .save(self.db.deref())
             .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
-            .into_active_model();
-
-        test.problem_id = ActiveValue::Set(Some(req.problem_id.id));
-
-        test.save(db).await.map_err(Into::<Error>::into)?;
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unlink(&self, req: Request<TestcaseLink>) -> Result<Response<()>, Status> {
-        let db = DB.get().unwrap();
+    async fn remove_from_problem(
+        &self,
+        req: Request<AddTestcaseToProblemRequest>,
+    ) -> Result<Response<()>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (_, perm) = auth.ok_or_default()?;
-
-        if !(perm.can_root() || perm.can_link()) {
-            return Err(Error::PremissionDeny("Can't link test").into());
-        }
-
-        let mut test = Entity::link_filter(Entity::find_by_id(req.problem_id.id), &auth)?
+        let mut test = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
             .into_active_model();
 
         test.problem_id = ActiveValue::Set(None);
 
-        test.save(db).await.map_err(Into::<Error>::into)?;
+        test.save(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
-        req: Request<TestcaseLink>,
+        req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
-        let db = DB.get().unwrap();
         let (auth, req) = self.parse_request(req).await?;
 
         tracing::debug!(
@@ -251,29 +225,22 @@ impl TestcaseSet for Arc<Server> {
 
         let (_, perm) = auth.ok_or_default()?;
 
-        if !(perm.can_root() || perm.can_manage_problem()) {
-            return Err(
-                Error::PremissionDeny("input and output field of testcase is protected").into(),
-            );
+        if !perm.admin() {
+            return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let parent = auth
-            .get_user(db)
-            .await?
-            .find_related(problem::Entity)
-            .columns([problem::Column::Id])
-            .one(db)
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+        let parent: problem::IdModel =
+            problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)
+                .await?;
 
         let model = parent
+            .upgrade()
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
-            .one(db)
+            .filter(Column::Id.eq(Into::<i32>::into(req.testcase_id)))
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("test"))?;
+            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
 
         Ok(Response::new(model.into()))
     }
@@ -283,30 +250,31 @@ impl TestcaseSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
+        let size = bound!(req.size, 64);
+        let offset = bound!(req.offset(), 1024);
 
-        let mut reverse = false;
-        let mut pager: Pager<Entity> = match req.request.ok_or(Error::NotInPayload("request"))? {
-            list_by_request::Request::ParentId(ppk) => {
-                tracing::debug!(id = ppk);
-                Pager::parent_search(ppk, false)
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                    &self.db,
+                )
+                .await
             }
             list_by_request::Request::Pager(old) => {
-                reverse = old.reverse;
-                <Pager<Entity> as HasParentPager<problem::Entity, Entity>>::from_raw(
-                    old.session,
-                    self,
-                )?
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager
+                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .await
             }
-        };
+        }?;
 
-        let list = pager
-            .fetch(req.size, req.offset.unwrap_or_default(), reverse, &auth)
-            .await?
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        let next_session = pager.into_raw(self);
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListTestcaseResponse { list, next_session }))
     }

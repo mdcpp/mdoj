@@ -1,16 +1,12 @@
 use std::time::Duration;
 
-use super::endpoints::*;
 use super::tools::*;
 
-use crate::controller::token::UserPermBytes;
 use crate::grpc::backend::token_set_server::*;
-use crate::grpc::backend::*;
-use crate::grpc::into_chrono;
-use crate::grpc::into_prost;
+use crate::grpc::{backend::*, into_chrono, into_prost};
 
-use entity::token::*;
-use entity::*;
+use crate::entity::token::*;
+use crate::entity::*;
 use tracing::Level;
 
 const TOKEN_LIMIT: u64 = 32;
@@ -36,14 +32,17 @@ impl From<Model> for Token {
 impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
-        let db = DB.get().unwrap();
-        let (auth, _) = self.parse_request(req).await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (auth, req) = self.parse_request(req).await?;
+        let (user_id, perm) = auth.ok_or_default()?;
+
+        if req.id != user_id && !perm.root() {
+            return Err(Error::Unauthenticated.into());
+        }
 
         let tokens = Entity::find()
             .filter(Column::UserId.eq(user_id))
             .limit(TOKEN_LIMIT)
-            .all(db)
+            .all(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -55,14 +54,13 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
-        let db = DB.get().unwrap();
         let (_, req) = self.parse_request(req).await?;
 
         tracing::debug!(username = req.username);
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
-            .one(db)
+            .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB("user"))?;
@@ -78,12 +76,12 @@ impl TokenSet for Arc<Server> {
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: UserPermBytes(model.permission).into(),
+                role: model.permission,
                 expiry: into_prost(expiry),
             }))
         } else {
             tracing::trace!("password_mismatch");
-            Err(Error::PremissionDeny("password").into())
+            Err(Error::PermissionDeny("wrong password").into())
         }
     }
     #[instrument(skip_all, level = "debug")]
@@ -91,7 +89,6 @@ impl TokenSet for Arc<Server> {
         &self,
         req: Request<prost_types::Timestamp>,
     ) -> Result<Response<TokenInfo>, Status> {
-        let db = DB.get().unwrap();
         let (meta, _, payload) = req.into_parts();
 
         if let Some(x) = meta.get("token") {
@@ -99,7 +96,7 @@ impl TokenSet for Arc<Server> {
 
             let (user_id, perm) = self.token.verify(token).await?;
             let user = user::Entity::find_by_id(user_id)
-                .one(db)
+                .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB("user"))?;
@@ -116,7 +113,7 @@ impl TokenSet for Arc<Server> {
             let (token, expiry) = self.token.add(&user, dur).await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
-                permission: perm.into(),
+                role: perm as i32,
                 expiry: into_prost(expiry),
             }));
         }

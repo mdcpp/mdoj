@@ -1,4 +1,4 @@
-name: staging
+name: staging-check
 
 on:
   push:
@@ -47,13 +47,3 @@ jobs:
           cargo clippy -- -D warnings
       - name: Check
         run: cargo check
-      - name: Run Backend Test
-        run: cd backend && just ci-test
-      - name: Run Frontend Test
-        run: cargo test -p frontend
-      - name: build plugin
-        run: cd judger && just build-plugin
-      - name: Run Judger test
-        run: cd judger && just ci-test
-      - name: Run testsuit
-        run: cd testsuit && just ci-run

@@ -25,8 +25,40 @@ macro_rules! report_internal {
 }
 
 #[macro_export]
+macro_rules! check_length {
+    ($target:expr,$src:expr,$field:ident) => {
+        paste::paste!{
+            if $target<$src.$field.len(){
+                return Err(Error::BufferTooLarge(stringify!($field)).into());
+            }
+        }
+    };
+    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
+        check_length!($target,$src, $field);
+        check_length!($target,$src, $($ext),+);
+    };
+}
+
+#[macro_export]
+macro_rules! check_exist_length {
+    ($target:expr,$src:expr,$field:ident) => {
+        paste::paste!{
+            if let Some(x)=$src.$field.as_ref(){
+                if $target<x.len(){
+                    return Err(Error::BufferTooLarge(stringify!($field)).into());
+                }
+            }
+        }
+    };
+    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
+        check_exist_length!($target,$src, $field);
+        check_exist_length!($target,$src, $($ext),+);
+    };
+}
+
+#[macro_export]
 macro_rules! fill_exist_active_model {
-    ($target:expr,$src:expr , $field:ident) => {
+    ($target:expr,$src:expr,$field:ident) => {
         if let Some(x) = $src.$field {
             $target.$field = ActiveValue::Set($crate::ofl!(x));
         }
@@ -48,9 +80,58 @@ macro_rules! fill_active_model {
     };
 }
 
+/// overflow protection
 #[macro_export]
 macro_rules! ofl {
     ($n:expr) => {
         $n.try_into().map_err(|_| Error::NumberTooLarge)?
     };
+}
+
+/// bound check
+#[macro_export]
+macro_rules! bound {
+    ($n:expr,$limit:literal) => {{
+        if $n > $limit {
+            return Err(Error::NumberTooLarge.into());
+        }
+        $n
+    }};
+}
+
+#[macro_export]
+macro_rules! partial_union {
+    ($cols:expr,$a:expr,$b:expr) => {{
+        use sea_orm::{QuerySelect, QueryTrait};
+        $a.select_only()
+            .columns($cols)
+            .into_query()
+            .union(
+                sea_query::UnionType::Distinct,
+                $b.select_only()
+                    .columns($cols)
+                    .select_only()
+                    .columns($cols)
+                    .into_query(),
+            )
+            .to_owned()
+    }};
+    ($cols:expr,$a:expr,$b:expr,$c:expr) => {{
+        use sea_orm::{QuerySelect, QueryTrait};
+        $a.select_only()
+            .columns($cols)
+            .into_query()
+            .union(
+                sea_query::UnionType::Distinct,
+                $b.select_only()
+                    .columns($cols)
+                    .into_query()
+                    .union(
+                        sea_query::UnionType::Distinct,
+                        $c.select_only().columns($cols).into_query(),
+                    )
+                    .to_owned(),
+            )
+            .to_owned()
+    }};
 }

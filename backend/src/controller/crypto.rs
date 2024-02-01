@@ -13,10 +13,12 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("`{0}`")]
+    #[error("bincode: `{0}`")]
     Bincode(#[from] bincode::Error),
     #[error("Invalid signature")]
     InvalidSignature,
+    #[error("base64: `{0}`")]
+    Base64(#[from] base64::DecodeError),
 }
 
 impl From<Error> for tonic::Status {
@@ -88,7 +90,7 @@ impl CryptoController {
     }
     /// serialize and sign the object with blake2b512, append the signature and return
     #[tracing::instrument(level = "debug", skip_all)]
-    pub fn encode<M: Serialize>(&self, obj: M) -> Result<Vec<u8>> {
+    pub fn encode<M: Serialize>(&self, obj: M) -> Result<String> {
         let raw = bincode::serialize(&obj)?;
 
         let signature: Signature = self.signing_key.sign(&raw);
@@ -97,7 +99,10 @@ impl CryptoController {
             data: raw,
             signature,
         };
-        Ok(bincode::serialize(&signed)?)
+        Ok(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+            bincode::serialize(&signed)?,
+        ))
     }
     /// extract signature and object of encoded bytes(serde will handle it)
     ///
@@ -105,7 +110,8 @@ impl CryptoController {
     ///
     /// Error if signature invaild
     #[tracing::instrument(level = "debug", skip_all)]
-    pub fn decode<M: DeserializeOwned>(&self, raw: Vec<u8>) -> Result<M> {
+    pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
+        let raw = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, raw)?;
         let raw: Signed = bincode::deserialize(&raw)?;
         let signature = raw.signature;
 

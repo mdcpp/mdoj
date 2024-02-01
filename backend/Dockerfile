@@ -1,24 +1,30 @@
-FROM rust:1.74.0-slim-buster AS builder
+FROM rust:1.75.0-slim-buster AS builder
 
 ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
-RUN apt install musl-tools protobuf-compiler pkg-config libssl-dev -y
+RUN apt install musl-tools protobuf-compiler pkg-config make -y
 
 RUN cargo install just
 
-RUN rustup target add ${ARCH}-unknown-linux-musl
+RUN --mount=type=cache,target=~/.cargo/bin/
+RUN --mount=type=cache,target=~/.cargo/registry/index/
+RUN --mount=type=cache,target=~/.cargo/registry/cache/
+RUN --mount=type=cache,target=~/.cargo/git/db/
 
 WORKDIR /complier
+
 COPY . .
-RUN OPENSSL_STATIC=1 OPENSSL_DIR=/usr/include/openssl cargo install --target ${ARCH}-unknown-linux-musl --path backend
+RUN --mount=type=cache,target=target
+
+RUN rustup target add ${ARCH}-unknown-linux-musl
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
+# WORKDIR are used instead of mkdir
 WORKDIR /database
 WORKDIR /config
-WORKDIR /cert
-WORKDIR /backend
-COPY --from=builder /usr/local/cargo/bin/backend /backend
+COPY --from=builder /usr/local/cargo/bin/backend /
 
-CMD ["/backend/backend"]
+CMD ["/backend"]

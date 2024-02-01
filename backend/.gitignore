@@ -1,3 +1,4 @@
 /.cargo
 /database
 /config
+/src/pending
