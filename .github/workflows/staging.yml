@@ -10,8 +10,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   check:
@@ -49,61 +47,3 @@ jobs:
           cargo clippy -- -D warnings
       - name: Check
         run: cargo check
-      - name: build nsjail
-        run: cd judger && just build-nsjail
-      - name: build judger docker
-        run: cd judger && release-docker
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v3
-      - name: Checkout submodule
-        run: git submodule update --init --recursive
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          toolchain: nightly
-          targets: wasm32-unknown-unknown, x86_64-unknown-linux-gnu
-          components: clippy, rustfmt
-      - name: Install Just
-        uses: taiki-e/install-action@just
-      - name: Install docker
-        uses: docker-practice/actions-setup-docker@master
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: build backend
-        uses: docker/build-push-action@v5
-        with:
-          build-args: ARCH=x86_64
-          context: .
-          file: "./backend/Dockerfile"
-          push: true
-          tags: "ghcr.io/mdcpp/mdoj/backend:staging"
-          labels: "backend"
-      - name: build migration
-        uses: docker/build-push-action@v5
-        with:
-          build-args: ARCH=x86_64
-          context: .
-          file: "./backend/migration/Dockerfile"
-          push: true
-          tags: "ghcr.io/mdcpp/mdoj/migration:staging"
-          labels: "migration"
-      - name: build nsjail
-        run: cd judger && just build-nsjail
-      - name: build rlua-54
-        run: cd judger && just release-docker
-      - name: build judger
-        uses: docker/build-push-action@v5
-        with:
-          build-args: ARCH=x86_64
-          context: .
-          file: "./judger/Dockerfile"
-          push: true
-          tags: "ghcr.io/mdcpp/mdoj/judger:staging"
-          labels: "judger"

@@ -1,0 +1,50 @@
+name: staging
+
+on:
+  push:
+    branches:
+      - "staging"
+    paths:
+      - "backend/"
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Checkout submodule
+        run: git submodule update --init --recursive
+      - name: Install Just
+        uses: taiki-e/install-action@just
+      - name: Install docker
+        uses: docker-practice/actions-setup-docker@master
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build backend
+        uses: docker/build-push-action@v5
+        with:
+          build-args: ARCH=x86_64
+          context: .
+          file: "./backend/Dockerfile"
+          push: true
+          tags: "ghcr.io/mdcpp/mdoj/backend:staging"
+          labels: "backend"
+      - name: build migration
+        uses: docker/build-push-action@v5
+        with:
+          build-args: ARCH=x86_64
+          context: .
+          file: "./backend/migration/Dockerfile"
+          push: true
+          tags: "ghcr.io/mdcpp/mdoj/migration:staging"
+          labels: "migration"
+          cache-from: type=registry,ref=mdoj/backend:staging
+          cache-to: type=inline
