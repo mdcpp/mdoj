@@ -6,6 +6,7 @@ on:
       - "staging"
     paths:
       - "judger/"
+      - .github/workflows/judger.yml
 
 env:
   REGISTRY: ghcr.io
