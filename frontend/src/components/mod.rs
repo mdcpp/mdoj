@@ -1,13 +1,13 @@
 pub mod button;
+pub mod catch;
 pub mod footer;
 pub mod modal;
 pub mod navbar;
 pub mod redirect_if;
 pub mod text_input;
 
-use std::rc::Rc;
-
 pub use button::Button;
+pub use catch::{throw, use_catch, use_throw, CatchBoundary};
 pub use footer::Footer;
 pub use modal::{Modal, ModalLevel};
 pub use navbar::Navbar;

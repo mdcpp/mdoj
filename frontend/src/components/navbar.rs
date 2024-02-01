@@ -5,7 +5,7 @@ use leptos_use::*;
 
 #[component]
 pub fn Navbar() -> impl IntoView {
-    let (login_info, ..) = use_login_info();
+    let (token, ..) = use_token();
     view! {
         <nav class="bg-background sticky top-0 p-2 flex flex-row justify-between border-b-2 border-primary">
             <div class="flex flex-row flex-nowrap">
@@ -41,16 +41,19 @@ pub fn Navbar() -> impl IntoView {
                 </ul>
             </div>
             <div class="flex flex-row flex-nowrap justify-between items-center transition-opacity hover:opacity-60">
-                <img
-                    src="https://placehold.co/100"
-                    class="h-12 aspect-square mx-5"
-                    hidden=is_none(login_info)
-                />
-                <div hidden=is_some(login_info)>
-                    <A href="/login" class="text-text text-base px-6">
-                        Login
-                    </A>
-                </div>
+                <Show
+                    when=is_some(token)
+                    fallback=move || {
+                        view! {
+                            <A href="/login" class="text-text text-base px-6">
+                                Login
+                            </A>
+                        }
+                    }
+                >
+
+                    <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
+                </Show>
             </div>
         </nav>
     }

@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
 use cfg_if::cfg_if;
 use leptos::*;
-use leptos_use::storage::{use_local_storage, JsonCodec};
+use leptos_use::{utils::JsonCodec, *};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-use tonic::{IntoRequest, Request};
+
+use crate::grpc;
 
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
@@ -67,7 +68,7 @@ pub async fn server_config() -> Result<GlobalConfig> {
     cfg_if! { if #[cfg(feature = "ssr")] {
         Ok(get_server_config().await.map_err(|_|anyhow!("Cannot get config from server"))?)
     } else {
-        use gloo_storage::{LocalStorage, Storage};
+        use gloo::storage::{LocalStorage, Storage};
         const SERVER_CONFIG_KEY: &str = "server_config";
         if let Ok(config) = LocalStorage::get(SERVER_CONFIG_KEY) {
             Ok(config)
@@ -82,27 +83,14 @@ pub async fn server_config() -> Result<GlobalConfig> {
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
-pub struct LoginInfo {
+pub struct Token {
     pub token: String,
-    // TODO
-    pub permission: u32,
-    pub expiry: u32,
+    pub role: grpc::Role,
 }
 
-pub fn use_login_info() -> (
-    Signal<Option<LoginInfo>>,
-    WriteSignal<Option<LoginInfo>>,
-    impl Fn() + Clone,
-) {
-    use_local_storage::<Option<LoginInfo>, JsonCodec>("login_info")
-}
-
-pub fn with_token<T>(req: impl IntoRequest<T>) -> Result<Request<T>> {
-    let mut req = req.into_request();
-    let (login_info, ..) = use_login_info();
-    let token = login_info()
-        .ok_or_else(|| anyhow!("You need login first"))?
-        .token;
-    req.metadata_mut().insert("token", token.parse()?);
-    Ok(req)
+pub fn use_token() -> (Signal<Option<Token>>, WriteSignal<Option<Token>>) {
+    use_cookie_with_options::<_, JsonCodec>(
+        "token",
+        UseCookieOptions::default().max_age(60 * 60 * 1000),
+    )
 }
