@@ -69,12 +69,12 @@ features = ["macros", "rt-multi-thread", "full", "time"]
 [dependencies.sea-orm]
 version = "0.12.11"
 features = [
-    "runtime-actix-rustls",
-    "macros",
-    "mock",
-    "sqlx-sqlite",
-    "with-chrono",
-    "debug-print"
+  "runtime-actix-rustls",
+  "macros",
+  "mock",
+  "sqlx-sqlite",
+  "with-chrono",
+  "debug-print",
 ]
 
 [dependencies.serde]
@@ -83,7 +83,7 @@ features = ["derive"]
 
 [dependencies.tonic]
 version = "0.10.2"
-features = ["transport", "channel", "codegen", "prost","tls"]
+features = ["transport", "channel", "codegen", "prost", "tls"]
 
 [dependencies.spin]
 version = "0.9.8"
@@ -91,13 +91,11 @@ features = ["mutex", "spin_mutex", "rwlock"]
 
 [dependencies.sea-orm-migration]
 workspace = true
-features = [
-  "runtime-tokio-native-tls",
-  "sqlx-sqlite","with-chrono"
-]
+features = ["runtime-tokio-native-tls", "sqlx-sqlite", "with-chrono"]
 
-[build-dependencies]
-tonic-build = { workspace = true }
+[build-dependencies.tonic-build]
+workspace = true
+features = ["default"]
 
 [features]
 default = []
