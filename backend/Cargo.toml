@@ -86,7 +86,7 @@ features = ["derive"]
 
 [dependencies.tonic]
 version = "0.10.2"
-features = ["transport", "channel", "codegen", "prost","tls"]
+features = ["transport", "channel", "codegen", "prost", "tls"]
 
 [dependencies.spin]
 version = "0.9.8"
@@ -101,8 +101,9 @@ features = [
   "sqlx-sqlite","with-chrono"
 ]
 
-[build-dependencies]
-tonic-build = { workspace = true }
+[build-dependencies.tonic-build]
+workspace = true
+features = ["default"]
 
 [features]
 default = []
