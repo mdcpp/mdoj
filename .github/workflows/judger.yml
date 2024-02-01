@@ -1,4 +1,4 @@
-name: staging
+name: staging-judger-publish
 
 on:
   push:
