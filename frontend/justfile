@@ -18,7 +18,6 @@ release:
     cargo build
     
 prepare:
-    
 
 run:
     cargo leptos serve

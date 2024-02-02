@@ -2,7 +2,5 @@ use leptos::*;
 
 #[component]
 pub fn Problem() -> impl IntoView {
-    view! {
-        <h1>Problem</h1>
-    }
+    view! { <h1>About</h1> }
 }

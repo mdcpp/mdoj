@@ -1,11 +1,16 @@
+use anyhow::Result;
+
 #[cfg(feature = "ssr")]
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<()> {
     use actix_files::Files;
     use actix_web::*;
+    // use frontend::{app::*, config};
     use frontend::app::*;
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};
+
+    frontend::config::init().await?;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;
@@ -14,7 +19,7 @@ async fn main() -> std::io::Result<()> {
     println!("listening on http://{}", &addr);
 
     HttpServer::new(move || {
-        let leptos_options = &conf.leptos_options;
+        let leptos_options: &LeptosOptions = &conf.leptos_options;
         let site_root = &leptos_options.site_root;
 
         App::new()
@@ -31,7 +36,8 @@ async fn main() -> std::io::Result<()> {
     })
     .bind(&addr)?
     .run()
-    .await
+    .await?;
+    Ok(())
 }
 
 #[cfg(feature = "ssr")]
