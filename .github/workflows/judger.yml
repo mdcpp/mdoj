@@ -56,5 +56,5 @@ jobs:
           push: true
           tags: "ghcr.io/mdcpp/mdoj/judger:staging"
           labels: "judger"
-          cache-from: type=registry,ref=mdoj/judger:staging
-          cache-to: type=inline
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

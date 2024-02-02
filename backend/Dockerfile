@@ -25,6 +25,7 @@ FROM scratch
 # WORKDIR are used instead of mkdir
 WORKDIR /database
 WORKDIR /config
+WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/backend /
 
 CMD ["/backend"]

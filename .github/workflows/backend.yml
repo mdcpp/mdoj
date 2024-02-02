@@ -47,5 +47,5 @@ jobs:
           push: true
           tags: "ghcr.io/mdcpp/mdoj/migration:staging"
           labels: "migration"
-          cache-from: type=registry,ref=mdoj/backend:staging
-          cache-to: type=inline
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
