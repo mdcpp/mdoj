@@ -28,7 +28,6 @@ tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
-sea-query = "0.30.4"
 ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
 opentelemetry = { version = "0.21.0", features = ["metrics"] }
@@ -38,6 +37,10 @@ opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
 migration = { path = "./migration",optional = true }
 sea-orm-cli = {version = "0.12.12",optional = true}
+
+[dependencies.sea-query]
+version = "0.30.4"
+features = ["thread-safe","with-chrono","backend-sqlite"]
 
 [dependencies.chrono]
 workspace = true
@@ -70,9 +73,8 @@ features = ["macros", "rt-multi-thread", "full", "time"]
 
 [dependencies.sea-orm]
 version = "0.12.11"
-default-features = false
 features = [
-    "runtime-tokio",
+    "runtime-tokio-rustls",
     "macros",
     "mock",
     "sqlx-sqlite",

@@ -1,8 +1,8 @@
 version: '3.9'
 services:
-  gateway: 
-    container_name: mdoj-gateway
-    build: ../../frontend
+  frontend: 
+    container_name: mdoj-frontend
+    image: ghcr.io/mdcpp/mdoj/frontend:staging
     # remove comment if you need traefik
     # labels:
     #   - "traefik.enable=true"
@@ -10,15 +10,13 @@ services:
     #   - "traefik.http.services.mdoj.loadbalancer.server.port=80"
     #   - "traefik.http.middlewares.mdoj-grpcweb.grpcweb.allowOrigins=*"
     #   - "traefik.http.routers.mdoj.middlewares=mdoj-grpc"
-    volumes:
-      - ../frontend/build:/usr/share/nginx/html
     ports:
       - "80:80"
     networks:
       - backend
   backend:
     container_name: mdoj-backend
-    build: ../../backend
+    image: ghcr.io/mdcpp/mdoj/backend:staging
     volumes:
       - ./database/:/database/
       - ./config/:/config/
@@ -29,7 +27,7 @@ services:
     container_name: mdoj-judger
     # you can actually turn this off if you setup the cgroup properly(user of the container should own the cgroup)
     privileged: true
-    build: ../../judger
+    image: ghcr.io/mdcpp/mdoj/judger:staging
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
       - ./config/:/config/
