@@ -5,7 +5,7 @@ on:
     branches:
       - "staging"
     paths:
-      - "backend/"
+      - "backend/**"
       - .github/workflows/backend.yml
 
 env:

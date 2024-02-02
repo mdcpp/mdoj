@@ -5,7 +5,7 @@ on:
     branches:
       - "staging"
     paths:
-      - "judger/"
+      - "judger/**"
       - .github/workflows/judger.yml
 
 env:
