@@ -27,7 +27,7 @@ use uuid::Uuid;
 
 use crate::grpc::{
     backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
-    judger::*,
+    judger::{JudgeResponse, *},
 };
 
 use self::{
@@ -65,6 +65,8 @@ pub enum Error {
     JudgerResourceExhausted,
     #[error("`{0}`")]
     JudgerError(Status),
+    #[error("`{0}`")]
+    JudgerProto(&'static str),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("language not found")]
@@ -97,6 +99,7 @@ impl From<Error> for Status {
             Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
             Error::LangNotFound => Status::not_found("languaue not found"),
             Error::JudgerError(x) => report_internal!(info, "`{}`", x),
+            Error::JudgerProto(x) => report_internal!(info, "`{}`", x),
             Error::Database(x) => report_internal!(warn, "{}", x),
             Error::TransportLayer(x) => report_internal!(info, "{}", x),
             Error::RateLimit => Status::resource_exhausted("resource limit imposed by backend"),
@@ -124,15 +127,12 @@ impl From<i32> for SubmitStatus {
     }
 }
 
-impl From<JudgeResult> for SubmitStatus {
-    fn from(value: JudgeResult) -> Self {
+impl From<Code> for SubmitStatus {
+    fn from(value: Code) -> Self {
         SubmitStatus {
-            task: Some(submit_status::Task::Result(BackendResult {
-                code: Into::<Code>::into(value.status()) as i32,
-                accuracy: Some(value.accuracy),
-                time: Some(value.time),
-                memory: Some(value.memory),
-            })),
+            task: Some(submit_status::Task::Result(
+                Into::<Code>::into(value) as i32
+            )),
         }
     }
 }
@@ -200,67 +200,63 @@ impl JudgerController {
         ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
-        mut scores: Vec<u32>,
+        scores: Vec<u32>,
         submit_id: i32,
     ) -> Result<submit::Model, Error> {
-        let _ = self.record();
-        let mut result = 0;
-        let mut running_case = 1;
-        let mut time = 0;
-        let mut mem = 0;
-        let mut status = JudgerCode::Ac;
-        scores.reverse();
-        while let Some(res) = stream.next().in_current_span().await {
-            if res.is_err() {
-                break;
-            }
-            let res = res.unwrap();
-            if res.task.is_none() {
-                tracing::warn!("judger_mismatch_proto");
-                continue;
-            }
-            let task = res.task.unwrap();
-            match task {
-                judge_response::Task::Case(case) => {
-                    tracing::debug!(case = case, "recv_case");
-                    if ps_guard.send(Ok(case.into())).is_err() {
-                        tracing::trace!("client_disconnected");
-                    }
-                    if case != (running_case + 1) {
-                        tracing::warn!(
-                            skip_case = running_case + 1,
-                            recv_case = case,
-                            "judger_mismatch_proto"
-                        );
-                    }
-                    running_case += 1;
+        let meter = self.record();
+        let mut pass_case = 0;
+        let mut status = Code::Accepted;
+        let mut total_score = 0;
+        let mut total_time = 0;
+        let mut total_memory = 0;
+
+        for score in scores.into_iter().rev() {
+            let res = stream
+                .next()
+                .in_current_span()
+                .await
+                .ok_or(Error::JudgerProto("Expected as many case as inputs"))??;
+            total_memory += res.memory;
+            total_time += res.time;
+            total_score += score;
+            match res.status() {
+                JudgerCode::Ac => {}
+                x => {
+                    status = x.into();
+                    break;
                 }
-                judge_response::Task::Result(case) => {
-                    tracing::debug!(status = case.status().as_str_name(), "recv_result");
-                    if let Some(score) = scores.pop() {
-                        if ps_guard.send(Ok(case.clone().into())).is_err() {
-                            tracing::trace!("client_disconnected");
-                        }
-                        if case.status() == JudgerCode::Ac {
-                            result += score;
-                        } else {
-                            status = case.status();
-                            mem += case.memory;
-                            time += case.time;
-                            break;
-                        }
-                    } else {
-                        tracing::warn!("judger_mismatch_proto");
-                    }
-                }
+            };
+            pass_case += 1;
+            if ps_guard
+                .send(Ok(SubmitStatus {
+                    task: Some(submit_status::Task::Case(pass_case)),
+                }))
+                .is_err()
+            {
+                tracing::trace!("no_rec");
             }
         }
+
+        if ps_guard
+            .send(Ok(SubmitStatus {
+                task: Some(submit_status::Task::Result(
+                    Into::<Code>::into(status) as i32
+                )),
+            }))
+            .is_err()
+        {
+            tracing::trace!("no_rec");
+        }
+
         model.committed = ActiveValue::Set(true);
-        model.score = ActiveValue::Set(result);
-        model.status = ActiveValue::Set(Some(Into::<Code>::into(status) as u32));
-        model.pass_case = ActiveValue::Set(running_case);
-        model.time = ActiveValue::Set(Some(time.try_into().unwrap_or(i64::MAX)));
-        model.memory = ActiveValue::Set(Some(mem.try_into().unwrap_or(i64::MAX)));
+        model.score = ActiveValue::Set(total_score);
+        model.status = ActiveValue::Set(Some(status as u32));
+        model.pass_case = ActiveValue::Set(pass_case);
+        model.time = ActiveValue::Set(Some(total_time.try_into().unwrap_or(i64::MAX)));
+        model.memory = ActiveValue::Set(Some(total_memory.try_into().unwrap_or(i64::MAX)));
+        model.accept=ActiveValue::Set(status==Code::Accepted);
+
+        drop(meter);
 
         model
             .update(self.db.deref())
@@ -295,7 +291,7 @@ impl JudgerController {
         let submit_id = submit_model.id.as_ref().to_owned();
         let tx = self.pubsub.publish(submit_id);
 
-        let scores = testcases.iter().rev().map(|x| x.score).collect::<Vec<_>>();
+        let scores = testcases.iter().map(|x| x.score).collect::<Vec<_>>();
 
         let tests = testcases
             .into_iter()
@@ -328,9 +324,14 @@ impl JudgerController {
                 .await
             {
                 Ok(submit) => {
-                    score::ScoreUpload::new(req.user, problem, submit.score)
-                        .upload(&db)
-                        .await;
+                    score::ScoreUpload::new(
+                        req.user,
+                        problem,
+                        submit.score,
+                        submit.accept,
+                    )
+                    .upload(&db)
+                    .await;
                 }
                 Err(err) => {
                     tracing::warn!(err = err.to_string(), "judge_fail");

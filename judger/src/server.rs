@@ -7,7 +7,6 @@ use tonic::{Response, Status};
 use uuid::Uuid;
 
 use crate::{
-    grpc::prelude::judge_response,
     init::config::CONFIG,
     langs::prelude::{ArtifactFactory, CompileLog},
 };
@@ -77,12 +76,6 @@ fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
     Err(Status::permission_denied("Invalid secret"))
 }
 
-impl From<judge_response::Task> for JudgeResponse {
-    fn from(value: judge_response::Task) -> Self {
-        Self { task: Some(value) }
-    }
-}
-
 /// Server to serve JudgerSet
 pub struct Server {
     factory: ArtifactFactory,
@@ -143,24 +136,16 @@ async fn judger_stream(
     if let Some(code) = compile.get_expection() {
         force_send(
             tx,
-            judge_response::Task::Result(JudgeResult {
-                status: code.into(),
+            JudgeResponse {
+                status: code as i32,
                 ..Default::default()
-            })
-            .into(),
+            },
         )
         .await?;
     }
 
     for (running_task, test) in payload.tests.into_iter().enumerate() {
         log::trace!("running at {} task", running_task);
-        force_send(
-            tx,
-            JudgeResponse {
-                task: Some(judge_response::Task::Case(running_task.try_into().unwrap())),
-            },
-        )
-        .await?;
 
         let mut result = compile
             .judge(&test.input, payload.time, payload.memory)
@@ -170,17 +155,18 @@ async fn judger_stream(
             log::trace!("yield result: {}", code);
             force_send(
                 tx,
-                judge_response::Task::Result(JudgeResult {
+                JudgeResponse {
                     status: code.into(),
                     ..Default::default()
-                })
+                }
                 .into(),
             )
             .await?;
             break;
         }
 
-        let code = match result.assert(&test.input, mode) {
+        let success = result.assert(&test.input, mode);
+        let code = match success {
             true => JudgerCode::Ac,
             false => JudgerCode::Wa,
         };
@@ -195,15 +181,17 @@ async fn judger_stream(
         );
         force_send(
             tx,
-            judge_response::Task::Result(JudgeResult {
+            JudgeResponse {
                 status: code.into(),
                 time,
                 memory,
                 accuracy: accuracy(),
-            })
-            .into(),
+            },
         )
         .await?;
+        if !success {
+            break;
+        }
     }
     Ok(())
 }

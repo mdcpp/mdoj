@@ -17,7 +17,7 @@ pub struct Model {
     pub user_id: i32,
     #[sea_orm(nullable)]
     pub contest_id: Option<i32>,
-    pub accept_count: i32,
+    pub accept_count: u32,
     pub submit_count: u32,
     #[sea_orm(column_type = "Float")]
     pub ac_rate: f32,

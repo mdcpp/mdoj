@@ -22,7 +22,8 @@ impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
         UserInfo {
             username: value.username,
-            score: value.score,
+            // FIXME: capture Error instead!
+            score: value.score.try_into().unwrap_or_default(),
             id: value.id.into(),
         }
     }

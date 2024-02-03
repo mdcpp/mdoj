@@ -335,7 +335,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Problem::AcceptCount)
-                            .integer()
+                            .big_integer()
                             .not_null()
                             .default(0),
                     )
@@ -351,8 +351,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0.0),
                     )
-                    .col(ColumnDef::new(Problem::Memory).big_unsigned().not_null())
-                    .col(ColumnDef::new(Problem::Time).big_unsigned().not_null())
+                    .col(ColumnDef::new(Problem::Memory).big_integer().not_null())
+                    .col(ColumnDef::new(Problem::Time).big_integer().not_null())
                     .col(
                         ColumnDef::new(Problem::Difficulty)
                             .unsigned()
@@ -421,8 +421,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(CREATE_AT.to_string()),
                     )
-                    .col(ColumnDef::new(Submit::Time).big_unsigned().null())
-                    .col(ColumnDef::new(Submit::Accuracy).big_unsigned().null())
+                    .col(ColumnDef::new(Submit::Time).big_integer().null())
+                    .col(ColumnDef::new(Submit::Accuracy).big_integer().null())
                     .col(
                         ColumnDef::new(Submit::Committed)
                             .boolean()
@@ -431,7 +431,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Submit::Lang).text().not_null())
                     .col(ColumnDef::new(Submit::Code).not_null().binary())
-                    .col(ColumnDef::new(Submit::Memory).big_unsigned().null())
+                    .col(ColumnDef::new(Submit::Memory).big_integer().null())
                     .col(
                         ColumnDef::new(Submit::PassCase)
                             .integer()
@@ -530,11 +530,16 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(User::Permission)
-                            .big_unsigned()
+                            .integer()
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(User::Score).unsigned().not_null().default(0))
+                    .col(
+                        ColumnDef::new(User::Score)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
                     .col(ColumnDef::new(User::Username).text().not_null())
                     .col(ColumnDef::new(User::Password).binary().not_null())
                     .col(

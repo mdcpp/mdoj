@@ -189,18 +189,7 @@ impl ProblemSet for Arc<Server> {
             .into_active_model();
 
         fill_exist_active_model!(
-            model,
-            req.info,
-            title,
-            difficulty,
-            time,
-            memory,
-            tags,
-            content,
-            match_rule,
-            ac_rate,
-            submit_count,
-            order
+            model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
         );
 
         let model = model

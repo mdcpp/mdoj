@@ -8,7 +8,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub permission: i32,
-    pub score: u32,
+    pub score: i64,
     pub username: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub password: Vec<u8>,

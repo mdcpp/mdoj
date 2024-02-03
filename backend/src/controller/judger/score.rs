@@ -15,47 +15,65 @@ pub struct ScoreUpload {
     user_id: i32,
     problem: problem::Model,
     score: u32,
+    pass: bool,
 }
 
 impl ScoreUpload {
     #[instrument(skip(problem))]
-    pub fn new(user_id: i32, problem: problem::Model, score: u32) -> Self {
+    pub fn new(user_id: i32, problem: problem::Model, score: u32, pass: bool) -> Self {
         Self {
             user_id,
             problem,
             score,
+            pass,
         }
     }
     #[instrument(skip(self))]
     pub async fn upload(self, db: &DatabaseConnection) {
-        let self_ = self;
         let mut retries = MAX_RETRY;
-        while let Err(err) = self_.upload_contest(db).await {
-            tracing::debug!(err = err.to_string(), "retry_upload");
-            match retries.checked_sub(1) {
-                None => {
-                    tracing::warn!(err = err.to_string(), "tracscation_failed");
-                    break;
+        macro_rules! check {
+            ($n:ident) => {
+                paste::paste!{
+                    while let Err(err) = (&self).[<upload_ $n>](db).await {
+                        tracing::debug!(err = err.to_string(),entity=stringify!($n), "retry_upload");
+                        match retries.checked_sub(1) {
+                            None => {
+                                tracing::warn!(err = err.to_string(), "tracscation_failed");
+                                break;
+                            }
+                            Some(x) => {
+                                retries = x;
+                            }
+                        }
+                    }
                 }
-                Some(x) => {
-                    retries = x;
-                }
-            }
+            };
         }
-        while let Err(err) = self_.upload_user(db).await {
-            tracing::debug!(err = err.to_string(), "retry_upload");
-            match retries.checked_sub(1) {
-                None => {
-                    tracing::warn!(err = err.to_string(), "tracscation_failed");
-                    break;
-                }
-                Some(x) => {
-                    retries = x;
-                }
-            }
-        }
+        check!(contest);
+        check!(user);
+        check!(problem);
+    }
+    async fn upload_problem(&self, db: &DatabaseConnection) -> Result<(), Error> {
+        let mut model = self.problem.clone().into_active_model();
+        let txn = db.begin().await?;
+
+        let submit_count = model.submit_count.unwrap().saturating_add(1);
+        let accept_count = match self.pass {
+            true => model.accept_count.unwrap().saturating_add(1),
+            false => model.accept_count.unwrap(),
+        };
+
+        model.submit_count = ActiveValue::Set(submit_count);
+        model.accept_count = ActiveValue::Set(accept_count);
+
+        model.ac_rate = ActiveValue::Set(accept_count as f32 / submit_count as f32);
+
+        txn.commit().await.map_err(Into::<Error>::into)
     }
     async fn upload_user(&self, db: &DatabaseConnection) -> Result<(), Error> {
+        if !self.pass {
+            return Ok(());
+        }
         let txn = db.begin().await?;
 
         if self.user_id == self.problem.user_id {
@@ -76,7 +94,7 @@ impl ScoreUpload {
         let user_score = user.score;
         let mut user = user.into_active_model();
 
-        user.score = ActiveValue::Set(self.score + user_score);
+        user.score = ActiveValue::Set(user_score.saturating_add_unsigned(self.score as u64));
         user.update(&txn).await.map_err(Into::<Error>::into)?;
 
         txn.commit().await.map_err(Into::<Error>::into)
