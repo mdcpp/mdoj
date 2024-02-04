@@ -159,7 +159,6 @@ async fn judger_stream(
                     status: code.into(),
                     ..Default::default()
                 }
-                .into(),
             )
             .await?;
             break;
