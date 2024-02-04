@@ -38,7 +38,7 @@ impl UserSet for Arc<Server> {
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (rev,size)=split_rev(req.size);
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
@@ -56,9 +56,7 @@ impl UserSet for Arc<Server> {
             }
             list_user_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
         }?;
 
@@ -74,7 +72,7 @@ impl UserSet for Arc<Server> {
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (rev,size)=split_rev(req.size);
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
@@ -84,9 +82,7 @@ impl UserSet for Arc<Server> {
             }
             text_search_request::Request::Pager(old) => {
                 let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
         }?;
 

@@ -45,16 +45,14 @@ impl TestcaseSet for Arc<Server> {
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (rev,size)=split_rev(req.size);
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_testcase_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
             list_testcase_request::Request::StartFromEnd(rev) => {
                 ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev, &self.db)
@@ -253,7 +251,7 @@ impl TestcaseSet for Arc<Server> {
     ) -> Result<Response<ListTestcaseResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (rev,size)=split_rev(req.size);
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
@@ -271,9 +269,7 @@ impl TestcaseSet for Arc<Server> {
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
         }?;
 

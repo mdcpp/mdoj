@@ -12,7 +12,7 @@ use std::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    grpc::TonicStream,
+    grpc::{backend::StateCode as BackendCode, TonicStream},
     init::{config, logger::PACKAGE_NAME},
     report_internal,
 };
@@ -26,7 +26,7 @@ use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
 use crate::grpc::{
-    backend::{submit_status, JudgeResult as BackendResult, PlaygroundResult, SubmitStatus},
+    backend::{submit_status, PlaygroundResult, SubmitStatus},
     judger::{JudgeResponse, *},
 };
 
@@ -131,7 +131,7 @@ impl From<Code> for SubmitStatus {
     fn from(value: Code) -> Self {
         SubmitStatus {
             task: Some(submit_status::Task::Result(
-                Into::<Code>::into(value) as i32
+                Into::<BackendCode>::into(value) as i32,
             )),
         }
     }
@@ -240,7 +240,7 @@ impl JudgerController {
         if ps_guard
             .send(Ok(SubmitStatus {
                 task: Some(submit_status::Task::Result(
-                    Into::<Code>::into(status) as i32
+                    Into::<BackendCode>::into(status) as i32,
                 )),
             }))
             .is_err()
@@ -254,7 +254,7 @@ impl JudgerController {
         model.pass_case = ActiveValue::Set(pass_case);
         model.time = ActiveValue::Set(Some(total_time.try_into().unwrap_or(i64::MAX)));
         model.memory = ActiveValue::Set(Some(total_memory.try_into().unwrap_or(i64::MAX)));
-        model.accept=ActiveValue::Set(status==Code::Accepted);
+        model.accept = ActiveValue::Set(status == Code::Accepted);
 
         drop(meter);
 
@@ -324,14 +324,9 @@ impl JudgerController {
                 .await
             {
                 Ok(submit) => {
-                    score::ScoreUpload::new(
-                        req.user,
-                        problem,
-                        submit.score,
-                        submit.accept,
-                    )
-                    .upload(&db)
-                    .await;
+                    score::ScoreUpload::new(req.user, problem, submit.score, submit.accept)
+                        .upload(&db)
+                        .await;
                 }
                 Err(err) => {
                     tracing::warn!(err = err.to_string(), "judge_fail");

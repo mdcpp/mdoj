@@ -46,7 +46,7 @@ impl EducationSet for Arc<Server> {
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
 
-        let (rev,size)=split_rev(req.size);
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
@@ -219,8 +219,8 @@ impl EducationSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        
-        let (rev,size)=split_rev(req.size);
+
+        let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
@@ -239,9 +239,7 @@ impl EducationSet for Arc<Server> {
             }
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .await
+                pager.fetch(&auth, size, offset, rev, &self.db).await
             }
         }?;
 

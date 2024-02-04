@@ -13,7 +13,7 @@ use crate::{
 
 // #[case::not_found(1, Code::NotFound)]
 // #[case::large_number(1000, Code::InvalidArgument)]
-pub async fn list(size: u64, code: Code) -> Result<(), Error> {
+pub async fn list(size: i64, code: Code) -> Result<(), Error> {
     let mut client = ProblemSetClient::with_origin(connect(), SERVER.try_into().unwrap());
 
     let res = client
@@ -37,7 +37,7 @@ pub async fn list(size: u64, code: Code) -> Result<(), Error> {
 
 // #[case::not_found(1, Code::NotFound)]
 // #[case::large_number(1000, Code::InvalidArgument)]
-pub async fn list_by(size: u64, code: Code) -> Result<(), Error> {
+pub async fn list_by(size: i64, code: Code) -> Result<(), Error> {
     let mut client = ProblemSetClient::with_origin(connect(), SERVER.try_into().unwrap());
 
     let res = client
