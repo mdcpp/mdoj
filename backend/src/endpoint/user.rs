@@ -191,7 +191,9 @@ impl UserSet for Arc<Server> {
                 return Err(Error::RequirePermission(RoleLv::Root).into());
             }
             model.permission = ActiveValue::set(new_perm as i32);
-            todo!();
+            if new_perm > perm {
+                return Err(Error::RequirePermission(new_perm).into());
+            }
         }
 
         let model = model

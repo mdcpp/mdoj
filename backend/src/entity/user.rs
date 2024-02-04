@@ -153,7 +153,11 @@ impl super::Filter for Entity {
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {
-            return Ok(query.filter(Column::Permission.lt(perm as i32)));
+            return Ok(query.filter(
+                Column::Permission
+                    .lt(perm as i32)
+                    .or(Column::Id.eq(user_id)),
+            ));
         }
         Ok(query.filter(Column::Id.eq(user_id)))
     }
