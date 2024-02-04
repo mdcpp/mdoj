@@ -45,9 +45,10 @@ impl EducationSet for Arc<Server> {
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
-        let rev = req.reverse();
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_education_request::Request::Pager(pager) => {
@@ -218,7 +219,9 @@ impl EducationSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+        
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -237,7 +240,7 @@ impl EducationSet for Arc<Server> {
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;

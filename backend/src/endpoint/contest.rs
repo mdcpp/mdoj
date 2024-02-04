@@ -69,7 +69,9 @@ impl ContestSet for Arc<Server> {
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -87,7 +89,7 @@ impl ContestSet for Arc<Server> {
             list_contest_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;
@@ -103,7 +105,9 @@ impl ContestSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+        
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -113,7 +117,7 @@ impl ContestSet for Arc<Server> {
             text_search_request::Request::Pager(old) => {
                 let pager: TextPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;

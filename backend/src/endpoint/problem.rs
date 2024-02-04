@@ -56,7 +56,9 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -74,7 +76,7 @@ impl ProblemSet for Arc<Server> {
             list_problem_request::Request::Pager(old) => {
                 let pager: ColPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;
@@ -90,7 +92,9 @@ impl ProblemSet for Arc<Server> {
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
+
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -100,7 +104,7 @@ impl ProblemSet for Arc<Server> {
             text_search_request::Request::Pager(old) => {
                 let pager: TextPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;
@@ -369,9 +373,11 @@ impl ProblemSet for Arc<Server> {
         req: Request<ListByRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
-        let offset = bound!(req.offset(), 1024);
 
+        let (rev,size)=split_rev(req.size);
+        let size = bound!(size, 64);
+        let offset = bound!(req.offset(), 1024);
+        
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {
                 tracing::debug!(id = create.parent_id);
@@ -388,7 +394,7 @@ impl ProblemSet for Arc<Server> {
             list_by_request::Request::Pager(old) => {
                 let pager: ParentPaginator = self.crypto.decode(old.session)?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
                     .await
             }
         }?;

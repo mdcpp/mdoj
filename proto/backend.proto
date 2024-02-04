@@ -34,7 +34,6 @@ enum MatchRule {
 // (4, 3, false) => 5, 6, 7
 message Paginator {
   required string session = 1;
-  required bool reverse = 2;
 }
 
 message TextSearchRequest {
@@ -42,7 +41,7 @@ message TextSearchRequest {
     string text = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -55,7 +54,7 @@ message ListByRequest {
     Create create=1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse = 5 ;
 }
@@ -150,7 +149,7 @@ message ListSubmitRequest {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse = 5 ;
 }
@@ -232,7 +231,7 @@ message ListAnnouncementRequest {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse=5;
 }
@@ -317,7 +316,7 @@ message ListEducationRequest {
     Paginator pager =2;
   }
   optional bool reverse = 5;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -417,7 +416,7 @@ message ListProblemRequest {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -493,7 +492,7 @@ message ListTestcaseRequest {
     Paginator pager = 5;
   } 
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -598,7 +597,7 @@ message ListContestRequest {
     Paginator pager = 2;
   }
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -688,7 +687,7 @@ message ListUserRequest {
     Paginator pager = 2;
   }
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 

@@ -39,4 +39,7 @@ mod tools {
     pub use tonic::*;
     pub use tracing::instrument;
     pub use uuid::Uuid;
+    pub fn split_rev(raw:i64)->(bool,u64){
+        return (raw <0,raw.abs().try_into().unwrap());
+    }
 }
