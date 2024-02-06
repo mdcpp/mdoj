@@ -131,6 +131,9 @@ message Language {
   required string info = 3;
   required string lang_ext = 4;
 }
+message Languages{
+  repeated Language list=1;
+}
 
 enum SubmitSortBy {
   SUBMIT_SORT_BY_UPDATE_DATE = 0;
@@ -168,7 +171,7 @@ service SubmitSet {
   rpc Follow(SubmitId) returns (stream SubmitStatus);
   rpc Rejudge(RejudgeRequest) returns (google.protobuf.Empty);
 
-  rpc ListLangs(google.protobuf.Empty) returns (stream Language);
+  rpc ListLangs(google.protobuf.Empty) returns (Languages);
 }
 
 // Announcements

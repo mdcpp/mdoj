@@ -279,16 +279,16 @@ impl SubmitSet for Arc<Server> {
         Ok(Response::new(()))
     }
 
-    #[doc = " Server streaming response type for the ListLangs method."]
-    type ListLangsStream = TonicStream<Language>;
-
     #[instrument(skip_all, level = "debug")]
-    async fn list_langs(&self, _: Request<()>) -> Result<Response<Self::ListLangsStream>, Status> {
-        let langs = self.judger.list_lang().into_iter().map(|x| Ok(x.into()));
+    async fn list_langs(&self, _: Request<()>) -> Result<Response<Languages>, Status> {
+        let list: Vec<_> = self
+            .judger
+            .list_lang()
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
 
-        Ok(Response::new(
-            Box::pin(tokio_stream::iter(langs)) as TonicStream<_>
-        ))
+        Ok(Response::new(Languages { list }))
     }
 }
 
