@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use chrono::Local;
 use sea_orm::{DatabaseBackend, Statement};
 
 use crate::{grpc::backend::ContestSortBy, partial_union};
@@ -129,21 +130,21 @@ impl super::ParentalTrait<IdModel> for Entity {
     ) -> Result<IdModel, Error> {
         match user::Model::new_with_auth(auth) {
             Some(user) => {
-                // user.find_related(Entity).select_only().columns(col);
                 let (query, param) = {
                     let builder = db.get_database_backend().get_query_builder();
+                    let now = Local::now().naive_local();
 
                     partial_union!(
-                        [Column::Id, Column::Hoster, Column::Public],
+                        [Column::Id, Column::Hoster, Column::Public, Column::Begin],
                         user.find_related(Entity),
-                        Entity::find().filter(Column::Public.eq(true)),
+                        Entity::find()
+                            .filter(Column::Public.eq(true))
+                            .filter(Column::Begin.lte(now)),
                         Entity::find().filter(Column::Hoster.eq(user.id))
                     )
                     .and_where(Column::Id.eq(id))
                     .build_any(builder.deref())
                 };
-
-                // user.find_related(Entity).into_query()
 
                 IdModel::find_by_statement(Statement::from_sql_and_values(
                     DatabaseBackend::Sqlite,
@@ -203,14 +204,14 @@ impl PagerReflect<Entity> for PartialModel {
 
 pub struct TextPagerTrait;
 
+impl PagerData for TextPagerTrait {
+    type Data = String;
+}
+
 #[async_trait]
 impl PagerSource for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = String;
-
     const TYPE_NUMBER: u8 = 4;
 
     async fn filter(
@@ -226,15 +227,14 @@ pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
+impl PagerData for ColPagerTrait {
+    type Data = (ContestSortBy, String);
+}
+
 #[async_trait]
 impl PagerSource for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    // FIXME: we need optional support
-    type Data = (ContestSortBy, String);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(

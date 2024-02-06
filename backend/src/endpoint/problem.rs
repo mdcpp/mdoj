@@ -24,6 +24,7 @@ impl From<PartialModel> for ProblemInfo {
             title: value.title,
             submit_count: value.submit_count,
             ac_rate: value.ac_rate,
+            difficulty: value.difficulty,
         }
     }
 }
@@ -42,6 +43,7 @@ impl From<Model> for ProblemFullInfo {
                 title: value.title,
                 submit_count: value.submit_count,
                 ac_rate: value.ac_rate,
+                difficulty: value.difficulty,
             },
             author: value.user_id.into(),
         }

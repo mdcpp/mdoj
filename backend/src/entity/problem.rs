@@ -242,14 +242,14 @@ pub struct PagerTrait;
 
 pub struct TextPagerTrait;
 
+impl PagerData for TextPagerTrait {
+    type Data = String;
+}
+
 #[async_trait]
 impl PagerSource for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = String;
-
     const TYPE_NUMBER: u8 = 4;
 
     async fn filter(
@@ -266,14 +266,14 @@ pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
 
 pub struct ParentPagerTrait;
 
+impl PagerData for ParentPagerTrait {
+    type Data = (i32, f32);
+}
+
 #[async_trait]
 impl PagerSource for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (i32, f32);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -305,14 +305,14 @@ pub type ParentPaginator = ColPager<ParentPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
+impl PagerData for ColPagerTrait {
+    type Data = (ProblemSortBy, String);
+}
+
 #[async_trait]
 impl PagerSource for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (ProblemSortBy, String);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(

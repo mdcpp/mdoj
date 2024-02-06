@@ -1,3 +1,5 @@
+use sea_orm::{QueryOrder, QuerySelect};
+
 use crate::grpc::backend::UserSortBy;
 
 use super::*;
@@ -176,14 +178,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct TextPagerTrait;
 
+impl PagerData for TextPagerTrait {
+    type Data = String;
+}
+
 #[async_trait]
 impl PagerSource for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = String;
-
     const TYPE_NUMBER: u8 = 4;
 
     async fn filter(
@@ -199,14 +201,14 @@ pub type TextPaginator = PkPager<TextPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
+impl PagerData for ColPagerTrait {
+    type Data = (UserSortBy, String);
+}
+
 #[async_trait]
 impl PagerSource for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (UserSortBy, String);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -238,3 +240,107 @@ impl PagerSortSource<Model> for ColPagerTrait {
 }
 
 pub type ColPaginator = ColPager<ColPagerTrait, Model>;
+
+/// ParentPaginator (offset base)
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ParentPaginator {
+    pub offset: u64,
+    pub ppk: i32,
+    pub start_from_end: bool,
+}
+
+pub struct ParentSource;
+
+impl PagerData for ParentSource {
+    type Data = (u64, i32);
+}
+
+fn to_order(raw: bool) -> sea_query::Order {
+    match raw {
+        true => sea_query::Order::Desc,
+        false => sea_query::Order::Asc,
+    }
+}
+
+#[async_trait]
+impl util::paginator::Pager for ParentPaginator {
+    type Source = ParentSource;
+    type Reflect = Model;
+
+    async fn fetch(
+        mut self,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        rel_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+        // check user is in contest(or admin)
+        contest::Entity::read_by_id(self.ppk, auth)?
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+
+        let result = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(self.ppk))
+            .order_by(
+                user_contest::Column::Score,
+                to_order(self.start_from_end ^ rel_dir),
+            )
+            .offset(self.offset + offset)
+            .limit(size)
+            .all(db)
+            .await?;
+
+        let result: Vec<_> = result
+            .load_one(Entity, db)
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        self.offset += result.len() as u64;
+        Ok((self, result))
+    }
+    async fn new_fetch(
+        data: <Self::Source as PagerData>::Data,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        abs_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+        let ppk = data.1;
+        // check user is in contest(or admin)
+        contest::Entity::read_by_id(ppk, auth)?
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+
+        let result = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(data.0))
+            .order_by(user_contest::Column::Score, to_order(abs_dir))
+            .offset(offset)
+            .limit(size)
+            .all(db)
+            .await?;
+
+        let result: Vec<_> = result
+            .load_one(Entity, db)
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let offset = offset + result.len() as u64;
+
+        Ok((
+            ParentPaginator {
+                ppk,
+                offset,
+                start_from_end: abs_dir,
+            },
+            result,
+        ))
+    }
+}

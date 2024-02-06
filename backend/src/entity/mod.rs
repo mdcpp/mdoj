@@ -21,7 +21,7 @@ pub mod util;
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;
 
-use util::paginator::{PagerReflect, PagerSource, PkPager};
+use util::paginator::{PagerData, PagerReflect, PagerSource, PkPager};
 
 pub trait DebugName {
     const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";

@@ -77,14 +77,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct ParentPagerTrait;
 
+impl PagerData for ParentPagerTrait {
+    type Data = (i32, chrono::NaiveDateTime);
+}
+
 #[async_trait]
 impl PagerSource for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (i32, chrono::NaiveDateTime);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(

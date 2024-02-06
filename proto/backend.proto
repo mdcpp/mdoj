@@ -342,6 +342,7 @@ message ProblemInfo {
   required ProblemId id = 1;
   required string title = 2;
   required uint32 submit_count = 3;
+  required uint32 difficulty = 5;
   required float ac_rate = 4;
 }
 
@@ -614,9 +615,6 @@ service ContestSet {
 
   rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
   rpc Exit(ContestId) returns (google.protobuf.Empty);
-
-  // return up to 10 user
-  rpc Rank(ContestId) returns (Users);
 }
 
 // User
@@ -694,6 +692,7 @@ message ListUserRequest {
 service UserSet {
   rpc List(ListUserRequest) returns (ListUserResponse);
   rpc SearchByText(TextSearchRequest) returns (ListUserResponse);
+  rpc ListByContest(ListByRequest) returns (ListUserResponse);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
   rpc Create(CreateUserRequest) returns (UserId);

@@ -91,6 +91,39 @@ impl UserSet for Arc<Server> {
 
         Ok(Response::new(ListUserResponse { list, next_session }))
     }
+    async fn list_by_contest(
+        &self,
+        req: Request<ListByRequest>,
+    ) -> Result<Response<ListUserResponse>, Status> {
+        let (auth, req) = self.parse_request(req).await?;
+
+        let (rev, size) = split_rev(req.size);
+        let size = bound!(size, 64);
+        let offset = bound!(req.offset(), 1024);
+
+        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (0, create.parent_id),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end,
+                    &self.db,
+                )
+                .await
+            }
+            list_by_request::Request::Pager(old) => {
+                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                pager.fetch(&auth, size, offset, rev, &self.db).await
+            }
+        }?;
+
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
+
+        Ok(Response::new(ListUserResponse { list, next_session }))
+    }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, _req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
         Err(Status::cancelled("deprecated"))

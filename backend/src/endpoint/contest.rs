@@ -316,24 +316,4 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-
-    #[doc = " return up to 10 user"]
-    #[instrument(skip_all, level = "debug")]
-    async fn rank(&self, req: Request<ContestId>) -> Result<Response<Users>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
-
-        let contest: IdModel = Entity::related_read_by_id(&auth, req.id, &self.db).await?;
-
-        let list = user_contest::Entity::find()
-            .filter(user_contest::Column::ContestId.eq(contest.id))
-            .order_by_desc(user_contest::Column::Score)
-            .limit(10)
-            .all(self.db.deref())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        let list: Vec<UserRank> = list.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(Users { list }))
-    }
 }

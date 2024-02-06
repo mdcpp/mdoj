@@ -21,6 +21,34 @@ use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
 
 use crate::util::error::Error;
 
+#[async_trait]
+pub trait Pager
+where
+    Self: Sized + Serialize + DeserializeOwned,
+{
+    type Source: PagerData;
+    type Reflect: Send;
+    async fn fetch(
+        self,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        rel_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+    async fn new_fetch(
+        data: <Self::Source as PagerData>::Data,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        abs_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+}
+
+pub trait PagerData {
+    type Data: Send + Sized + Serialize + DeserializeOwned;
+}
 /// indicate foreign object is ready for page source
 ///
 /// In `Education` example, we expect ::entity::education::Entity
@@ -28,11 +56,10 @@ use crate::util::error::Error;
 #[async_trait]
 pub trait PagerSource
 where
-    Self: Send,
+    Self: Send + PagerData,
 {
     const ID: <Self::Entity as EntityTrait>::Column;
     type Entity: EntityTrait + DebugName;
-    type Data: Send + Sized + Serialize + DeserializeOwned;
     const TYPE_NUMBER: u8;
     /// filter reconstruction
     async fn filter(
@@ -56,31 +83,6 @@ where
     async fn all(query: Select<E>, db: &DatabaseConnection) -> Result<Vec<Self>, Error>;
 }
 
-#[async_trait]
-pub trait Pager
-where
-    Self: Sized + Serialize + DeserializeOwned,
-{
-    type Source: PagerSource;
-    type Reflect: PagerReflect<<Self::Source as PagerSource>::Entity> + Send;
-    async fn fetch(
-        self,
-        auth: &Auth,
-        size: u64,
-        offset: u64,
-        rel_dir: bool,
-        db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
-    async fn new_fetch(
-        data: <Self::Source as PagerSource>::Data,
-        auth: &Auth,
-        size: u64,
-        offset: u64,
-        abs_dir: bool,
-        db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
-}
-
 /// compact primary key pager
 #[derive(Serialize, Deserialize)]
 pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
@@ -91,13 +93,9 @@ pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     /// original direction
     direction: bool,
     /// data
-    #[serde(bound(
-        deserialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: DeserializeOwned"
-    ))]
-    #[serde(bound(
-        serialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: Serialize"
-    ))]
-    data: <<PkPager<S, R> as Pager>::Source as PagerSource>::Data,
+    #[serde(bound(deserialize = "S::Data: DeserializeOwned"))]
+    #[serde(bound(serialize = "S::Data: Serialize"))]
+    data: S::Data,
     #[serde(bound(serialize = ""))]
     #[serde(bound(deserialize = ""))]
     source: PhantomData<S>,
@@ -118,7 +116,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         offset: u64,
         rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let paginator = PaginatePkBuilder::default()
             .pk(<S as PagerSource>::ID)
             .include(self.last_direction ^ rel_dir)
@@ -150,7 +148,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         _offset: u64,
         abs_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let query = order_by_bool(
             S::filter(auth, &data, db).await?,
             <S as PagerSource>::ID,
@@ -222,7 +220,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         offset: u64,
         rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let col = S::sort_col(&self.data);
         let val = S::get_val(&self.data);
 
@@ -264,7 +262,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         offset: u64,
         abs_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let col = S::sort_col(&data);
 
         let query = order_by_bool(

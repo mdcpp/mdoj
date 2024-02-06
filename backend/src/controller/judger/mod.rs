@@ -324,7 +324,7 @@ impl JudgerController {
                 .await
             {
                 Ok(submit) => {
-                    score::ScoreUpload::new(req.user, problem, submit.score, submit.accept)
+                    score::ScoreUpload::new(req.user, problem, submit)
                         .upload(&db)
                         .await;
                 }

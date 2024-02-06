@@ -118,14 +118,14 @@ impl PagerReflect<Entity> for PartialModel {
 
 pub struct ParentPagerTrait;
 
+impl PagerData for ParentPagerTrait {
+    type Data = (i32, chrono::NaiveDateTime);
+}
+
 #[async_trait]
 impl PagerSource for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (i32, chrono::NaiveDateTime);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -156,14 +156,14 @@ pub type ParentPaginator = ColPager<ParentPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
+impl PagerData for ColPagerTrait {
+    type Data = chrono::NaiveDateTime;
+}
+
 #[async_trait]
 impl PagerSource for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = chrono::NaiveDateTime;
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(

@@ -1,11 +1,14 @@
-use super::{user_contest, DebugName};
+use std::cmp;
+
+use super::{submit, user_contest, DebugName};
 use crate::{
     entity::{contest, problem, user},
     util::error::Error,
 };
+use chrono::Local;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
-    TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    ModelTrait, QueryFilter, QueryOrder, TransactionTrait,
 };
 use tracing::instrument;
 
@@ -14,18 +17,16 @@ const MAX_RETRY: usize = 32;
 pub struct ScoreUpload {
     user_id: i32,
     problem: problem::Model,
-    score: u32,
-    pass: bool,
+    submit: submit::Model,
 }
 
 impl ScoreUpload {
     #[instrument(skip(problem))]
-    pub fn new(user_id: i32, problem: problem::Model, score: u32, pass: bool) -> Self {
+    pub fn new(user_id: i32, problem: problem::Model, submit: submit::Model) -> Self {
         Self {
             user_id,
             problem,
-            score,
-            pass,
+            submit,
         }
     }
     #[instrument(skip(self))]
@@ -58,7 +59,7 @@ impl ScoreUpload {
         let txn = db.begin().await?;
 
         let submit_count = model.submit_count.unwrap().saturating_add(1);
-        let accept_count = match self.pass {
+        let accept_count = match self.submit.accept {
             true => model.accept_count.unwrap().saturating_add(1),
             false => model.accept_count.unwrap(),
         };
@@ -71,15 +72,18 @@ impl ScoreUpload {
         txn.commit().await.map_err(Into::<Error>::into)
     }
     async fn upload_user(&self, db: &DatabaseConnection) -> Result<(), Error> {
-        if !self.pass {
+        if !self.submit.accept {
+            tracing::trace!(reason = "not acceptted", "score_user");
             return Ok(());
         }
         let txn = db.begin().await?;
 
         if self.user_id == self.problem.user_id {
+            tracing::trace!(reason = "problem owner score bypass", "score_user");
             return Ok(());
         }
         if !self.problem.public {
+            tracing::trace!(reason = "private problem score bypass", "score_user");
             return Ok(());
         }
 
@@ -94,7 +98,7 @@ impl ScoreUpload {
         let user_score = user.score;
         let mut user = user.into_active_model();
 
-        user.score = ActiveValue::Set(user_score.saturating_add_unsigned(self.score as u64));
+        user.score = ActiveValue::Set(user_score.saturating_add_unsigned(self.submit.score as u64));
         user.update(&txn).await.map_err(Into::<Error>::into)?;
 
         txn.commit().await.map_err(Into::<Error>::into)
@@ -103,9 +107,16 @@ impl ScoreUpload {
         let txn = db.begin().await?;
 
         if self.user_id == self.problem.user_id {
+            tracing::trace!(reason = "problem owner score bypass", "score_contest");
             return Ok(());
         }
         if self.problem.contest_id.is_none() {
+            tracing::trace!(reason = "not under contest", "score_contest");
+            return Ok(());
+        }
+
+        if self.submit.score == 0 {
+            tracing::trace!(reason = "no score to add", "score_contest");
             return Ok(());
         }
 
@@ -118,7 +129,15 @@ impl ScoreUpload {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB(user::Entity::DEBUG_NAME))?;
 
+        let now = Local::now().naive_local();
+
+        if contest.end < now {
+            tracing::trace!(reason = "contest ended", "score_contest");
+            return Ok(());
+        }
+
         if contest.hoster == self.user_id {
+            tracing::trace!(reason = "owner score bypass", "score_contest");
             return Ok(());
         }
 
@@ -126,7 +145,20 @@ impl ScoreUpload {
             .ok_or(Error::Unreachable("user_contest should exist"))?
             .into_active_model();
 
-        linker.score = ActiveValue::Set(self.score);
+        let mut score = linker.score.unwrap();
+
+        let submit = self
+            .problem
+            .find_related(submit::Entity)
+            .filter(submit::Column::UserId.eq(self.user_id))
+            .order_by_desc(submit::Column::Score)
+            .one(&txn)
+            .await?;
+
+        score = score.saturating_sub(submit.map(|x| x.score).unwrap_or_default());
+        score = score.saturating_add(self.submit.score);
+
+        linker.score = ActiveValue::Set(score);
         linker.update(&txn).await.map_err(Into::<Error>::into)?;
 
         txn.commit().await.map_err(Into::<Error>::into)

@@ -92,14 +92,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct ParentPagerTrait;
 
+impl PagerData for ParentPagerTrait {
+    type Data = (i32, u32);
+}
+
 #[async_trait]
 impl PagerSource for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = (i32, u32);
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -130,14 +130,14 @@ pub type ParentPaginator = ColPager<ParentPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
+impl PagerData for ColPagerTrait {
+    type Data = u32;
+}
+
 #[async_trait]
 impl PagerSource for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
     type Entity = Entity;
-
-    type Data = u32;
-
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
