@@ -9,7 +9,7 @@
 //! - Update pager state(`PagerReflect`)
 //! - Serialize and return pager
 
-use crate::{entity::DebugName, util::auth::Auth};
+use crate::util::auth::Auth;
 use sea_orm::{sea_query::SimpleExpr, *};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
@@ -59,7 +59,7 @@ where
     Self: Send + PagerData,
 {
     const ID: <Self::Entity as EntityTrait>::Column;
-    type Entity: EntityTrait + DebugName;
+    type Entity: EntityTrait;
     const TYPE_NUMBER: u8;
     /// filter reconstruction
     async fn filter(
@@ -139,7 +139,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             return Ok((self, models));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
     async fn new_fetch(
         data: S::Data,
@@ -172,7 +172,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             ));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
 }
 
@@ -252,7 +252,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             return Ok((self, models));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
     #[instrument(skip(data), level = "debug")]
     async fn new_fetch(
@@ -296,7 +296,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             ));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
 }
 

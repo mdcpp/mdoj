@@ -14,6 +14,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[tokio::main]
 async fn main() {
-    let server = server::Server::new().await;
+    let server = server::Server::new().await.unwrap();
     server.start().await;
 }

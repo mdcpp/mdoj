@@ -63,7 +63,7 @@ impl TokenSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
+            .ok_or(Error::NotInDB)?;
 
         if self.crypto.hash_eq(req.password.as_str(), &model.password) {
             let dur =
@@ -99,7 +99,7 @@ impl TokenSet for Arc<Server> {
                 .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("user"))?;
+                .ok_or(Error::NotInDB)?;
 
             let time = into_chrono(payload);
             let now = chrono::Utc::now().naive_utc();

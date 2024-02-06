@@ -2,6 +2,8 @@ use crate::grpc::backend::AnnouncementSortBy;
 
 use super::*;
 
+pub static NAME: &str = "announcement";
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
 pub struct Model {
@@ -27,7 +29,9 @@ pub struct PartialModel {
     pub contest_id: Option<i32>,
     pub user_id: i32,
     pub public: bool,
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
 }
 
@@ -65,10 +69,6 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "announcement";
-}
-
 impl super::Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
@@ -87,7 +87,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
 }
 

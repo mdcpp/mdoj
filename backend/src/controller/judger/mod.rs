@@ -34,8 +34,8 @@ use self::{
     pubsub::{PubGuard, PubSub},
     route::*,
 };
-use super::code::Code;
 use crate::entity::*;
+use crate::util::code::Code;
 
 const PALYGROUND_TIME: u64 = 500 * 1000;
 const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;

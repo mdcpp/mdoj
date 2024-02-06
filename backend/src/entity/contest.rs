@@ -39,7 +39,9 @@ pub struct PartialModel {
     pub title: String,
     pub password: Option<Vec<u8>>,
     pub public: bool,
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
 }
 
@@ -117,10 +119,6 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "contest";
-}
-
 #[tonic::async_trait]
 impl super::ParentalTrait<IdModel> for Entity {
     async fn related_read_by_id(
@@ -153,14 +151,14 @@ impl super::ParentalTrait<IdModel> for Entity {
                 ))
                 .one(db)
                 .await?
-                .ok_or(Error::NotInDB(Entity::DEBUG_NAME))
+                .ok_or(Error::NotInDB)
             }
             None => Entity::find_by_id(id)
                 .filter(Column::Public.eq(true))
                 .into_partial_model()
                 .one(db)
                 .await?
-                .ok_or(Error::NotInDB(Entity::DEBUG_NAME)),
+                .ok_or(Error::NotInDB),
         }
     }
 }
@@ -183,7 +181,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::Hoster.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
 }
 

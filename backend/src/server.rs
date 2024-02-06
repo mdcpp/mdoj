@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use sea_orm::DatabaseConnection;
+use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
 use tracing::{span, Instrument, Level};
 
@@ -16,6 +17,7 @@ use crate::{
     init::{
         config::{self, GlobalConfig},
         logger::{self, OtelGuard},
+        Error,
     },
 };
 
@@ -34,6 +36,7 @@ pub struct Server {
     pub rate_limit: rate_limit::RateLimitController,
     pub config: GlobalConfig,
     pub db: Arc<DatabaseConnection>,
+    pub identity: Mutex<Option<Identity>>,
     _otel_guard: OtelGuard,
 }
 
@@ -47,19 +50,34 @@ impl Server {
     /// 4. Other Controller
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
-    pub async fn new() -> Arc<Self> {
-        let config = config::init().await;
+    pub async fn new() -> Result<Arc<Self>, Error> {
+        let config = config::init().await?;
 
-        let otel_guard = logger::init(&config);
+        let otel_guard = logger::init(&config)?;
         let span = span!(Level::INFO, "server_construct");
         let crypto = crypto::CryptoController::new(&config, &span);
         let db = Arc::new(
             crate::init::db::init(&config.database, &crypto, &span)
                 .in_current_span()
-                .await,
+                .await?,
         );
 
-        Arc::new(Server {
+        let mut identity = None;
+        if config.grpc.private_pem.is_some() {
+            let private_pem = config.grpc.private_pem.as_ref().unwrap();
+            let public_pem = config
+                .grpc
+                .public_pem
+                .as_ref()
+                .expect("public pem should set if private pem is set");
+
+            let cert = std::fs::read_to_string(public_pem).map_err(|err| Error::ReadPem(err))?;
+            let key = std::fs::read_to_string(private_pem).map_err(|err| Error::ReadPem(err))?;
+
+            identity = Some(Identity::from_pem(cert, key));
+        }
+
+        Ok(Arc::new(Server {
             token: token::TokenController::new(&span, db.clone()),
             judger: Arc::new(
                 judger::JudgerController::new(config.judger.clone(), db.clone(), &span)
@@ -73,35 +91,20 @@ impl Server {
             imgur: imgur::ImgurController::new(&config.imgur),
             rate_limit: rate_limit::RateLimitController::new(&config.grpc.trust_host),
             config,
+            identity: Mutex::new(identity),
             db,
             _otel_guard: otel_guard,
-        })
+        }))
     }
     /// Start the server
     pub async fn start(self: Arc<Self>) {
-        let mut identity = None;
-
-        if self.config.grpc.private_pem.is_some() {
-            let private_pem = self.config.grpc.private_pem.as_ref().unwrap();
-            let public_pem = self
-                .config
-                .grpc
-                .public_pem
-                .as_ref()
-                .expect("public pem should set if private pem is set");
-
-            let cert = std::fs::read_to_string(public_pem).expect("cannot read public pem");
-            let key = std::fs::read_to_string(private_pem).expect("cannot read private pem");
-
-            identity = Some(Identity::from_pem(cert, key));
-        }
-
-        let server = match identity {
+        let server = match self.identity.lock().take() {
             Some(identity) => transport::Server::builder()
                 .tls_config(ServerTlsConfig::new().identity(identity))
                 .unwrap(),
             None => transport::Server::builder().accept_http1(true),
         };
+
         server
             .max_frame_size(Some(MAX_FRAME_SIZE))
             .add_service(tonic_web::enable(ProblemSetServer::new(self.clone())))

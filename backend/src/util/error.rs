@@ -18,10 +18,10 @@ pub enum Error {
     NotInPayload(&'static str),
     #[error("Unauthenticated")]
     Unauthenticated,
-    #[error("Not in database: `{0}`")]
-    NotInDB(&'static str),
-    #[error("Not in database(out of range): `{0}`")]
-    NotInDBList(&'static str),
+    #[error("Not in database: ")]
+    NotInDB,
+    #[error("Not in database(out of range):")]
+    NotInDBList,
     #[error("Invaild request_id")]
     InvaildUUID(#[from] uuid::Error),
     #[error("Function should be unreachable!")]
@@ -60,13 +60,13 @@ impl From<Error> for Status {
                 tracing::trace!("Client sent invaild or no token");
                 Status::unauthenticated("")
             }
-            Error::NotInDB(x) => {
-                tracing::trace!(entity = x, "database_notfound");
-                Status::not_found(x)
+            Error::NotInDB => {
+                tracing::trace!("database_notfound");
+                Status::not_found("")
             }
-            Error::NotInDBList(x) => {
-                tracing::trace!(entity = x, "database_notfound");
-                Status::out_of_range(x)
+            Error::NotInDBList => {
+                tracing::trace!("database_notfound");
+                Status::out_of_range("")
             }
             Error::InvaildUUID(err) => {
                 tracing::trace!(reason=?err,"requestid_invaild");

@@ -121,7 +121,7 @@ impl EducationSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, title, content);
@@ -145,7 +145,7 @@ impl EducationSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         tracing::debug!(id = req.id);
@@ -167,15 +167,15 @@ impl EducationSet for Arc<Server> {
         )
         .map_err(Into::<Error>::into)?;
 
-        let problem = problem.ok_or(Error::NotInDB("problem"))?;
-        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+        let problem = problem.ok_or(Error::NotInDB)?;
+        let model = model.ok_or(Error::NotInDB)?;
 
         if !(perm.super_user()) {
             if problem.user_id != user_id {
-                return Err(Error::NotInDB("problem").into());
+                return Err(Error::NotInDB.into());
             }
             if model.user_id != user_id {
-                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+                return Err(Error::NotInDB.into());
             }
         }
 
@@ -200,7 +200,7 @@ impl EducationSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         model.problem_id = ActiveValue::Set(None);
@@ -265,7 +265,7 @@ impl EducationSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }

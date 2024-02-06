@@ -204,7 +204,7 @@ impl UserSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         if let Some(username) = req.info.username {
@@ -248,7 +248,7 @@ impl UserSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         self.metrics.user.add(-1, &[]);
@@ -270,7 +270,7 @@ impl UserSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
             return Err(Error::PermissionDeny("wrong original password").into());

@@ -23,10 +23,6 @@ use tonic::async_trait;
 
 use util::paginator::{PagerData, PagerReflect, PagerSource, PkPager};
 
-pub trait DebugName {
-    const DEBUG_NAME: &'static str = "TEMPLATE_DEBUG_NAME";
-}
-
 /// Parental filter are useful when list by parent, mainly because we don't want to list all entity
 ///
 /// For example, on page of problem, we only want to show public problem(even user have joined contest)

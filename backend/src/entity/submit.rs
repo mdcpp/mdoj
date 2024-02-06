@@ -84,10 +84,6 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "submit";
-}
-
 impl super::Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)

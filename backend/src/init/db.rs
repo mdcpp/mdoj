@@ -3,6 +3,7 @@ use sea_orm::{
     EntityTrait, PaginatorTrait, Statement,
 };
 
+use super::Error;
 use tracing::{debug_span, instrument, Instrument, Span};
 
 use super::config::{self};
@@ -19,12 +20,12 @@ pub async fn init(
     config: &config::Database,
     crypto: &CryptoController,
     span: &Span,
-) -> DatabaseConnection {
+) -> super::Result<DatabaseConnection> {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
     let db = Database::connect(&uri)
         .await
-        .expect("fail connecting to database");
+        .map_err(|err| Error::InitConn(err))?;
 
     db.execute(Statement::from_string(
         DatabaseBackend::Sqlite,
@@ -32,36 +33,37 @@ pub async fn init(
     ))
     .instrument(debug_span!("db_optimize"))
     .await
-    .unwrap();
+    .map_err(|err| Error::OptimizeDB(err))?;
 
     #[cfg(feature = "standalone")]
     if config.migrate == Some(true) {
-        migrate(&db).await;
+        migrate(&db).await?;
     }
 
-    init_user(&db, crypto).await;
+    init_user(&db, crypto).await?;
 
-    db
+    Ok(db)
 }
 
 #[cfg(feature = "standalone")]
 /// Run migration
-async fn migrate(db: &DatabaseConnection) {
-    run_migrate(
+async fn migrate(db: &DatabaseConnection) -> super::Result<()> {
+    sea_orm_migration::run_migrate(
         ::migration::Migrator,
         db,
         Some(MigrateSubcommands::Up { num: None }),
         false,
     )
     .await
-    .expect("Unable to setup database migration");
+    .map_err(|err| Error::AutoMigrate(err))?;
+    Ok(())
 }
 
 #[instrument(skip_all, name = "construct_admin")]
 /// check if any user exist or inser user admin@admin
-async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
+async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) -> super::Result<()> {
     if crate::entity::user::Entity::find().count(db).await.unwrap() != 0 {
-        return;
+        return Ok(());
     }
 
     tracing::info!("Setting up admin@admin");
@@ -75,5 +77,7 @@ async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) {
     }
     .insert(db)
     .await
-    .unwrap();
+    .map_err(|err| Error::UserCreation(err))?;
+
+    Ok(())
 }

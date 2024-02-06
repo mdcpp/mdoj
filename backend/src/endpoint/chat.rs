@@ -70,7 +70,7 @@ impl ChatSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         self.metrics.chat.add(-1, &[]);

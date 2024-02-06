@@ -134,7 +134,7 @@ impl ContestSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }
@@ -207,7 +207,7 @@ impl ContestSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, password);
         if let Some(src) = req.info.password {
@@ -253,7 +253,7 @@ impl ContestSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         self.metrics.contest.add(-1, &[]);
@@ -270,7 +270,7 @@ impl ContestSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let empty_password = "".to_string();
         if let Some(tar) = model.password {

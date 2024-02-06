@@ -1,4 +1,3 @@
-pub mod code;
 pub mod crypto;
 pub mod duplicate;
 pub mod imgur;

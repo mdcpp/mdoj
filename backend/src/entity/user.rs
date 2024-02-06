@@ -143,10 +143,6 @@ impl Linked for UserToProblem {
     }
 }
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "user";
-}
-
 impl super::Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
@@ -279,7 +275,7 @@ impl util::paginator::Pager for ParentPaginator {
         contest::Entity::read_by_id(self.ppk, auth)?
             .one(db)
             .await?
-            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let result = user_contest::Entity::find()
             .filter(user_contest::Column::ContestId.eq(self.ppk))
@@ -315,7 +311,7 @@ impl util::paginator::Pager for ParentPaginator {
         contest::Entity::read_by_id(ppk, auth)?
             .one(db)
             .await?
-            .ok_or(Error::NotInDB(contest::Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let result = user_contest::Entity::find()
             .filter(user_contest::Column::ContestId.eq(data.0))

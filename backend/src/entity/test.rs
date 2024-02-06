@@ -49,10 +49,6 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "testcase";
-}
-
 impl super::Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
@@ -61,7 +57,7 @@ impl super::Filter for Entity {
             }
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
@@ -71,7 +67,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
 }
 

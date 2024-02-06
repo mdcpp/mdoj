@@ -1,12 +1,12 @@
 use super::tools::*;
 
-use crate::controller::code::Code;
 use crate::controller::judger::SubmitBuilder;
 use crate::grpc::backend::submit_set_server::*;
 use crate::grpc::backend::StateCode as BackendCode;
 use crate::grpc::backend::*;
 use crate::grpc::into_prost;
 use crate::grpc::judger::LangInfo;
+use crate::util::code::Code;
 
 use crate::entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
@@ -136,7 +136,7 @@ impl SubmitSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }
@@ -159,7 +159,7 @@ impl SubmitSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+            .ok_or(Error::NotInDB)?;
 
         if (problem.user_id != user_id) && (!problem.public) {
             problem
@@ -167,12 +167,12 @@ impl SubmitSet for Arc<Server> {
                 .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("contest"))?
+                .ok_or(Error::NotInDB)?
                 .find_related(user::Entity)
                 .one(self.db.deref())
                 .await
                 .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("user"))?;
+                .ok_or(Error::NotInDB)?;
         }
 
         let submit = SubmitBuilder::default()
@@ -203,7 +203,7 @@ impl SubmitSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         tracing::debug!(id = req.id);
@@ -252,14 +252,14 @@ impl SubmitSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let problem = submit
             .find_related(problem::Entity)
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("problem"))?;
+            .ok_or(Error::NotInDB)?;
 
         let rejudge = SubmitBuilder::default()
             .problem(user_id)

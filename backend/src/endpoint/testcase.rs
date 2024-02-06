@@ -118,7 +118,7 @@ impl TestcaseSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, input, output, score);
@@ -142,7 +142,7 @@ impl TestcaseSet for Arc<Server> {
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         tracing::debug!(id = req.id);
@@ -167,15 +167,12 @@ impl TestcaseSet for Arc<Server> {
         )
         .map_err(Into::<Error>::into)?;
 
-        let problem = problem.ok_or(Error::NotInDB("problem"))?;
-        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+        let problem = problem.ok_or(Error::NotInDB)?;
+        let model = model.ok_or(Error::NotInDB)?;
 
         if !(perm.admin()) {
             if problem.user_id != user_id {
                 return Err(Error::UnownedAdd("problem").into());
-            }
-            if model.user_id != user_id {
-                return Err(Error::UnownedAdd(Entity::DEBUG_NAME).into());
             }
         }
 
@@ -200,7 +197,7 @@ impl TestcaseSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         test.problem_id = ActiveValue::Set(None);
@@ -240,7 +237,7 @@ impl TestcaseSet for Arc<Server> {
             .one(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }

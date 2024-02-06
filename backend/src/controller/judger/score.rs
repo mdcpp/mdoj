@@ -1,4 +1,4 @@
-use super::{submit, user_contest, DebugName};
+use super::{submit, user_contest};
 use crate::{
     entity::{contest, problem, user},
     util::error::Error,
@@ -91,7 +91,7 @@ impl ScoreUpload {
             .one(&txn)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(user::Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let user_score = user.score;
         let mut user = user.into_active_model();
@@ -125,7 +125,7 @@ impl ScoreUpload {
             .one(&txn)
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(user::Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         let now = Local::now().naive_local();
 

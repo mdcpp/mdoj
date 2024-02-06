@@ -20,7 +20,6 @@ mod tools {
     pub use crate::util::auth::RoleLv;
 
     pub use crate::bound;
-    pub use crate::entity::DebugName;
     pub use crate::entity::*;
     pub use crate::grpc::TonicStream;
 

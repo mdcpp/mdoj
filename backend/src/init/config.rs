@@ -1,5 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
+use super::Error;
 use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
@@ -114,24 +115,31 @@ impl Default for Imgur {
     }
 }
 
-pub async fn init() -> GlobalConfig {
-    fs::create_dir_all(CONFIG_DIR).await.unwrap();
+pub async fn init() -> super::Result<GlobalConfig> {
+    fs::create_dir_all(CONFIG_DIR)
+        .await
+        .map_err(|err| Error::ConfigDir(err))?;
     if fs::metadata(CONFIG_PATH).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)
             .await
-            .unwrap_or_else(|_| panic!("Cannot found ,{}", CONFIG_PATH));
-        config.read_to_end(&mut buf).await.unwrap();
+            .expect(&format!("{} exist, but is not a toml file", CONFIG_PATH));
+        config
+            .read_to_end(&mut buf)
+            .await
+            .map_err(|err| Error::ConfigRead(err))?;
         let config =
             std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
-        let config: GlobalConfig = toml::from_str(config).unwrap();
-        config
+        let config: GlobalConfig = toml::from_str(config).map_err(|err| Error::ConfigParse(err))?;
+        Ok(config)
     } else {
         println!("Unable to find {}, generating default config", CONFIG_PATH);
         let config: GlobalConfig = toml::from_str("").unwrap();
 
         let config_txt = toml::to_string(&config).unwrap();
-        fs::write(CONFIG_PATH, config_txt).await.unwrap();
+        fs::write(CONFIG_PATH, config_txt)
+            .await
+            .map_err(|err| Error::ConfigWrite(err))?;
 
         println!(
             "Config generated, please edit {} before restart",
@@ -148,6 +156,6 @@ mod test {
 
     #[tokio::test]
     async fn default() {
-        init().await;
+        init().await.unwrap();
     }
 }
