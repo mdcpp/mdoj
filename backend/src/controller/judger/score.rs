@@ -1,5 +1,3 @@
-use std::cmp;
-
 use super::{submit, user_contest, DebugName};
 use crate::{
     entity::{contest, problem, user},

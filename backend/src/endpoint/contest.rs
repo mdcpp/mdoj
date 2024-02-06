@@ -5,7 +5,6 @@ use crate::grpc::backend::contest_set_server::*;
 use crate::grpc::backend::*;
 use crate::grpc::into_chrono;
 use crate::grpc::into_prost;
-use sea_orm::QueryOrder;
 
 impl From<i32> for ContestId {
     fn from(value: i32) -> Self {

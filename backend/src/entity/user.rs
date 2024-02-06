@@ -287,7 +287,7 @@ impl util::paginator::Pager for ParentPaginator {
                 user_contest::Column::Score,
                 to_order(self.start_from_end ^ rel_dir),
             )
-            .offset(self.offset + offset)
+            .offset(crate::bound!(self.offset + offset, 2048))
             .limit(size)
             .all(db)
             .await?;

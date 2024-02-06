@@ -99,7 +99,7 @@ impl UserSet for Arc<Server> {
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
+        let offset = bound!(req.offset(), 512);
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {
