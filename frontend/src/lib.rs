@@ -1,6 +1,7 @@
 pub mod app;
 pub mod components;
 pub mod config;
+pub mod error;
 pub mod grpc;
 pub mod pages;
 

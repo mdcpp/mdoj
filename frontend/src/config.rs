@@ -1,11 +1,9 @@
-use anyhow::{anyhow, Result};
+use crate::{error::*, grpc};
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_use::{utils::JsonCodec, *};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-
-use crate::grpc;
 
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
@@ -29,9 +27,7 @@ fn default_image_providers() -> Vec<String> {
 #[cfg(feature = "ssr")]
 pub async fn init() -> Result<()> {
     let config = load_server_config().await?;
-    CONFIG
-        .set(config)
-        .map_err(|_| anyhow!("cannot multiple init"))?;
+    CONFIG.set(config).expect("Already init!");
     Ok(())
 }
 
@@ -48,15 +44,17 @@ async fn load_server_config() -> Result<GlobalConfig> {
             .await?
             .read_to_string(&mut buf)
             .await?;
-        return Ok(toml::from_str(&buf)?);
+        return Ok(toml::from_str(&buf).expect("malformed config file"));
     }
-    let default_toml = toml::to_string_pretty(&GlobalConfig {
+    let default_config = GlobalConfig {
         backend: default_backend(),
         image_providers: default_image_providers(),
-    })?;
+    };
+    let default_toml = toml::to_string_pretty(&default_config)
+        .expect("Cannot generate default config");
     fs::create_dir_all(CONFIG_DIR).await?;
     fs::write(CONFIG_FILE_PATH, default_toml).await?;
-    return Err(anyhow!("Please edit config"));
+    Ok(default_config)
 }
 
 #[server]
@@ -66,7 +64,7 @@ async fn get_server_config() -> Result<GlobalConfig, ServerFnError> {
 
 pub async fn server_config() -> Result<GlobalConfig> {
     cfg_if! { if #[cfg(feature = "ssr")] {
-        Ok(get_server_config().await.map_err(|_|anyhow!("Cannot get config from server"))?)
+        Ok(get_server_config().await?)
     } else {
         use gloo::storage::{LocalStorage, Storage};
         const SERVER_CONFIG_KEY: &str = "server_config";
@@ -75,8 +73,8 @@ pub async fn server_config() -> Result<GlobalConfig> {
         } else {
             let config= get_server_config()
                 .await
-                .map_err(|_| anyhow!("Cannot get config from server"))?;
-            LocalStorage::set(SERVER_CONFIG_KEY, Some(config.clone()))?;
+                .map_err(|_| ErrorKind::ServerError(ServerErrorKind::ServerFn))?;
+            LocalStorage::set(SERVER_CONFIG_KEY, Some(config.clone())).map_err(|_|ErrorKind::Browser)?;
             Ok(config)
         }
     }}

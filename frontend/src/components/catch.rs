@@ -1,42 +1,41 @@
-use leptos::{error::Error, *};
+use leptos::*;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+struct Ball<T>(Option<T>);
 
 #[component]
-pub fn CatchBoundary(children: Children) -> impl IntoView {
-    let errors = create_rw_signal(Errors::default());
-    provide_context(errors);
+pub fn CatchBoundary<T: 'static>(
+    children: Children,
+    #[prop(optional)] ball: Option<T>,
+) -> impl IntoView {
+    provide_catch(ball);
 
     children()
 }
 
-pub fn throw(error: impl Into<Error>) {
-    let errors: Option<RwSignal<Errors>> = use_context();
-
-    let Some(errors) = errors else {
-        #[cfg(debug_assertions)]
-        logging::debug_warn!(
-            "Cannot find `CatchBoundary`/`ErrorBoundary` component, error will be ignore"
-        );
-        return;
-    };
-    errors().insert_with_default_key(error);
+/// provide catch context
+pub fn provide_catch<T: 'static>(ball: Option<T>) {
+    let ball = create_rw_signal(Ball(ball));
+    provide_context(ball);
 }
 
-pub fn use_throw<E: Into<Error>>() -> impl Fn(E) {
-    let errors: Option<RwSignal<Errors>> = use_context();
+/// `throw(...), catch signal, destroy_ball(...)`
+pub fn use_ball<T: 'static + Clone + Debug>(
+) -> (impl Fn(T), Signal<Option<T>>, impl Fn()) {
+    let ctx_ball: RwSignal<Ball<T>> = expect_context();
 
-    let Some(errors) = errors else {
-        logging::debug_warn!("Cannot find `CatchBoundary`/`ErrorBoundary` component");
-        unreachable!();
-    };
-    move |error| errors().insert_with_default_key(error)
+    (
+        move |ball| ctx_ball.set(Ball(Some(ball))),
+        Signal::derive(move || ctx_ball.get().0),
+        move || ctx_ball.set(Ball(None)),
+    )
 }
 
-pub fn use_catch() -> RwSignal<Errors> {
-    let errors: Option<RwSignal<Errors>> = use_context();
+/// check has ball in `CatchBoundary`
+pub fn use_has_ball<T: 'static + Clone>() -> Signal<bool> {
+    let ctx_ball: RwSignal<Ball<T>> = expect_context();
 
-    let Some(errors) = errors else {
-        logging::debug_warn!("Cannot find `CatchBoundary`/`ErrorBoundary` component");
-        unreachable!();
-    };
-    errors
+    Signal::derive(move || ctx_ball.get().0.is_some())
 }

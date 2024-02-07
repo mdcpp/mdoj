@@ -1,5 +1,6 @@
 pub mod about;
 pub mod contests;
+pub mod error_fallback;
 pub mod home;
 pub mod login;
 pub mod main;
@@ -9,6 +10,7 @@ pub mod problems;
 pub mod submission;
 pub use about::About;
 pub use contests::Contests;
+pub use error_fallback::error_fallback;
 pub use home::Home;
 pub use login::Login;
 pub use main::Main;
