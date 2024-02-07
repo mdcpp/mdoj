@@ -12,7 +12,11 @@ pub fn Button(
 ) -> impl IntoView {
     view! {
         <button
-            class=Merge(class, "text-background bg-primary p-2 rounded-md")
+            class=Merge(
+                class,
+                "text-background bg-primary p-2 rounded-md disabled:cursor-not-allowed disabled:brightness-50",
+            )
+
             type=kind
             disabled=disabled
             id=id
