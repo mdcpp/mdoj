@@ -280,7 +280,9 @@ impl SubmitSet for Arc<Server> {
     }
 
     #[instrument(skip_all, level = "debug")]
-    async fn list_langs(&self, _: Request<()>) -> Result<Response<Languages>, Status> {
+    async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
+        self.parse_auth(&req).await?;
+
         let list: Vec<_> = self
             .judger
             .list_lang()

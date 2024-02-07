@@ -296,7 +296,7 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let (auth, _req) = self.parse_request(req).await?;
+        let auth = self.parse_auth(&req).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::find_by_id(user_id)

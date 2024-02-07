@@ -1,3 +1,5 @@
+use std::cmp;
+
 use super::{submit, user_contest};
 use crate::{
     entity::{contest, problem, user},
@@ -153,8 +155,15 @@ impl ScoreUpload {
             .one(&txn)
             .await?;
 
-        score = score.saturating_sub(submit.map(|x| x.score).unwrap_or_default());
-        score = score.saturating_add(self.submit.score);
+        let original_score = submit.map(|x| x.score).unwrap_or_default();
+
+        if original_score >= self.submit.score {
+            tracing::trace!(reason = "unchange score", "score_contest");
+            return Ok(());
+        }
+
+        score = score.saturating_add(cmp::max(self.submit.score, original_score));
+        score = score.saturating_sub(original_score);
 
         linker.score = ActiveValue::Set(score);
         linker.update(&txn).await.map_err(Into::<Error>::into)?;

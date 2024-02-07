@@ -122,10 +122,11 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        let meta = req.metadata();
+        self.parse_auth(&req).await?.ok_or_default()?;
 
-        if let Some(x) = meta.get("token") {
+        if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();
+
 
             self.token.remove(token.to_string()).await?;
             tracing::event!(Level::TRACE, token = token);

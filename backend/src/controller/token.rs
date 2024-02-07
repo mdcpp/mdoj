@@ -131,8 +131,6 @@ impl TokenController {
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
         let rand: Rand = rand.try_into().map_err(|_| Error::InvalidTokenLength)?;
 
-        let token: CachedToken;
-
         let cache_result = {
             match self.cache.get(&rand) {
                 Some(cc) => {
@@ -154,7 +152,7 @@ impl TokenController {
                 token
             }
             None => {
-                token = (token::Entity::find()
+                let token: CachedToken = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
                     .one(self.db.deref())
                     .in_current_span()
