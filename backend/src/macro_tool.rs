@@ -135,3 +135,13 @@ macro_rules! partial_union {
             .to_owned()
     }};
 }
+
+#[macro_export]
+macro_rules! NonZeroU32 {
+    ($n:literal) => {
+        match std::num::NonZeroU32::new($n) {
+            Some(v) => v,
+            None => panic!("expect non-zero u32"),
+        }
+    };
+}

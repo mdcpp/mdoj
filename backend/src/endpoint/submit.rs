@@ -146,7 +146,7 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<CreateSubmitRequest>,
     ) -> Result<Response<SubmitId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req,crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         if req.code.len() > SUBMIT_CODE_LEN {
@@ -281,7 +281,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_auth(&req).await?;
+        self.parse_auth(&req,crate::NonZeroU32!(1)).await?;
 
         let list: Vec<_> = self
             .judger

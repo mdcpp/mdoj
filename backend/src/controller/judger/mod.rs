@@ -16,8 +16,6 @@ use crate::{
     init::{config, logger::PACKAGE_NAME},
     report_internal,
 };
-use futures::Future;
-use leaky_bucket::RateLimiter;
 use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
@@ -39,25 +37,6 @@ use crate::util::code::Code;
 
 const PALYGROUND_TIME: u64 = 500 * 1000;
 const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
-
-macro_rules! check_rate_limit {
-    ($s:expr) => {{
-        struct Waker;
-        impl std::task::Wake for Waker {
-            fn wake(self: Arc<Self>) {
-                log::error!("waker wake");
-            }
-        }
-        let waker = Arc::new(Waker).into();
-        let mut cx = std::task::Context::from_waker(&waker);
-
-        let ac = $s.limiter.clone().acquire_owned(1);
-        tokio::pin!(ac);
-        if ac.as_mut().poll(&mut cx).is_pending() {
-            return Err(Error::RateLimit);
-        }
-    }};
-}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -155,7 +134,6 @@ pub struct PlaygroundPayload {
 pub struct JudgerController {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
-    limiter: Arc<RateLimiter>,
     running_meter: (AtomicI64, ObservableGauge<i64>),
     db: Arc<DatabaseConnection>,
 }
@@ -171,14 +149,14 @@ impl JudgerController {
         Ok(JudgerController {
             router,
             pubsub: Arc::new(PubSub::default()),
-            limiter: Arc::new(
-                RateLimiter::builder()
-                    .max(25)
-                    .initial(10)
-                    .refill(2)
-                    .interval(std::time::Duration::from_millis(100))
-                    .build(),
-            ),
+            // limiter: Arc::new(
+            //     RateLimiter::builder()
+            //         .max(25)
+            //         .initial(10)
+            //         .refill(2)
+            //         .interval(std::time::Duration::from_millis(100))
+            //         .build(),
+            // ),
             running_meter: (
                 AtomicI64::new(0),
                 global::meter(PACKAGE_NAME)
@@ -265,7 +243,6 @@ impl JudgerController {
             .map_err(Into::<Error>::into)
     }
     pub async fn submit(self: &Arc<Self>, req: Submit) -> Result<i32, Error> {
-        check_rate_limit!(self);
         let db = self.db.deref();
 
         let mut binding = problem::Entity::find_by_id(req.problem)
@@ -347,8 +324,6 @@ impl JudgerController {
         &self,
         payload: PlaygroundPayload,
     ) -> Result<TonicStream<PlaygroundResult>, Error> {
-        check_rate_limit!(self);
-
         let mut conn = self.router.get(&payload.lang).await?;
 
         let res = conn

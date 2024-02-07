@@ -20,7 +20,6 @@ base64 = "0.21.5"
 uuid = "1.5.0"
 tonic-web = { workspace = true }
 quick_cache = "0.4.0"
-leaky-bucket = "1.0.1"
 hickory-resolver = "0.24.0"
 crossbeam-queue = "0.3.8"
 dashmap = "5.5.3"
@@ -37,6 +36,7 @@ opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
 migration = { path = "./migration",optional = true }
 sea-orm-cli = {version = "0.12.12",optional = true}
+governor = "0.6.0"
 
 [dependencies.sea-query]
 version = "0.30.4"
@@ -71,7 +71,17 @@ features = ["async-await", "log", "release_max_level_debug"]
 workspace = true
 features = ["macros", "rt-multi-thread", "full", "time"]
 
-[dependencies.sea-orm]
+[target.'cfg(not(debug_assertions))'.dependencies.sea-orm]
+version = "0.12.11"
+features = [
+    "runtime-tokio-rustls",
+    "macros",
+    "mock",
+    "sqlx-sqlite",
+    "with-chrono",
+]
+
+[target.'cfg(debug_assertions)'.dependencies.sea-orm]
 version = "0.12.11"
 features = [
     "runtime-tokio-rustls",

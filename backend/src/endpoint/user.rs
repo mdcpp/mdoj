@@ -95,7 +95,7 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req,crate::NonZeroU32!(3)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -296,7 +296,7 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let auth = self.parse_auth(&req).await?;
+        let auth = self.parse_auth(&req,crate::NonZeroU32!(1)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::find_by_id(user_id)
