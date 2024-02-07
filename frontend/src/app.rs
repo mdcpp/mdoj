@@ -1,6 +1,7 @@
 use crate::pages::*;
 use leptos::*;
 use leptos_meta::*;
+use leptos_router::*;
 
 // use tracing_subscriber::fmt::format::Pretty;
 // use tracing_subscriber::prelude::*;
@@ -23,9 +24,11 @@ pub fn App() -> impl IntoView {
     // tracing::
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
-        <Title text="MDOJ"/>
+        <Router>
+            <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
+            <Title text="MDOJ"/>
 
-        <Main/>
+            <Main/>
+        </Router>
     }
 }
