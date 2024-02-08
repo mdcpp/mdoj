@@ -40,7 +40,7 @@ impl Server {
         Ok(auth)
     }
     /// parse request
-    /// 
+    ///
     /// behind the sence we do rate limit(consume two resource)
     #[inline]
     pub async fn parse_request<T: Send>(
@@ -56,7 +56,7 @@ impl Server {
     pub async fn parse_request_n<T>(
         &self,
         req: tonic::Request<T>,
-        permit:NonZeroU32
+        permit: NonZeroU32,
     ) -> Result<(Auth, T), tonic::Status> {
         let auth = self.parse_auth(&req, permit).await?;
 

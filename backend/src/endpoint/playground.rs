@@ -20,7 +20,7 @@ impl PlaygroundSet for Arc<Server> {
         &self,
         req: Request<PlaygroundRequest>,
     ) -> Result<Response<Self::RunStream>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         tracing::debug!(user_id = user_id, "playground_start");

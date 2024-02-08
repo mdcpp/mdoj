@@ -76,8 +76,8 @@ impl TestcaseSet for Arc<Server> {
         check_length!(LONG_ART_SIZE, req.info, input, output);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<TestcaseId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         if !(perm.super_user()) {
@@ -94,11 +94,13 @@ impl TestcaseSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
+        let id: TestcaseId = model.id.clone().unwrap().into();
 
-        tracing::debug!(id = model.id.clone().unwrap(), "testcase_created");
+        self.dup.store(user_id, uuid, id.clone());
 
-        Ok(Response::new(model.id.unwrap().into()))
+        tracing::debug!(id = id.id, "tetscase_created");
+
+        Ok(Response::new(id))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
@@ -108,8 +110,8 @@ impl TestcaseSet for Arc<Server> {
         check_exist_length!(LONG_ART_SIZE, req.info, input, output);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         tracing::trace!(id = req.id.id);
@@ -123,12 +125,12 @@ impl TestcaseSet for Arc<Server> {
 
         fill_exist_active_model!(model, req.info, input, output, score);
 
-        let model = model
+        model
             .update(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }

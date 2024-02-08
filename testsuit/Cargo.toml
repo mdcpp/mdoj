@@ -50,5 +50,6 @@ features = ["transport", "channel", "codegen", "tls", "prost"]
 version = "0.14.27"
 features = ["client", "http1", "http2"]
 
-[build-dependencies]
-tonic-build = { workspace = true }
+[build-dependencies.tonic-build]
+workspace = true
+features = ["default"]

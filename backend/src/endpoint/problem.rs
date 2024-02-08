@@ -142,8 +142,8 @@ impl ProblemSet for Arc<Server> {
         check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<ProblemId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         if !(perm.super_user()) {
@@ -162,11 +162,13 @@ impl ProblemSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
+        let id: ProblemId = model.id.clone().unwrap().into();
 
-        tracing::debug!(id = model.id.clone().unwrap(), "problem_created");
+        self.dup.store(user_id, uuid, id.clone());
 
-        Ok(Response::new(model.id.unwrap().into()))
+        tracing::debug!(id = id.id, "problem_created");
+
+        Ok(Response::new(id))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
@@ -177,8 +179,8 @@ impl ProblemSet for Arc<Server> {
         check_exist_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         tracing::trace!(id = req.id.id);
@@ -194,12 +196,12 @@ impl ProblemSet for Arc<Server> {
             model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
         );
 
-        let model = model
+        model
             .update(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }

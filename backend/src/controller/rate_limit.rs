@@ -35,16 +35,16 @@ trait LimitPolicy {
 struct LoginPolicy;
 
 impl LimitPolicy for LoginPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(200);
-    const RATE: NonZeroU32 = NonZeroU32!(55);
+    const BURST: NonZeroU32 = NonZeroU32!(400);
+    const RATE: NonZeroU32 = NonZeroU32!(150);
 }
 
 /// policy for [`TrafficType::Guest`]
 struct GuestPolicy;
 
 impl LimitPolicy for GuestPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(80);
-    const RATE: NonZeroU32 = NonZeroU32!(35);
+    const BURST: NonZeroU32 = NonZeroU32!(150);
+    const RATE: NonZeroU32 = NonZeroU32!(80);
 }
 
 /// policy for [`TrafficType::Blacklist`]
@@ -55,8 +55,8 @@ impl LimitPolicy for GuestPolicy {
 struct BlacklistPolicy;
 
 impl LimitPolicy for BlacklistPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(30);
-    const RATE: NonZeroU32 = NonZeroU32!(10);
+    const BURST: NonZeroU32 = NonZeroU32!(60);
+    const RATE: NonZeroU32 = NonZeroU32!(30);
 }
 
 pub struct RateLimitController {

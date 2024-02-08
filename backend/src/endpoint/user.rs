@@ -95,7 +95,7 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req,crate::NonZeroU32!(3)).await?;
+        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(3)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -140,10 +140,9 @@ impl UserSet for Arc<Server> {
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<UserId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
-
         if !(perm.admin()) {
             return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
@@ -161,7 +160,7 @@ impl UserSet for Arc<Server> {
             return Err(Error::AlreadyExist("").into());
         }
 
-        let hash = self.crypto.hash(req.info.password.as_str()).into();
+        let hash = self.crypto.hash(req.info.password.as_str());
         model.password = ActiveValue::set(hash);
 
         let new_perm: RoleLv = req.info.role().into();
@@ -178,12 +177,13 @@ impl UserSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
+        let id: UserId = model.id.clone().unwrap().into();
+        self.dup.store(user_id, uuid, id.clone());
+
+        tracing::debug!(id = id.id, "user_created");
         self.metrics.user.add(1, &[]);
 
-        let id = model.id.unwrap();
-        self.dup.store_i32(user_id, uuid, id);
-
-        Ok(Response::new(id.into()))
+        Ok(Response::new(id))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
@@ -192,10 +192,9 @@ impl UserSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
-
         if !(perm.admin()) {
             return Err(Error::RequirePermission(RoleLv::Admin).into());
         }
@@ -211,7 +210,7 @@ impl UserSet for Arc<Server> {
             model.username = ActiveValue::set(username);
         }
         if let Some(password) = req.info.password {
-            let hash = self.crypto.hash(password.as_str()).into();
+            let hash = self.crypto.hash(password.as_str());
             model.password = ActiveValue::set(hash);
         }
         if let Some(new_perm) = req.info.role {
@@ -229,12 +228,12 @@ impl UserSet for Arc<Server> {
             }
         }
 
-        let model = model
+        model
             .update(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }
@@ -277,7 +276,7 @@ impl UserSet for Arc<Server> {
         }
 
         let mut model = model.into_active_model();
-        model.password = ActiveValue::Set(self.crypto.hash(&req.new_password).into());
+        model.password = ActiveValue::Set(self.crypto.hash(&req.new_password));
 
         model
             .update(self.db.deref())
@@ -296,7 +295,7 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let auth = self.parse_auth(&req,crate::NonZeroU32!(1)).await?;
+        let auth = self.parse_auth(&req, crate::NonZeroU32!(1)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::find_by_id(user_id)

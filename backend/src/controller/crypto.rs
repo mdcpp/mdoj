@@ -7,6 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tracing::Span;
 
 use crate::init::config::GlobalConfig;
+use base64::{engine::general_purpose::URL_SAFE, Engine};
 use blake2::{Blake2b512, Digest};
 
 type Result<T> = std::result::Result<T, Error>;
@@ -28,21 +29,7 @@ impl From<Error> for tonic::Status {
     }
 }
 
-#[derive(PartialEq, Eq)]
-pub struct HashValue(Vec<u8>);
-
-impl From<Vec<u8>> for HashValue {
-    fn from(v: Vec<u8>) -> Self {
-        Self(v)
-    }
-}
-
-impl From<HashValue> for Vec<u8> {
-    fn from(v: HashValue) -> Self {
-        v.0
-    }
-}
-
+/// signed object
 #[derive(Serialize, Deserialize)]
 struct Signed {
     data: Vec<u8>,
@@ -58,9 +45,7 @@ impl CryptoController {
     #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
     pub fn new(config: &GlobalConfig, span: &Span) -> Self {
         let salt = config.database.salt.as_bytes().to_vec();
-
         let signing_key = SigningKey::random(&mut OsRng);
-
         let verifying_key = *signing_key.verifying_key();
 
         Self {
@@ -69,24 +54,26 @@ impl CryptoController {
             verifying_key,
         }
     }
+    /// hash `src` and compare hash value with `hashed`
     #[tracing::instrument(name = "crypto_hasheq_controller", level = "debug", skip_all)]
-    pub fn hash_eq(&self, src: &str, tar: &[u8]) -> bool {
-        let hashed: Vec<u8> = self.hash(src).into();
+    pub fn hash_eq(&self, src: &str, hashed: &[u8]) -> bool {
+        let src_hashed: Vec<u8> = self.hash(src);
         let mut result = true;
-        for (a, b) in hashed.iter().zip(tar.iter()) {
+        for (a, b) in src_hashed.iter().zip(hashed.iter()) {
             if *a != *b {
                 result = false;
             }
         }
         result
     }
+    /// get BLAKE2b-512 hashed bytes with salt
     #[tracing::instrument(name = "crypto_hash_controller", level = "debug", skip_all)]
-    pub fn hash(&self, src: &str) -> HashValue {
+    pub fn hash(&self, src: &str) -> Vec<u8> {
         let mut hasher = Blake2b512::new();
         hasher.update(&[src.as_bytes(), self.salt.as_slice()].concat());
 
         let hashed = hasher.finalize();
-        HashValue(hashed.to_vec())
+        hashed.to_vec()
     }
     /// serialize and sign the object with blake2b512, append the signature and return
     #[tracing::instrument(level = "debug", skip_all)]
@@ -99,10 +86,7 @@ impl CryptoController {
             data: raw,
             signature,
         };
-        Ok(base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD_NO_PAD,
-            bincode::serialize(&signed)?,
-        ))
+        Ok(URL_SAFE.encode(bincode::serialize(&signed)?))
     }
     /// extract signature and object of encoded bytes(serde will handle it)
     ///
@@ -111,7 +95,7 @@ impl CryptoController {
     /// Error if signature invaild
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
-        let raw = base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, raw)?;
+        let raw = URL_SAFE.decode(raw)?;
         let raw: Signed = bincode::deserialize(&raw)?;
         let signature = raw.signature;
 

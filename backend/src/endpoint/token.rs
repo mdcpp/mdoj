@@ -122,7 +122,9 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        self.parse_auth(&req,crate::NonZeroU32!(1)).await?.ok_or_default()?;
+        self.parse_auth(&req, crate::NonZeroU32!(1))
+            .await?
+            .ok_or_default()?;
 
         if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();

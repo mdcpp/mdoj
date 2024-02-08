@@ -72,7 +72,7 @@ async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) -> super:
     crate::entity::user::ActiveModel {
         permission: ActiveValue::Set(perm as i32),
         username: ActiveValue::Set("admin".to_owned()),
-        password: ActiveValue::Set(crypto.hash("admin").into()),
+        password: ActiveValue::Set(crypto.hash("admin")),
         ..Default::default()
     }
     .insert(db)

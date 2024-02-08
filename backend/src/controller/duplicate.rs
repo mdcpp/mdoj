@@ -1,48 +1,53 @@
+use std::{
+    any::{Any, TypeId},
+    ops::Deref,
+};
+
 use quick_cache::sync::Cache;
+use std::sync::Arc;
 use tracing::Span;
 use uuid::Uuid;
 
+#[derive(Eq, Hash, PartialEq)]
+struct DupKey {
+    user_id: i32,
+    request_id: Uuid,
+    type_id: TypeId,
+}
+
 pub struct DupController {
-    dup_i32: Cache<(i32, Uuid), i32>,
-    dup_str: Cache<(i32, Uuid), String>,
+    store: Cache<DupKey, Arc<dyn Any + 'static + Send + Sync>>,
 }
 
 impl DupController {
     #[tracing::instrument(parent=span, name="duplicate_construct",level = "info",skip_all)]
     pub fn new(span: &Span) -> Self {
         Self {
-            dup_i32: Cache::new(150),
-            dup_str: Cache::new(150),
+            store: Cache::new(50),
         }
     }
-    /// store a request_id with result i32
-    pub fn store_i32(&self, spliter: i32, uuid: Uuid, result: i32) {
-        tracing::trace!(request_id=?uuid);
-        self.dup_i32.insert((spliter, uuid), result);
+    pub fn store<T>(&self, user_id: i32, request_id: Uuid, result: T)
+    where
+        T: 'static + Send + Sync + Clone,
+    {
+        let key = DupKey {
+            user_id,
+            request_id,
+            type_id: result.type_id(),
+        };
+        self.store.insert(key, Arc::new(result));
     }
-    /// store a request_id with result String
-    pub fn store_str(&self, spliter: i32, uuid: Uuid, result: String) {
-        tracing::trace!(request_id=?uuid);
-        self.dup_str.insert((spliter, uuid), result);
-    }
-    /// attempt to get result of i32
-    #[tracing::instrument(level = "debug", skip(self))]
-    pub fn check_i32(&self, spliter: i32, uuid: &Uuid) -> Option<i32> {
-        tracing::trace!(request_id=?uuid);
-        if let Some(x) = self.dup_i32.get(&(spliter, *uuid)) {
-            log::debug!("duplicated request_id: {}, result: {}", uuid, x);
-            return Some(x);
-        }
-        None
-    }
-    /// attempt to get result of String
-    #[tracing::instrument(level = "debug", skip(self))]
-    pub fn check_str(&self, spliter: i32, uuid: &Uuid) -> Option<String> {
-        tracing::trace!(request_id=?uuid);
-        if let Some(x) = self.dup_str.get(&(spliter, *uuid)) {
-            log::debug!("duplicated request_id: {}, result: {}", uuid, x);
-            return Some(x);
-        }
-        None
+    pub fn check<T>(&self, user_id: i32, request_id: Uuid) -> Option<T>
+    where
+        T: 'static + Send + Sync + Clone,
+    {
+        let key = DupKey {
+            user_id,
+            request_id,
+            type_id: TypeId::of::<T>(),
+        };
+        self.store
+            .peek(&key)
+            .map(|x| x.deref().downcast_ref::<T>().unwrap().clone())
     }
 }

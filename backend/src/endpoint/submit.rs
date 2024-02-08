@@ -146,7 +146,7 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<CreateSubmitRequest>,
     ) -> Result<Response<SubmitId>, Status> {
-        let (auth, req) = self.parse_request_n(req,crate::NonZeroU32!(15)).await?;
+        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         if req.code.len() > SUBMIT_CODE_LEN {
@@ -242,8 +242,8 @@ impl SubmitSet for Arc<Server> {
         }
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         tracing::debug!(req.id = submit_id);
@@ -274,14 +274,14 @@ impl SubmitSet for Arc<Server> {
 
         self.judger.submit(rejudge).await?;
 
-        self.dup.store_i32(user_id, uuid, submit_id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_auth(&req,crate::NonZeroU32!(1)).await?;
+        self.parse_auth(&req, crate::NonZeroU32!(1)).await?;
 
         let list: Vec<_> = self
             .judger

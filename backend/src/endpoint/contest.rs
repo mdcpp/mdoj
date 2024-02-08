@@ -150,8 +150,8 @@ impl ContestSet for Arc<Server> {
         check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<ContestId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         if !perm.super_user() {
@@ -179,12 +179,13 @@ impl ContestSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
+        let id: ContestId = model.id.clone().unwrap().into();
+        self.dup.store(user_id, uuid, id.clone());
 
+        tracing::debug!(id = id.id, "contest_created");
         self.metrics.contest.add(1, &[]);
-        tracing::debug!(id = model.id.clone().unwrap());
 
-        Ok(Response::new(model.id.unwrap().into()))
+        Ok(Response::new(id))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
@@ -195,10 +196,9 @@ impl ContestSet for Arc<Server> {
         check_exist_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
-
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
@@ -213,7 +213,7 @@ impl ContestSet for Arc<Server> {
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
                 if perm.root() || self.crypto.hash_eq(&src, tar) {
-                    let hash = self.crypto.hash(&src).into();
+                    let hash = self.crypto.hash(&src);
                     model.password = Some(hash);
                 } else {
                     return Err(Error::PermissionDeny(
@@ -234,12 +234,12 @@ impl ContestSet for Arc<Server> {
             model.end = ActiveValue::Set(into_chrono(x));
         }
 
-        let model = model
+        model
             .update(self.db.deref())
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }

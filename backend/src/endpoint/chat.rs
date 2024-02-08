@@ -39,8 +39,8 @@ impl ChatSet for Arc<Server> {
         check_length!(LONG_ART_SIZE, req, message);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<ChatId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         let mut model: ActiveModel = Default::default();
@@ -53,12 +53,13 @@ impl ChatSet for Arc<Server> {
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
+        let id: ChatId = model.id.clone().unwrap().into();
+        self.dup.store(user_id, uuid, id.clone());
 
-        tracing::debug!(id = model.id.clone().unwrap());
+        tracing::debug!(id = id.id, "chat_created");
         self.metrics.chat.add(1, &[]);
 
-        Ok(Response::new(model.id.unwrap().into()))
+        Ok(Response::new(id))
     }
 
     async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
