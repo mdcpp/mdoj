@@ -8,7 +8,7 @@ build-plugin:
 
 release-plugin:
     just build-plugin
-    cd plugins sh export-all.sh
+    cd plugins && sh export-all.sh
     
 build-nsjail:
     cd nsjail-docker && sudo make nsjail-3.1 > /dev/null
@@ -21,10 +21,10 @@ prepare:
 clean:
     sudo rm -rf .temp
     cargo clean
-    sudo docker images rm nsjail-3.1-$(uname -m)-linux-musl
-    sudo docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
-    sudo docker images rm libnl-3.2.25-$(uname -m)-linux-musl
-    sudo docker images rm musl-cross-make-$(uname -m)-linux-musl
+    docker images rm nsjail-3.1-$(uname -m)-linux-musl
+    docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
+    docker images rm libnl-3.2.25-$(uname -m)-linux-musl
+    docker images rm musl-cross-make-$(uname -m)-linux-musl
 
 test:
     sudo rm -rf .temp/*
