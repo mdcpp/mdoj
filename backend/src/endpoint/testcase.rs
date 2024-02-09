@@ -172,10 +172,8 @@ impl TestcaseSet for Arc<Server> {
         let problem = problem.ok_or(Error::NotInDB)?;
         let model = model.ok_or(Error::NotInDB)?;
 
-        if !(perm.admin()) {
-            if problem.user_id != user_id {
-                return Err(Error::UnownedAdd("problem").into());
-            }
+        if !(perm.admin()) && problem.user_id != user_id {
+            return Err(Error::UnownedAdd("problem").into());
         }
 
         let mut model = model.into_active_model();

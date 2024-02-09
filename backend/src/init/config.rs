@@ -118,19 +118,19 @@ impl Default for Imgur {
 pub async fn init() -> super::Result<GlobalConfig> {
     fs::create_dir_all(CONFIG_DIR)
         .await
-        .map_err(|err| Error::ConfigDir(err))?;
+        .map_err(Error::ConfigDir)?;
     if fs::metadata(CONFIG_PATH).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(CONFIG_PATH)
             .await
-            .expect(&format!("{} exist, but is not a toml file", CONFIG_PATH));
+            .unwrap_or_else(|_| panic!("{} exist, but is not a toml file", CONFIG_PATH));
         config
             .read_to_end(&mut buf)
             .await
-            .map_err(|err| Error::ConfigRead(err))?;
+            .map_err(Error::ConfigRead)?;
         let config =
             std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
-        let config: GlobalConfig = toml::from_str(config).map_err(|err| Error::ConfigParse(err))?;
+        let config: GlobalConfig = toml::from_str(config).map_err(Error::ConfigParse)?;
         Ok(config)
     } else {
         println!("Unable to find {}, generating default config", CONFIG_PATH);
@@ -139,7 +139,7 @@ pub async fn init() -> super::Result<GlobalConfig> {
         let config_txt = toml::to_string(&config).unwrap();
         fs::write(CONFIG_PATH, config_txt)
             .await
-            .map_err(|err| Error::ConfigWrite(err))?;
+            .map_err(Error::ConfigWrite)?;
 
         println!(
             "Config generated, please edit {} before restart",

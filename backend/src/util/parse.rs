@@ -16,7 +16,7 @@ impl Server {
         let mut auth = Auth::Guest;
 
         self.rate_limit
-            .check(&req, permit, |req| async {
+            .check(req, permit, |req| async {
                 if let Some(x) = req.metadata().get("token") {
                     let token = x.to_str().unwrap();
 

@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
+use http::header::HeaderName;
 use sea_orm::DatabaseConnection;
 use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
+use tonic_web::GrpcWebLayer;
+use tower_http::cors::CorsLayer;
 use tracing::{span, Instrument, Level};
 
 use crate::{
@@ -71,8 +74,8 @@ impl Server {
                 .as_ref()
                 .expect("public pem should set if private pem is set");
 
-            let cert = std::fs::read_to_string(public_pem).map_err(|err| Error::ReadPem(err))?;
-            let key = std::fs::read_to_string(private_pem).map_err(|err| Error::ReadPem(err))?;
+            let cert = std::fs::read_to_string(public_pem).map_err(Error::ReadPem)?;
+            let key = std::fs::read_to_string(private_pem).map_err(Error::ReadPem)?;
 
             identity = Some(Identity::from_pem(cert, key));
         }
@@ -98,6 +101,8 @@ impl Server {
     }
     /// Start the server
     pub async fn start(self: Arc<Self>) {
+        let cors = CorsLayer::new().allow_headers([HeaderName::from_static("token")]);
+
         let server = match self.identity.lock().take() {
             Some(identity) => transport::Server::builder()
                 .tls_config(ServerTlsConfig::new().identity(identity))
@@ -106,16 +111,18 @@ impl Server {
         };
 
         server
+            .layer(cors)
+            .layer(GrpcWebLayer::new())
             .max_frame_size(Some(MAX_FRAME_SIZE))
-            .add_service(tonic_web::enable(ProblemSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(EducationSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(UserSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(TokenSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(ContestSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(ChatSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(AnnouncementSetServer::new(self.clone())))
+            .add_service(ProblemSetServer::new(self.clone()))
+            .add_service(EducationSetServer::new(self.clone()))
+            .add_service(UserSetServer::new(self.clone()))
+            .add_service(TokenSetServer::new(self.clone()))
+            .add_service(ContestSetServer::new(self.clone()))
+            .add_service(TestcaseSetServer::new(self.clone()))
+            .add_service(SubmitSetServer::new(self.clone()))
+            .add_service(ChatSetServer::new(self.clone()))
+            .add_service(AnnouncementSetServer::new(self.clone()))
             .serve(self.config.bind_address.clone().parse().unwrap())
             .await
             .unwrap();

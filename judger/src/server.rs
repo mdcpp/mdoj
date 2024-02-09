@@ -102,6 +102,7 @@ impl Server {
             *running -= 1;
             Ok(PendingGuard(self.clone()))
         } else {
+            log::warn!("Task Waiting queue full!");
             Err(Status::resource_exhausted(""))
         }
     }

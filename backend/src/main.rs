@@ -7,7 +7,7 @@ pub mod macro_tool;
 pub mod server;
 pub mod util;
 
-#[cfg(features = "release")]
+#[cfg(feature = "release")]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 

@@ -142,32 +142,30 @@ impl RateLimitController {
     {
         // transform bool to Result<(),Error>
         macro_rules! bool_err {
-            ($e:expr) => {
+            ($e:expr,$t:literal) => {
                 match $e {
-                    true => Ok(()),
-                    false => Err(Error::RateLimit),
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(Error::RateLimit($t)),
                 }
             };
         }
         let addr = self.ip(req)?;
 
         if self.ip_blacklist.get(&addr).is_some() {
-            return bool_err!(self.blacklist_limiter.check_n(permit).is_ok());
+            return bool_err!(self.blacklist_limiter.check_n(permit), "blacklist");
         }
 
-        let is_limited = match f(req)
+        match f(req)
             .instrument(tracing::debug_span!("token_verify"))
             .await
         {
-            TrafficType::Login(x) => self.user_limiter.check_key_n(&x, permit),
-            TrafficType::Guest => self.ip_limiter.check_key_n(&addr, permit),
+            TrafficType::Login(x) => bool_err!(self.user_limiter.check_key_n(&x, permit), "login"),
+            TrafficType::Guest => bool_err!(self.ip_limiter.check_key_n(&addr, permit), "guest"),
             TrafficType::Blacklist(err) => {
                 tracing::warn!(msg = err.to_string(), "ip_blacklist");
                 self.ip_blacklist.insert(addr, ());
-                self.blacklist_limiter.check_n(permit)
+                bool_err!(self.blacklist_limiter.check_n(permit), "blacklist")
             }
-        };
-
-        bool_err!(is_limited.is_ok())
+        }
     }
 }

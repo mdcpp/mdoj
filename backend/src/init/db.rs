@@ -23,9 +23,7 @@ pub async fn init(
 ) -> super::Result<DatabaseConnection> {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
-    let db = Database::connect(&uri)
-        .await
-        .map_err(|err| Error::InitConn(err))?;
+    let db = Database::connect(&uri).await.map_err(Error::InitConn)?;
 
     db.execute(Statement::from_string(
         DatabaseBackend::Sqlite,
@@ -33,7 +31,7 @@ pub async fn init(
     ))
     .instrument(debug_span!("db_optimize"))
     .await
-    .map_err(|err| Error::OptimizeDB(err))?;
+    .map_err(Error::OptimizeDB)?;
 
     #[cfg(feature = "standalone")]
     if config.migrate == Some(true) {
@@ -55,7 +53,7 @@ async fn migrate(db: &DatabaseConnection) -> super::Result<()> {
         false,
     )
     .await
-    .map_err(|err| Error::AutoMigrate(err))?;
+    .map_err(Error::AutoMigrate)?;
     Ok(())
 }
 
@@ -77,7 +75,7 @@ async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) -> super:
     }
     .insert(db)
     .await
-    .map_err(|err| Error::UserCreation(err))?;
+    .map_err(Error::UserCreation)?;
 
     Ok(())
 }

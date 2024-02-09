@@ -167,8 +167,7 @@ impl ContestSet for Arc<Server> {
             .info
             .password
             .map(|a| self.crypto.hash(&a))
-            .ok_or(Error::NotInPayload("password"))?
-            .into();
+            .ok_or(Error::NotInPayload("password"))?;
         model.password = ActiveValue::Set(Some(password));
 
         model.begin = ActiveValue::Set(into_chrono(req.info.begin));

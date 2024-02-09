@@ -43,6 +43,11 @@ opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
 migration = { path = "./migration", optional = true }
 sea-orm-cli = { version = "0.12.12", optional = true }
 governor = "0.6.0"
+http = "^0.2"
+
+[dependencies.tower-http]
+version = "^0.4"
+features = ["cors","trace"]
 
 [dependencies.sea-query]
 version = "0.30.4"
@@ -92,7 +97,7 @@ workspace = true
 features = ["derive"]
 
 [dependencies.tonic]
-version = "0.10.2"
+workspace = true
 features = ["transport", "channel", "codegen", "prost", "tls"]
 
 [dependencies.spin]
