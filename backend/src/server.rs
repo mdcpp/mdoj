@@ -5,7 +5,7 @@ use sea_orm::DatabaseConnection;
 use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
 use tonic_web::GrpcWebLayer;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{span, Instrument, Level};
 
 use crate::{
@@ -101,7 +101,10 @@ impl Server {
     }
     /// Start the server
     pub async fn start(self: Arc<Self>) {
-        let cors = CorsLayer::new().allow_headers([HeaderName::from_static("token")]);
+        let cors = CorsLayer::new()
+            .allow_headers([HeaderName::from_static("token")])
+            .allow_origin(AllowOrigin::mirror_request())
+            .allow_methods(Any);
 
         let server = match self.identity.lock().take() {
             Some(identity) => transport::Server::builder()
