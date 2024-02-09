@@ -1,7 +1,8 @@
-use crate::config::*;
 use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
+
+use crate::config::*;
 
 #[component]
 pub fn Navbar() -> impl IntoView {

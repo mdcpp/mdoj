@@ -1,7 +1,8 @@
-use crate::{components::*, config::*, pages::*};
 use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
+
+use crate::{components::*, config::*, pages::*};
 
 #[component]
 pub fn Main() -> impl IntoView {

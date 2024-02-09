@@ -1,12 +1,13 @@
+use ::grpc::backend::Role;
+use leptos::*;
+use leptos_router::use_navigate;
+
 use crate::{
     components::*,
     config::*,
     error::*,
     grpc::{self, token_set_client},
 };
-use ::grpc::backend::Role;
-use leptos::*;
-use leptos_router::use_navigate;
 
 #[component]
 pub fn Login() -> impl IntoView {
@@ -43,7 +44,7 @@ pub fn Login() -> impl IntoView {
             }
         });
 
-    let is_valid = Signal::derive(move || {
+    let disabled = Signal::derive(move || {
         submit.pending()() || username().is_empty() || password().is_empty()
     });
 
@@ -86,7 +87,7 @@ pub fn Login() -> impl IntoView {
                 </div>
                 <p class="w-full text-red text-center">{error_msg}</p>
                 <div class="p-4 w-full">
-                    <Button kind="submit" class="w-full" disabled=is_valid>
+                    <Button kind="submit" class="w-full" disabled>
                         Login
                     </Button>
                 </div>

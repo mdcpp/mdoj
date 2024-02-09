@@ -1,5 +1,6 @@
-use crate::{error::ErrorKind, pages::*};
 use leptos::*;
+
+use crate::{error::ErrorKind, pages::*};
 
 pub fn error_fallback(errors: RwSignal<Errors>) -> impl IntoView {
     let fallback = move || {

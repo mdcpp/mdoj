@@ -1,9 +1,12 @@
-use super::Merge;
 use leptos::{ev::MouseEvent, *};
+
+use super::Merge;
 
 #[component]
 pub fn Button(
-    #[prop(into, default = "button".to_owned().into())] kind: MaybeSignal<String>,
+    #[prop(into, default = "button".to_owned().into())] kind: MaybeSignal<
+        String,
+    >,
     #[prop(into, default = false.into())] disabled: MaybeSignal<bool>,
     #[prop(into, optional)] on_click: Option<Callback<MouseEvent>>,
     #[prop(into, optional)] id: Option<AttributeValue>,
