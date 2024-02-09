@@ -181,7 +181,7 @@ impl UserSet for Arc<Server> {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "user_created");
-        self.metrics.user.add(1, &[]);
+        self.metrics.user(1);
 
         Ok(Response::new(id))
     }
@@ -250,7 +250,7 @@ impl UserSet for Arc<Server> {
             return Err(Error::NotInDB.into());
         }
 
-        self.metrics.user.add(-1, &[]);
+        self.metrics.user(-1);
 
         self.token.remove_by_user_id(req.id).await?;
 

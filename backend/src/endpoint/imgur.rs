@@ -24,7 +24,7 @@ impl ImgurSet for Arc<Server> {
         let url = UploadResponse { url };
 
         self.dup.store(user_id, uuid, url.clone());
-        self.metrics.image.observe(1, &[]);
+        self.metrics.image(1);
 
         Ok(Response::new(url))
     }

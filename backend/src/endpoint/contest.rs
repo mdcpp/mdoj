@@ -183,7 +183,7 @@ impl ContestSet for Arc<Server> {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "contest_created");
-        self.metrics.contest.add(1, &[]);
+        self.metrics.contest(1);
 
         Ok(Response::new(id))
     }
@@ -256,7 +256,7 @@ impl ContestSet for Arc<Server> {
             return Err(Error::NotInDB.into());
         }
 
-        self.metrics.contest.add(-1, &[]);
+        self.metrics.contest(-1);
         tracing::debug!(id = req.id, "contest_remove");
 
         Ok(Response::new(()))

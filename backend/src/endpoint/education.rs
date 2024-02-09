@@ -99,7 +99,7 @@ impl EducationSet for Arc<Server> {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "education_created");
-        self.metrics.education.add(1, &[]);
+        self.metrics.education(1);
 
         Ok(Response::new(id))
     }
@@ -150,7 +150,7 @@ impl EducationSet for Arc<Server> {
         }
 
         tracing::debug!(id = req.id);
-        self.metrics.education.add(-1, &[]);
+        self.metrics.education(-1);
 
         Ok(Response::new(()))
     }

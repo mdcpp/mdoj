@@ -57,7 +57,7 @@ impl ChatSet for Arc<Server> {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "chat_created");
-        self.metrics.chat.add(1, &[]);
+        self.metrics.chat(1);
 
         Ok(Response::new(id))
     }
@@ -74,7 +74,7 @@ impl ChatSet for Arc<Server> {
             return Err(Error::NotInDB.into());
         }
 
-        self.metrics.chat.add(-1, &[]);
+        self.metrics.chat(-1);
         tracing::debug!(id = req.id, "chat_remove");
 
         Ok(Response::new(()))

@@ -188,7 +188,7 @@ impl SubmitSet for Arc<Server> {
         let id = self.judger.submit(submit).await?;
 
         tracing::debug!(id = id, "submit_created");
-        self.metrics.submit.add(1, &[]);
+        self.metrics.submit(1);
 
         Ok(Response::new(id.into()))
     }
@@ -207,7 +207,7 @@ impl SubmitSet for Arc<Server> {
         }
 
         tracing::debug!(id = req.id);
-        self.metrics.submit.add(-1, &[]);
+        self.metrics.submit(-1);
 
         Ok(Response::new(()))
     }
