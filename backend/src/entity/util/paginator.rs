@@ -54,7 +54,7 @@ pub trait PagerData {
 /// In `Education` example, we expect ::entity::education::Entity
 /// to implement it
 #[async_trait]
-pub trait PagerSource
+pub trait Source
 where
     Self: Send + PagerData,
 {
@@ -74,7 +74,7 @@ where
 /// In `Education` example, we expect ::entity::education::PartialEducation
 /// to implement it
 #[async_trait]
-pub trait PagerReflect<E: EntityTrait>
+pub trait Reflect<E: EntityTrait>
 where
     Self: Sized + Send,
 {
@@ -85,7 +85,7 @@ where
 
 /// compact primary key pager
 #[derive(Serialize, Deserialize)]
-pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
+pub struct PrimaryKeyPaginator<S: Source, R: Reflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
@@ -105,7 +105,7 @@ pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
 }
 
 #[async_trait]
-impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
+impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
@@ -118,7 +118,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         db: &DatabaseConnection,
     ) -> Result<(Self, Vec<R>), Error> {
         let paginator = PaginatePkBuilder::default()
-            .pk(<S as PagerSource>::ID)
+            .pk(<S as Source>::ID)
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .last_pk(self.last_id)
@@ -151,7 +151,7 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
     ) -> Result<(Self, Vec<R>), Error> {
         let query = order_by_bool(
             S::filter(auth, &data, db).await?,
-            <S as PagerSource>::ID,
+            <S as Source>::ID,
             abs_dir,
         );
 
@@ -176,9 +176,9 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
     }
 }
 
-pub trait PagerSortSource<R>
+pub trait SortSource<R>
 where
-    Self: PagerSource,
+    Self: Source,
 {
     /// get sort column
     fn sort_col(data: &Self::Data) -> impl ColumnTrait;
@@ -189,7 +189,7 @@ where
 
 /// compact column pager
 #[derive(Serialize, Deserialize)]
-pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
+pub struct ColumnPaginator<S: SortSource<R>, R: Reflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
@@ -208,7 +208,7 @@ pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
 }
 
 #[async_trait]
-impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R> {
+impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
@@ -225,7 +225,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         let val = S::get_val(&self.data);
 
         let paginator = PaginateColBuilder::default()
-            .pk(<S as PagerSource>::ID)
+            .pk(<S as Source>::ID)
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .col(col)
@@ -267,7 +267,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
 
         let query = order_by_bool(
             S::filter(auth, &data, db).await?,
-            <S as PagerSource>::ID,
+            <S as Source>::ID,
             abs_dir,
         );
         let query = order_by_bool(query, col, abs_dir)
@@ -300,6 +300,7 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
     }
 }
 
+/// bool to order
 #[inline]
 pub fn order_by_bool<E: EntityTrait>(
     query: Select<E>,
@@ -312,6 +313,7 @@ pub fn order_by_bool<E: EntityTrait>(
     };
     query.order_by(col, ord)
 }
+
 /// short-hand for gt,gte,lt,lte
 ///
 /// true for desc
@@ -333,6 +335,16 @@ pub fn com_eq(eq: bool, ord: bool, val: impl Into<Value>, col: impl ColumnTrait)
     }
 }
 
+trait Paginate<E: EntityTrait> {
+    /// Apply pagination effect on a Select(sea_orm)
+    ///
+    /// be careful not to run order_by before applying pagination
+    fn apply(self, query: Select<E>) -> Select<E>;
+}
+
+/// Builder to paginate by column
+///
+/// It's call `Paginate` instead of `Paginator` because it's stateless
 #[derive(derive_builder::Builder)]
 #[builder(pattern = "owned")]
 pub struct PaginateCol<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value>> {
@@ -344,8 +356,17 @@ pub struct PaginateCol<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value>> {
     last_value: CV,
 }
 
-impl<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value> + Clone> PaginateCol<PK, COL, CV> {
-    pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
+impl<PK, COL, CV, E> Paginate<E> for PaginateCol<PK, COL, CV>
+where
+    PK: ColumnTrait,
+    COL: ColumnTrait,
+    CV: Into<Value> + Clone,
+    E: EntityTrait,
+{
+    /// Apply pagination effect on a Select(sea_orm)
+    ///
+    /// be careful not to run order_by before applying pagination
+    fn apply(self, query: Select<E>) -> Select<E> {
         let _ord = match self.rev {
             true => Order::Desc,
             false => Order::Asc,
@@ -367,6 +388,9 @@ impl<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value> + Clone> PaginateCol<PK,
     }
 }
 
+/// Builder to paginate by primary key
+///
+/// It's call `Paginate` instead of `Paginator` because it's stateless
 #[derive(derive_builder::Builder)]
 pub struct PaginatePk<PK: ColumnTrait> {
     include: bool,
@@ -375,8 +399,8 @@ pub struct PaginatePk<PK: ColumnTrait> {
     last_pk: i32,
 }
 
-impl<PK: ColumnTrait> PaginatePk<PK> {
-    pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
+impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
+    fn apply(self, query: Select<E>) -> Select<E> {
         let query = query.filter(com_eq(self.include, self.rev, self.last_pk, self.pk));
 
         order_by_bool(query, self.pk, self.rev)

@@ -162,7 +162,7 @@ impl super::Filter for Entity {
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for Model {
+impl Reflect<Entity> for Model {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -179,7 +179,7 @@ impl PagerData for TextPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for TextPagerTrait {
+impl Source for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 4;
@@ -193,7 +193,7 @@ impl PagerSource for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PkPager<TextPagerTrait, Model>;
+pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
@@ -202,7 +202,7 @@ impl PagerData for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for ColPagerTrait {
+impl Source for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
@@ -217,7 +217,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ColPagerTrait {
+impl SortSource<Model> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
             UserSortBy::Score => Column::Score,
@@ -235,7 +235,7 @@ impl PagerSortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, Model>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
 
 /// ParentPaginator (offset base)
 #[derive(serde::Serialize, serde::Deserialize)]

@@ -4,7 +4,7 @@ use sea_orm::{
 };
 
 use sea_orm::ColumnTrait;
-use util::paginator::{ColPager, PagerSortSource};
+use util::paginator::{ColumnPaginator, SortSource};
 
 pub mod announcement;
 pub mod chat;
@@ -21,7 +21,7 @@ pub mod util;
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;
 
-use util::paginator::{PagerData, PagerReflect, PagerSource, PkPager};
+use util::paginator::{PagerData, PrimaryKeyPaginator, Reflect, Source};
 
 /// Parental filter are useful when list by parent, mainly because we don't want to list all entity
 ///

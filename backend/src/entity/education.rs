@@ -80,7 +80,7 @@ impl super::Filter for Entity {
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for PartialModel {
+impl Reflect<Entity> for PartialModel {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -101,7 +101,7 @@ impl PagerData for PagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for PagerTrait {
+impl Source for PagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 4;
@@ -115,7 +115,7 @@ impl PagerSource for PagerTrait {
     }
 }
 
-pub type Paginator = PkPager<PagerTrait, PartialModel>;
+pub type Paginator = PrimaryKeyPaginator<PagerTrait, PartialModel>;
 
 pub struct TextPagerTrait;
 
@@ -124,7 +124,7 @@ impl PagerData for TextPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for TextPagerTrait {
+impl Source for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 4;
@@ -138,7 +138,7 @@ impl PagerSource for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
+pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
 
 pub struct ParentPagerTrait;
 
@@ -147,7 +147,7 @@ impl PagerData for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for ParentPagerTrait {
+impl Source for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
@@ -162,4 +162,4 @@ impl PagerSource for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = PkPager<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = PrimaryKeyPaginator<ParentPagerTrait, PartialModel>;

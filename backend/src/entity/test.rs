@@ -72,7 +72,7 @@ impl super::Filter for Entity {
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for Model {
+impl Reflect<Entity> for Model {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -93,7 +93,7 @@ impl PagerData for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for ParentPagerTrait {
+impl Source for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
@@ -110,7 +110,7 @@ impl PagerSource for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ParentPagerTrait {
+impl SortSource<Model> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
@@ -122,7 +122,7 @@ impl PagerSortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColPager<ParentPagerTrait, Model>;
+pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
@@ -131,7 +131,7 @@ impl PagerData for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSource for ColPagerTrait {
+impl Source for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
@@ -146,7 +146,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ColPagerTrait {
+impl SortSource<Model> for ColPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
@@ -158,4 +158,4 @@ impl PagerSortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, Model>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
