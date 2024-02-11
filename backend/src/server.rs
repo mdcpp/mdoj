@@ -114,14 +114,14 @@ impl Server {
     pub async fn start(self: Arc<Self>) {
         let cors = CorsLayer::new()
             .allow_headers(
-                DEFAULT_EXPOSED_HEADERS
+                DEFAULT_ALLOW_HEADERS
                     .iter()
                     .cloned()
                     .map(HeaderName::from_static)
                     .collect::<Vec<HeaderName>>(),
             )
             .expose_headers(
-                DEFAULT_ALLOW_HEADERS
+                DEFAULT_EXPOSED_HEADERS
                     .iter()
                     .cloned()
                     .map(HeaderName::from_static)
