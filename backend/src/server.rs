@@ -26,6 +26,17 @@ use crate::{
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
+// from https://docs.rs/tonic-web/0.11.0/src/tonic_web/lib.rs.html#140
+const DEFAULT_EXPOSED_HEADERS: [&str; 3] =
+    ["grpc-status", "grpc-message", "grpc-status-details-bin"];
+const DEFAULT_ALLOW_HEADERS: [&str; 5] = [
+    "x-grpc-web",
+    "content-type",
+    "x-user-agent",
+    "grpc-timeout",
+    "token",
+];
+
 /// A wrapper to launch server
 ///
 /// [`Server`] doesn't hold state
@@ -102,7 +113,20 @@ impl Server {
     /// Start the server
     pub async fn start(self: Arc<Self>) {
         let cors = CorsLayer::new()
-            .allow_headers([HeaderName::from_static("token")])
+            .allow_headers(
+                DEFAULT_EXPOSED_HEADERS
+                    .iter()
+                    .cloned()
+                    .map(HeaderName::from_static)
+                    .collect::<Vec<HeaderName>>(),
+            )
+            .expose_headers(
+                DEFAULT_ALLOW_HEADERS
+                    .iter()
+                    .cloned()
+                    .map(HeaderName::from_static)
+                    .collect::<Vec<HeaderName>>(),
+            )
             .allow_origin(AllowOrigin::mirror_request())
             .allow_methods(Any);
 
