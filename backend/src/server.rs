@@ -42,7 +42,7 @@ const DEFAULT_ALLOW_HEADERS: [&str; 5] = [
 /// [`Server`] doesn't hold state
 pub struct Server {
     pub token: Arc<token::TokenController>,
-    pub judger: Arc<judger::JudgerController>,
+    pub judger: Arc<judger::Judger>,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
@@ -94,7 +94,7 @@ impl Server {
         Ok(Arc::new(Server {
             token: token::TokenController::new(&span, db.clone()),
             judger: Arc::new(
-                judger::JudgerController::new(config.judger.clone(), db.clone(), &span)
+                judger::Judger::new(config.judger.clone(), db.clone(), &span)
                     .in_current_span()
                     .await
                     .unwrap(),

@@ -122,9 +122,9 @@ impl TokenController {
             expiry,
         ))
     }
-
     #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
     pub async fn verify(&self, token: &str) -> Result<(i32, RoleLv), Error> {
+        // FIXME: we need to cache hashed password, it's better to do that without coupling with user creation
         let now = Local::now().naive_local();
 
         let rand =
@@ -218,43 +218,3 @@ impl TokenController {
         Ok(())
     }
 }
-
-// macro_rules! set_bit_value {
-//     ($item:ident,$name:ident,$pos:expr) => {
-//         paste::paste! {
-//             impl $item{
-//                 pub fn [<can_ $name>](&self)->bool{
-//                     let filter = 1_u32<<($pos);
-//                     (self.0&filter) == filter
-//                 }
-//                 pub fn [<grant_ $name>](&mut self,value:bool){
-//                     let filter = 1_u32<<($pos);
-//                     if (self.0&filter == filter) ^ value{
-//                         self.0 ^= filter;
-//                     }
-//                 }
-//             }
-//         }
-//     };
-// }
-
-// #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-// pub struct RoleLv(pub u32);
-
-// impl RoleLv {
-//     pub fn strict_ge(&self, other: Self) -> bool {
-//         (self.0 | other.0) == other.0
-//     }
-// }
-
-// set_bit_value!(RoleLv, root, 0);
-// set_bit_value!(RoleLv, manage_problem, 1);
-// set_bit_value!(RoleLv, manage_education, 2);
-// set_bit_value!(RoleLv, manage_announcement, 3);
-// set_bit_value!(RoleLv, manage_submit, 4);
-// set_bit_value!(RoleLv, publish, 5);
-// set_bit_value!(RoleLv, link, 6);
-// set_bit_value!(RoleLv, manage_contest, 7);
-// set_bit_value!(RoleLv, manage_user, 8);
-// set_bit_value!(RoleLv, imgur, 9);
-// set_bit_value!(RoleLv, manage_chat, 10);

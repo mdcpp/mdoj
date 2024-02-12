@@ -45,6 +45,7 @@ impl<M: Clone + Send + 'static, I: Eq + Clone + Hash + Send + 'static> Drop for 
     }
 }
 
+/// mininal publish-subscribe abstraction
 pub struct PubSub<M, I> {
     outgoing: Mutex<HashMap<I, Receiver<M>>>,
 }
@@ -62,6 +63,7 @@ where
     M: Clone + Send + 'static,
     I: Eq + Clone + Hash + Send + 'static,
 {
+    /// publish by event id [`I`]`
     pub fn publish(self: &Arc<Self>, id: I) -> PubGuard<M, I> {
         let (tx, rx) = channel(16);
         self.outgoing.lock().insert(id.clone(), rx);
@@ -71,6 +73,12 @@ where
             tx,
         }
     }
+    /// publish by event id [`I`]`
+    ///
+    /// stream over subscriber
+    ///
+    /// note that if system is under stress, subscribe may skip a case,
+    /// so we stream with number of case pass instead of google/protobuf/empty.proto
     pub fn subscribe(self: &Arc<Self>, id: &I) -> Option<Pin<Box<dyn Stream<Item = M> + Send>>> {
         self.clone().outgoing.lock().get(id).map(|s| {
             Box::pin(BroadcastStream::new(s.resubscribe()).filter_map(|item| {

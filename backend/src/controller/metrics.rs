@@ -25,6 +25,10 @@ macro_rules! impl_metrics {
     };
 }
 
+/// collection of statful metrics
+/// 
+/// because metrics(opentelemetry) sdk is not yet GA,
+/// stateful metrics is necessary in state of art. 
 pub struct MetricsController {
     user: UpDownCounter<i64>,
     submit: UpDownCounter<i64>,
@@ -53,6 +57,8 @@ impl MetricsController {
 }
 impl_metrics!(user, submit, education, contest, chat);
 
+/// because metrics(opentelemetry) sdk is not yet GA,
+/// rate metrics(feature) is missing and we implement manually through [`ObservableGauge<f64>`]
 pub struct RateMetrics<const S: usize> {
     meter: ObservableGauge<f64>,
     record: SegQueue<bool>,

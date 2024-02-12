@@ -15,6 +15,12 @@ struct DupKey {
     type_id: TypeId,
 }
 
+/// Request Duplication
+/// 
+/// It cache request result with fat pointer and provide safe interface to access data
+/// 
+/// Note that for effeciency, it uses Clock-Pro cache algorithm, expect occasional missing,
+/// shouldn't be rely on in unstable connection
 pub struct DupController {
     store: Cache<DupKey, Arc<dyn Any + 'static + Send + Sync>>,
 }
@@ -26,6 +32,7 @@ impl DupController {
             store: Cache::new(50),
         }
     }
+    /// store request_id and result
     pub fn store<T>(&self, user_id: i32, request_id: Uuid, result: T)
     where
         T: 'static + Send + Sync + Clone,
@@ -37,6 +44,7 @@ impl DupController {
         };
         self.store.insert(key, Arc::new(result));
     }
+    /// check request_id and result
     pub fn check<T>(&self, user_id: i32, request_id: Uuid) -> Option<T>
     where
         T: 'static + Send + Sync + Clone,

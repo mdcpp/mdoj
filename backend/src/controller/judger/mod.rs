@@ -1,3 +1,4 @@
+// FIXME: we don't need Meter
 mod pubsub;
 mod route;
 mod score;
@@ -28,10 +29,7 @@ use crate::grpc::{
     judger::{JudgeResponse, *},
 };
 
-use self::{
-    pubsub::{PubGuard, PubSub},
-    route::*,
-};
+use self::{pubsub::PubSub, route::*};
 use crate::entity::*;
 use crate::util::code::Code;
 
@@ -116,7 +114,7 @@ impl From<Code> for SubmitStatus {
     }
 }
 
-struct MeterGuard<'a>(&'a JudgerController);
+struct MeterGuard<'a>(&'a Judger);
 
 impl<'a> Drop for MeterGuard<'a> {
     fn drop(&mut self) {
@@ -131,14 +129,16 @@ pub struct PlaygroundPayload {
     pub lang: Uuid,
 }
 
-pub struct JudgerController {
+/// It manage state of upstream judger, provide ability to route request to potentially free upstream,
+/// and provide enough publish-subscribe model
+pub struct Judger {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
     running_meter: (AtomicI64, ObservableGauge<i64>),
     db: Arc<DatabaseConnection>,
 }
 
-impl JudgerController {
+impl Judger {
     #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
     pub async fn new(
         config: Vec<config::Judger>,
@@ -146,17 +146,9 @@ impl JudgerController {
         span: &Span,
     ) -> Result<Self, Error> {
         let router = Router::new(config, span)?;
-        Ok(JudgerController {
+        Ok(Judger {
             router,
             pubsub: Arc::new(PubSub::default()),
-            // limiter: Arc::new(
-            //     RateLimiter::builder()
-            //         .max(25)
-            //         .initial(10)
-            //         .refill(2)
-            //         .interval(std::time::Duration::from_millis(100))
-            //         .build(),
-            // ),
             running_meter: (
                 AtomicI64::new(0),
                 global::meter(PACKAGE_NAME)
@@ -166,22 +158,16 @@ impl JudgerController {
             db,
         })
     }
-    fn record(&self) -> MeterGuard {
-        let (num, meter) = &self.running_meter;
-        meter.observe(num.fetch_add(1, Ordering::Acquire) + 1, &[]);
-
-        MeterGuard(self)
-    }
-    #[instrument(skip(self, ps_guard, stream, model, scores))]
+    /// helper for streaming and process result(judge) from judger
+    #[instrument(skip(self, stream, model, scores))]
     async fn stream(
         self: Arc<Self>,
-        ps_guard: PubGuard<Result<SubmitStatus, Status>, i32>,
         mut stream: tonic::Streaming<JudgeResponse>,
         mut model: submit::ActiveModel,
         scores: Vec<u32>,
-        submit_id: i32,
     ) -> Result<submit::Model, Error> {
-        let meter = self.record();
+        let tx = self.pubsub.publish(*model.id.as_ref());
+
         let mut pass_case = 0;
         let mut status = Code::Accepted;
         let mut total_score = 0;
@@ -197,34 +183,25 @@ impl JudgerController {
             total_memory += res.memory;
             total_time += res.time;
             total_score += score;
-            match res.status() {
-                JudgerCode::Ac => {}
-                x => {
-                    status = x.into();
-                    break;
-                }
-            };
-            pass_case += 1;
-            if ps_guard
-                .send(Ok(SubmitStatus {
-                    task: Some(submit_status::Task::Case(pass_case)),
-                }))
-                .is_err()
-            {
-                tracing::trace!("no_rec");
+            // FIXME: check value instead
+            let res = res.status();
+            if res != JudgerCode::Ac {
+                status = res.into();
+                break;
             }
+            pass_case += 1;
+            tx.send(Ok(SubmitStatus {
+                task: Some(submit_status::Task::Case(pass_case)),
+            }))
+            .ok();
         }
 
-        if ps_guard
-            .send(Ok(SubmitStatus {
-                task: Some(submit_status::Task::Result(
-                    Into::<BackendCode>::into(status) as i32,
-                )),
-            }))
-            .is_err()
-        {
-            tracing::trace!("no_rec");
-        }
+        tx.send(Ok(SubmitStatus {
+            task: Some(submit_status::Task::Result(
+                Into::<BackendCode>::into(status) as i32,
+            )),
+        }))
+        .ok();
 
         model.committed = ActiveValue::Set(true);
         model.score = ActiveValue::Set(total_score);
@@ -234,21 +211,20 @@ impl JudgerController {
         model.memory = ActiveValue::Set(Some(total_memory.try_into().unwrap_or(i64::MAX)));
         model.accept = ActiveValue::Set(status == Code::Accepted);
 
-        drop(meter);
-
         model
             .update(self.db.deref())
             .in_current_span()
             .await
             .map_err(Into::<Error>::into)
     }
+    /// submit a problem
     pub async fn submit(self: &Arc<Self>, req: Submit) -> Result<i32, Error> {
-        let db = self.db.deref();
+        let db = self.db.clone();
 
         let mut binding = problem::Entity::find_by_id(req.problem)
             .find_with_related(test::Entity)
             .order_by_asc(test::Column::Score)
-            .all(db)
+            .all(db.as_ref())
             .await?;
         let (problem, testcases) = binding.pop().ok_or(Error::BadArgument("problem id"))?;
 
@@ -262,11 +238,10 @@ impl JudgerController {
             memory: ActiveValue::Set(Some(req.memory_limit)),
             ..Default::default()
         }
-        .save(db)
+        .save(db.as_ref())
         .await?;
 
-        let submit_id = submit_model.id.as_ref().to_owned();
-        let tx = self.pubsub.publish(submit_id);
+        let submit_id = *submit_model.id.as_ref();
 
         let scores = testcases.iter().map(|x| x.score).collect::<Vec<_>>();
 
@@ -294,12 +269,9 @@ impl JudgerController {
         conn.report_success();
 
         let self_ = self.clone();
-        let db = self.db.clone();
+        // FIXME: if possible, don't use stackful coroutine
         tokio::spawn(async move {
-            match self_
-                .stream(tx, res.into_inner(), submit_model, scores, submit_id)
-                .await
-            {
+            match self_.stream(res.into_inner(), submit_model, scores).await {
                 Ok(submit) => {
                     score::ScoreUpload::new(req.user, problem, submit)
                         .upload(&db)
@@ -313,6 +285,7 @@ impl JudgerController {
 
         Ok(submit_id)
     }
+    /// abstraction for publish-subscribe
     pub async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
         self.pubsub.subscribe(&submit_id)
     }
