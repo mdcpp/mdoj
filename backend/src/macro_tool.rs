@@ -5,6 +5,10 @@ macro_rules! report_internal {
         tracing::$level!($pattern);
         tonic::Status::internal($pattern.to_string())
     }};
+    ($level:ident,$pattern:expr) => {{
+        tracing::$level!("{}", $pattern);
+        tonic::Status::internal($pattern.to_string())
+    }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         tracing::$level!($pattern, $error);
         tonic::Status::internal($error.to_string())
@@ -16,6 +20,10 @@ macro_rules! report_internal {
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
+        tonic::Status::unknown("unknown error")
+    }};
+    ($level:ident,$pattern:expr) => {{
+        tracing::$level!("{}", $pattern);
         tonic::Status::unknown("unknown error")
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{

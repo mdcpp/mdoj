@@ -26,9 +26,9 @@ macro_rules! impl_metrics {
 }
 
 /// collection of statful metrics
-/// 
+///
 /// because metrics(opentelemetry) sdk is not yet GA,
-/// stateful metrics is necessary in state of art. 
+/// stateful metrics is necessary in state of art.
 pub struct MetricsController {
     user: UpDownCounter<i64>,
     submit: UpDownCounter<i64>,

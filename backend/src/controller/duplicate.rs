@@ -16,9 +16,9 @@ struct DupKey {
 }
 
 /// Request Duplication
-/// 
+///
 /// It cache request result with fat pointer and provide safe interface to access data
-/// 
+///
 /// Note that for effeciency, it uses Clock-Pro cache algorithm, expect occasional missing,
 /// shouldn't be rely on in unstable connection
 pub struct DupController {

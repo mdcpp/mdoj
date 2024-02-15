@@ -26,7 +26,7 @@ pub enum InitError {
 pub enum Error {
     #[error("Language not found")]
     LangNotFound,
-    #[error("Internal Error: `{0}`")]
+    #[error("`{0}`")]
     Sandbox(#[from] sandbox::Error),
 }
 
@@ -34,7 +34,7 @@ impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
             Error::LangNotFound => tonic::Status::failed_precondition("lang not found"),
-            Error::Sandbox(x) => tonic::Status::internal(format!("{}", x)),
+            _ => tonic::Status::internal(value.to_string()),
         }
     }
 }

@@ -60,7 +60,7 @@ features = ["serde"]
 [dependencies.reqwest]
 version = "0.11.22"
 default-features = false
-features = ["rustls-tls", "json"]
+features = ["rustls-tls", "json","multipart"]
 
 [dependencies.k256]
 version = "0.13.2"
