@@ -38,6 +38,8 @@ pub enum Error {
     RequirePermission(RoleLv),
     #[error("rate limit reached")]
     RateLimit(&'static str),
+    #[error("`{0}`")]
+    PassThrough(Status),
 }
 
 impl From<Error> for Status {
@@ -90,6 +92,7 @@ impl From<Error> for Status {
                 tracing::warn!(traffic = x, "rate_limit");
                 Status::resource_exhausted("rate limit reached!")
             }
+            Error::PassThrough(x) => x,
         }
     }
 }

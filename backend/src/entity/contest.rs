@@ -145,7 +145,7 @@ impl super::ParentalTrait<IdModel> for Entity {
                 };
 
                 IdModel::find_by_statement(Statement::from_sql_and_values(
-                    DatabaseBackend::Sqlite,
+                    db.get_database_backend(),
                     query,
                     param,
                 ))

@@ -192,8 +192,6 @@ impl TokenController {
         Ok(Some(()))
     }
     /// remove user's token by user id
-    ///
-    /// FIXME: this implementation is error-prone
     #[instrument(skip_all, name="token_removal",level="debug", fields(uid = user_id))]
     pub async fn remove_by_user_id(
         &self,

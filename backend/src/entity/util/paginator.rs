@@ -9,8 +9,9 @@
 //! - Update pager state(`PagerReflect`)
 //! - Serialize and return pager
 
+use super::helper::*;
 use crate::util::auth::Auth;
-use sea_orm::{sea_query::SimpleExpr, *};
+use sea_orm::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
 use tracing::instrument;
@@ -44,6 +45,11 @@ where
         abs_dir: bool,
         db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+}
+
+#[async_trait]
+pub trait Remain {
+    async fn remain(&self, max: usize) -> Result<usize, Error>;
 }
 
 pub trait PagerData {
@@ -117,6 +123,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
         rel_dir: bool,
         db: &DatabaseConnection,
     ) -> Result<(Self, Vec<R>), Error> {
+        // FIXME: should use PassThrough
         let paginator = PaginatePkBuilder::default()
             .pk(<S as Source>::ID)
             .include(self.last_direction ^ rel_dir)
@@ -133,7 +140,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
             .offset(offset);
         let models = R::all(query, db).await?;
 
-        // FIXME: use different http status
+        // FIXME: should check not found
         if let Some(model) = models.last() {
             self.last_id = R::get_id(model);
             return Ok((self, models));
@@ -157,7 +164,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
 
         let models = R::all(query, db).await?;
 
-        // FIXME: use different http status
+        // FIXME: should check not found
         if let Some(model) = models.last() {
             return Ok((
                 Self {
@@ -279,7 +286,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
         if size as usize != models.len() {
             tracing::debug!(size = size, len = models.len(), "miss_data")
         }
-        // FIXME: use different http status
+        // FIXME: should check not found
         if let Some(model) = models.last() {
             S::save_val(&mut data, model);
 
@@ -300,109 +307,10 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     }
 }
 
-/// bool to order
-#[inline]
-pub fn order_by_bool<E: EntityTrait>(
-    query: Select<E>,
-    col: impl ColumnTrait,
-    rev: bool,
-) -> Select<E> {
-    let ord = match rev {
-        true => Order::Desc,
-        false => Order::Asc,
-    };
-    query.order_by(col, ord)
-}
-
-/// short-hand for gt,gte,lt,lte
-///
-/// true for desc
-// included and asc=>gte
-// excluded and asc=>gt
-// included and desc=>lte
-// excluded and desc=>lt
-#[inline]
-pub fn com_eq(eq: bool, ord: bool, val: impl Into<Value>, col: impl ColumnTrait) -> SimpleExpr {
-    match eq {
-        true => match ord {
-            true => ColumnTrait::lte(&col, val),
-            false => ColumnTrait::gte(&col, val),
-        },
-        false => match ord {
-            true => ColumnTrait::lt(&col, val),
-            false => ColumnTrait::gt(&col, val),
-        },
-    }
-}
-
-trait Paginate<E: EntityTrait> {
+pub(super) trait Paginate<E: EntityTrait> {
     /// Apply pagination effect on a Select(sea_orm)
     ///
     /// be careful not to run order_by before applying pagination
     fn apply(self, query: Select<E>) -> Select<E>;
 }
 
-/// Builder to paginate by column
-///
-/// It's call `Paginate` instead of `Paginator` because it's stateless
-#[derive(derive_builder::Builder)]
-#[builder(pattern = "owned")]
-pub struct PaginateCol<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value>> {
-    include: bool,
-    rev: bool,
-    pk: PK,
-    col: COL,
-    last_pk: i32,
-    last_value: CV,
-}
-
-impl<PK, COL, CV, E> Paginate<E> for PaginateCol<PK, COL, CV>
-where
-    PK: ColumnTrait,
-    COL: ColumnTrait,
-    CV: Into<Value> + Clone,
-    E: EntityTrait,
-{
-    /// Apply pagination effect on a Select(sea_orm)
-    ///
-    /// be careful not to run order_by before applying pagination
-    fn apply(self, query: Select<E>) -> Select<E> {
-        let _ord = match self.rev {
-            true => Order::Desc,
-            false => Order::Asc,
-        };
-        // WHERE created >= $<after> and (id >= $<id> OR created > $<after>)
-        let left = com_eq(true, self.rev, self.last_value.clone(), self.col);
-
-        let right = {
-            let left = com_eq(self.include, self.rev, self.last_pk, self.pk);
-            let right = com_eq(false, self.rev, self.last_value, self.col);
-            left.or(right)
-        };
-
-        let query = query.filter(left.and(right));
-
-        let query = order_by_bool(query, self.pk, self.rev);
-
-        order_by_bool(query, self.col, self.rev)
-    }
-}
-
-/// Builder to paginate by primary key
-///
-/// It's call `Paginate` instead of `Paginator` because it's stateless
-#[derive(derive_builder::Builder)]
-pub struct PaginatePk<PK: ColumnTrait> {
-    include: bool,
-    rev: bool,
-    pk: PK,
-    last_pk: i32,
-}
-
-impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
-    fn apply(self, query: Select<E>) -> Select<E> {
-        let query = query.filter(com_eq(self.include, self.rev, self.last_pk, self.pk));
-
-        order_by_bool(query, self.pk, self.rev)
-    }
-}
