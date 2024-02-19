@@ -4,8 +4,7 @@ use std::ops::Deref;
 
 use sea_orm::*;
 use sea_query::{
-    types, Alias, Expr, IntoIden, Order, Query, QueryStatementBuilder, SelectStatement, SimpleExpr,
-    SubQueryStatement, Value,
+    types, Alias, Expr, Order, Query, SelectStatement, SimpleExpr, SubQueryStatement, Value,
 };
 
 use crate::util::error::Error;
@@ -127,14 +126,14 @@ impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
 /// ```
 #[derive(derive_builder::Builder)]
 pub struct MaxCount<E: EntityTrait> {
-    select: Select<E>,
+    query: Select<E>,
     max: u64,
 }
 
 impl<E: EntityTrait> MaxCount<E> {
     fn count_query(self) -> SelectStatement {
-        let query_up = self.select.clone().limit(1).offset(self.max).into_query();
-        let mut query_low = self.select.into_query();
+        let query_up = self.query.clone().limit(1).offset(self.max).into_query();
+        let mut query_low = self.query.into_query();
 
         let query_up = Expr::exists(query_up);
         query_low.expr(Expr::col(types::Asterisk).count());
@@ -150,9 +149,11 @@ impl<E: EntityTrait> MaxCount<E> {
             .expr_as(query_case, Alias::new("num_items"))
             .to_owned()
     }
-    async fn count(self, db: &DatabaseConnection) -> Result<u64, Error> {
-        let builder = db.get_database_backend().get_query_builder();
-        let (query, param) = self.count_query().build_any(builder.deref());
+    pub async fn count(self, db: &DatabaseConnection) -> Result<u64, Error> {
+        let (query, param) = {
+            let builder = db.get_database_backend().get_query_builder();
+            self.count_query().build_any(builder.deref())
+        };
 
         let stmt = Statement::from_sql_and_values(db.get_database_backend(), query, param);
 

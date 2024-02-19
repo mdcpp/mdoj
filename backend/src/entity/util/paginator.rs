@@ -22,6 +22,8 @@ use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
 
 use crate::util::error::Error;
 
+const PAGINATE_GUARANTEE: u64 = 96;
+
 #[async_trait]
 pub trait Pager
 where
@@ -49,11 +51,11 @@ where
 
 #[async_trait]
 pub trait Remain {
-    async fn remain(&self, max: usize) -> Result<usize, Error>;
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error>;
 }
 
 pub trait PagerData {
-    type Data: Send + Sized + Serialize + DeserializeOwned;
+    type Data: Send + Sized + Serialize + DeserializeOwned + Sync;
 }
 /// indicate foreign object is ready for page source
 ///
@@ -108,6 +110,27 @@ pub struct PrimaryKeyPaginator<S: Source, R: Reflect<S::Entity>> {
     #[serde(bound(serialize = ""))]
     #[serde(bound(deserialize = ""))]
     reflect: PhantomData<R>,
+}
+#[async_trait]
+impl<S: Source + Sync, R: Reflect<S::Entity> + Sync> Remain for PrimaryKeyPaginator<S, R> {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        let paginator = PaginatePkBuilder::default()
+            .pk(<S as Source>::ID)
+            .include(false)
+            .rev(self.direction ^ self.last_direction)
+            .last_pk(self.last_id)
+            .build()
+            .unwrap();
+
+        let query = paginator.apply(S::filter(auth, &self.data, db).await?);
+
+        let max_count = MaxCountBuilder::default()
+            .query(query)
+            .max(PAGINATE_GUARANTEE)
+            .build()
+            .unwrap();
+        max_count.count(db).await
+    }
 }
 
 #[async_trait]
@@ -215,6 +238,33 @@ pub struct ColumnPaginator<S: SortSource<R>, R: Reflect<S::Entity>> {
 }
 
 #[async_trait]
+impl<S: SortSource<R> + Sync, R: Reflect<S::Entity> + Sync> Remain for ColumnPaginator<S, R> {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        let col = S::sort_col(&self.data);
+        let val = S::get_val(&self.data);
+
+        let paginator = PaginateColBuilder::default()
+            .pk(<S as Source>::ID)
+            .include(false)
+            .rev(self.direction ^ self.last_direction)
+            .col(col)
+            .last_value(val)
+            .last_pk(self.last_id)
+            .build()
+            .unwrap();
+
+        let query = paginator.apply(S::filter(auth, &self.data, db).await?);
+
+        let max_count = MaxCountBuilder::default()
+            .query(query)
+            .max(PAGINATE_GUARANTEE)
+            .build()
+            .unwrap();
+        max_count.count(db).await
+    }
+}
+
+#[async_trait]
 impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
@@ -313,4 +363,3 @@ pub(super) trait Paginate<E: EntityTrait> {
     /// be careful not to run order_by before applying pagination
     fn apply(self, query: Select<E>) -> Select<E>;
 }
-
