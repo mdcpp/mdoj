@@ -117,7 +117,7 @@ impl<S: Source + Sync, R: Reflect<S::Entity> + Sync> Remain for PrimaryKeyPagina
         let paginator = PaginatePkBuilder::default()
             .pk(<S as Source>::ID)
             .include(false)
-            .rev(self.direction ^ self.last_direction)
+            .rev(self.direction)
             .last_pk(self.last_id)
             .build()
             .unwrap();
@@ -246,7 +246,7 @@ impl<S: SortSource<R> + Sync, R: Reflect<S::Entity> + Sync> Remain for ColumnPag
         let paginator = PaginateColBuilder::default()
             .pk(<S as Source>::ID)
             .include(false)
-            .rev(self.direction ^ self.last_direction)
+            .rev(self.direction)
             .col(col)
             .last_value(val)
             .last_pk(self.last_id)
