@@ -1,4 +1,8 @@
-//! collection of endpoint implementation
+//! collection of endpoint implementation from high level
+//!
+//! We don't use helper or some extra trait
+//!
+//! It's a decision to avoid coupling between each endpoint
 mod announcement;
 mod chat;
 mod contest;

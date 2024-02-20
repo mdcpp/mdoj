@@ -3,9 +3,7 @@ use chrono::{Duration, Local, NaiveDateTime};
 use quick_cache::sync::Cache;
 use rand::{Rng, SeedableRng};
 use rand_hc::Hc128Rng;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::*;
 use spin::Mutex;
 use std::{ops::Deref, sync::Arc};
 use tokio::time;
@@ -15,9 +13,13 @@ use crate::report_internal;
 
 use super::metrics::RateMetrics;
 
-const CACHE_SIZE: usize = 800;
+/// cache size for main pool(vaildated list)
+const CACHE_SIZE: usize = 419000; // about 16MiB
+/// interval for database clean up
 const CLEAN_DUR: time::Duration = time::Duration::from_secs(60 * 30);
-type Rand = [u8; 20];
+/// len of token
+const TOKEN_SIZE: usize = 20;
+type Rand = [u8; TOKEN_SIZE];
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

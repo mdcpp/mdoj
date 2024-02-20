@@ -212,6 +212,7 @@ where
 {
     /// get sort column
     fn sort_col(data: &Self::Data) -> impl ColumnTrait;
+    /// get value of column
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send;
     /// save last value in column
     fn save_val(data: &mut Self::Data, model: &R);

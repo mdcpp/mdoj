@@ -45,8 +45,8 @@ impl Bucket {
     }
 }
 
-/// Policy(accounting on endpoint) for rate limit
-trait EndpointPolicy {
+/// Policy of resource acquisition
+trait AcquisitionPolicy {
     const BUCKET_WIDTH: usize = BUCKET_WIDTH;
     /// How many burst request is allowed
     const BURST: NonZeroU32;
@@ -67,7 +67,7 @@ trait EndpointPolicy {
 /// policy for [`TrafficType::Login`]
 struct LoginPolicy;
 
-impl EndpointPolicy for LoginPolicy {
+impl AcquisitionPolicy for LoginPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(400);
     const RATE: NonZeroU32 = NonZeroU32!(150);
 }
@@ -75,7 +75,7 @@ impl EndpointPolicy for LoginPolicy {
 /// policy for [`TrafficType::Guest`]
 struct GuestPolicy;
 
-impl EndpointPolicy for GuestPolicy {
+impl AcquisitionPolicy for GuestPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(150);
     const RATE: NonZeroU32 = NonZeroU32!(80);
 }
@@ -87,7 +87,7 @@ impl EndpointPolicy for GuestPolicy {
 /// so number is significantly higher
 struct BlacklistPolicy;
 
-impl EndpointPolicy for BlacklistPolicy {
+impl AcquisitionPolicy for BlacklistPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(60);
     const RATE: NonZeroU32 = NonZeroU32!(30);
 }

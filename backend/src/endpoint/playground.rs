@@ -23,7 +23,7 @@ impl PlaygroundSet for Arc<Server> {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
-        tracing::debug!(user_id = user_id, "playground_start");
+        tracing::debug!(user_id = user_id);
 
         if req.code.len() > PLAYGROUND_CODE_LEN {
             return Err(Error::BufferTooLarge("code").into());

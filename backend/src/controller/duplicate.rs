@@ -29,7 +29,7 @@ impl DupController {
     #[tracing::instrument(parent=span, name="duplicate_construct",level = "info",skip_all)]
     pub fn new(span: &Span) -> Self {
         Self {
-            store: Cache::new(50),
+            store: Cache::new(128),
         }
     }
     /// store request_id and result

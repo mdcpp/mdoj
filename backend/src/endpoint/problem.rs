@@ -176,6 +176,8 @@ impl ProblemSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, id.clone());
 
+        // FIXME: thing like this should be
+        // tracing::debug!(id = id.id);
         tracing::debug!(id = id.id, "problem_created");
 
         Ok(Response::new(id))
