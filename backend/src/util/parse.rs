@@ -2,7 +2,10 @@ use std::num::NonZeroU32;
 
 use tracing::instrument;
 
-use crate::{controller::rate_limit::TrafficType, server::Server};
+use crate::{
+    controller::rate_limit::{Bucket, TrafficType},
+    server::Server,
+};
 
 use super::auth::Auth;
 
@@ -11,12 +14,12 @@ impl Server {
     pub async fn parse_auth<T>(
         &self,
         req: &tonic::Request<T>,
-        permit: NonZeroU32,
-    ) -> Result<Auth, tonic::Status> {
+    ) -> Result<(Auth, Bucket), tonic::Status> {
         let mut auth = Auth::Guest;
 
-        self.rate_limit
-            .check(req, permit, |req| async {
+        let bucket = self
+            .rate_limit
+            .check(req, |req| async {
                 if let Some(x) = req.metadata().get("token") {
                     let token = x.to_str().unwrap();
 
@@ -37,28 +40,30 @@ impl Server {
                 }
             })
             .await?;
-        Ok(auth)
+        Ok((auth, bucket))
     }
-    /// parse request
+    /// parse request to get bucket and payload
     ///
-    /// behind the sence we do rate limit(consume two resource)
     #[inline]
     pub async fn parse_request<T: Send>(
         &self,
         req: tonic::Request<T>,
-    ) -> Result<(Auth, T), tonic::Status> {
-        let auth = self.parse_auth(&req, crate::NonZeroU32!(2)).await?;
+    ) -> Result<(Auth, Bucket, T), tonic::Status> {
+        let (auth, bucket) = self.parse_auth(&req).await?;
 
-        Ok((auth, req.into_inner()))
+        Ok((auth, bucket, req.into_inner()))
     }
-    /// parse request and rate limit
+    /// parse request to get bucket and payload
+    /// and immediately rate limiting
     #[inline]
     pub async fn parse_request_n<T>(
         &self,
         req: tonic::Request<T>,
         permit: NonZeroU32,
     ) -> Result<(Auth, T), tonic::Status> {
-        let auth = self.parse_auth(&req, permit).await?;
+        let (auth, bucket) = self.parse_auth(&req).await?;
+
+        bucket.cost(permit)?;
 
         Ok((auth, req.into_inner()))
     }

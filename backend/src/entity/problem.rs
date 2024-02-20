@@ -3,7 +3,7 @@
 
 use std::ops::Deref;
 
-use sea_orm::{DatabaseBackend, Statement};
+use sea_orm::Statement;
 
 use crate::{grpc::backend::ProblemSortBy, partial_union};
 

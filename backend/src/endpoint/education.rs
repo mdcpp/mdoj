@@ -44,7 +44,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -60,17 +60,22 @@ impl EducationSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListEducationResponse { list, next_session }))
+        Ok(Response::new(ListEducationResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateEducationRequest>,
     ) -> Result<Response<EducationId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -105,7 +110,7 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -138,7 +143,7 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -159,7 +164,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let (problem, model) = try_join!(
@@ -194,7 +199,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -219,7 +224,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -244,17 +249,22 @@ impl EducationSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListEducationResponse { list, next_session }))
+        Ok(Response::new(ListEducationResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)

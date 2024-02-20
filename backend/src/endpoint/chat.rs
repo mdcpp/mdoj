@@ -33,7 +33,7 @@ impl From<Model> for ChatInfo {
 #[tonic::async_trait]
 impl ChatSet for Arc<Server> {
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         check_length!(LONG_ART_SIZE, req, message);
@@ -63,7 +63,7 @@ impl ChatSet for Arc<Server> {
     }
 
     async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -84,7 +84,7 @@ impl ChatSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -109,9 +109,14 @@ impl ChatSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListChatResponse { list, next_session }))
+        Ok(Response::new(ListChatResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
 }

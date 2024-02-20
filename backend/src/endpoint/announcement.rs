@@ -8,6 +8,7 @@ use crate::grpc::into_prost;
 
 use crate::entity::announcement::*;
 use crate::entity::*;
+use crate::NonZeroU32;
 
 impl From<i32> for AnnouncementId {
     fn from(value: i32) -> Self {
@@ -63,7 +64,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, bucket, req) = self.parse_request(req).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -87,12 +88,14 @@ impl AnnouncementSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
     #[instrument(skip_all, level = "debug")]
@@ -100,7 +103,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, bucket, req) = self.parse_request(req).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -116,12 +119,14 @@ impl AnnouncementSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
     #[instrument(skip_all, level = "debug")]
@@ -129,7 +134,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AnnouncementId>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::debug!(announcement_id = req.id);
 
@@ -147,7 +152,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<AnnouncementId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -184,7 +189,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -217,7 +222,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -237,7 +242,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
@@ -276,7 +281,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -297,7 +302,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -325,7 +330,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -356,7 +361,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -377,7 +382,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, bucket, req) = self.parse_request(req).await?;
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
         let offset = bound!(req.offset(), 1024);
@@ -401,12 +406,14 @@ impl AnnouncementSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
 }

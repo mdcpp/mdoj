@@ -57,7 +57,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -81,17 +81,22 @@ impl ProblemSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -107,17 +112,22 @@ impl ProblemSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(
         &self,
         req: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::debug!(problem_id = req.id);
 
@@ -135,7 +145,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<CreateProblemRequest>,
     ) -> Result<Response<ProblemId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -172,7 +182,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -207,7 +217,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -227,7 +237,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
@@ -266,7 +276,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -287,7 +297,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -317,7 +327,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -350,7 +360,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -372,7 +382,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -397,9 +407,14 @@ impl ProblemSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListProblemResponse { list, next_session }))
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
 }

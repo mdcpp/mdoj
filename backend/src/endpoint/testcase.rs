@@ -43,7 +43,7 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<ListTestcaseRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -60,17 +60,22 @@ impl TestcaseSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListTestcaseResponse { list, next_session }))
+        Ok(Response::new(ListTestcaseResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
         req: Request<CreateTestcaseRequest>,
     ) -> Result<Response<TestcaseId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(LONG_ART_SIZE, req.info, input, output);
@@ -104,7 +109,7 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(LONG_ART_SIZE, req.info, input, output);
@@ -136,7 +141,7 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -156,7 +161,7 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
@@ -190,7 +195,7 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let mut test = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -213,7 +218,7 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::debug!(
             problem_id = req.problem_id.id,
@@ -246,7 +251,7 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListTestcaseResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -270,9 +275,14 @@ impl TestcaseSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListTestcaseResponse { list, next_session }))
+        Ok(Response::new(ListTestcaseResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
 }

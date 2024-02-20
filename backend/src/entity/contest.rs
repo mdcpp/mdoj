@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use chrono::Local;
-use sea_orm::{DatabaseBackend, Statement};
+use sea_orm::Statement;
 
 use crate::{grpc::backend::ContestSortBy, partial_union};
 

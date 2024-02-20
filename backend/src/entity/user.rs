@@ -2,6 +2,8 @@ use sea_orm::{QueryOrder, QuerySelect};
 
 use crate::grpc::backend::UserSortBy;
 
+use self::util::paginator::Remain;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -338,5 +340,12 @@ impl util::paginator::Pager for ParentPaginator {
             },
             result,
         ))
+    }
+}
+
+#[async_trait]
+impl Remain for ParentPaginator {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        todo!()
     }
 }

@@ -36,7 +36,7 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -60,17 +60,22 @@ impl UserSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListUserResponse { list, next_session }))
+        Ok(Response::new(ListUserResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -86,10 +91,15 @@ impl UserSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListUserResponse { list, next_session }))
+        Ok(Response::new(ListUserResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     async fn list_by_contest(
         &self,
@@ -119,10 +129,15 @@ impl UserSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListUserResponse { list, next_session }))
+        Ok(Response::new(ListUserResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, _req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
@@ -130,7 +145,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, username);
@@ -187,7 +202,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -239,7 +254,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -261,7 +276,7 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = user::Entity::find()
@@ -295,8 +310,9 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let auth = self.parse_auth(&req, crate::NonZeroU32!(1)).await?;
+        let (auth, bucket) = self.parse_auth(&req).await?;
         let (user_id, _) = auth.ok_or_default()?;
+        bucket.cost(NonZeroU32!(1));
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())

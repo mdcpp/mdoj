@@ -32,7 +32,7 @@ impl From<Model> for Token {
 impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if req.id != user_id && !perm.root() {
@@ -54,7 +54,7 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
-        let (_, req) = self.parse_request(req).await?;
+        let (_, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::debug!(username = req.username);
 
@@ -122,9 +122,9 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        self.parse_auth(&req, crate::NonZeroU32!(1))
-            .await?
-            .ok_or_default()?;
+        let (auth, bucket) = self.parse_auth(&req).await?;
+        auth.ok_or_default()?;
+        bucket.cost(NonZeroU32!(1));
 
         if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();

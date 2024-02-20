@@ -14,17 +14,17 @@ mod user;
 mod tools {
     pub const SHORT_ART_SIZE: usize = 128;
     pub const LONG_ART_SIZE: usize = 65536;
-    pub use crate::entity::util::paginator::Pager;
+    pub use crate::entity::util::paginator::{Pager, Remain};
+
+    pub use crate::grpc::TonicStream;
+    pub use crate::NonZeroU32;
     pub use std::ops::Deref;
 
     pub use crate::util::auth::RoleLv;
 
-    pub use crate::bound;
-    pub use crate::entity::*;
-    pub use crate::grpc::TonicStream;
+    pub use crate::{bound, entity::*};
 
     pub use crate::util::error::Error;
-    // pub use crate::util::pager::*;
     pub use crate::{
         check_exist_length, check_length, fill_active_model, fill_exist_active_model,
         server::Server,

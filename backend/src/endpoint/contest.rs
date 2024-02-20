@@ -67,7 +67,7 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -91,17 +91,22 @@ impl ContestSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListContestResponse { list, next_session }))
+        Ok(Response::new(ListContestResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -117,17 +122,22 @@ impl ContestSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListContestResponse { list, next_session }))
+        Ok(Response::new(ListContestResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(
         &self,
         req: Request<ContestId>,
     ) -> Result<Response<ContestFullInfo>, Status> {
-        let (_, req) = self.parse_request(req).await?;
+        let (_, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
@@ -143,7 +153,7 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<CreateContestRequest>,
     ) -> Result<Response<ContestId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -188,7 +198,7 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -244,7 +254,7 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -262,7 +272,7 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
@@ -300,7 +310,7 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         user_contest::Entity::delete_many()

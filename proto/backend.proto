@@ -104,6 +104,7 @@ message SubmitInfo {
 message ListSubmitResponse {
   repeated SubmitInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message SubmitStatus {
@@ -193,6 +194,7 @@ message AnnouncementFullInfo {
 message ListAnnouncementResponse {
   repeated AnnouncementInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddAnnouncementToContestRequest {
@@ -287,6 +289,7 @@ message EducationFullInfo {
 message ListEducationResponse {
   repeated EducationInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddEducationToProblemRequest {
@@ -363,6 +366,7 @@ message ProblemFullInfo {
 message ListProblemResponse {
   repeated ProblemInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddProblemToContestRequest {
@@ -462,6 +466,7 @@ message TestcaseFullInfo {
 message ListTestcaseResponse {
   repeated TestcaseInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddTestcaseToProblemRequest {
@@ -536,6 +541,7 @@ message ContestFullInfo {
 message ListContestResponse {
   repeated ContestInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateContestRequest {
@@ -576,6 +582,7 @@ message UserRank {
 message ListRankResponse {
   repeated UserRank list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message JoinContestRequest {
@@ -637,6 +644,7 @@ message UserFullInfo {
 message ListUserResponse {
   repeated UserInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateUserRequest {
@@ -777,6 +785,7 @@ message ChatInfo {
 message ListChatResponse {
   repeated ChatInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateChatRequest{

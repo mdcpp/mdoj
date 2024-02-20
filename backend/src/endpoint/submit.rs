@@ -68,7 +68,7 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -85,10 +85,15 @@ impl SubmitSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListSubmitResponse { list, next_session }))
+        Ok(Response::new(ListSubmitResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
 
     #[instrument(skip_all, level = "debug")]
@@ -96,7 +101,7 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let (rev, size) = split_rev(req.size);
         let size = bound!(size, 64);
@@ -120,15 +125,20 @@ impl SubmitSet for Arc<Server> {
             }
         }?;
 
+        let remain = pager.remain(&auth, &self.db).await?;
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
-        Ok(Response::new(ListSubmitResponse { list, next_session }))
+        Ok(Response::new(ListSubmitResponse {
+            list,
+            next_session,
+            remain,
+        }))
     }
 
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::debug!(id = req.id);
 
@@ -195,7 +205,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(self.db.deref())
@@ -218,7 +228,7 @@ impl SubmitSet for Arc<Server> {
     #[doc = " are not guarantee to yield status"]
     #[instrument(skip_all, level = "debug")]
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
-        let (_, req) = self.parse_request(req).await?;
+        let (_, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
 
         tracing::trace!(id = req.id);
 
@@ -232,7 +242,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let submit_id = req.id.id;
@@ -281,7 +291,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_auth(&req, crate::NonZeroU32!(1)).await?;
+        self.parse_auth(&req).await?.1.cost(NonZeroU32!(1));
 
         let list: Vec<_> = self
             .judger

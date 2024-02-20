@@ -12,8 +12,41 @@ use crate::util::error::Error;
 
 const BUCKET_WIDTH: usize = 512;
 
-/// Policy(number) for rate limit
-trait LimitPolicy {
+/// A bucket that can have limit applied
+///
+/// The reason we don't provide earliest possible time
+/// is that it require access to quanta to compute duration
+///
+/// We implement keyed bucket and unkey bucket with enum
+/// for faster allocation
+pub enum Bucket {
+    Guest((Arc<DefaultKeyedRateLimiter<IpAddr>>, IpAddr)),
+    Login((Arc<DefaultKeyedRateLimiter<i32>>, i32)),
+    Blacklist(Arc<DefaultDirectRateLimiter>),
+}
+
+impl Bucket {
+    fn expect_dur(&self, cost: NonZeroU32) -> bool {
+        let res = match self {
+            Bucket::Guest((limiter, key)) => limiter.check_key_n(&key, cost),
+            Bucket::Login((limiter, key)) => limiter.check_key_n(&key, cost),
+            Bucket::Blacklist(limiter) => limiter.check_n(cost),
+        };
+        match res {
+            Ok(res) => res.is_err(),
+            Err(_) => true,
+        }
+    }
+    pub fn cost(&self, cost: NonZeroU32) -> Result<(), Error> {
+        match self.expect_dur(cost) {
+            true => Err(Error::RateLimit("")),
+            false => Ok(()),
+        }
+    }
+}
+
+/// Policy(accounting on endpoint) for rate limit
+trait EndpointPolicy {
     const BUCKET_WIDTH: usize = BUCKET_WIDTH;
     /// How many burst request is allowed
     const BURST: NonZeroU32;
@@ -34,7 +67,7 @@ trait LimitPolicy {
 /// policy for [`TrafficType::Login`]
 struct LoginPolicy;
 
-impl LimitPolicy for LoginPolicy {
+impl EndpointPolicy for LoginPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(400);
     const RATE: NonZeroU32 = NonZeroU32!(150);
 }
@@ -42,7 +75,7 @@ impl LimitPolicy for LoginPolicy {
 /// policy for [`TrafficType::Guest`]
 struct GuestPolicy;
 
-impl LimitPolicy for GuestPolicy {
+impl EndpointPolicy for GuestPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(150);
     const RATE: NonZeroU32 = NonZeroU32!(80);
 }
@@ -54,7 +87,7 @@ impl LimitPolicy for GuestPolicy {
 /// so number is significantly higher
 struct BlacklistPolicy;
 
-impl LimitPolicy for BlacklistPolicy {
+impl EndpointPolicy for BlacklistPolicy {
     const BURST: NonZeroU32 = NonZeroU32!(60);
     const RATE: NonZeroU32 = NonZeroU32!(30);
 }
@@ -133,39 +166,31 @@ impl RateLimitController {
     pub async fn check<'a, T, F, Fut>(
         &self,
         req: &'a tonic::Request<T>,
-        permit: NonZeroU32,
         f: F,
-    ) -> Result<(), Error>
+    ) -> Result<Bucket, Error>
     where
         F: FnOnce(&'a tonic::Request<T>) -> Fut,
         Fut: Future<Output = TrafficType>,
     {
-        // transform bool to Result<(),Error>
-        macro_rules! bool_err {
-            ($e:expr,$t:literal) => {
-                match $e {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(Error::RateLimit($t)),
-                }
-            };
-        }
         let addr = self.ip(req)?;
 
         if self.ip_blacklist.get(&addr).is_some() {
-            return bool_err!(self.blacklist_limiter.check_n(permit), "blacklist");
+            return Ok(Bucket::Blacklist(self.blacklist_limiter.clone()));
         }
 
-        match f(req)
+        let res = match f(req)
             .instrument(tracing::debug_span!("token_verify"))
             .await
         {
-            TrafficType::Login(x) => bool_err!(self.user_limiter.check_key_n(&x, permit), "login"),
-            TrafficType::Guest => bool_err!(self.ip_limiter.check_key_n(&addr, permit), "guest"),
+            TrafficType::Login(x) => Bucket::Login((self.user_limiter.clone(), x)),
+            TrafficType::Guest => Bucket::Guest((self.ip_limiter.clone(), addr)),
             TrafficType::Blacklist(err) => {
                 tracing::warn!(msg = err.to_string(), "ip_blacklist");
                 self.ip_blacklist.insert(addr, ());
-                bool_err!(self.blacklist_limiter.check_n(permit), "blacklist")
+                Bucket::Blacklist(self.blacklist_limiter.clone())
             }
-        }
+        };
+
+        Ok(res)
     }
 }
