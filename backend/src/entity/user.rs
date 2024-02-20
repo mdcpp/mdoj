@@ -347,18 +347,15 @@ impl util::paginator::Pager for ParentPaginator {
 impl Remain for ParentPaginator {
     async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
         contest::Entity::read_by_id(self.ppk, auth)?
-        .one(db)
-        .await?
-        .ok_or(Error::NotInDB)?;
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB)?;
 
         let result = user_contest::Entity::find()
-        .filter(user_contest::Column::ContestId.eq(self.ppk))
-        .order_by(
-            user_contest::Column::Score,
-            to_order(self.start_from_end),
-        )
-        .count(db)
-        .await?;
+            .filter(user_contest::Column::ContestId.eq(self.ppk))
+            .order_by(user_contest::Column::Score, to_order(self.start_from_end))
+            .count(db)
+            .await?;
 
         Ok(result.saturating_sub(self.offset))
     }

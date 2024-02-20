@@ -124,7 +124,7 @@ impl TokenSet for Arc<Server> {
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
         let (auth, bucket) = self.parse_auth(&req).await?;
         auth.ok_or_default()?;
-        bucket.cost(NonZeroU32!(1));
+        bucket.cost(NonZeroU32!(1))?;
 
         if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();

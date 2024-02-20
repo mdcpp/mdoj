@@ -114,10 +114,8 @@ features = ["runtime-tokio-rustls", "sqlx-sqlite", "with-chrono"]
 workspace = true
 features = ["default"]
 
-[dev-dependencies.sea-orm]
-features = ["debug-print"]
-
 [features]
-default = []
+default = ["debug"]
 standalone = ["dep:migration", "dep:sea-orm-migration", "dep:sea-orm-cli"]
 release = ["dep:tikv-jemallocator"]
+debug = ["sea-orm/debug-print"]

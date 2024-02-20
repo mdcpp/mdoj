@@ -119,7 +119,7 @@ impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
 /// ```sql
 /// SELECT CASE
 ///   WHEN EXISTS (SELECT $query LIMIT 1 OFFSET $max)
-///   THEN (SELECT COUNT(*) $query) ELSE $max
+///   THEN $max ELSE (SELECT COUNT(*) $query)
 /// END AS num_items;
 /// ```
 #[derive(derive_builder::Builder)]
@@ -131,17 +131,18 @@ pub struct MaxCount<E: EntityTrait> {
 impl<E: EntityTrait> MaxCount<E> {
     fn count_query(self) -> SelectStatement {
         let query_up = self.query.clone().limit(1).offset(self.max).into_query();
-        let mut query_low = self.query.into_query();
-
         let query_up = Expr::exists(query_up);
-        query_low.expr(Expr::col(types::Asterisk).count());
 
+        let query_low = Query::select()
+            .expr(Expr::col(types::Asterisk).count())
+            .from_subquery(self.query.into_query(), Alias::new("ELSE_Q"))
+            .to_owned();
         let query_low = SimpleExpr::SubQuery(
             None,
             Box::new(SubQueryStatement::SelectStatement(query_low)),
         );
 
-        let query_case = Expr::case(query_up, query_low).finally(self.max);
+        let query_case = Expr::case(query_up, self.max).finally(query_low);
 
         Query::select()
             .expr_as(query_case, Alias::new("num_items"))
