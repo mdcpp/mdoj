@@ -46,17 +46,30 @@ impl TestcaseSet for Arc<Server> {
         let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
         let (pager, models) = match pager {
-            list_testcase_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+            list_testcase_request::Request::StartFromEnd(start_from_end) => {
+                ColPaginator::new_fetch(
+                    Default::default(),
+                    &auth,
+                    size,
+                    offset,
+                    start_from_end,
+                    &self.db,
+                )
+                .in_current_span()
+                .await
             }
-            list_testcase_request::Request::StartFromEnd(rev) => {
-                ColPaginator::new_fetch(Default::default(), &auth, size, offset, rev, &self.db)
+            list_testcase_request::Request::Pager(old) => {
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
                     .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -71,7 +84,10 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<CreateTestcaseRequest>,
     ) -> Result<Response<TestcaseId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(LONG_ART_SIZE, req.info, input, output);
@@ -92,6 +108,7 @@ impl TestcaseSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -105,7 +122,10 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(LONG_ART_SIZE, req.info, input, output);
@@ -119,6 +139,7 @@ impl TestcaseSet for Arc<Server> {
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -128,6 +149,7 @@ impl TestcaseSet for Arc<Server> {
 
         model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -137,10 +159,14 @@ impl TestcaseSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<TestcaseId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -157,7 +183,10 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
@@ -165,8 +194,12 @@ impl TestcaseSet for Arc<Server> {
         }
 
         let (problem, model) = tokio::try_join!(
-            problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
-            Entity::read_by_id(req.testcase_id.id, &auth)?.one(self.db.deref())
+            problem::Entity::read_by_id(req.problem_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(debug_span!("find_parent").or_current()),
+            Entity::read_by_id(req.testcase_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(debug_span!("find_child").or_current())
         )
         .map_err(Into::<Error>::into)?;
 
@@ -181,6 +214,7 @@ impl TestcaseSet for Arc<Server> {
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
         model
             .save(self.db.deref())
+            .instrument(info_span!("update_child").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -191,11 +225,15 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let mut test = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -204,6 +242,7 @@ impl TestcaseSet for Arc<Server> {
         test.problem_id = ActiveValue::Set(None);
 
         test.save(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -214,7 +253,10 @@ impl TestcaseSet for Arc<Server> {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::debug!(
             problem_id = req.problem_id.id,
@@ -236,6 +278,7 @@ impl TestcaseSet for Arc<Server> {
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.testcase_id)))
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -256,18 +299,24 @@ impl TestcaseSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 

@@ -3,7 +3,7 @@ use super::tools::*;
 use crate::grpc::backend::chat_set_server::*;
 use crate::grpc::backend::*;
 
-use crate::entity::{chat::*};
+use crate::entity::chat::*;
 use crate::grpc::into_prost;
 
 impl From<i32> for ChatId {
@@ -33,7 +33,10 @@ impl From<Model> for ChatInfo {
 #[tonic::async_trait]
 impl ChatSet for Arc<Server> {
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         check_length!(LONG_ART_SIZE, req, message);
@@ -63,7 +66,10 @@ impl ChatSet for Arc<Server> {
     }
 
     async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -94,7 +100,7 @@ impl ChatSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
                 .await

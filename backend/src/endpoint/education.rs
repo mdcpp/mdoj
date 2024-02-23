@@ -71,7 +71,10 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<CreateEducationRequest>,
     ) -> Result<Response<EducationId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -106,7 +109,10 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -139,7 +145,10 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -160,7 +169,10 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let (problem, model) = tokio::try_join!(
@@ -195,7 +207,10 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -230,7 +245,7 @@ impl EducationSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
                 .await
@@ -256,7 +271,10 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)

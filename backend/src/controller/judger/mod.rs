@@ -284,7 +284,7 @@ impl Judger {
         Ok(submit_id)
     }
     /// abstraction for publish-subscribe
-    pub async fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
+    pub fn follow(&self, submit_id: i32) -> Option<TonicStream<SubmitStatus>> {
         self.pubsub.subscribe(&submit_id)
     }
     pub fn list_lang(&self) -> Vec<LangInfo> {

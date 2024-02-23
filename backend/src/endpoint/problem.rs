@@ -95,6 +95,47 @@ impl ProblemSet for Arc<Server> {
         }))
     }
     #[instrument(skip_all, level = "debug")]
+    async fn list_by_contest(
+        &self,
+        req: Request<ListByRequest>,
+    ) -> Result<Response<ListProblemResponse>, Status> {
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
+
+        let (pager, models) = match pager {
+            list_by_request::Request::Create(create) => {
+                ParentPaginator::new_fetch(
+                    (create.parent_id, Default::default()),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end(),
+                    &self.db,
+                )
+                .in_current_span()
+                .await
+            }
+            list_by_request::Request::Pager(old) => {
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
+            }
+        }?;
+
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
+        let next_session = self.crypto.encode(pager)?;
+        let list = models.into_iter().map(|x| x.into()).collect();
+
+        Ok(Response::new(ListProblemResponse {
+            list,
+            next_session,
+            remain,
+        }))
+    }
+    #[instrument(skip_all, level = "debug")]
     async fn search_by_text(
         &self,
         req: Request<TextSearchRequest>,
@@ -133,7 +174,10 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         debug!(problem_id = req.id);
 
@@ -152,7 +196,10 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<CreateProblemRequest>,
     ) -> Result<Response<ProblemId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -190,7 +237,10 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -226,7 +276,10 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -247,7 +300,10 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
@@ -294,7 +350,10 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -317,7 +376,10 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -349,7 +411,10 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -384,7 +449,10 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -396,46 +464,11 @@ impl ProblemSet for Arc<Server> {
             .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
+            .in_current_span()
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn list_by_contest(
-        &self,
-        req: Request<ListByRequest>,
-    ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                tracing::debug!(id = create.parent_id);
-                ParentPaginator::new_fetch(
-                    (create.parent_id, Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end,
-                    &self.db,
-                )
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).await?;
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListProblemResponse {
-            list,
-            next_session,
-            remain,
-        }))
     }
 }

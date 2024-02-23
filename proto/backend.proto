@@ -48,7 +48,7 @@ message TextSearchRequest {
 message ListByRequest {
   message Create{
     required int32 parent_id = 1;
-    required bool start_from_end =3;
+    optional bool start_from_end =3;
   }
   oneof request {
     Create create=1;
@@ -147,7 +147,7 @@ enum SubmitSortBy {
 message ListSubmitRequest {
   message Create {
     required SubmitSortBy sort_by = 1;
-    required bool start_from_end =3;
+    optional bool start_from_end =3;
   }
   oneof request {
     Create create = 1;
@@ -230,7 +230,7 @@ enum AnnouncementSortBy {
 message ListAnnouncementRequest {
   message Create {
     required AnnouncementSortBy sort_by = 1;
-    required bool start_from_end =7;
+    optional bool start_from_end =7;
   }
   oneof request {
     Create create = 1;
@@ -601,7 +601,7 @@ enum ContestSortBy {
 message ListContestRequest {
   message Create {
     required ContestSortBy sort_by = 1;
-    required bool start_from_end = 2;
+    optional bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;
@@ -688,7 +688,7 @@ enum UserSortBy {
 message ListUserRequest {
   message Create {
     required UserSortBy sort_by = 1;
-    required bool start_from_end = 2;
+    optional bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;

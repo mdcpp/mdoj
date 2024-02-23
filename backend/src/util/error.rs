@@ -1,4 +1,5 @@
 use tonic::Status;
+use tracing_subscriber::fmt::format;
 
 use crate::report_internal;
 
@@ -31,7 +32,7 @@ pub enum Error {
     #[error("Buffer `{0}` too large")]
     BufferTooLarge(&'static str),
     #[error("Already exist")]
-    AlreadyExist(&'static str),
+    AlreadyExist(String),
     #[error("You need to own `{0}` to add thing onto it")]
     UnownedAdd(&'static str),
     #[error("require permission `{0}`")]
@@ -78,8 +79,8 @@ impl From<Error> for Status {
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
             Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
             Error::AlreadyExist(x) => {
-                tracing::trace!(hint = x, "entity_exist");
-                Status::already_exists(x)
+                tracing::trace!(username = x, "entity_exist");
+                Status::already_exists(format!("{} already exist", x))
             }
             Error::UnownedAdd(x) => {
                 tracing::trace!(hint = x, "add_fail");

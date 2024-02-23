@@ -76,7 +76,7 @@ impl ContestSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
                 .await
@@ -129,7 +129,10 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<ContestId>,
     ) -> Result<Response<ContestFullInfo>, Status> {
-        let (_, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (_, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
@@ -145,7 +148,10 @@ impl ContestSet for Arc<Server> {
         &self,
         req: Request<CreateContestRequest>,
     ) -> Result<Response<ContestId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -190,7 +196,10 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -246,7 +255,10 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -264,7 +276,10 @@ impl ContestSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
@@ -302,7 +317,7 @@ impl ContestSet for Arc<Server> {
     }
     // #[instrument(skip_all, level = "debug")]
     // async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-    //     let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+    //     let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).in_current_span().await?;
     //     let (user_id, _) = auth.ok_or_default()?;
 
     //     user_contest::Entity::delete_many()

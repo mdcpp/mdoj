@@ -25,6 +25,17 @@ impl From<SubmitId> for i32 {
     }
 }
 
+impl From<LangInfo> for Language {
+    fn from(value: LangInfo) -> Self {
+        Language {
+            lang_uid: value.lang_uid,
+            lang_name: value.lang_name,
+            info: value.info,
+            lang_ext: value.lang_ext,
+        }
+    }
+}
+
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
         // TODO: solve devation and uncommitted submit!
@@ -71,17 +82,30 @@ impl SubmitSet for Arc<Server> {
         let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
         let (pager, models) = match pager {
-            list_submit_request::Request::Create(_create) => {
-                ColPaginator::new_fetch(Default::default(), &auth, size, offset, true, &self.db)
-                    .await
+            list_submit_request::Request::Create(create) => {
+                ColPaginator::new_fetch(
+                    Default::default(),
+                    &auth,
+                    size,
+                    offset,
+                    create.start_from_end(),
+                    &self.db,
+                )
+                .in_current_span()
+                .await
             }
             list_submit_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -106,18 +130,24 @@ impl SubmitSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -130,19 +160,22 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::debug!(id = req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(tracing::debug_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }
-
     #[instrument(skip_all, level = "debug")]
     async fn create(
         &self,
@@ -159,6 +192,7 @@ impl SubmitSet for Arc<Server> {
 
         let problem = problem::Entity::find_by_id(req.problem_id)
             .one(self.db.deref())
+            .instrument(info_span!("fetch_problem").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -167,11 +201,13 @@ impl SubmitSet for Arc<Server> {
             problem
                 .find_related(contest::Entity)
                 .one(self.db.deref())
+                .instrument(info_span!("fetch_contest").or_current())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB)?
                 .find_related(user::Entity)
                 .one(self.db.deref())
+                .instrument(info_span!("fetch_user").or_current())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB)?;
@@ -187,7 +223,13 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        let id = self.judger.submit(submit).await?;
+        info!(msg = "submit has been created, not judged nor committed yet.");
+
+        let id = self
+            .judger
+            .submit(submit)
+            .instrument(info_span!("construct_submit").or_current())
+            .await?;
 
         tracing::debug!(id = id, "submit_created");
         self.metrics.submit(1);
@@ -197,10 +239,14 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -220,21 +266,27 @@ impl SubmitSet for Arc<Server> {
     #[doc = " are not guarantee to yield status"]
     #[instrument(skip_all, level = "debug")]
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
-        let (_, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (_, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::trace!(id = req.id);
 
-        Ok(Response::new(
-            self.judger.follow(req.id).await.unwrap_or_else(|| {
+        Ok(Response::new(self.judger.follow(req.id).unwrap_or_else(
+            || {
                 Box::pin(ReceiverStream::new(tokio::sync::mpsc::channel(16).1))
                     as Self::FollowStream
-            }),
-        ))
+            },
+        )))
     }
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let submit_id = req.id.id;
@@ -252,6 +304,7 @@ impl SubmitSet for Arc<Server> {
 
         let submit = submit::Entity::find_by_id(submit_id)
             .one(self.db.deref())
+            .instrument(info_span!("fetch_submit").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -259,6 +312,7 @@ impl SubmitSet for Arc<Server> {
         let problem = submit
             .find_related(problem::Entity)
             .one(self.db.deref())
+            .instrument(info_span!("fetch_problem").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -274,7 +328,10 @@ impl SubmitSet for Arc<Server> {
             .build()
             .unwrap();
 
-        self.judger.submit(rejudge).await?;
+        self.judger
+            .submit(rejudge)
+            .instrument(info_span!("construct_submit").or_current())
+            .await?;
 
         self.dup.store(user_id, uuid, ());
 
@@ -283,7 +340,9 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_request_n(req, NonZeroU32!(5)).await?;
+        self.parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let list: Vec<_> = self
             .judger
@@ -293,16 +352,5 @@ impl SubmitSet for Arc<Server> {
             .collect();
 
         Ok(Response::new(Languages { list }))
-    }
-}
-
-impl From<LangInfo> for Language {
-    fn from(value: LangInfo) -> Self {
-        Language {
-            lang_uid: value.lang_uid,
-            lang_name: value.lang_name,
-            info: value.info,
-            lang_ext: value.lang_ext,
-        }
     }
 }

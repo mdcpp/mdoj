@@ -73,7 +73,7 @@ impl AnnouncementSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
                 .await
@@ -126,7 +126,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AnnouncementId>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::debug!(announcement_id = req.id);
 
@@ -144,7 +147,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<AnnouncementId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -181,7 +187,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -214,7 +223,10 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -234,7 +246,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
@@ -273,7 +288,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -294,7 +312,10 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -322,7 +343,10 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -353,7 +377,10 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -384,7 +411,7 @@ impl AnnouncementSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
                 .await

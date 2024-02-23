@@ -45,18 +45,24 @@ impl UserSet for Arc<Server> {
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_user_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -75,15 +81,22 @@ impl UserSet for Arc<Server> {
 
         let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
+                    .in_current_span()
+                    .await
             }
             text_search_request::Request::Pager(old) => {
-                let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -97,36 +110,33 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size.saturating_abs() as u64 + req.offset())
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let offset = req.offset();
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 ParentPaginator::new_fetch(
                     (0, create.parent_id),
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -142,7 +152,10 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, username);
@@ -163,34 +176,40 @@ impl UserSet for Arc<Server> {
 
         tracing::debug!(username = req.info.username);
 
-        let same_name = Entity::find()
-            .filter(Column::Username.eq(req.info.username.clone()))
-            .count(self.db.deref())
-            .await
-            .map_err(Into::<Error>::into)?;
-        if same_name != 0 {
-            return Err(Error::AlreadyExist("").into());
-        }
-
         let hash = self.crypto.hash(req.info.password.as_str());
-        model.password = ActiveValue::set(hash);
-
         let new_perm: RoleLv = req.info.role().into();
         if !perm.root() && new_perm >= perm {
             return Err(Error::RequirePermission(new_perm).into());
         }
 
+        let txn = self.db.begin().await.map_err(Error::DBErr)?;
+
+        let same_name = Entity::find()
+            .filter(Column::Username.eq(req.info.username.as_str()))
+            .count(&txn)
+            .instrument(info_span!("check_exist").or_current())
+            .await
+            .map_err(Into::<Error>::into)?;
+        if same_name != 0 {
+            return Err(Error::AlreadyExist(req.info.username).into());
+        }
+
+        model.password = ActiveValue::set(hash);
+        model.permission = ActiveValue::set(new_perm as i32);
         fill_active_model!(model, req.info, username);
 
-        model.permission = ActiveValue::set(new_perm as i32);
-
         let model = model
-            .save(self.db.deref())
+            .save(&txn)
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
         let id: UserId = model.id.clone().unwrap().into();
         self.dup.store(user_id, uuid, id.clone());
+
+        txn.commit()
+            .await
+            .map_err(|_| Error::AlreadyExist(model.username.as_ref().to_string()))?;
 
         tracing::debug!(id = id.id, "user_created");
         self.metrics.user(1);
@@ -199,7 +218,10 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -213,6 +235,7 @@ impl UserSet for Arc<Server> {
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -242,6 +265,7 @@ impl UserSet for Arc<Server> {
 
         model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -251,10 +275,14 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -273,12 +301,16 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -292,11 +324,7 @@ impl UserSet for Arc<Server> {
 
         model
             .update(self.db.deref())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        Entity::delete_by_id(user_id)
-            .exec(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -307,15 +335,19 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let (auth, _) = self.parse_request_n(req, NonZeroU32!(5)).await?;
+        let (auth, _) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::Unreachable(
-                "token should be deleted before user can request its info",
+                "token should be deleted before user can request its info after user deletion",
             ))?;
 
         Ok(Response::new(model.into()))
