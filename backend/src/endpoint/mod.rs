@@ -26,9 +26,8 @@ mod tools {
     pub use crate::NonZeroU32;
     pub use std::ops::Deref;
 
+    pub use crate::entity::util::filter::*;
     pub use crate::util::{auth::RoleLv, error::Error};
-
-    pub use crate::entity::*;
     pub use crate::{
         check_exist_length, check_length, fill_active_model, fill_exist_active_model,
         parse_pager_param, server::Server,

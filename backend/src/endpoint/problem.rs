@@ -176,6 +176,7 @@ impl ProblemSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -215,6 +216,7 @@ impl ProblemSet for Arc<Server> {
 
         model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -228,6 +230,7 @@ impl ProblemSet for Arc<Server> {
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -252,8 +255,12 @@ impl ProblemSet for Arc<Server> {
         }
 
         let (contest, model) = tokio::try_join!(
-            contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(self.db.deref()),
-            Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref())
+            contest::Entity::read_by_id(req.contest_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(debug_span!("find_parent").or_current()),
+            Entity::read_by_id(req.problem_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(debug_span!("find_child").or_current())
         )
         .map_err(Into::<Error>::into)?;
 
@@ -270,9 +277,13 @@ impl ProblemSet for Arc<Server> {
         }
 
         let mut model = model.into_active_model();
+        if let Some(x) = model.contest_id.into_value() {
+            tracing::debug!(old_id = x.to_string());
+        }
         model.contest_id = ActiveValue::Set(Some(req.problem_id.id));
         model
             .save(self.db.deref())
+            .instrument(info_span!("update_child").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -288,6 +299,7 @@ impl ProblemSet for Arc<Server> {
         let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -297,6 +309,7 @@ impl ProblemSet for Arc<Server> {
 
         problem
             .save(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -318,6 +331,7 @@ impl ProblemSet for Arc<Server> {
         let mut problem = query
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -327,6 +341,7 @@ impl ProblemSet for Arc<Server> {
 
         problem
             .save(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -348,6 +363,7 @@ impl ProblemSet for Arc<Server> {
         let mut problem = query
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -357,6 +373,7 @@ impl ProblemSet for Arc<Server> {
 
         problem
             .save(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -378,6 +395,7 @@ impl ProblemSet for Arc<Server> {
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;

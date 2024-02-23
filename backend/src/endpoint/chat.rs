@@ -3,7 +3,7 @@ use super::tools::*;
 use crate::grpc::backend::chat_set_server::*;
 use crate::grpc::backend::*;
 
-use crate::entity::{chat::*, *};
+use crate::entity::{chat::*};
 use crate::grpc::into_prost;
 
 impl From<i32> for ChatId {

@@ -33,6 +33,7 @@ impl DupController {
         }
     }
     /// store request_id and result
+    #[tracing::instrument(name = "store_request_id", level = "info", skip_all)]
     pub fn store<T>(&self, user_id: i32, request_id: Uuid, result: T)
     where
         T: 'static + Send + Sync + Clone,
@@ -45,6 +46,7 @@ impl DupController {
         self.store.insert(key, Arc::new(result));
     }
     /// check request_id and result
+    #[tracing::instrument(name = "check_request_id", level = "info", skip_all)]
     pub fn check<T>(&self, user_id: i32, request_id: Uuid) -> Option<T>
     where
         T: 'static + Send + Sync + Clone,
