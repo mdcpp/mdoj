@@ -1,5 +1,9 @@
+use opentelemetry::trace::TraceContextExt;
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
 #[macro_export]
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
@@ -16,20 +20,30 @@ macro_rules! report_internal {
 }
 
 #[macro_export]
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "debug"))]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
-        tonic::Status::unknown("unknown error")
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
     }};
     ($level:ident,$pattern:expr) => {{
         tracing::$level!("{}", $pattern);
-        tonic::Status::unknown("unknown error")
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         tracing::$level!($pattern, $error);
-        tonic::Status::unknown("unknown error")
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
     }};
+}
+
+pub fn debug_msg() -> String {
+    let ctx = Span::current().context();
+    let ctx_span = ctx.span();
+    let span_ctx = ctx_span.span_context();
+    let trace_id = span_ctx.trace_id();
+    let span_id = span_ctx.span_id();
+
+    format!("trace_id: {}, span_id: {}", trace_id, span_id)
 }
 
 #[macro_export]
