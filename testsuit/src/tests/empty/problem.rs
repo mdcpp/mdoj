@@ -46,7 +46,7 @@ pub async fn list_by(size: i64, code: Code) -> Result<(), Error> {
             offset: Some(0),
             request: Some(list_by_request::Request::Create(list_by_request::Create {
                 parent_id: 1,
-                start_from_end: false,
+                start_from_end: None,
             })),
             reverse: None,
         })

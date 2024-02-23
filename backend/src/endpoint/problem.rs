@@ -268,7 +268,7 @@ impl ProblemSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.dup.store(user_id, uuid, ());
 
@@ -367,10 +367,10 @@ impl ProblemSet for Arc<Server> {
         problem.contest_id = ActiveValue::Set(None);
 
         problem
-            .save(self.db.deref())
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -402,10 +402,10 @@ impl ProblemSet for Arc<Server> {
         problem.public = ActiveValue::Set(true);
 
         problem
-            .save(self.db.deref())
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -437,10 +437,10 @@ impl ProblemSet for Arc<Server> {
         problem.public = ActiveValue::Set(false);
 
         problem
-            .save(self.db.deref())
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }

@@ -147,7 +147,7 @@ impl EducationSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.dup.store(user_id, uuid, ());
 
@@ -211,10 +211,10 @@ impl EducationSet for Arc<Server> {
         let mut model = model.into_active_model();
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
         model
-            .save(self.db.deref())
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }

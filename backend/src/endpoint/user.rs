@@ -267,7 +267,7 @@ impl UserSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.dup.store(user_id, uuid, ());
 
@@ -326,7 +326,7 @@ impl UserSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.token.remove_by_user_id(user_id).await?;
 

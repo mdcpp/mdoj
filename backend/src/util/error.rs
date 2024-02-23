@@ -1,6 +1,4 @@
 use tonic::Status;
-use tracing_subscriber::fmt::format;
-
 use crate::report_internal;
 
 use super::auth::RoleLv;
@@ -95,5 +93,12 @@ impl From<Error> for Status {
             }
             Error::PassThrough(x) => x,
         }
+    }
+}
+
+pub fn atomic_fail(err: sea_orm::DbErr) -> Status {
+    match err {
+        sea_orm::DbErr::RecordNotUpdated => Error::NotInDB.into(),
+        _ => Error::DBErr(err).into(),
     }
 }

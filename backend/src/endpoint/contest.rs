@@ -264,7 +264,7 @@ impl ContestSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.dup.store(user_id, uuid, ());
 

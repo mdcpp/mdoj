@@ -232,7 +232,7 @@ impl AnnouncementSet for Arc<Server> {
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         self.dup.store(user_id, uuid, ());
 
@@ -299,10 +299,10 @@ impl AnnouncementSet for Arc<Server> {
         let mut model = model.into_active_model();
         model.contest_id = ActiveValue::Set(Some(req.contest_id.id));
         model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
+            .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -349,7 +349,7 @@ impl AnnouncementSet for Arc<Server> {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
+        let mut model = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -358,13 +358,13 @@ impl AnnouncementSet for Arc<Server> {
             .ok_or(Error::NotInDB)?
             .into_active_model();
 
-        announcement.public = ActiveValue::Set(true);
+        model.public = ActiveValue::Set(true);
 
-        announcement
-            .save(self.db.deref())
+        model
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -382,7 +382,7 @@ impl AnnouncementSet for Arc<Server> {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
+        let mut model = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -391,13 +391,13 @@ impl AnnouncementSet for Arc<Server> {
             .ok_or(Error::NotInDB)?
             .into_active_model();
 
-        announcement.public = ActiveValue::Set(false);
+        model.public = ActiveValue::Set(false);
 
-        announcement
-            .save(self.db.deref())
+        model
+            .update(self.db.deref())
             .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }

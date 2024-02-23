@@ -27,7 +27,10 @@ mod tools {
     pub use std::ops::Deref;
 
     pub use crate::entity::util::filter::*;
-    pub use crate::util::{auth::RoleLv, error::Error};
+    pub use crate::util::{
+        auth::RoleLv,
+        error::{atomic_fail, Error},
+    };
     pub use crate::{
         check_exist_length, check_length, fill_active_model, fill_exist_active_model,
         parse_pager_param, server::Server,
@@ -38,3 +41,6 @@ mod tools {
     pub use tracing::*;
     pub use uuid::Uuid;
 }
+
+// FIXME: currently we report transaction error as internal error,
+// but we should report it as bad request, or even a give it an retry logic
