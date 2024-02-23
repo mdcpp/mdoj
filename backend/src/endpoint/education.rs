@@ -47,16 +47,23 @@ impl EducationSet for Arc<Server> {
         let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
         let (pager, models) = match pager {
-            list_education_request::Request::Pager(pager) => {
-                let pager: Paginator = self.crypto.decode(pager.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
-            }
             list_education_request::Request::StartFromEnd(rev) => {
-                Paginator::new_fetch((), &auth, size, offset, rev, &self.db).await
+                Paginator::new_fetch((), &auth, size, offset, rev, &self.db)
+                    .in_current_span()
+                    .await
+            }
+            list_education_request::Request::Pager(old) => {
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: Paginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -96,6 +103,7 @@ impl EducationSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -127,6 +135,7 @@ impl EducationSet for Arc<Server> {
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -136,6 +145,7 @@ impl EducationSet for Arc<Server> {
 
         model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -152,6 +162,7 @@ impl EducationSet for Arc<Server> {
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -176,8 +187,12 @@ impl EducationSet for Arc<Server> {
         let (user_id, perm) = auth.ok_or_default()?;
 
         let (problem, model) = tokio::try_join!(
-            problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
-            Entity::read_by_id(req.education_id.id, &auth)?.one(self.db.deref())
+            problem::Entity::read_by_id(req.problem_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_parent").or_current()),
+            Entity::read_by_id(req.education_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_child").or_current())
         )
         .map_err(Into::<Error>::into)?;
 
@@ -197,6 +212,7 @@ impl EducationSet for Arc<Server> {
         model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
         model
             .save(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -215,6 +231,7 @@ impl EducationSet for Arc<Server> {
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -224,6 +241,7 @@ impl EducationSet for Arc<Server> {
 
         model
             .save(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -239,7 +257,6 @@ impl EducationSet for Arc<Server> {
 
         let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
-                tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(
                     create.parent_id,
                     &auth,
@@ -248,15 +265,21 @@ impl EducationSet for Arc<Server> {
                     create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -278,12 +301,14 @@ impl EducationSet for Arc<Server> {
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)
+                .in_current_span()
                 .await?;
         let model = parent
             .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.education_id)))
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;

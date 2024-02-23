@@ -271,6 +271,7 @@ impl TestcaseSet for Arc<Server> {
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)
+                .in_current_span()
                 .await?;
 
         let model = parent

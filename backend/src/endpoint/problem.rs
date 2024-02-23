@@ -456,6 +456,7 @@ impl ProblemSet for Arc<Server> {
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
+                .in_current_span()
                 .await?;
 
         let model = parent

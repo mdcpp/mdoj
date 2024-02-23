@@ -35,7 +35,6 @@ mod tools {
     pub use sea_orm::*;
     pub use std::sync::Arc;
     pub use tonic::*;
-    pub use tracing::instrument;
     pub use tracing::*;
     pub use uuid::Uuid;
 }

@@ -53,6 +53,7 @@ impl ChatSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -73,6 +74,7 @@ impl ChatSet for Arc<Server> {
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -94,7 +96,6 @@ impl ChatSet for Arc<Server> {
 
         let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
-                tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(
                     (create.parent_id, Default::default()),
                     &auth,
@@ -103,15 +104,21 @@ impl ChatSet for Arc<Server> {
                     create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 

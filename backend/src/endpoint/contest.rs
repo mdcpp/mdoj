@@ -79,15 +79,21 @@ impl ContestSet for Arc<Server> {
                     create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_contest_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -106,15 +112,22 @@ impl ContestSet for Arc<Server> {
 
         let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
+                    .in_current_span()
+                    .await
             }
             text_search_request::Request::Pager(old) => {
-                let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -137,6 +150,7 @@ impl ContestSet for Arc<Server> {
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -183,6 +197,7 @@ impl ContestSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -215,6 +230,7 @@ impl ContestSet for Arc<Server> {
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -246,6 +262,7 @@ impl ContestSet for Arc<Server> {
 
         model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -262,6 +279,7 @@ impl ContestSet for Arc<Server> {
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -284,6 +302,7 @@ impl ContestSet for Arc<Server> {
 
         let model = Entity::read_filter(Entity::find_by_id(req.id.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -308,6 +327,7 @@ impl ContestSet for Arc<Server> {
 
         pivot
             .save(self.db.deref())
+            .instrument(info_span!("insert_pviot").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -315,20 +335,4 @@ impl ContestSet for Arc<Server> {
 
         Ok(Response::new(()))
     }
-    // #[instrument(skip_all, level = "debug")]
-    // async fn exit(&self, req: Request<ContestId>) -> Result<Response<()>, Status> {
-    //     let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).in_current_span().await?;
-    //     let (user_id, _) = auth.ok_or_default()?;
-
-    //     user_contest::Entity::delete_many()
-    //         .filter(user_contest::Column::UserId.eq(user_id))
-    //         .filter(user_contest::Column::ContestId.eq(req.id))
-    //         .exec(self.db.deref())
-    //         .await
-    //         .map_err(Into::<Error>::into)?;
-
-    //     tracing::debug!(user_id = user_id, contest_id = req.id, "user_exit");
-
-    //     Ok(Response::new(()))
-    // }
 }
