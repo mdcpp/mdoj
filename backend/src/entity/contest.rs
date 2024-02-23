@@ -3,7 +3,7 @@ use std::ops::Deref;
 use chrono::Local;
 use sea_orm::Statement;
 
-use crate::{grpc::backend::ContestSortBy, partial_union};
+use crate::{grpc::backend::ContestSortBy, union};
 
 use super::*;
 
@@ -132,7 +132,7 @@ impl super::ParentalTrait<IdModel> for Entity {
                     let builder = db.get_database_backend().get_query_builder();
                     let now = Local::now().naive_local();
 
-                    partial_union!(
+                    union!(
                         [Column::Id, Column::Hoster, Column::Public, Column::Begin],
                         user.find_related(Entity),
                         Entity::find()

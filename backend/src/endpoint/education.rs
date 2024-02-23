@@ -44,13 +44,9 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_education_request::Request::Pager(pager) => {
                 let pager: Paginator = self.crypto.decode(pager.session)?;
                 pager.fetch(&auth, size, offset, rev, &self.db).await
@@ -75,7 +71,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<CreateEducationRequest>,
     ) -> Result<Response<EducationId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -110,7 +106,7 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -143,7 +139,7 @@ impl EducationSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -164,10 +160,10 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let (problem, model) = try_join!(
+        let (problem, model) = tokio::try_join!(
             problem::Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref()),
             Entity::read_by_id(req.education_id.id, &auth)?.one(self.db.deref())
         )
@@ -199,7 +195,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -224,13 +220,9 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(
@@ -264,7 +256,7 @@ impl EducationSet for Arc<Server> {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)

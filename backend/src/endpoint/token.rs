@@ -32,7 +32,7 @@ impl From<Model> for Token {
 impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if req.id != user_id && !perm.root() {
@@ -54,7 +54,7 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
-        let (_, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (_, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         tracing::debug!(username = req.username);
 

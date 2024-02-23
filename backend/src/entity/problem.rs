@@ -5,7 +5,7 @@ use std::ops::Deref;
 
 use sea_orm::Statement;
 
-use crate::{grpc::backend::ProblemSortBy, partial_union};
+use crate::{grpc::backend::ProblemSortBy, union};
 
 use super::*;
 
@@ -166,7 +166,7 @@ impl super::ParentalTrait<IdModel> for Entity {
                 let (query, param) = {
                     let builder = db.get_database_backend().get_query_builder();
 
-                    partial_union!(
+                    union!(
                         [
                             Column::Id,
                             Column::UserId,

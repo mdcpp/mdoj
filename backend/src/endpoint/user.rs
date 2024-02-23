@@ -36,13 +36,9 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_user_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
                     (create.sort_by(), Default::default()),
@@ -75,13 +71,9 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
                 TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
             }
@@ -105,11 +97,12 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(3)).await?;
+        let (auth, bucket, req) = self.parse_request(req).await?;
 
         let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 512);
+        let offset = req.offset();
+
+        bucket.try_cost(offset + size)?;
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {
@@ -145,7 +138,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, username);
@@ -202,7 +195,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let (user_id, perm) = auth.ok_or_default()?;
 
@@ -254,7 +247,7 @@ impl UserSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -276,7 +269,7 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let model = user::Entity::find()

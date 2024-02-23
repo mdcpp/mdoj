@@ -624,7 +624,6 @@ service ContestSet {
   rpc Remove(ContestId) returns (google.protobuf.Empty);
 
   rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
-  rpc Exit(ContestId) returns (google.protobuf.Empty);
 }
 
 // User

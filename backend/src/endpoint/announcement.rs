@@ -64,13 +64,9 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, bucket, req) = self.parse_request(req).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_announcement_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
                     (create.sort_by(), Default::default()),
@@ -103,13 +99,9 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, bucket, req) = self.parse_request(req).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
                 TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
             }
@@ -134,7 +126,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AnnouncementId>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         tracing::debug!(announcement_id = req.id);
 
@@ -152,7 +144,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<AnnouncementId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
@@ -189,7 +181,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
@@ -222,7 +214,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -242,14 +234,14 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
-        let (contest, model) = try_join!(
+        let (contest, model) = tokio::try_join!(
             contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(self.db.deref()),
             Entity::read_by_id(req.announcement_id.id, &auth)?.one(self.db.deref())
         )
@@ -281,7 +273,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -302,7 +294,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -330,7 +322,7 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -361,7 +353,7 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -382,12 +374,9 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, bucket, req) = self.parse_request(req).await?;
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(

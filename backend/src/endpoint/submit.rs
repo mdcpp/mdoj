@@ -68,13 +68,9 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_submit_request::Request::Create(_create) => {
                 ColPaginator::new_fetch(Default::default(), &auth, size, offset, true, &self.db)
                     .await
@@ -101,13 +97,9 @@ impl SubmitSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 ParentPaginator::new_fetch(
                     (create.parent_id, Default::default()),
@@ -138,7 +130,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         tracing::debug!(id = req.id);
 
@@ -205,7 +197,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(self.db.deref())
@@ -228,7 +220,7 @@ impl SubmitSet for Arc<Server> {
     #[doc = " are not guarantee to yield status"]
     #[instrument(skip_all, level = "debug")]
     async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
-        let (_, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (_, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         tracing::trace!(id = req.id);
 
@@ -242,7 +234,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         let submit_id = req.id.id;

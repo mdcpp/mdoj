@@ -33,7 +33,7 @@ impl From<Model> for ChatInfo {
 #[tonic::async_trait]
 impl ChatSet for Arc<Server> {
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         check_length!(LONG_ART_SIZE, req, message);
@@ -63,7 +63,7 @@ impl ChatSet for Arc<Server> {
     }
 
     async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -84,13 +84,9 @@ impl ChatSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(

@@ -43,7 +43,6 @@ impl Server {
         Ok((auth, bucket))
     }
     /// parse request to get bucket and payload
-    ///
     #[inline]
     pub async fn parse_request<T: Send>(
         &self,
@@ -53,8 +52,8 @@ impl Server {
 
         Ok((auth, bucket, req.into_inner()))
     }
-    /// parse request to get bucket and payload
-    /// and immediately rate limiting
+    /// parse request for payload and immediately rate
+    /// limiting base on a const cost
     #[inline]
     pub async fn parse_request_n<T>(
         &self,
@@ -66,5 +65,25 @@ impl Server {
         bucket.cost(permit)?;
 
         Ok((auth, req.into_inner()))
+    }
+    /// parse request for payload and immediately rate
+    /// limiting base on a dynamic cost(calculated by a function)
+    #[inline]
+    pub async fn parse_request_fn<T, F>(
+        &self,
+        req: tonic::Request<T>,
+        f: F,
+    ) -> Result<(Auth, T), tonic::Status>
+    where
+        F: FnOnce(&T) -> u32,
+    {
+        let (auth, bucket) = self.parse_auth(&req).await?;
+        let req = req.into_inner();
+
+        if let Some(cost) = NonZeroU32::new(f(&req)) {
+            bucket.cost(cost)?;
+        }
+
+        Ok((auth, req))
     }
 }

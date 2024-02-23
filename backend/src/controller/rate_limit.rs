@@ -43,6 +43,13 @@ impl Bucket {
             false => Ok(()),
         }
     }
+    pub fn try_cost(&self, cost: impl TryInto<u32>) -> Result<(), Error> {
+        let cost = cost.try_into().map_err(|_| Error::RateLimit(""))?;
+        match NonZeroU32::new(cost) {
+            Some(cost) => self.cost(cost),
+            None => Ok(()),
+        }
+    }
 }
 
 /// Policy of resource acquisition
@@ -68,16 +75,16 @@ trait AcquisitionPolicy {
 struct LoginPolicy;
 
 impl AcquisitionPolicy for LoginPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(400);
-    const RATE: NonZeroU32 = NonZeroU32!(150);
+    const BURST: NonZeroU32 = NonZeroU32!(4000);
+    const RATE: NonZeroU32 = NonZeroU32!(1500);
 }
 
 /// policy for [`TrafficType::Guest`]
 struct GuestPolicy;
 
 impl AcquisitionPolicy for GuestPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(150);
-    const RATE: NonZeroU32 = NonZeroU32!(80);
+    const BURST: NonZeroU32 = NonZeroU32!(1500);
+    const RATE: NonZeroU32 = NonZeroU32!(800);
 }
 
 /// policy for [`TrafficType::Blacklist`]
@@ -88,8 +95,8 @@ impl AcquisitionPolicy for GuestPolicy {
 struct BlacklistPolicy;
 
 impl AcquisitionPolicy for BlacklistPolicy {
-    const BURST: NonZeroU32 = NonZeroU32!(60);
-    const RATE: NonZeroU32 = NonZeroU32!(30);
+    const BURST: NonZeroU32 = NonZeroU32!(600);
+    const RATE: NonZeroU32 = NonZeroU32!(300);
 }
 
 pub struct RateLimitController {

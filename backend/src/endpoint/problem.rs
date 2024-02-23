@@ -57,13 +57,9 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_problem_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
                     (create.sort_by(), Default::default()),
@@ -96,13 +92,9 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
                 TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
             }
@@ -127,7 +119,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ProblemId>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         tracing::debug!(problem_id = req.id);
 
@@ -145,7 +137,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<CreateProblemRequest>,
     ) -> Result<Response<ProblemId>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -184,7 +176,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
@@ -219,7 +211,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -239,14 +231,14 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let (contest, model) = try_join!(
+        let (contest, model) = tokio::try_join!(
             contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(self.db.deref()),
             Entity::read_by_id(req.problem_id.id, &auth)?.one(self.db.deref())
         )
@@ -278,7 +270,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let mut problem = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ContestId])
@@ -299,7 +291,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -329,7 +321,7 @@ impl ProblemSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<ProblemId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (_, perm) = auth.ok_or_default()?;
 
         tracing::debug!(id = req.id);
@@ -362,7 +354,7 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
@@ -384,13 +376,9 @@ impl ProblemSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, NonZeroU32!(1)).await?;
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (rev, size) = split_rev(req.size);
-        let size = bound!(size, 64);
-        let offset = bound!(req.offset(), 1024);
-
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
                 tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(
