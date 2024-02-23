@@ -1,5 +1,3 @@
-// FIXME: ParentalTrait should have info level tracing,
-// Filter should have debug level tracing
 use sea_orm::{entity::prelude::*, EntityTrait, PrimaryKeyTrait, QueryFilter, Select};
 
 use crate::util::{auth::Auth, error::Error};

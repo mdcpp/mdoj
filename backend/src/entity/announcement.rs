@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use crate::grpc::backend::AnnouncementSortBy;
 
 use super::*;
@@ -70,6 +72,7 @@ impl Related<super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
             if perm.admin() {
@@ -79,6 +82,7 @@ impl super::Filter for Entity {
         }
         Ok(query.filter(Column::Public.eq(true)))
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {

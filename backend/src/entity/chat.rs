@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use crate::util::auth::RoleLv;
 
 use super::*;
@@ -49,9 +51,11 @@ impl Related<super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if auth.user_perm().admin() {
             return Ok(query);

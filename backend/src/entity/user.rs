@@ -1,4 +1,5 @@
 use sea_orm::{QueryOrder, QuerySelect};
+use tracing::instrument;
 
 use crate::grpc::backend::UserSortBy;
 
@@ -146,10 +147,12 @@ impl Linked for UserToProblem {
 }
 
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
 
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {

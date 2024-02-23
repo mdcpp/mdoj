@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use chrono::Local;
 use sea_orm::Statement;
+use tracing::{instrument, Instrument};
 
 use crate::{grpc::backend::ContestSortBy, union};
 
@@ -121,6 +122,7 @@ impl ActiveModelBehavior for ActiveModel {}
 
 #[tonic::async_trait]
 impl super::ParentalTrait<IdModel> for Entity {
+    #[instrument(skip_all, level = "info")]
     async fn related_read_by_id(
         auth: &Auth,
         id: i32,
@@ -150,6 +152,7 @@ impl super::ParentalTrait<IdModel> for Entity {
                     param,
                 ))
                 .one(db)
+                .in_current_span()
                 .await?
                 .ok_or(Error::NotInDB)
             }
@@ -157,6 +160,7 @@ impl super::ParentalTrait<IdModel> for Entity {
                 .filter(Column::Public.eq(true))
                 .into_partial_model()
                 .one(db)
+                .in_current_span()
                 .await?
                 .ok_or(Error::NotInDB),
         }
@@ -164,6 +168,7 @@ impl super::ParentalTrait<IdModel> for Entity {
 }
 
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
             if perm.admin() {
@@ -173,6 +178,7 @@ impl super::Filter for Entity {
         }
         Ok(query.filter(Column::Public.eq(true)))
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {

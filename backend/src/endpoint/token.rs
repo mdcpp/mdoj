@@ -135,7 +135,7 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        // FIXME: handle complex logic
+        // FIXME: handle rate limiting logic
         let (auth, _) = self.parse_auth(&req).in_current_span().await?;
         auth.ok_or_default()?;
 
