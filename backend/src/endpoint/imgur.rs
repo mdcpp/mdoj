@@ -10,7 +10,7 @@ impl ImgurSet for Arc<Server> {
         &self,
         req: Request<UploadRequest>,
     ) -> Result<Response<UploadResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(4)).await?;
+        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(5)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;

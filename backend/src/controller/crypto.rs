@@ -76,7 +76,7 @@ impl CryptoController {
         hashed.to_vec()
     }
     /// serialize and sign the object with blake2b512, append the signature and return
-    #[tracing::instrument(level = "debug", skip_all)]
+    #[tracing::instrument(level = "debug", skip_all, name = "encode")]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<String> {
         let raw = bincode::serialize(&obj)?;
 
@@ -93,7 +93,7 @@ impl CryptoController {
     /// check signature and return the object
     ///
     /// Error if signature invaild
-    #[tracing::instrument(level = "debug", skip_all)]
+    #[tracing::instrument(level = "debug", skip_all, name = "decode")]
     pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
         let raw = URL_SAFE.decode(raw)?;
         let raw: Signed = bincode::deserialize(&raw)?;

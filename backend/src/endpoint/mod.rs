@@ -37,6 +37,7 @@ mod tools {
     pub use std::sync::Arc;
     pub use tonic::*;
     pub use tracing::instrument;
+    pub use tracing::*;
     pub use uuid::Uuid;
     pub fn split_rev(raw: i64) -> (bool, u64) {
         (raw < 0, raw.abs().try_into().unwrap())

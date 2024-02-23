@@ -177,12 +177,15 @@ macro_rules! NonZeroU32 {
 #[macro_export]
 macro_rules! parse_pager_param {
     ($self:expr,$req:expr) => {{
+        let span = tracing::info_span!("parse").or_current();
+
         let (auth, req) = $self
             .parse_request_fn($req, |req| {
                 ((req.size.saturating_abs() as u64) + req.offset() / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })
+            .instrument(span)
             .await?;
         (
             auth,

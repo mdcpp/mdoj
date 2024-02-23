@@ -22,7 +22,7 @@ impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
         UserInfo {
             username: value.username,
-            // FIXME: capture Error instead!
+            // FIXME: capture Error(database corruption?) instead!
             score: value.score.try_into().unwrap_or_default(),
             id: value.id.into(),
         }
@@ -97,12 +97,16 @@ impl UserSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, bucket, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size.saturating_abs() as u64 + req.offset())
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
 
         let (rev, size) = split_rev(req.size);
         let offset = req.offset();
-
-        bucket.try_cost(offset + size)?;
 
         let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_by_request::Request::Create(create) => {
@@ -303,9 +307,8 @@ impl UserSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
-        let (auth, bucket) = self.parse_auth(&req).await?;
+        let (auth, _) = self.parse_request_n(req, NonZeroU32!(5)).await?;
         let (user_id, _) = auth.ok_or_default()?;
-        bucket.cost(NonZeroU32!(1))?;
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())

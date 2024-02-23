@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use tracing::instrument;
+use tracing::*;
 
 use crate::{
     controller::rate_limit::{Bucket, TrafficType},
@@ -10,7 +10,9 @@ use crate::{
 use super::auth::Auth;
 
 impl Server {
-    #[instrument(skip_all, level = "debug")]
+    /// parse authication without rate limiting
+    ///
+    /// It's useful for endpoints that require resolving identity before rate limiting
     pub async fn parse_auth<T>(
         &self,
         req: &tonic::Request<T>,
@@ -42,19 +44,10 @@ impl Server {
             .await?;
         Ok((auth, bucket))
     }
-    /// parse request to get bucket and payload
-    #[inline]
-    pub async fn parse_request<T: Send>(
-        &self,
-        req: tonic::Request<T>,
-    ) -> Result<(Auth, Bucket, T), tonic::Status> {
-        let (auth, bucket) = self.parse_auth(&req).await?;
-
-        Ok((auth, bucket, req.into_inner()))
-    }
     /// parse request for payload and immediately rate
     /// limiting base on a const cost
     #[inline]
+    #[instrument(skip_all, level = "info", name = "parse")]
     pub async fn parse_request_n<T>(
         &self,
         req: tonic::Request<T>,

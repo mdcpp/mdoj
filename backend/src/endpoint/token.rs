@@ -69,7 +69,7 @@ impl TokenSet for Arc<Server> {
             let dur =
                 chrono::Duration::from_std(Duration::from_secs(req.expiry.unwrap_or(60 * 60 * 12)))
                     .map_err(|err| {
-                        log::trace!("{}", err);
+                        trace!("{}", err);
                         Error::BadArgument("expiry")
                     })?;
             let (token, expiry) = self.token.add(&model, dur).await?;
@@ -124,7 +124,6 @@ impl TokenSet for Arc<Server> {
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
         let (auth, bucket) = self.parse_auth(&req).await?;
         auth.ok_or_default()?;
-        bucket.cost(NonZeroU32!(1))?;
 
         if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();

@@ -283,7 +283,7 @@ impl SubmitSet for Arc<Server> {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_auth(&req).await?.1.cost(NonZeroU32!(1))?;
+        self.parse_request_n(req, NonZeroU32!(5)).await?;
 
         let list: Vec<_> = self
             .judger

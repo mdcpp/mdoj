@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use sea_orm::*;
 use sea_query::*;
+use tracing::instrument;
 
 use crate::util::error::Error;
 
@@ -68,6 +69,7 @@ where
     /// Apply pagination effect on a Select(sea_orm)
     ///
     /// be careful not to run order_by before applying pagination
+    #[instrument(skip(self), level = "trace", name = "construct_query")]
     fn apply(self, query: Select<E>) -> Select<E> {
         let _ord = match self.rev {
             true => Order::Desc,
@@ -102,6 +104,7 @@ pub struct PaginatePk<PK: ColumnTrait> {
 }
 
 impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
+    #[instrument(skip(self), level = "trace", name = "construct_query")]
     fn apply(self, query: Select<E>) -> Select<E> {
         let query = query.filter(com_eq(self.include, self.rev, self.last_pk, self.pk));
 

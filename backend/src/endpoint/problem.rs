@@ -1,4 +1,5 @@
 use super::tools::*;
+use tracing::Instrument;
 
 use crate::grpc::backend::problem_set_server::*;
 use crate::grpc::backend::*;
@@ -69,15 +70,21 @@ impl ProblemSet for Arc<Server> {
                     create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_problem_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -96,15 +103,22 @@ impl ProblemSet for Arc<Server> {
 
         let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
+                    .in_current_span()
+                    .await
             }
             text_search_request::Request::Pager(old) => {
-                let pager: TextPaginator = self.crypto.decode(old.session)?;
-                pager.fetch(&auth, size, offset, rev, &self.db).await
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+                pager
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
+                    .await
             }
         }?;
 
-        let remain = pager.remain(&auth, &self.db).await?;
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
 
@@ -121,11 +135,12 @@ impl ProblemSet for Arc<Server> {
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let (auth, req) = self.parse_request_n(req, NonZeroU32!(5)).await?;
 
-        tracing::debug!(problem_id = req.id);
+        debug!(problem_id = req.id);
 
         let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
         let model = query
             .one(self.db.deref())
+            .instrument(info_span!("fetch"))
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -168,9 +183,7 @@ impl ProblemSet for Arc<Server> {
 
         self.dup.store(user_id, uuid, id.clone());
 
-        // FIXME: thing like this should be
-        // tracing::debug!(id = id.id);
-        tracing::debug!(id = id.id, "problem_created");
+        tracing::debug!(id = id.id);
 
         Ok(Response::new(id))
     }

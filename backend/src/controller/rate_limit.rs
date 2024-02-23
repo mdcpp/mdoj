@@ -6,7 +6,7 @@ use governor::{DefaultDirectRateLimiter, DefaultKeyedRateLimiter, Quota, RateLim
 use ip_network::IpNetwork;
 use quick_cache::sync::Cache;
 
-use tracing::{instrument, Instrument};
+use tracing::*;
 
 use crate::util::error::Error;
 
@@ -26,6 +26,13 @@ pub enum Bucket {
 }
 
 impl Bucket {
+    fn get_name(&self) -> &'static str {
+        match self {
+            Bucket::Guest(_) => "guest",
+            Bucket::Login(_) => "login",
+            Bucket::Blacklist(_) => "blacklist",
+        }
+    }
     fn expect_dur(&self, cost: NonZeroU32) -> bool {
         let res = match self {
             Bucket::Guest((limiter, key)) => limiter.check_key_n(&key, cost),
@@ -169,7 +176,7 @@ impl RateLimitController {
     ///
     /// We identify [`TrafficType::Blacklist`] by ip blacklist,
     /// whose entries is added when user fail to login or sent invaild token
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(skip_all, level = "debug", name = "rate_limit")]
     pub async fn check<'a, T, F, Fut>(
         &self,
         req: &'a tonic::Request<T>,
@@ -186,7 +193,7 @@ impl RateLimitController {
         }
 
         let res = match f(req)
-            .instrument(tracing::debug_span!("token_verify"))
+            .instrument(debug_span!("check_traffic").or_current())
             .await
         {
             TrafficType::Login(x) => Bucket::Login((self.user_limiter.clone(), x)),
@@ -197,6 +204,8 @@ impl RateLimitController {
                 Bucket::Blacklist(self.blacklist_limiter.clone())
             }
         };
+
+        debug!(traffic_type = res.get_name());
 
         Ok(res)
     }

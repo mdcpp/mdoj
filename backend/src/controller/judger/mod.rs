@@ -183,7 +183,6 @@ impl Judger {
             total_memory += res.memory;
             total_time += res.time;
             total_score += score;
-            // FIXME: check value instead
             let res = res.status();
             if res != JudgerCode::Ac {
                 status = res.into();
@@ -269,7 +268,6 @@ impl Judger {
         conn.report_success();
 
         let self_ = self.clone();
-        // FIXME: if possible, don't use stackful coroutine
         tokio::spawn(async move {
             match self_.stream(res.into_inner(), submit_model, scores).await {
                 Ok(submit) => {

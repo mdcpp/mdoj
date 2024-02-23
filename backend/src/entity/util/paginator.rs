@@ -14,7 +14,7 @@ use crate::util::auth::Auth;
 use sea_orm::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
-use tracing::instrument;
+use tracing::*;
 
 use std::marker::PhantomData;
 
@@ -163,7 +163,6 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
             .offset(offset);
         let models = R::all(query, db).await?;
 
-        // FIXME: should check not found
         if let Some(model) = models.last() {
             self.last_id = R::get_id(model);
             return Ok((self, models));
@@ -187,7 +186,6 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
 
         let models = R::all(query, db).await?;
 
-        // FIXME: should check not found
         if let Some(model) = models.last() {
             return Ok((
                 Self {
@@ -240,6 +238,7 @@ pub struct ColumnPaginator<S: SortSource<R>, R: Reflect<S::Entity>> {
 
 #[async_trait]
 impl<S: SortSource<R> + Sync, R: Reflect<S::Entity> + Sync> Remain for ColumnPaginator<S, R> {
+    #[instrument(skip_all, level = "debug", name = "count_remain")]
     async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
         let col = S::sort_col(&self.data);
         let val = S::get_val(&self.data);
@@ -270,7 +269,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "debug", name = "query_paginator")]
     async fn fetch(
         mut self,
         auth: &Auth,
@@ -298,11 +297,15 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
             .apply(S::filter(auth, &self.data, db).await?)
             .limit(size)
             .offset(offset);
-        let models = R::all(query, db).await?;
+        let models = R::all(query, db)
+            .instrument(debug_span!("query").or_current())
+            .await?;
 
         if size as usize != models.len() {
             tracing::debug!(size = size, len = models.len(), "miss_data")
         }
+
+        let _enter = debug_span!("save_state").or_current().entered();
 
         if let Some(model) = models.last() {
             S::save_val(&mut self.data, model);
@@ -312,7 +315,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
 
         Err(Error::NotInDBList)
     }
-    #[instrument(skip(data), level = "debug")]
+    #[instrument(skip(data), level = "debug", rename = "create_paginator")]
     async fn new_fetch(
         mut data: S::Data,
         auth: &Auth,
@@ -324,7 +327,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
         let col = S::sort_col(&data);
 
         let query = order_by_bool(
-            S::filter(auth, &data, db).await?,
+            S::filter(auth, &data, db).in_current_span().await?,
             <S as Source>::ID,
             abs_dir,
         );
@@ -332,12 +335,11 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
             .limit(size)
             .offset(offset);
 
-        let models = R::all(query, db).await?;
+        let models = R::all(query, db).in_current_span().await?;
 
         if size as usize != models.len() {
-            tracing::debug!(size = size, len = models.len(), "miss_data")
+            tracing::trace!(size = size, len = models.len(), "miss_data")
         }
-        // FIXME: should check not found
         if let Some(model) = models.last() {
             S::save_val(&mut data, model);
 

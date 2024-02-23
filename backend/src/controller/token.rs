@@ -124,7 +124,7 @@ impl TokenController {
             expiry,
         ))
     }
-    #[instrument(skip_all, name = "token_verify_controller", level = "debug")]
+    #[instrument(skip_all, name = "token_verify_controller", level = "trace")]
     pub async fn verify(&self, token: &str) -> Result<(i32, RoleLv), Error> {
         // FIXME: we need to cache hashed password, it's better to do that without coupling with user creation
         let now = Local::now().naive_local();
