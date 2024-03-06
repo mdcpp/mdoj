@@ -28,22 +28,30 @@ pub fn Problem() -> impl IntoView {
         })
     };
     let (token, _) = use_token();
+    let id_and_token = move || (id(), token());
 
-    let problem_info = create_resource(id, |id| async move {
-        let id = id?;
-        let mut client = problem_set_client::ProblemSetClient::new(
-            grpc::new_client().await?,
-        );
-        let resp = client.full_info(grpc::ProblemId { id }).await?.into_inner();
-        Result::<_>::Ok(resp)
-    });
+    let problem_info =
+        create_resource(id_and_token, |(id, token)| async move {
+            let id = id?;
+            let mut client = problem_set_client::ProblemSetClient::new(
+                grpc::new_client().await?,
+            );
+            let resp = client
+                .full_info(grpc::ProblemId { id }.with_token(token))
+                .await?
+                .into_inner();
+            Result::<_>::Ok(resp)
+        });
 
-    let submit_langs = create_resource(id, |id| async move {
-        let mut client =
-            submit_set_client::SubmitSetClient::new(grpc::new_client().await?);
-        let resp = client.list_langs(()).await?.into_inner();
-        Result::<_>::Ok(resp)
-    });
+    let submit_langs =
+        create_resource(id_and_token, |(id, token)| async move {
+            let mut client = submit_set_client::SubmitSetClient::new(
+                grpc::new_client().await?,
+            );
+            let resp =
+                client.list_langs(().with_token(token)).await?.into_inner();
+            Result::<_>::Ok(resp)
+        });
 
     let submit = create_action(
         |(lang_uuid, code, id): &(String, String, Result<i32>)| {
@@ -65,7 +73,7 @@ pub fn Problem() -> impl IntoView {
                             code: code.into_bytes(),
                             request_id: Uuid::new_v4().simple().to_string(),
                         }
-                        .with_token(token)?,
+                        .try_with_token(token)?,
                     )
                     .await?
                     .into_inner();
@@ -81,6 +89,7 @@ pub fn Problem() -> impl IntoView {
     let select_lang = create_rw_signal("".to_owned());
     let code = create_rw_signal("".to_owned());
 
+    let (token, _) = use_token();
     let disabled =
         Signal::derive(move || select_lang().is_empty() || submit.pending()());
 
