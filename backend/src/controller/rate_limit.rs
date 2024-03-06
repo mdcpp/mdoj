@@ -35,8 +35,8 @@ impl Bucket {
     }
     fn expect_dur(&self, cost: NonZeroU32) -> bool {
         let res = match self {
-            Bucket::Guest((limiter, key)) => limiter.check_key_n(&key, cost),
-            Bucket::Login((limiter, key)) => limiter.check_key_n(&key, cost),
+            Bucket::Guest((limiter, key)) => limiter.check_key_n(key, cost),
+            Bucket::Login((limiter, key)) => limiter.check_key_n(key, cost),
             Bucket::Blacklist(limiter) => limiter.check_n(cost),
         };
         match res {

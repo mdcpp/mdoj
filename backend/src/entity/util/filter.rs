@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, EntityTrait, PrimaryKeyTrait, QueryFilter, Select};
+use sea_orm::entity::prelude::*;
 
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;

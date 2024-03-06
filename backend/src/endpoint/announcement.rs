@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use super::tools::*;
 
 use crate::grpc::backend::announcement_set_server::*;

@@ -26,7 +26,7 @@ use uuid::Uuid;
 
 use crate::grpc::{
     backend::{submit_status, PlaygroundResult, SubmitStatus},
-    judger::{JudgeResponse, *},
+    judger::*,
 };
 
 use self::{pubsub::PubSub, route::*};

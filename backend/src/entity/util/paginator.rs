@@ -18,8 +18,6 @@ use tracing::*;
 
 use std::marker::PhantomData;
 
-use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
-
 use crate::util::error::Error;
 
 const PAGINATE_GUARANTEE: u64 = 96;
