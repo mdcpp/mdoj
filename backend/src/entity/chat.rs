@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use crate::util::auth::RoleLv;
 
 use super::*;
@@ -48,14 +50,12 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "chat";
-}
-
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if auth.user_perm().admin() {
             return Ok(query);
@@ -65,7 +65,7 @@ impl super::Filter for Entity {
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for Model {
+impl Reflect<Entity> for Model {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -77,14 +77,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct ParentPagerTrait;
 
-#[async_trait]
-impl PagerSource for ParentPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ParentPagerTrait {
     type Data = (i32, chrono::NaiveDateTime);
+}
 
+#[async_trait]
+impl Source for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -99,7 +99,7 @@ impl PagerSource for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ParentPagerTrait {
+impl SortSource<Model> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::CreateAt
     }
@@ -111,4 +111,4 @@ impl PagerSortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColPager<ParentPagerTrait, Model>;
+pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;

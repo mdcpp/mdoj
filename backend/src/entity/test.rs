@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -49,11 +51,8 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "testcase";
-}
-
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
             if perm.admin() {
@@ -61,8 +60,9 @@ impl super::Filter for Entity {
             }
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {
@@ -71,12 +71,12 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for Model {
+impl Reflect<Entity> for Model {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -92,14 +92,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct ParentPagerTrait;
 
-#[async_trait]
-impl PagerSource for ParentPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ParentPagerTrait {
     type Data = (i32, u32);
+}
 
+#[async_trait]
+impl Source for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -114,7 +114,7 @@ impl PagerSource for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ParentPagerTrait {
+impl SortSource<Model> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
@@ -126,18 +126,18 @@ impl PagerSortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColPager<ParentPagerTrait, Model>;
+pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
-#[async_trait]
-impl PagerSource for ColPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ColPagerTrait {
     type Data = u32;
+}
 
+#[async_trait]
+impl Source for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -150,7 +150,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ColPagerTrait {
+impl SortSource<Model> for ColPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
@@ -162,4 +162,4 @@ impl PagerSortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, Model>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;

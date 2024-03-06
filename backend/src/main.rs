@@ -1,5 +1,3 @@
-use tikv_jemallocator::Jemalloc;
-
 pub mod controller;
 pub mod endpoint;
 pub mod entity;
@@ -9,11 +7,12 @@ pub mod macro_tool;
 pub mod server;
 pub mod util;
 
+#[cfg(feature = "release")]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() {
-    let server = server::Server::new().await;
+    let server = server::Server::new().await.unwrap();
     server.start().await;
 }

@@ -1,3 +1,5 @@
+use tracing::instrument;
+
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -84,15 +86,13 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "submit";
-}
-
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
 
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if auth.user_perm().admin() {
             return Ok(query);
@@ -102,7 +102,7 @@ impl super::Filter for Entity {
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for PartialModel {
+impl Reflect<Entity> for PartialModel {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -118,14 +118,14 @@ impl PagerReflect<Entity> for PartialModel {
 
 pub struct ParentPagerTrait;
 
-#[async_trait]
-impl PagerSource for ParentPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ParentPagerTrait {
     type Data = (i32, chrono::NaiveDateTime);
+}
 
+#[async_trait]
+impl Source for ParentPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -140,7 +140,7 @@ impl PagerSource for ParentPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<PartialModel> for ParentPagerTrait {
+impl SortSource<PartialModel> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::UploadAt
     }
@@ -152,18 +152,18 @@ impl PagerSortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColPager<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
-#[async_trait]
-impl PagerSource for ColPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ColPagerTrait {
     type Data = chrono::NaiveDateTime;
+}
 
+#[async_trait]
+impl Source for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -176,7 +176,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<PartialModel> for ColPagerTrait {
+impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::UploadAt
     }
@@ -188,4 +188,4 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, PartialModel>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, PartialModel>;

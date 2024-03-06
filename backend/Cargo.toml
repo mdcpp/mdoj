@@ -1,12 +1,18 @@
+cargo-features = ["codegen-backend"]
+
 [package]
 name = "backend"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[profile.dev]
+codegen-backend = "cranelift"
 
 [dependencies]
-tikv-jemallocator = "0.5"
+tikv-jemallocator = { version = "0.5", optional = true }
 log = "0.4.18"
 paste = "1.0.12"
 prost = { workspace = true }
@@ -20,7 +26,6 @@ base64 = "0.21.5"
 uuid = "1.5.0"
 tonic-web = { workspace = true }
 quick_cache = "0.4.0"
-leaky-bucket = "1.0.1"
 hickory-resolver = "0.24.0"
 crossbeam-queue = "0.3.8"
 dashmap = "5.5.3"
@@ -28,7 +33,6 @@ tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
-sea-query = "0.30.4"
 ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
 opentelemetry = { version = "0.21.0", features = ["metrics"] }
@@ -36,8 +40,18 @@ opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio", "metrics"] }
 opentelemetry-stdout = { version = "0.2.0", features = ["metrics"] }
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
-migration = { path = "./migration",optional = true }
-sea-orm-cli = {version = "0.12.12",optional = true}
+migration = { path = "./migration", optional = true }
+sea-orm-cli = { version = "0.12.12", optional = true }
+governor = "0.6.0"
+http = "^0.2"
+
+[dependencies.tower-http]
+version = "^0.4"
+features = ["cors","trace"]
+
+[dependencies.sea-query]
+version = "0.30.4"
+features = ["thread-safe", "with-chrono", "backend-sqlite"]
 
 [dependencies.chrono]
 workspace = true
@@ -46,7 +60,7 @@ features = ["serde"]
 [dependencies.reqwest]
 version = "0.11.22"
 default-features = false
-features = ["rustls-tls", "json"]
+features = ["rustls-tls", "json","multipart"]
 
 [dependencies.k256]
 version = "0.13.2"
@@ -70,14 +84,12 @@ features = ["macros", "rt-multi-thread", "full", "time"]
 
 [dependencies.sea-orm]
 version = "0.12.11"
-default-features = false
 features = [
-    "runtime-tokio",
-    "macros",
-    "mock",
-    "sqlx-sqlite",
-    "with-chrono",
-    "debug-print"
+  "runtime-tokio-rustls",
+  "macros",
+  "mock",
+  "sqlx-sqlite",
+  "with-chrono"
 ]
 
 [dependencies.serde]
@@ -85,7 +97,7 @@ workspace = true
 features = ["derive"]
 
 [dependencies.tonic]
-version = "0.10.2"
+workspace = true
 features = ["transport", "channel", "codegen", "prost", "tls"]
 
 [dependencies.spin]
@@ -96,15 +108,14 @@ features = ["mutex", "spin_mutex", "rwlock"]
 # workspace = true
 version = "0.12.11"
 optional = true
-features = [
-  "runtime-tokio-rustls",
-  "sqlx-sqlite","with-chrono"
-]
+features = ["runtime-tokio-rustls", "sqlx-sqlite", "with-chrono"]
 
 [build-dependencies.tonic-build]
 workspace = true
 features = ["default"]
 
 [features]
-default = []
-standalone = ["dep:migration","dep:sea-orm-migration","dep:sea-orm-cli"]
+default = ["debug"]
+standalone = ["dep:migration", "dep:sea-orm-migration", "dep:sea-orm-cli"]
+release = ["dep:tikv-jemallocator"]
+debug = ["sea-orm/debug-print"]

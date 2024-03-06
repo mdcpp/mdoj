@@ -34,7 +34,6 @@ enum MatchRule {
 // (4, 3, false) => 5, 6, 7
 message Paginator {
   required string session = 1;
-  required bool reverse = 2;
 }
 
 message TextSearchRequest {
@@ -42,20 +41,20 @@ message TextSearchRequest {
     string text = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
 message ListByRequest {
   message Create{
     required int32 parent_id = 1;
-    required bool start_from_end =3;
+    optional bool start_from_end =3;
   }
   oneof request {
     Create create=1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse = 5 ;
 }
@@ -105,13 +104,13 @@ message SubmitInfo {
 message ListSubmitResponse {
   repeated SubmitInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message SubmitStatus {
   oneof task {
-    // number of test case running(or finished)
     int32 case = 1;
-    JudgeResult result = 2;
+    StateCode result = 2;
   }
 }
 
@@ -133,6 +132,9 @@ message Language {
   required string info = 3;
   required string lang_ext = 4;
 }
+message Languages{
+  repeated Language list=1;
+}
 
 enum SubmitSortBy {
   SUBMIT_SORT_BY_UPDATE_DATE = 0;
@@ -145,13 +147,13 @@ enum SubmitSortBy {
 message ListSubmitRequest {
   message Create {
     required SubmitSortBy sort_by = 1;
-    required bool start_from_end =3;
+    optional bool start_from_end =3;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse = 5 ;
 }
@@ -170,7 +172,7 @@ service SubmitSet {
   rpc Follow(SubmitId) returns (stream SubmitStatus);
   rpc Rejudge(RejudgeRequest) returns (google.protobuf.Empty);
 
-  rpc ListLangs(google.protobuf.Empty) returns (stream Language);
+  rpc ListLangs(google.protobuf.Empty) returns (Languages);
 }
 
 // Announcements
@@ -192,6 +194,7 @@ message AnnouncementFullInfo {
 message ListAnnouncementResponse {
   repeated AnnouncementInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddAnnouncementToContestRequest {
@@ -227,13 +230,13 @@ enum AnnouncementSortBy {
 message ListAnnouncementRequest {
   message Create {
     required AnnouncementSortBy sort_by = 1;
-    required bool start_from_end =7;
+    optional bool start_from_end =7;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
   optional bool reverse=5;
 }
@@ -286,6 +289,7 @@ message EducationFullInfo {
 message ListEducationResponse {
   repeated EducationInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddEducationToProblemRequest {
@@ -318,7 +322,7 @@ message ListEducationRequest {
     Paginator pager =2;
   }
   optional bool reverse = 5;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -344,6 +348,7 @@ message ProblemInfo {
   required ProblemId id = 1;
   required string title = 2;
   required uint32 submit_count = 3;
+  required uint32 difficulty = 5;
   required float ac_rate = 4;
 }
 
@@ -361,6 +366,7 @@ message ProblemFullInfo {
 message ListProblemResponse {
   repeated ProblemInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddProblemToContestRequest {
@@ -392,8 +398,6 @@ message UpdateProblemRequest {
     optional string tags = 6;
     optional string content = 7;
     optional MatchRule match_rule = 10;
-    optional uint32 submit_count = 3;
-    optional float ac_rate = 8;
     optional float order = 11;
   };
   required Info info = 1;
@@ -420,7 +424,7 @@ message ListProblemRequest {
     Create create = 1;
     Paginator pager = 2;
   }
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -462,6 +466,7 @@ message TestcaseFullInfo {
 message ListTestcaseResponse {
   repeated TestcaseInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message AddTestcaseToProblemRequest {
@@ -496,7 +501,7 @@ message ListTestcaseRequest {
     Paginator pager = 5;
   } 
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -536,6 +541,7 @@ message ContestFullInfo {
 message ListContestResponse {
   repeated ContestInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateContestRequest {
@@ -576,6 +582,7 @@ message UserRank {
 message ListRankResponse {
   repeated UserRank list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message JoinContestRequest {
@@ -594,14 +601,14 @@ enum ContestSortBy {
 message ListContestRequest {
   message Create {
     required ContestSortBy sort_by = 1;
-    required bool start_from_end = 2;
+    optional bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
@@ -617,10 +624,6 @@ service ContestSet {
   rpc Remove(ContestId) returns (google.protobuf.Empty);
 
   rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
-  rpc Exit(ContestId) returns (google.protobuf.Empty);
-
-  // return up to 10 user
-  rpc Rank(ContestId) returns (Users);
 }
 
 // User
@@ -628,7 +631,7 @@ message UserId { required int32 id = 1; }
 
 message UserInfo {
   required string username = 1;
-  required uint32 score = 2;
+  required uint64 score = 4;
   required UserId id = 3;
 }
 
@@ -640,6 +643,7 @@ message UserFullInfo {
 message ListUserResponse {
   repeated UserInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateUserRequest {
@@ -684,20 +688,21 @@ enum UserSortBy {
 message ListUserRequest {
   message Create {
     required UserSortBy sort_by = 1;
-    required bool start_from_end = 2;
+    optional bool start_from_end = 2;
   }
   oneof request {
     Create create = 1;
     Paginator pager = 2;
   }
   optional bool reverse = 6;
-  required uint64 size = 3;
+  required int64 size = 3;
   optional uint64 offset = 4;
 }
 
 service UserSet {
   rpc List(ListUserRequest) returns (ListUserResponse);
   rpc SearchByText(TextSearchRequest) returns (ListUserResponse);
+  rpc ListByContest(ListByRequest) returns (ListUserResponse);
   rpc FullInfo(UserId) returns (UserFullInfo);
 
   rpc Create(CreateUserRequest) returns (UserId);
@@ -779,6 +784,7 @@ message ChatInfo {
 message ListChatResponse {
   repeated ChatInfo list = 1;
   required string next_session = 2;
+  required uint64 remain = 3;
 }
 
 message CreateChatRequest{

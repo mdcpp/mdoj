@@ -1,4 +1,9 @@
+use sea_orm::{QueryOrder, QuerySelect};
+use tracing::instrument;
+
 use crate::grpc::backend::UserSortBy;
+
+use self::util::paginator::Remain;
 
 use super::*;
 
@@ -8,7 +13,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub permission: i32,
-    pub score: u32,
+    pub score: i64,
     pub username: String,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub password: Vec<u8>,
@@ -141,26 +146,28 @@ impl Linked for UserToProblem {
     }
 }
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "user";
-}
-
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
     }
 
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {
-            return Ok(query.filter(Column::Permission.lt(perm as i32)));
+            return Ok(query.filter(
+                Column::Permission
+                    .lt(perm as i32)
+                    .or(Column::Id.eq(user_id)),
+            ));
         }
         Ok(query.filter(Column::Id.eq(user_id)))
     }
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for Model {
+impl Reflect<Entity> for Model {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -172,14 +179,14 @@ impl PagerReflect<Entity> for Model {
 
 pub struct TextPagerTrait;
 
-#[async_trait]
-impl PagerSource for TextPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for TextPagerTrait {
     type Data = String;
+}
 
+#[async_trait]
+impl Source for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 4;
 
     async fn filter(
@@ -191,18 +198,18 @@ impl PagerSource for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PkPager<TextPagerTrait, Model>;
+pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
-#[async_trait]
-impl PagerSource for ColPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for ColPagerTrait {
     type Data = (UserSortBy, String);
+}
 
+#[async_trait]
+impl Source for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -215,7 +222,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<Model> for ColPagerTrait {
+impl SortSource<Model> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
             UserSortBy::Score => Column::Score,
@@ -233,4 +240,126 @@ impl PagerSortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, Model>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
+
+/// ParentPaginator (offset base)
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ParentPaginator {
+    pub offset: u64,
+    pub ppk: i32,
+    pub start_from_end: bool,
+}
+
+pub struct ParentSource;
+
+impl PagerData for ParentSource {
+    type Data = (u64, i32);
+}
+
+fn to_order(raw: bool) -> sea_query::Order {
+    match raw {
+        true => sea_query::Order::Desc,
+        false => sea_query::Order::Asc,
+    }
+}
+
+#[async_trait]
+impl util::paginator::Pager for ParentPaginator {
+    type Source = ParentSource;
+    type Reflect = Model;
+
+    async fn fetch(
+        mut self,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        rel_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+        // check user is in contest(or admin)
+        contest::Entity::read_by_id(self.ppk, auth)?
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB)?;
+
+        let result = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(self.ppk))
+            .order_by(
+                user_contest::Column::Score,
+                to_order(self.start_from_end ^ rel_dir),
+            )
+            .offset(self.offset + offset)
+            .limit(size)
+            .all(db)
+            .await?;
+
+        let result: Vec<_> = result
+            .load_one(Entity, db)
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        self.offset += result.len() as u64;
+        Ok((self, result))
+    }
+    async fn new_fetch(
+        data: <Self::Source as PagerData>::Data,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        abs_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+        let ppk = data.1;
+        // check user is in contest(or admin)
+        contest::Entity::read_by_id(ppk, auth)?
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB)?;
+
+        let result = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(data.0))
+            .order_by(user_contest::Column::Score, to_order(abs_dir))
+            .offset(offset)
+            .limit(size)
+            .all(db)
+            .await?;
+
+        let result: Vec<_> = result
+            .load_one(Entity, db)
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let offset = offset + result.len() as u64;
+
+        Ok((
+            ParentPaginator {
+                ppk,
+                offset,
+                start_from_end: abs_dir,
+            },
+            result,
+        ))
+    }
+}
+
+#[async_trait]
+impl Remain for ParentPaginator {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        contest::Entity::read_by_id(self.ppk, auth)?
+            .one(db)
+            .await?
+            .ok_or(Error::NotInDB)?;
+
+        let result = user_contest::Entity::find()
+            .filter(user_contest::Column::ContestId.eq(self.ppk))
+            .order_by(user_contest::Column::Score, to_order(self.start_from_end))
+            .count(db)
+            .await?;
+
+        Ok(result.saturating_sub(self.offset))
+    }
+}

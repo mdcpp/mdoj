@@ -9,13 +9,33 @@ use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
 
 use crate::init::logger::PACKAGE_NAME;
 
+macro_rules! impl_metrics {
+    ($n:expr) => {
+        paste::paste!{
+            impl MetricsController {
+                pub fn $n(&self,val:i64){
+                    self.[<$n>].add(val,&[]);
+                }
+            }
+        }
+    };
+    ($target:expr,$($ext:expr),+) => {
+        impl_metrics!($target);
+        impl_metrics!($($ext),+);
+    };
+}
+
+/// collection of statful metrics
+///
+/// because metrics(opentelemetry) sdk is not yet GA,
+/// stateful metrics is necessary in state of art.
 pub struct MetricsController {
-    pub user: UpDownCounter<i64>,
-    pub submit: UpDownCounter<i64>,
-    pub education: UpDownCounter<i64>,
-    pub contest: UpDownCounter<i64>,
-    pub chat: UpDownCounter<i64>,
-    pub image: ObservableCounter<u64>,
+    user: UpDownCounter<i64>,
+    submit: UpDownCounter<i64>,
+    education: UpDownCounter<i64>,
+    contest: UpDownCounter<i64>,
+    chat: UpDownCounter<i64>,
+    image: ObservableCounter<u64>,
 }
 
 impl MetricsController {
@@ -31,8 +51,14 @@ impl MetricsController {
             image: package_meter.u64_observable_counter("counts_image").init(),
         }
     }
+    pub fn image(&self, val: u64) {
+        self.image.observe(val, &[]);
+    }
 }
+impl_metrics!(user, submit, education, contest, chat);
 
+/// because metrics(opentelemetry) sdk is not yet GA,
+/// rate metrics(feature) is missing and we implement manually through [`ObservableGauge<f64>`]
 pub struct RateMetrics<const S: usize> {
     meter: ObservableGauge<f64>,
     record: SegQueue<bool>,

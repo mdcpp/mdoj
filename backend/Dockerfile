@@ -1,6 +1,5 @@
 FROM rust:1.75.0-slim-buster AS builder
 
-ARG ARCH
 WORKDIR /complier
 
 RUN apt update -y
@@ -18,13 +17,19 @@ WORKDIR /complier
 COPY . .
 RUN --mount=type=cache,target=target
 
+RUN sed -i '/mold/d' backend/Cargo.toml
+RUN sed -i '/codegen-backend/d' backend/Cargo.toml
+
+ARG ARCH
+
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
+RUN cargo install --no-default-features --features release --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
 # WORKDIR are used instead of mkdir
 WORKDIR /database
 WORKDIR /config
+WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/backend /
 
 CMD ["/backend"]

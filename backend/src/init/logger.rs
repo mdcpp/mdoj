@@ -49,7 +49,7 @@ fn init_meter_provider(reader: impl MetricReader) -> MeterProvider {
 }
 
 // Construct Tracer for OpenTelemetryLayer
-fn init_tracer() -> Tracer {
+fn init_tracer() -> super::Result<Tracer> {
     opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
@@ -65,11 +65,11 @@ fn init_tracer() -> Tracer {
         .with_batch_config(BatchConfig::default())
         .with_exporter(opentelemetry_otlp::new_exporter().tonic())
         .install_batch(runtime::Tokio)
-        .unwrap()
+        .map_err(|err| err.into())
 }
 
 // Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
-fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
+fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> super::Result<OtelGuard> {
     let meter_provider = init_meter_provider(match opentelemetry {
         true => {
             let exporter = opentelemetry_otlp::new_exporter()
@@ -95,7 +95,7 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
             .with(tracing_subscriber::filter::LevelFilter::from_level(level))
             .with(tracing_subscriber::fmt::layer())
             .with(MetricsLayer::new(meter_provider.clone()))
-            .with(OpenTelemetryLayer::new(init_tracer()))
+            .with(OpenTelemetryLayer::new(init_tracer()?))
             .init(),
         false => tracing_subscriber::registry()
             .with(tracing_subscriber::filter::LevelFilter::from_level(level))
@@ -104,7 +104,7 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> OtelGuard {
             .init(),
     };
 
-    OtelGuard { meter_provider }
+    Ok(OtelGuard { meter_provider })
 }
 
 pub struct OtelGuard {
@@ -135,7 +135,7 @@ fn init_panic_hook() {
     }));
 }
 
-pub fn init(config: &GlobalConfig) -> OtelGuard {
+pub fn init(config: &GlobalConfig) -> super::Result<OtelGuard> {
     init_panic_hook();
 
     let level = match config.log_level {

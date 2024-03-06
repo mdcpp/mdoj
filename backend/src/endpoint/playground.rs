@@ -20,10 +20,13 @@ impl PlaygroundSet for Arc<Server> {
         &self,
         req: Request<PlaygroundRequest>,
     ) -> Result<Response<Self::RunStream>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, crate::NonZeroU32!(15))
+            .in_current_span()
+            .await?;
         let (user_id, _) = auth.ok_or_default()?;
 
-        tracing::debug!(user_id = user_id, "playground_start");
+        tracing::debug!(user_id = user_id);
 
         if req.code.len() > PLAYGROUND_CODE_LEN {
             return Err(Error::BufferTooLarge("code").into());
@@ -38,6 +41,7 @@ impl PlaygroundSet for Arc<Server> {
                     code: req.code,
                     lang,
                 })
+                .instrument(tracing::debug_span!("playground"))
                 .await?,
         ))
     }

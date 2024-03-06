@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
+use http::header::HeaderName;
 use sea_orm::DatabaseConnection;
+use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
+use tonic_web::GrpcWebLayer;
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{span, Instrument, Level};
 
 use crate::{
@@ -16,17 +20,29 @@ use crate::{
     init::{
         config::{self, GlobalConfig},
         logger::{self, OtelGuard},
+        Error,
     },
 };
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
+
+// from https://docs.rs/tonic-web/0.11.0/src/tonic_web/lib.rs.html#140
+const DEFAULT_EXPOSED_HEADERS: [&str; 3] =
+    ["grpc-status", "grpc-message", "grpc-status-details-bin"];
+const DEFAULT_ALLOW_HEADERS: [&str; 5] = [
+    "x-grpc-web",
+    "content-type",
+    "x-user-agent",
+    "grpc-timeout",
+    "token",
+];
 
 /// A wrapper to launch server
 ///
 /// [`Server`] doesn't hold state
 pub struct Server {
     pub token: Arc<token::TokenController>,
-    pub judger: Arc<judger::JudgerController>,
+    pub judger: Arc<judger::Judger>,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub metrics: metrics::MetricsController,
@@ -34,6 +50,7 @@ pub struct Server {
     pub rate_limit: rate_limit::RateLimitController,
     pub config: GlobalConfig,
     pub db: Arc<DatabaseConnection>,
+    pub identity: Mutex<Option<Identity>>,
     _otel_guard: OtelGuard,
 }
 
@@ -47,22 +64,37 @@ impl Server {
     /// 4. Other Controller
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
-    pub async fn new() -> Arc<Self> {
-        let config = config::init().await;
+    pub async fn new() -> Result<Arc<Self>, Error> {
+        let config = config::init().await?;
 
-        let otel_guard = logger::init(&config);
+        let otel_guard = logger::init(&config)?;
         let span = span!(Level::INFO, "server_construct");
         let crypto = crypto::CryptoController::new(&config, &span);
         let db = Arc::new(
             crate::init::db::init(&config.database, &crypto, &span)
                 .in_current_span()
-                .await,
+                .await?,
         );
 
-        Arc::new(Server {
+        let mut identity = None;
+        if config.grpc.private_pem.is_some() {
+            let private_pem = config.grpc.private_pem.as_ref().unwrap();
+            let public_pem = config
+                .grpc
+                .public_pem
+                .as_ref()
+                .expect("public pem should set if private pem is set");
+
+            let cert = std::fs::read_to_string(public_pem).map_err(Error::ReadPem)?;
+            let key = std::fs::read_to_string(private_pem).map_err(Error::ReadPem)?;
+
+            identity = Some(Identity::from_pem(cert, key));
+        }
+
+        Ok(Arc::new(Server {
             token: token::TokenController::new(&span, db.clone()),
             judger: Arc::new(
-                judger::JudgerController::new(config.judger.clone(), db.clone(), &span)
+                judger::Judger::new(config.judger.clone(), db.clone(), &span)
                     .in_current_span()
                     .await
                     .unwrap(),
@@ -73,46 +105,51 @@ impl Server {
             imgur: imgur::ImgurController::new(&config.imgur),
             rate_limit: rate_limit::RateLimitController::new(&config.grpc.trust_host),
             config,
+            identity: Mutex::new(identity),
             db,
             _otel_guard: otel_guard,
-        })
+        }))
     }
     /// Start the server
     pub async fn start(self: Arc<Self>) {
-        let mut identity = None;
+        let cors = CorsLayer::new()
+            .allow_headers(
+                DEFAULT_ALLOW_HEADERS
+                    .iter()
+                    .cloned()
+                    .map(HeaderName::from_static)
+                    .collect::<Vec<HeaderName>>(),
+            )
+            .expose_headers(
+                DEFAULT_EXPOSED_HEADERS
+                    .iter()
+                    .cloned()
+                    .map(HeaderName::from_static)
+                    .collect::<Vec<HeaderName>>(),
+            )
+            .allow_origin(AllowOrigin::mirror_request())
+            .allow_methods(Any);
 
-        if self.config.grpc.private_pem.is_some() {
-            let private_pem = self.config.grpc.private_pem.as_ref().unwrap();
-            let public_pem = self
-                .config
-                .grpc
-                .public_pem
-                .as_ref()
-                .expect("public pem should set if private pem is set");
-
-            let cert = std::fs::read_to_string(public_pem).expect("cannot read public pem");
-            let key = std::fs::read_to_string(private_pem).expect("cannot read private pem");
-
-            identity = Some(Identity::from_pem(cert, key));
-        }
-
-        let server = match identity {
+        let server = match self.identity.lock().take() {
             Some(identity) => transport::Server::builder()
                 .tls_config(ServerTlsConfig::new().identity(identity))
                 .unwrap(),
             None => transport::Server::builder().accept_http1(true),
         };
+
         server
+            .layer(cors)
+            .layer(GrpcWebLayer::new())
             .max_frame_size(Some(MAX_FRAME_SIZE))
-            .add_service(tonic_web::enable(ProblemSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(EducationSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(UserSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(TokenSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(ContestSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(TestcaseSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(SubmitSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(ChatSetServer::new(self.clone())))
-            .add_service(tonic_web::enable(AnnouncementSetServer::new(self.clone())))
+            .add_service(ProblemSetServer::new(self.clone()))
+            .add_service(EducationSetServer::new(self.clone()))
+            .add_service(UserSetServer::new(self.clone()))
+            .add_service(TokenSetServer::new(self.clone()))
+            .add_service(ContestSetServer::new(self.clone()))
+            .add_service(TestcaseSetServer::new(self.clone()))
+            .add_service(SubmitSetServer::new(self.clone()))
+            .add_service(ChatSetServer::new(self.clone()))
+            .add_service(AnnouncementSetServer::new(self.clone()))
             .serve(self.config.bind_address.clone().parse().unwrap())
             .await
             .unwrap();

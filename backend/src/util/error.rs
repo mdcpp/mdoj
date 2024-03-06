@@ -1,5 +1,4 @@
 use tonic::Status;
-
 use crate::report_internal;
 
 use super::auth::RoleLv;
@@ -18,10 +17,10 @@ pub enum Error {
     NotInPayload(&'static str),
     #[error("Unauthenticated")]
     Unauthenticated,
-    #[error("Not in database: `{0}`")]
-    NotInDB(&'static str),
-    #[error("Not in database(out of range): `{0}`")]
-    NotInDBList(&'static str),
+    #[error("Not in database: ")]
+    NotInDB,
+    #[error("Not in database(out of range):")]
+    NotInDBList,
     #[error("Invaild request_id")]
     InvaildUUID(#[from] uuid::Error),
     #[error("Function should be unreachable!")]
@@ -31,13 +30,15 @@ pub enum Error {
     #[error("Buffer `{0}` too large")]
     BufferTooLarge(&'static str),
     #[error("Already exist")]
-    AlreadyExist(&'static str),
+    AlreadyExist(String),
     #[error("You need to own `{0}` to add thing onto it")]
     UnownedAdd(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
     #[error("rate limit reached")]
-    RateLimit,
+    RateLimit(&'static str),
+    #[error("`{0}`")]
+    PassThrough(Status),
 }
 
 impl From<Error> for Status {
@@ -60,13 +61,13 @@ impl From<Error> for Status {
                 tracing::trace!("Client sent invaild or no token");
                 Status::unauthenticated("")
             }
-            Error::NotInDB(x) => {
-                tracing::trace!(entity = x, "database_notfound");
-                Status::not_found(x)
+            Error::NotInDB => {
+                tracing::trace!("database_notfound");
+                Status::not_found("")
             }
-            Error::NotInDBList(x) => {
-                tracing::trace!(entity = x, "database_notfound");
-                Status::out_of_range(x)
+            Error::NotInDBList => {
+                tracing::trace!("database_notfound");
+                Status::out_of_range("")
             }
             Error::InvaildUUID(err) => {
                 tracing::trace!(reason=?err,"requestid_invaild");
@@ -76,8 +77,8 @@ impl From<Error> for Status {
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
             Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
             Error::AlreadyExist(x) => {
-                tracing::trace!(hint = x, "entity_exist");
-                Status::already_exists(x)
+                tracing::trace!(username = x, "entity_exist");
+                Status::already_exists(format!("{} already exist", x))
             }
             Error::UnownedAdd(x) => {
                 tracing::trace!(hint = x, "add_fail");
@@ -86,7 +87,18 @@ impl From<Error> for Status {
             Error::RequirePermission(x) => {
                 Status::permission_denied(format!("require permission {}", x))
             }
-            Error::RateLimit => Status::resource_exhausted("rate limit reached!"),
+            Error::RateLimit(x) => {
+                tracing::warn!(traffic = x, "rate_limit");
+                Status::resource_exhausted("rate limit reached!")
+            }
+            Error::PassThrough(x) => x,
         }
+    }
+}
+
+pub fn atomic_fail(err: sea_orm::DbErr) -> Status {
+    match err {
+        sea_orm::DbErr::RecordNotUpdated => Error::NotInDB.into(),
+        _ => Error::DBErr(err).into(),
     }
 }

@@ -9,11 +9,12 @@
 //! - Update pager state(`PagerReflect`)
 //! - Serialize and return pager
 
-use crate::{entity::DebugName, util::auth::Auth};
-use sea_orm::{sea_query::SimpleExpr, *};
+use super::helper::*;
+use crate::util::auth::Auth;
+use sea_orm::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tonic::async_trait;
-use tracing::instrument;
+use tracing::*;
 
 use std::marker::PhantomData;
 
@@ -21,18 +22,52 @@ use sea_orm::{ColumnTrait, EntityTrait, QuerySelect, Select};
 
 use crate::util::error::Error;
 
+const PAGINATE_GUARANTEE: u64 = 96;
+
+#[async_trait]
+pub trait Pager
+where
+    Self: Sized + Serialize + DeserializeOwned,
+{
+    type Source: PagerData;
+    type Reflect: Send;
+    async fn fetch(
+        self,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        rel_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+    async fn new_fetch(
+        data: <Self::Source as PagerData>::Data,
+        auth: &Auth,
+        size: u64,
+        offset: u64,
+        abs_dir: bool,
+        db: &DatabaseConnection,
+    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+}
+
+#[async_trait]
+pub trait Remain {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error>;
+}
+
+pub trait PagerData {
+    type Data: Send + Sized + Serialize + DeserializeOwned + Sync;
+}
 /// indicate foreign object is ready for page source
 ///
 /// In `Education` example, we expect ::entity::education::Entity
 /// to implement it
 #[async_trait]
-pub trait PagerSource
+pub trait Source
 where
-    Self: Send,
+    Self: Send + PagerData,
 {
     const ID: <Self::Entity as EntityTrait>::Column;
-    type Entity: EntityTrait + DebugName;
-    type Data: Send + Sized + Serialize + DeserializeOwned;
+    type Entity: EntityTrait;
     const TYPE_NUMBER: u8;
     /// filter reconstruction
     async fn filter(
@@ -47,7 +82,7 @@ where
 /// In `Education` example, we expect ::entity::education::PartialEducation
 /// to implement it
 #[async_trait]
-pub trait PagerReflect<E: EntityTrait>
+pub trait Reflect<E: EntityTrait>
 where
     Self: Sized + Send,
 {
@@ -56,34 +91,9 @@ where
     async fn all(query: Select<E>, db: &DatabaseConnection) -> Result<Vec<Self>, Error>;
 }
 
-#[async_trait]
-pub trait Pager
-where
-    Self: Sized + Serialize + DeserializeOwned,
-{
-    type Source: PagerSource;
-    type Reflect: PagerReflect<<Self::Source as PagerSource>::Entity> + Send;
-    async fn fetch(
-        self,
-        auth: &Auth,
-        size: u64,
-        offset: u64,
-        rel_dir: bool,
-        db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
-    async fn new_fetch(
-        data: <Self::Source as PagerSource>::Data,
-        auth: &Auth,
-        size: u64,
-        offset: u64,
-        abs_dir: bool,
-        db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
-}
-
 /// compact primary key pager
 #[derive(Serialize, Deserialize)]
-pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
+pub struct PrimaryKeyPaginator<S: Source, R: Reflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
@@ -91,13 +101,9 @@ pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     /// original direction
     direction: bool,
     /// data
-    #[serde(bound(
-        deserialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: DeserializeOwned"
-    ))]
-    #[serde(bound(
-        serialize = "<<PkPager<S, R> as Pager>::Source as PagerSource>::Data: Serialize"
-    ))]
-    data: <<PkPager<S, R> as Pager>::Source as PagerSource>::Data,
+    #[serde(bound(deserialize = "S::Data: DeserializeOwned"))]
+    #[serde(bound(serialize = "S::Data: Serialize"))]
+    data: S::Data,
     #[serde(bound(serialize = ""))]
     #[serde(bound(deserialize = ""))]
     source: PhantomData<S>,
@@ -105,9 +111,30 @@ pub struct PkPager<S: PagerSource, R: PagerReflect<S::Entity>> {
     #[serde(bound(deserialize = ""))]
     reflect: PhantomData<R>,
 }
+#[async_trait]
+impl<S: Source + Sync, R: Reflect<S::Entity> + Sync> Remain for PrimaryKeyPaginator<S, R> {
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        let paginator = PaginatePkBuilder::default()
+            .pk(<S as Source>::ID)
+            .include(false)
+            .rev(self.direction)
+            .last_pk(self.last_id)
+            .build()
+            .unwrap();
+
+        let query = paginator.apply(S::filter(auth, &self.data, db).await?);
+
+        let max_count = MaxCountBuilder::default()
+            .query(query)
+            .max(PAGINATE_GUARANTEE)
+            .build()
+            .unwrap();
+        max_count.count(db).await
+    }
+}
 
 #[async_trait]
-impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
+impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
@@ -118,9 +145,10 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         offset: u64,
         rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
+        // FIXME: should use PassThrough
         let paginator = PaginatePkBuilder::default()
-            .pk(<S as PagerSource>::ID)
+            .pk(<S as Source>::ID)
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .last_pk(self.last_id)
@@ -135,13 +163,12 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             .offset(offset);
         let models = R::all(query, db).await?;
 
-        // FIXME: use different http status
         if let Some(model) = models.last() {
             self.last_id = R::get_id(model);
             return Ok((self, models));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
     async fn new_fetch(
         data: S::Data,
@@ -150,16 +177,15 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
         _offset: u64,
         abs_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let query = order_by_bool(
             S::filter(auth, &data, db).await?,
-            <S as PagerSource>::ID,
+            <S as Source>::ID,
             abs_dir,
         );
 
         let models = R::all(query, db).await?;
 
-        // FIXME: use different http status
         if let Some(model) = models.last() {
             return Ok((
                 Self {
@@ -174,16 +200,17 @@ impl<S: PagerSource, R: PagerReflect<S::Entity>> Pager for PkPager<S, R> {
             ));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
 }
 
-pub trait PagerSortSource<R>
+pub trait SortSource<R>
 where
-    Self: PagerSource,
+    Self: Source,
 {
     /// get sort column
     fn sort_col(data: &Self::Data) -> impl ColumnTrait;
+    /// get value of column
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send;
     /// save last value in column
     fn save_val(data: &mut Self::Data, model: &R);
@@ -191,7 +218,7 @@ where
 
 /// compact column pager
 #[derive(Serialize, Deserialize)]
-pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
+pub struct ColumnPaginator<S: SortSource<R>, R: Reflect<S::Entity>> {
     /// last primary
     last_id: i32,
     /// last direction(relative)
@@ -210,11 +237,39 @@ pub struct ColPager<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> {
 }
 
 #[async_trait]
-impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R> {
+impl<S: SortSource<R> + Sync, R: Reflect<S::Entity> + Sync> Remain for ColumnPaginator<S, R> {
+    #[instrument(skip_all, level = "debug", name = "count_remain")]
+    async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error> {
+        let col = S::sort_col(&self.data);
+        let val = S::get_val(&self.data);
+
+        let paginator = PaginateColBuilder::default()
+            .pk(<S as Source>::ID)
+            .include(false)
+            .rev(self.direction)
+            .col(col)
+            .last_value(val)
+            .last_pk(self.last_id)
+            .build()
+            .unwrap();
+
+        let query = paginator.apply(S::filter(auth, &self.data, db).await?);
+
+        let max_count = MaxCountBuilder::default()
+            .query(query)
+            .max(PAGINATE_GUARANTEE)
+            .build()
+            .unwrap();
+        max_count.count(db).await
+    }
+}
+
+#[async_trait]
+impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "debug", name = "query_paginator")]
     async fn fetch(
         mut self,
         auth: &Auth,
@@ -222,12 +277,12 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         offset: u64,
         rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let col = S::sort_col(&self.data);
         let val = S::get_val(&self.data);
 
         let paginator = PaginateColBuilder::default()
-            .pk(<S as PagerSource>::ID)
+            .pk(<S as Source>::ID)
             .include(self.last_direction ^ rel_dir)
             .rev(self.direction ^ rel_dir)
             .col(col)
@@ -242,11 +297,15 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             .apply(S::filter(auth, &self.data, db).await?)
             .limit(size)
             .offset(offset);
-        let models = R::all(query, db).await?;
+        let models = R::all(query, db)
+            .instrument(debug_span!("query").or_current())
+            .await?;
 
         if size as usize != models.len() {
             tracing::debug!(size = size, len = models.len(), "miss_data")
         }
+
+        let _enter = debug_span!("save_state").or_current().entered();
 
         if let Some(model) = models.last() {
             S::save_val(&mut self.data, model);
@@ -254,9 +313,9 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             return Ok((self, models));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
-    #[instrument(skip(data), level = "debug")]
+    #[instrument(skip(data), level = "debug", rename = "create_paginator")]
     async fn new_fetch(
         mut data: S::Data,
         auth: &Auth,
@@ -264,24 +323,23 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
         offset: u64,
         abs_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<(Self, Vec<R>), Error> {
         let col = S::sort_col(&data);
 
         let query = order_by_bool(
-            S::filter(auth, &data, db).await?,
-            <S as PagerSource>::ID,
+            S::filter(auth, &data, db).in_current_span().await?,
+            <S as Source>::ID,
             abs_dir,
         );
         let query = order_by_bool(query, col, abs_dir)
             .limit(size)
             .offset(offset);
 
-        let models = R::all(query, db).await?;
+        let models = R::all(query, db).in_current_span().await?;
 
         if size as usize != models.len() {
-            tracing::debug!(size = size, len = models.len(), "miss_data")
+            tracing::trace!(size = size, len = models.len(), "miss_data")
         }
-        // FIXME: use different http status
         if let Some(model) = models.last() {
             S::save_val(&mut data, model);
 
@@ -298,89 +356,13 @@ impl<S: PagerSortSource<R>, R: PagerReflect<S::Entity>> Pager for ColPager<S, R>
             ));
         }
 
-        Err(Error::NotInDBList(S::Entity::DEBUG_NAME))
+        Err(Error::NotInDBList)
     }
 }
 
-#[inline]
-pub fn order_by_bool<E: EntityTrait>(
-    query: Select<E>,
-    col: impl ColumnTrait,
-    rev: bool,
-) -> Select<E> {
-    let ord = match rev {
-        true => Order::Desc,
-        false => Order::Asc,
-    };
-    query.order_by(col, ord)
-}
-/// short-hand for gt,gte,lt,lte
-///
-/// true for desc
-// included and asc=>gte
-// excluded and asc=>gt
-// included and desc=>lte
-// excluded and desc=>lt
-#[inline]
-pub fn com_eq(eq: bool, ord: bool, val: impl Into<Value>, col: impl ColumnTrait) -> SimpleExpr {
-    match eq {
-        true => match ord {
-            true => ColumnTrait::lte(&col, val),
-            false => ColumnTrait::gte(&col, val),
-        },
-        false => match ord {
-            true => ColumnTrait::lt(&col, val),
-            false => ColumnTrait::gt(&col, val),
-        },
-    }
-}
-
-#[derive(derive_builder::Builder)]
-#[builder(pattern = "owned")]
-pub struct PaginateCol<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value>> {
-    include: bool,
-    rev: bool,
-    pk: PK,
-    col: COL,
-    last_pk: i32,
-    last_value: CV,
-}
-
-impl<PK: ColumnTrait, COL: ColumnTrait, CV: Into<Value> + Clone> PaginateCol<PK, COL, CV> {
-    pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
-        let _ord = match self.rev {
-            true => Order::Desc,
-            false => Order::Asc,
-        };
-        // WHERE created >= $<after> and (id >= $<id> OR created > $<after>)
-        let left = com_eq(true, self.rev, self.last_value.clone(), self.col);
-
-        let right = {
-            let left = com_eq(self.include, self.rev, self.last_pk, self.pk);
-            let right = com_eq(false, self.rev, self.last_value, self.col);
-            left.or(right)
-        };
-
-        let query = query.filter(left.and(right));
-
-        let query = order_by_bool(query, self.pk, self.rev);
-
-        order_by_bool(query, self.col, self.rev)
-    }
-}
-
-#[derive(derive_builder::Builder)]
-pub struct PaginatePk<PK: ColumnTrait> {
-    include: bool,
-    rev: bool,
-    pk: PK,
-    last_pk: i32,
-}
-
-impl<PK: ColumnTrait> PaginatePk<PK> {
-    pub fn apply<E: EntityTrait>(self, query: Select<E>) -> Select<E> {
-        let query = query.filter(com_eq(self.include, self.rev, self.last_pk, self.pk));
-
-        order_by_bool(query, self.pk, self.rev)
-    }
+pub(super) trait Paginate<E: EntityTrait> {
+    /// Apply pagination effect on a Select(sea_orm)
+    ///
+    /// be careful not to run order_by before applying pagination
+    fn apply(self, query: Select<E>) -> Select<E>;
 }

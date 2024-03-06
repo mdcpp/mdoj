@@ -116,7 +116,7 @@ impl Auth {
             .columns([user::Column::Id])
             .one(db)
             .await?
-            .ok_or(Error::NotInDB("user"))
+            .ok_or(Error::NotInDB)
     }
 }
 

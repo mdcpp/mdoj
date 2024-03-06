@@ -45,17 +45,9 @@ message TestIO {
   required bytes output = 2;
 }
 
-message JudgeResponse {
-  oneof task {
-    // number of test case running(or finished)
-    int32 case = 1;
-    JudgeResult result = 2;
-  }
-}
-
 // according to our requirement, judger should return resource usage even CE
 // but judger don't follow this strictly for now.
-message JudgeResult {
+message JudgeResponse {
   // assertion code
   required JudgerCode status = 1;
   // the time in nanosecond

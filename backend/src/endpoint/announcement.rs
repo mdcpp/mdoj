@@ -8,6 +8,7 @@ use crate::grpc::into_prost;
 
 use crate::entity::announcement::*;
 use crate::entity::*;
+use crate::NonZeroU32;
 
 impl From<i32> for AnnouncementId {
     fn from(value: i32) -> Self {
@@ -63,29 +64,32 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
-        let offset = bound!(req.offset(), 1024);
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_announcement_request::Request::Create(create) => {
                 ColPaginator::new_fetch(
                     (create.sort_by(), Default::default()),
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_announcement_request::Request::Pager(old) => {
-                let pager: ColPaginator = self.crypto.decode(old.session)?;
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
                     .await
             }
         }?;
+
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
 
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
@@ -93,6 +97,7 @@ impl AnnouncementSet for Arc<Server> {
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
     #[instrument(skip_all, level = "debug")]
@@ -100,21 +105,25 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<TextSearchRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
-        let offset = bound!(req.offset(), 1024);
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db).await
+                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
+                    .in_current_span()
+                    .await
             }
             text_search_request::Request::Pager(old) => {
-                let pager: TextPaginator = self.crypto.decode(old.session)?;
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
                     .await
             }
         }?;
+
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
 
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
@@ -122,6 +131,7 @@ impl AnnouncementSet for Arc<Server> {
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
     #[instrument(skip_all, level = "debug")]
@@ -129,16 +139,20 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AnnouncementId>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::debug!(announcement_id = req.id);
 
         let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
         let model = query
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }
@@ -147,15 +161,18 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<AnnouncementId>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, title);
         check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check_i32(user_id, &uuid) {
-            return Ok(Response::new(x.into()));
+        if let Some(x) = self.dup.check::<AnnouncementId>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         if perm.super_user() {
@@ -169,62 +186,73 @@ impl AnnouncementSet for Arc<Server> {
 
         let model = model
             .save(self.db.deref())
+            .instrument(info_span!("save").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
-        self.dup.store_i32(user_id, uuid, model.id.clone().unwrap());
+        let id: AnnouncementId = model.id.clone().unwrap().into();
 
-        tracing::debug!(id = model.id.clone().unwrap(), "announcement_created");
+        self.dup.store(user_id, uuid, id.clone());
+        tracing::debug!(id = id.id, "announcement_created");
 
-        Ok(Response::new(model.id.unwrap().into()))
+        Ok(Response::new(id))
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(
         &self,
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, _perm) = auth.ok_or_default()?;
 
         check_exist_length!(SHORT_ART_SIZE, req.info, title);
         check_exist_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if self.dup.check_i32(user_id, &uuid).is_some() {
-            return Ok(Response::new(()));
+        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
+            return Ok(Response::new(x));
         };
 
         tracing::trace!(id = req.id.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         fill_exist_active_model!(model, req.info, title, content);
 
-        let model = model
+        model
             .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
-        self.dup.store_i32(user_id, uuid, model.id);
+        self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
         if result.rows_affected == 0 {
-            return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+            return Err(Error::NotInDB.into());
         }
 
         tracing::debug!(id = req.id);
@@ -236,37 +264,45 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
-        let (contest, model) = try_join!(
-            contest::Entity::read_by_id(req.contest_id.id, &auth)?.one(self.db.deref()),
-            Entity::read_by_id(req.announcement_id.id, &auth)?.one(self.db.deref())
+        let (contest, model) = tokio::try_join!(
+            contest::Entity::read_by_id(req.contest_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_parent").or_current()),
+            Entity::read_by_id(req.announcement_id.id, &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_child").or_current())
         )
         .map_err(Into::<Error>::into)?;
 
-        let contest = contest.ok_or(Error::NotInDB("contest"))?;
-        let model = model.ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+        let contest = contest.ok_or(Error::NotInDB)?;
+        let model = model.ok_or(Error::NotInDB)?;
 
         if !perm.admin() {
             if contest.hoster != user_id {
-                return Err(Error::NotInDB("contest").into());
+                return Err(Error::NotInDB.into());
             }
             if model.user_id != user_id {
-                return Err(Error::NotInDB(Entity::DEBUG_NAME).into());
+                return Err(Error::NotInDB.into());
             }
         }
 
         let mut model = model.into_active_model();
         model.contest_id = ActiveValue::Set(Some(req.contest_id.id));
         model
-            .save(self.db.deref())
+            .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -275,20 +311,25 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetcg").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
         announcement.contest_id = ActiveValue::Set(None);
 
         announcement
             .save(self.db.deref())
+            .instrument(info_span!("remove").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -296,7 +337,10 @@ impl AnnouncementSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -305,26 +349,31 @@ impl AnnouncementSet for Arc<Server> {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
+        let mut model = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("announcement"))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
-        announcement.public = ActiveValue::Set(true);
+        model.public = ActiveValue::Set(true);
 
-        announcement
-            .save(self.db.deref())
+        model
+            .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -333,20 +382,22 @@ impl AnnouncementSet for Arc<Server> {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let mut announcement = Entity::find_by_id(Into::<i32>::into(req))
+        let mut model = Entity::find_by_id(Into::<i32>::into(req))
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("announcement"))?
+            .ok_or(Error::NotInDB)?
             .into_active_model();
 
-        announcement.public = ActiveValue::Set(false);
+        model.public = ActiveValue::Set(false);
 
-        announcement
-            .save(self.db.deref())
+        model
+            .update(self.db.deref())
+            .instrument(info_span!("update").or_current())
             .await
-            .map_err(Into::<Error>::into)?;
+            .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
     }
@@ -355,19 +406,24 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
+                .in_current_span()
                 .await?;
         let model = parent
             .upgrade()
             .find_related(Entity)
             .filter(Column::Id.eq(Into::<i32>::into(req.announcement_id)))
             .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB(Entity::DEBUG_NAME))?;
+            .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
     }
@@ -376,30 +432,32 @@ impl AnnouncementSet for Arc<Server> {
         &self,
         req: Request<ListByRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
-        let size = bound!(req.size, 64);
-        let offset = bound!(req.offset(), 1024);
+        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
 
-        let (pager, models) = match req.request.ok_or(Error::NotInPayload("request"))? {
+        let (pager, models) = match pager {
             list_by_request::Request::Create(create) => {
-                tracing::debug!(id = create.parent_id);
                 ParentPaginator::new_fetch(
                     (create.parent_id, Default::default()),
                     &auth,
                     size,
                     offset,
-                    create.start_from_end,
+                    create.start_from_end(),
                     &self.db,
                 )
+                .in_current_span()
                 .await
             }
             list_by_request::Request::Pager(old) => {
-                let pager: ParentPaginator = self.crypto.decode(old.session)?;
+                let span = tracing::info_span!("paginate").or_current();
+                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
                 pager
-                    .fetch(&auth, size, offset, old.reverse, &self.db)
+                    .fetch(&auth, size, offset, rev, &self.db)
+                    .instrument(span)
                     .await
             }
         }?;
+
+        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
 
         let next_session = self.crypto.encode(pager)?;
         let list = models.into_iter().map(|x| x.into()).collect();
@@ -407,6 +465,7 @@ impl AnnouncementSet for Arc<Server> {
         Ok(Response::new(ListAnnouncementResponse {
             list,
             next_session,
+            remain,
         }))
     }
 }

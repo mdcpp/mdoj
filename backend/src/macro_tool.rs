@@ -1,8 +1,16 @@
+use opentelemetry::trace::TraceContextExt;
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
 #[macro_export]
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
+        tonic::Status::internal($pattern.to_string())
+    }};
+    ($level:ident,$pattern:expr) => {{
+        tracing::$level!("{}", $pattern);
         tonic::Status::internal($pattern.to_string())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
@@ -12,16 +20,30 @@ macro_rules! report_internal {
 }
 
 #[macro_export]
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "debug"))]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
-        tonic::Status::unknown("unknown error")
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
+    }};
+    ($level:ident,$pattern:expr) => {{
+        tracing::$level!("{}", $pattern);
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         tracing::$level!($pattern, $error);
-        tonic::Status::unknown("unknown error")
+        tonic::Status::unknown(crate::macro_tool::debug_msg())
     }};
+}
+
+pub fn debug_msg() -> String {
+    let ctx = Span::current().context();
+    let ctx_span = ctx.span();
+    let span_ctx = ctx_span.span_context();
+    let trace_id = span_ctx.trace_id();
+    let span_id = span_ctx.span_id();
+
+    format!("trace_id: {}, span_id: {}", trace_id, span_id)
 }
 
 #[macro_export]
@@ -88,19 +110,11 @@ macro_rules! ofl {
     };
 }
 
-/// bound check
+/// shorthanded union macro
+///
+/// Note that it return select query column(for partial model)
 #[macro_export]
-macro_rules! bound {
-    ($n:expr,$limit:literal) => {{
-        if $n > $limit {
-            return Err(Error::NumberTooLarge.into());
-        }
-        $n
-    }};
-}
-
-#[macro_export]
-macro_rules! partial_union {
+macro_rules! union {
     ($cols:expr,$a:expr,$b:expr) => {{
         use sea_orm::{QuerySelect, QueryTrait};
         $a.select_only()
@@ -133,5 +147,66 @@ macro_rules! partial_union {
                     .to_owned(),
             )
             .to_owned()
+    }};
+}
+
+/// Create `NonZeroU32` constant
+#[macro_export]
+macro_rules! NonZeroU32 {
+    ($n:literal) => {
+        match std::num::NonZeroU32::new($n) {
+            Some(v) => v,
+            None => panic!("expect non-zero u32"),
+        }
+    };
+}
+
+/// parse request
+///
+/// the req must have field `size`, `offset`, `request`
+///
+/// Be awared don't mess up the order of returned tuple
+///
+/// ```ignore
+/// let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
+/// ```
+///
+/// We use marco to parse request instead of a bunch of `From`
+/// to decouple them from a macro
+///
+/// ```proto
+/// message ListProblemRequest {
+///   message Create {
+///     required ProblemSortBy sort_by = 1;
+///     optional bool start_from_end =2;
+///     }
+///   oneof request {
+///     Create create = 1;
+///     Paginator pager = 2;
+///   }
+///   required int64 size = 3;
+///   optional uint64 offset = 4;
+/// }
+/// ````
+#[macro_export]
+macro_rules! parse_pager_param {
+    ($self:expr,$req:expr) => {{
+        let span = tracing::info_span!("parse").or_current();
+
+        let (auth, req) = $self
+            .parse_request_fn($req, |req| {
+                ((req.size.saturating_abs() as u64) + req.offset() / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .instrument(span)
+            .await?;
+        (
+            auth,
+            req.size < 0,
+            req.size.saturating_abs() as u64,
+            req.offset(),
+            req.request.ok_or(Error::NotInPayload("request"))?,
+        )
     }};
 }

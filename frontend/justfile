@@ -12,7 +12,7 @@ release-docker:
     just release
     cp ../proto/*.proto .
     cp ../Cargo.toml ws-Cargo.toml
-    docker build . -t mdoj-gateway
+    docker build . -t mdoj-frontend
 
 release:
     cargo build

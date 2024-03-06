@@ -14,7 +14,7 @@ use std::{
 use crossbeam_queue::SegQueue;
 use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
-use tracing::{instrument, span, Instrument, Level, Span};
+use tracing::{debug_span, instrument, span, Instrument, Level, Span};
 use uuid::Uuid;
 
 use crate::{
@@ -137,7 +137,7 @@ async fn discover<I: Routable + Send>(
     loop {
         match instance
             .discover()
-            .instrument(span!(parent:span.clone(),Level::DEBUG, "try advance"))
+            .instrument(debug_span!(parent:span.clone(), "try advance"))
             .in_current_span()
             .await
         {

@@ -1,4 +1,8 @@
-pub mod code;
+//! collection of controller
+//!
+//! controller are stateful, independent conponment and should
+//! include intergated test
+
 pub mod crypto;
 pub mod duplicate;
 pub mod imgur;

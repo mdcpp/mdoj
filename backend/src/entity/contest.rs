@@ -1,8 +1,10 @@
 use std::ops::Deref;
 
-use sea_orm::{DatabaseBackend, Statement};
+use chrono::Local;
+use sea_orm::Statement;
+use tracing::{instrument, Instrument};
 
-use crate::{grpc::backend::ContestSortBy, partial_union};
+use crate::{grpc::backend::ContestSortBy, union};
 
 use super::*;
 
@@ -38,7 +40,9 @@ pub struct PartialModel {
     pub title: String,
     pub password: Option<Vec<u8>>,
     pub public: bool,
+    #[sea_orm(column_type = "Time", on_update = "current_timestamp")]
     pub update_at: chrono::NaiveDateTime,
+    #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,
 }
 
@@ -116,12 +120,9 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::DebugName for Entity {
-    const DEBUG_NAME: &'static str = "contest";
-}
-
 #[tonic::async_trait]
 impl super::ParentalTrait<IdModel> for Entity {
+    #[instrument(skip_all, level = "info")]
     async fn related_read_by_id(
         auth: &Auth,
         id: i32,
@@ -129,42 +130,45 @@ impl super::ParentalTrait<IdModel> for Entity {
     ) -> Result<IdModel, Error> {
         match user::Model::new_with_auth(auth) {
             Some(user) => {
-                // user.find_related(Entity).select_only().columns(col);
                 let (query, param) = {
                     let builder = db.get_database_backend().get_query_builder();
+                    let now = Local::now().naive_local();
 
-                    partial_union!(
-                        [Column::Id, Column::Hoster, Column::Public],
+                    union!(
+                        [Column::Id, Column::Hoster, Column::Public, Column::Begin],
                         user.find_related(Entity),
-                        Entity::find().filter(Column::Public.eq(true)),
+                        Entity::find()
+                            .filter(Column::Public.eq(true))
+                            .filter(Column::Begin.lte(now)),
                         Entity::find().filter(Column::Hoster.eq(user.id))
                     )
                     .and_where(Column::Id.eq(id))
                     .build_any(builder.deref())
                 };
 
-                // user.find_related(Entity).into_query()
-
                 IdModel::find_by_statement(Statement::from_sql_and_values(
-                    DatabaseBackend::Sqlite,
+                    db.get_database_backend(),
                     query,
                     param,
                 ))
                 .one(db)
+                .in_current_span()
                 .await?
-                .ok_or(Error::NotInDB(Entity::DEBUG_NAME))
+                .ok_or(Error::NotInDB)
             }
             None => Entity::find_by_id(id)
                 .filter(Column::Public.eq(true))
                 .into_partial_model()
                 .one(db)
+                .in_current_span()
                 .await?
-                .ok_or(Error::NotInDB(Entity::DEBUG_NAME)),
+                .ok_or(Error::NotInDB),
         }
     }
 }
 
 impl super::Filter for Entity {
+    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         if let Ok((user_id, perm)) = auth.ok_or_default() {
             if perm.admin() {
@@ -174,6 +178,7 @@ impl super::Filter for Entity {
         }
         Ok(query.filter(Column::Public.eq(true)))
     }
+    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.ok_or_default()?;
         if perm.admin() {
@@ -182,12 +187,12 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::Hoster.eq(user_id)));
         }
-        Err(Error::NotInDB(Entity::DEBUG_NAME))
+        Err(Error::NotInDB)
     }
 }
 
 #[async_trait]
-impl PagerReflect<Entity> for PartialModel {
+impl Reflect<Entity> for PartialModel {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -203,14 +208,14 @@ impl PagerReflect<Entity> for PartialModel {
 
 pub struct TextPagerTrait;
 
-#[async_trait]
-impl PagerSource for TextPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
+impl PagerData for TextPagerTrait {
     type Data = String;
+}
 
+#[async_trait]
+impl Source for TextPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 4;
 
     async fn filter(
@@ -222,19 +227,18 @@ impl PagerSource for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PkPager<TextPagerTrait, PartialModel>;
+pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
 
 pub struct ColPagerTrait;
 
-#[async_trait]
-impl PagerSource for ColPagerTrait {
-    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
-
-    type Entity = Entity;
-
-    // FIXME: we need optional support
+impl PagerData for ColPagerTrait {
     type Data = (ContestSortBy, String);
+}
 
+#[async_trait]
+impl Source for ColPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
     const TYPE_NUMBER: u8 = 8;
 
     async fn filter(
@@ -247,7 +251,7 @@ impl PagerSource for ColPagerTrait {
 }
 
 #[async_trait]
-impl PagerSortSource<PartialModel> for ColPagerTrait {
+impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
             ContestSortBy::UpdateDate => Column::UpdateAt,
@@ -271,4 +275,4 @@ impl PagerSortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColPager<ColPagerTrait, PartialModel>;
+pub type ColPaginator = ColumnPaginator<ColPagerTrait, PartialModel>;

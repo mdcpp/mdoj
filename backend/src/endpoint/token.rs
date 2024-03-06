@@ -9,7 +9,7 @@ use crate::entity::token::*;
 use crate::entity::*;
 use tracing::Level;
 
-const TOKEN_LIMIT: u64 = 32;
+const TOKEN_LIMIT: u64 = 16;
 
 impl From<String> for Token {
     fn from(value: String) -> Self {
@@ -32,7 +32,10 @@ impl From<Model> for Token {
 impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
-        let (auth, req) = self.parse_request(req).await?;
+        let (auth, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
         if req.id != user_id && !perm.root() {
@@ -43,6 +46,7 @@ impl TokenSet for Arc<Server> {
             .filter(Column::UserId.eq(user_id))
             .limit(TOKEN_LIMIT)
             .all(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?;
 
@@ -54,25 +58,30 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
-        let (_, req) = self.parse_request(req).await?;
+        // FIXME: limit token count
+        let (_, req) = self
+            .parse_request_n(req, NonZeroU32!(5))
+            .in_current_span()
+            .await?;
 
         tracing::debug!(username = req.username);
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
             .one(self.db.deref())
+            .instrument(info_span!("fetch_user").or_current())
             .await
             .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB("user"))?;
+            .ok_or(Error::NotInDB)?;
 
         if self.crypto.hash_eq(req.password.as_str(), &model.password) {
             let dur =
                 chrono::Duration::from_std(Duration::from_secs(req.expiry.unwrap_or(60 * 60 * 12)))
                     .map_err(|err| {
-                        log::trace!("{}", err);
+                        trace!("{}", err);
                         Error::BadArgument("expiry")
                     })?;
-            let (token, expiry) = self.token.add(&model, dur).await?;
+            let (token, expiry) = self.token.add(&model, dur).in_current_span().await?;
 
             Ok(Response::new(TokenInfo {
                 token: token.into(),
@@ -97,9 +106,10 @@ impl TokenSet for Arc<Server> {
             let (user_id, perm) = self.token.verify(token).await?;
             let user = user::Entity::find_by_id(user_id)
                 .one(self.db.deref())
+                .instrument(info_span!("fetch_user").or_current())
                 .await
                 .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB("user"))?;
+                .ok_or(Error::NotInDB)?;
 
             let time = into_chrono(payload);
             let now = chrono::Utc::now().naive_utc();
@@ -108,9 +118,12 @@ impl TokenSet for Arc<Server> {
             }
 
             let dur = time - now;
-            self.token.remove(token.to_string()).await?;
+            self.token
+                .remove(token.to_string())
+                .in_current_span()
+                .await?;
 
-            let (token, expiry) = self.token.add(&user, dur).await?;
+            let (token, expiry) = self.token.add(&user, dur).in_current_span().await?;
             return Ok(Response::new(TokenInfo {
                 token: token.into(),
                 role: perm as i32,
@@ -122,12 +135,17 @@ impl TokenSet for Arc<Server> {
     }
     #[instrument(skip_all, level = "debug")]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        let meta = req.metadata();
+        // FIXME: handle rate limiting logic
+        let (auth, _) = self.parse_auth(&req).in_current_span().await?;
+        auth.ok_or_default()?;
 
-        if let Some(x) = meta.get("token") {
+        if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();
 
-            self.token.remove(token.to_string()).await?;
+            self.token
+                .remove(token.to_string())
+                .in_current_span()
+                .await?;
             tracing::event!(Level::TRACE, token = token);
 
             return Ok(Response::new(()));
