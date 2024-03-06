@@ -1,6 +1,7 @@
+use std::fmt::Debug;
+
 use leptos::*;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 struct Ball<T>(Option<T>);
