@@ -12,7 +12,9 @@ pub fn error_fallback(errors: RwSignal<Errors>) -> impl IntoView {
                 ErrorKind::RateLimit => todo!(),
                 ErrorKind::LoginRequire => todo!(),
                 ErrorKind::Network => todo!(),
-                ErrorKind::ServerError(_) => todo!(),
+                ErrorKind::ServerError(_) => {
+                    view! { <InternalServerError/> }.into_view()
+                }
                 ErrorKind::PermissionDenied => todo!(),
                 ErrorKind::Browser => todo!(),
             })
