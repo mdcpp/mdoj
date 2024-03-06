@@ -17,7 +17,6 @@ pub fn TextInput(
                 class,
                 "text-text outline-none p-2 bg-background border-2 rounded-md border-background focus:border-primary transition-colors duration-300",
             )
-
             id=id
             type=kind
             prop:value=get
