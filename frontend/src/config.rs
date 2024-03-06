@@ -1,9 +1,12 @@
-use crate::{error::*, grpc};
+use std::sync::OnceLock;
+
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_use::{utils::JsonCodec, *};
 use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
+use tonic::{IntoRequest, Request};
+
+use crate::{error::*, grpc};
 
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
@@ -91,4 +94,60 @@ pub fn use_token() -> (Signal<Option<Token>>, WriteSignal<Option<Token>>) {
         "token",
         UseCookieOptions::default().max_age(60 * 60 * 1000),
     )
+}
+
+pub trait WithToken: Sized {
+    /// this will try to add token to request.
+    ///
+    /// Will return error if token is not exist
+    fn try_with_token(
+        self,
+        token: impl Into<MaybeSignal<Option<Token>>>,
+    ) -> Result<Request<Self>>;
+
+    /// this will try to add token to request.
+    ///
+    /// If token is not exist, it will just ignore error and return request without token
+    fn with_token(
+        self,
+        token: impl Into<MaybeSignal<Option<Token>>>,
+    ) -> Request<Self>;
+}
+
+impl<T> WithToken for T
+where
+    T: IntoRequest<T>,
+{
+    fn try_with_token(
+        self,
+        token: impl Into<MaybeSignal<Option<Token>>>,
+    ) -> Result<Request<Self>> {
+        let mut req = self.into_request();
+        let token: MaybeSignal<_> = token.into();
+        if let Some(token) = token() {
+            req.metadata_mut().insert(
+                "token",
+                token.token.parse().map_err(|_| {
+                    ErrorKind::ServerError(ServerErrorKind::InvalidValue)
+                })?,
+            );
+        }
+        Ok(req)
+    }
+
+    fn with_token(
+        self,
+        token: impl Into<MaybeSignal<Option<Token>>>,
+    ) -> Request<Self> {
+        let mut req = self.into_request();
+        let token: MaybeSignal<_> = token.into();
+        let Some(token) = token() else {
+            return req;
+        };
+        let Ok(token) = token.token.parse() else {
+            return req;
+        };
+        req.metadata_mut().insert("token", token);
+        req
+    }
 }
