@@ -28,8 +28,8 @@ pulldown-cmark = "0.10.0"
 thiserror = "1.0.56"
 
 [dependencies.tonic-web-wasm-client]
-# version = "0.5.1"
-git = "https://github.com/mdcpp/tonic-web-wasm-client.git"
+version = "0.5.1"
+# git = "https://github.com/mdcpp/tonic-web-wasm-client.git"
 
 [dependencies.uuid]
 version = "1.7.0"
