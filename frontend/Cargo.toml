@@ -24,10 +24,21 @@ tracing-web = "0.1.3"
 toml = { workspace = true }
 anyhow = "1.0.79"
 gloo = "0.11.0"
+pulldown-cmark = "0.10.0"
+thiserror = "1.0.56"
 
 [dependencies.tonic-web-wasm-client]
+# version = "0.5.1"
 git = "https://github.com/mdcpp/tonic-web-wasm-client.git"
 
+[dependencies.uuid]
+version = "1.7.0"
+features = ["v4", "fast-rng"]
+
+[dependencies.syntect]
+version = "5.1.0"
+default-features = false
+features = ["default-fancy"]
 
 [dependencies.web-sys]
 version = "0.3.67"
@@ -59,7 +70,7 @@ features = ["prost"]
 workspace = true
 
 [features]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr", "uuid/js"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
   "dep:actix-files",

@@ -1,10 +1,12 @@
-use crate::{
-    components::*,
-    grpc::{problem_set_client::*, *},
-};
-use anyhow::Result;
 use leptos::*;
 use leptos_router::*;
+
+use crate::{
+    components::*,
+    config::{use_token, WithToken},
+    error::*,
+    grpc::{problem_set_client::*, *},
+};
 
 #[derive(Default, Clone, PartialEq, Params)]
 struct Page {
@@ -14,22 +16,31 @@ struct Page {
 
 #[component]
 pub fn Problems() -> impl IntoView {
-    let page = use_params::<Page>();
-    let problems = create_resource(
-        move || page.with(|v| v.clone().unwrap_or_default()),
-        |_| async move {
+    let params = use_params::<Page>();
+    let page = move || params.with(|v| v.clone().unwrap_or_default());
+    let (token, _) = use_token();
+    let page_and_token = move || (page(), token());
+
+    let problems =
+        create_resource(page_and_token, |(page, token)| async move {
             let result: Result<ListProblemResponse> = async {
                 Ok(ProblemSetClient::new(new_client().await?)
-                    .list(ListProblemRequest {
-                        size: 50,
-                        offset: None,
-                        request: Some(list_problem_request::Request::Create(
-                            list_problem_request::Create {
-                                sort_by: ProblemSortBy::UpdateDate.into(),
-                                start_from_end: Some(false),
-                            },
-                        )),
-                    })
+                    .list(
+                        ListProblemRequest {
+                            size: 50,
+                            offset: None,
+                            request: Some(
+                                list_problem_request::Request::Create(
+                                    list_problem_request::Create {
+                                        sort_by: ProblemSortBy::UpdateDate
+                                            .into(),
+                                        start_from_end: Some(false),
+                                    },
+                                ),
+                            ),
+                        }
+                        .with_token(token),
+                    )
                     .await?
                     .into_inner())
             }
@@ -38,8 +49,7 @@ pub fn Problems() -> impl IntoView {
                 Ok(v) => Some(v),
                 Err(e) => None,
             }
-        },
-    );
+        });
 
     view! {
         <div class="h-full flex flex-col items-center justify-between">
