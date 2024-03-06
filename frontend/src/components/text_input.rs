@@ -1,5 +1,6 @@
-use super::Merge;
 use leptos::*;
+
+use super::Merge;
 
 #[component]
 pub fn TextInput(

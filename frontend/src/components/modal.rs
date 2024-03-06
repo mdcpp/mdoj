@@ -1,5 +1,6 @@
-use super::Button;
 use leptos::{ev::MouseEvent, *};
+
+use super::Button;
 
 pub enum ModalLevel {
     Info,
