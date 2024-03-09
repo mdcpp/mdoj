@@ -35,6 +35,10 @@ run:
     sudo rm -rf .temp/* 
     cargo run
 
+run-release:
+    sudo rm -rf .temp/*
+    cargo run --release
+
 ci-test:
     just ci-test
     just test

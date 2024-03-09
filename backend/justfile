@@ -19,6 +19,9 @@ entity-codegen:
 run:
     cargo run
 
+run-release:
+    cargo run --release
+
 ci-test:
     just prepare
     cargo test
