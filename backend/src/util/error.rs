@@ -1,5 +1,9 @@
 use crate::report_internal;
 use tonic::Status;
+use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+use uuid::Uuid;
 
 use super::auth::RoleLv;
 
@@ -102,3 +106,36 @@ pub fn atomic_fail(err: sea_orm::DbErr) -> Status {
         _ => Error::DBErr(err).into(),
     }
 }
+
+/// Tracing information for error
+/// 
+/// useful to log the tracing information to client 
+/// without exposing the server's internal erro
+pub struct Tracing{
+    trace_id: TraceId,
+    span_id: SpanId,
+    log_id: uuid::Uuid
+}
+
+impl Tracing {
+    pub fn random()->(Self,Uuid){
+        let log_id = uuid::Uuid::new_v4();
+        (Self::new(log_id),log_id)
+    }
+    pub fn new(log_id: Uuid) -> Self {
+        let ctx = Span::current().context();
+        let ctx_span = ctx.span();
+        let span_ctx = ctx_span.span_context();
+        let trace_id = span_ctx.trace_id();
+        let span_id = span_ctx.span_id();
+
+        Self { trace_id, span_id,log_id }
+    }
+}
+
+impl ToString for Tracing{
+    fn to_string(&self) -> String {
+        format!("trace_id: {}, span_id: {}, log_id: {}", self.trace_id, self.span_id,self.log_id.to_string())
+    }
+}
+
