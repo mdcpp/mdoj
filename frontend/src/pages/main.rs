@@ -13,6 +13,7 @@ pub fn Main() -> impl IntoView {
             <Routes>
                 <Route path="" view=Home/>
                 <Route path="/problems" view=Problems/>
+                <Route path="/submissions" view=Submission/>
                 <Route path="/problem/:id" view=Problem/>
                 <Route path="/contests" view=Contests/>
                 <Route path="/about" view=About/>

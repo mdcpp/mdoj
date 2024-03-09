@@ -25,7 +25,7 @@ pub fn Navbar() -> impl IntoView {
                         </A>
                     </li>
                     <li class="transition-opacity duration-300 hover:opacity-60">
-                        <A href="/submission" class="px-6">
+                        <A href="/submissions" class="px-6">
                             Submission
                         </A>
                     </li>

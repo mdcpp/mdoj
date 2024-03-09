@@ -9,13 +9,16 @@ pub mod backend {
 /// convert chrono's time to prost_types's
 pub fn into_prost(time: chrono::NaiveDateTime) -> prost_types::Timestamp {
     prost_types::Timestamp {
-        seconds: time.timestamp(),
+        seconds: time.and_utc().timestamp(),
         nanos: time.timestamp_subsec_nanos() as i32,
     }
 }
 /// convert prost_types's time to chrono's
 pub fn into_chrono(time: prost_types::Timestamp) -> chrono::NaiveDateTime {
-    chrono::NaiveDateTime::from_timestamp_opt(time.seconds, time.nanos as u32).unwrap_or_default()
+    match chrono::DateTime::from_timestamp(time.seconds, time.nanos as u32) {
+        Some(x) => x.naive_utc(),
+        None => chrono::NaiveDateTime::default(),
+    }
 }
 /// server side stream in tonic
 pub type TonicStream<T> =
