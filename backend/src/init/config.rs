@@ -27,7 +27,7 @@ pub struct GlobalConfig {
 }
 
 fn default_opentelemetry() -> Option<String> {
-    Some("http://jaeger:4317".to_owned())
+    Some("http://127.0.0.1:4317".to_owned())
 }
 
 fn default_bind_address() -> String {
