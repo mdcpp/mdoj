@@ -1,14 +1,11 @@
 release-docker:
-    just prepare
-    just release
-    cp ../proto/*.proto .
-    cp ../Cargo.toml ws-Cargo.toml
-    docker build . -t mdoj-frontend
+
 
 release:
     cargo build
     
-prepare:
+deps:
+    cd ../docker/dev && sudo docker compose --profile frontend-dev up
 
 run:
     cargo leptos serve

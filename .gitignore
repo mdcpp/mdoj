@@ -1,8 +1,6 @@
 /.devcontainer
 /tonic_example
 
-config
-
 # Added by cargo
 
 /target

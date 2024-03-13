@@ -1,26 +1,27 @@
 version: "3.9"
 services:
-  frontend:
-    container_name: mdoj-frontend
-    image: ghcr.io/mdcpp/mdoj/frontend:staging
-    profiles: [frontend-dev]
-    depends_on:
-      - backend
-    ports:
-      - "80:80"
-    networks:
-      - backend
+  # frontend:
+  #   container_name: mdoj-frontend
+  #   image: ghcr.io/mdcpp/mdoj/frontend:staging
+  #   profiles: []
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - "80:80"
+  #   networks:
+  #     - backend
   backend:
     container_name: mdoj-backend
     image: ghcr.io/mdcpp/mdoj/backend:staging
-    profiles: [backend-dev, jaeger]
+    profiles: [frontend-dev]
     depends_on:
       - judger
+      - jaeger
+    volumes:
+      - ./backend/config:/config
+      - ./backend/database:/database
     ports:
       - "8081:8081"
-    volumes:
-      - ./database/:/database/
-      - ./config/:/config/
     networks:
       - judger
       - jaeger
@@ -28,6 +29,7 @@ services:
     container_name: mdoj-judger
     privileged: true
     image: ghcr.io/mdcpp/mdoj/judger:staging
+    profiles: [backend-dev, frontend-dev]
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup
     networks:
@@ -35,6 +37,9 @@ services:
   jaeger:
     container_name: mdoj-jaeger
     image: jaegertracing/all-in-one
+    profiles: [backend-dev, frontend-dev]
+    ports:
+      - "16686:16686"
     networks:
       - jaeger
 networks:
