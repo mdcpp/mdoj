@@ -37,12 +37,6 @@ impl Model {
     }
 }
 
-// #[derive(DeriveModel, FromQueryResult)]
-// #[sea_orm(entity = "Entity")]
-// pub struct IdUser {
-//     pub id: i32,
-// }
-
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::announcement::Entity")]

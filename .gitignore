@@ -6,3 +6,5 @@ config
 # Added by cargo
 
 /target
+
+.code-analysis

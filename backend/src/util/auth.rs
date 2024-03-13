@@ -1,10 +1,18 @@
 use std::fmt::Display;
 
-use crate::{entity::user, grpc::backend::Role};
-use sea_orm::{EntityTrait, QuerySelect};
+use crate::grpc::backend::Role;
 
 use super::error::Error;
 
+/// Role Level
+///
+/// The greater the value, the greater the permission
+///
+/// - Guest: Read only
+/// - User: Join contest, submit code, chat
+/// - Super: Create contest, Create problem
+/// - Admin: Manage user(cannot create Root), Manage contest, Manage problem
+/// - Root: Manage everything
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Debug)]
 #[repr(i32)]
 pub enum RoleLv {
@@ -68,6 +76,10 @@ impl RoleLv {
     }
 }
 
+/// Authication
+///
+/// The difference between [`Auth`] and [`RoleLv`] is that
+/// [`Auth`] contain user id, and [`RoleLv`] is just permmision
 #[derive(Debug)]
 pub enum Auth {
     Guest,
@@ -84,40 +96,39 @@ impl Display for Auth {
 }
 
 impl Auth {
+    /// check if the user is guest(not signed in)
     pub fn is_guest(&self) -> bool {
         matches!(self, Auth::Guest)
     }
+    /// get the user's permission level
     pub fn user_perm(&self) -> RoleLv {
         match self {
             Auth::User((_, x)) => *x,
             _ => RoleLv::Guest,
         }
     }
+    /// get the user's id if signed in
     pub fn user_id(&self) -> Option<i32> {
         match self {
             Auth::User((x, _)) => Some(*x),
             _ => None,
         }
     }
-    pub fn ok_or(&self, err: Error) -> Result<(i32, RoleLv), Error> {
+    /// destruct the Auth into user id and permission level
+    pub fn into_inner(&self) -> Option<(i32, RoleLv)> {
         match self {
-            Auth::User(x) => Ok(*x),
-            _ => Err(err),
+            Auth::User(x) => Some(*x),
+            _ => None,
         }
     }
+    /// short hand for `self.into_inner().ok_or(err)`
+    pub fn ok_or(&self, err: Error) -> Result<(i32, RoleLv), Error> {
+        self.into_inner().ok_or(err)
+    }
+    /// short hand for `self.into_inner().ok_or(Error::PermissionDeny)`
     pub fn ok_or_default(&self) -> Result<(i32, RoleLv), Error> {
-        self.ok_or(Error::PermissionDeny(
+        self.into_inner().ok_or(Error::PermissionDeny(
             "Only signed in user is allow in this endpoint",
         ))
     }
-    pub async fn get_user(&self, db: &sea_orm::DatabaseConnection) -> Result<user::Model, Error> {
-        let user_id = self.user_id().ok_or(Error::Unauthenticated)?;
-        user::Entity::find_by_id(user_id)
-            .columns([user::Column::Id])
-            .one(db)
-            .await?
-            .ok_or(Error::NotInDB)
-    }
 }
-
-// X-Forwarded-For
