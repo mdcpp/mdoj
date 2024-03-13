@@ -136,7 +136,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
-    #[instrument(skip(self,db), level = "debug", name = "query_paginator")]
+    #[instrument(skip(self, db), level = "debug", name = "query_paginator")]
     async fn fetch(
         mut self,
         auth: &Auth,
@@ -169,7 +169,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
 
         Err(Error::NotInDBList)
     }
-    #[instrument(skip(data,db), level = "debug", rename = "create_paginator")]
+    #[instrument(skip(data, db), level = "debug", rename = "create_paginator")]
     async fn new_fetch(
         data: S::Data,
         auth: &Auth,
@@ -269,7 +269,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
-    #[instrument(skip(self,db), level = "debug", name = "query_paginator")]
+    #[instrument(skip(self, db), level = "debug", name = "query_paginator")]
     async fn fetch(
         mut self,
         auth: &Auth,
@@ -315,7 +315,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
 
         Err(Error::NotInDBList)
     }
-    #[instrument(skip(data,db), level = "debug", rename = "create_paginator")]
+    #[instrument(skip(data, db), level = "debug", rename = "create_paginator")]
     async fn new_fetch(
         mut data: S::Data,
         auth: &Auth,

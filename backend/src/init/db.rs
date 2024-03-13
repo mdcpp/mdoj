@@ -1,5 +1,6 @@
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ConnectOptions, ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, PaginatorTrait, Statement
+    ActiveModelTrait, ActiveValue, ConnectOptions, ConnectionTrait, Database, DatabaseBackend,
+    DatabaseConnection, EntityTrait, PaginatorTrait, Statement,
 };
 
 use super::Error;
@@ -22,7 +23,7 @@ pub async fn init(
 ) -> super::Result<DatabaseConnection> {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 
-    let mut opt=ConnectOptions::new(uri);
+    let mut opt = ConnectOptions::new(uri);
     opt.sqlx_logging_level(log::LevelFilter::Trace);
 
     let db = Database::connect(opt).await.map_err(Error::InitConn)?;

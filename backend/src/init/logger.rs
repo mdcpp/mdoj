@@ -50,7 +50,7 @@ fn init_meter_provider(reader: impl MetricReader) -> MeterProvider {
 }
 
 // Construct Tracer for OpenTelemetryLayer
-fn init_tracer(endpoint:&str) -> super::Result<Tracer> {
+fn init_tracer(endpoint: &str) -> super::Result<Tracer> {
     opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
@@ -64,7 +64,11 @@ fn init_tracer(endpoint:&str) -> super::Result<Tracer> {
                 .with_resource(resource()),
         )
         .with_batch_config(BatchConfig::default())
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(endpoint))
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint(endpoint),
+        )
         .install_batch(runtime::Tokio)
         .map_err(|err| err.into())
 }
