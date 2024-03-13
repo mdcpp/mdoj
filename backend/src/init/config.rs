@@ -21,13 +21,13 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub grpc: GrpcOption,
     #[serde(default = "default_opentelemetry")]
-    pub opentelemetry: Option<bool>,
+    pub opentelemetry: Option<String>,
     #[serde(default)]
     pub imgur: Imgur,
 }
 
-fn default_opentelemetry() -> Option<bool> {
-    Some(true)
+fn default_opentelemetry() -> Option<String> {
+    Some("http://jaeger:4317".to_owned())
 }
 
 fn default_bind_address() -> String {

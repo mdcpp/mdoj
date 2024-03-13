@@ -1,5 +1,6 @@
 use opentelemetry::global;
 use opentelemetry::KeyValue;
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::metrics::reader::MetricReader;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::{
@@ -49,7 +50,7 @@ fn init_meter_provider(reader: impl MetricReader) -> MeterProvider {
 }
 
 // Construct Tracer for OpenTelemetryLayer
-fn init_tracer() -> super::Result<Tracer> {
+fn init_tracer(endpoint:&str) -> super::Result<Tracer> {
     opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
@@ -63,15 +64,15 @@ fn init_tracer() -> super::Result<Tracer> {
                 .with_resource(resource()),
         )
         .with_batch_config(BatchConfig::default())
-        .with_exporter(opentelemetry_otlp::new_exporter().tonic())
+        .with_exporter(opentelemetry_otlp::new_exporter().tonic().with_endpoint(endpoint))
         .install_batch(runtime::Tokio)
         .map_err(|err| err.into())
 }
 
 // Initialize tracing-subscriber and return OtelGuard for opentelemetry-related termination processing
-fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> super::Result<OtelGuard> {
+fn init_tracing_subscriber(level: Level, opentelemetry: Option<&str>) -> super::Result<OtelGuard> {
     let meter_provider = init_meter_provider(match opentelemetry {
-        true => {
+        Some(_) => {
             let exporter = opentelemetry_otlp::new_exporter()
                 .tonic()
                 .build_metrics_exporter(
@@ -83,7 +84,7 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> super::Result<O
                 .with_interval(std::time::Duration::from_secs(30))
                 .build()
         }
-        false => PeriodicReader::builder(
+        None => PeriodicReader::builder(
             opentelemetry_stdout::MetricsExporter::default(),
             runtime::Tokio,
         )
@@ -91,13 +92,13 @@ fn init_tracing_subscriber(level: Level, opentelemetry: bool) -> super::Result<O
     });
 
     match opentelemetry {
-        true => tracing_subscriber::registry()
+        Some(endpoint) => tracing_subscriber::registry()
             .with(tracing_subscriber::filter::LevelFilter::from_level(level))
             .with(tracing_subscriber::fmt::layer())
             .with(MetricsLayer::new(meter_provider.clone()))
-            .with(OpenTelemetryLayer::new(init_tracer()?))
+            .with(OpenTelemetryLayer::new(init_tracer(endpoint)?))
             .init(),
-        false => tracing_subscriber::registry()
+        None => tracing_subscriber::registry()
             .with(tracing_subscriber::filter::LevelFilter::from_level(level))
             .with(tracing_subscriber::fmt::layer())
             .with(MetricsLayer::new(meter_provider.clone()))
@@ -147,7 +148,5 @@ pub fn init(config: &GlobalConfig) -> super::Result<OtelGuard> {
         _ => Level::INFO,
     };
 
-    let opentelemetry = config.opentelemetry == Some(true);
-
-    init_tracing_subscriber(level, opentelemetry)
+    init_tracing_subscriber(level, config.opentelemetry.as_ref().map(|x| x.as_str()))
 }
