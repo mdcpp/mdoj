@@ -14,6 +14,20 @@ struct Page {
     offset: Option<usize>,
 }
 
+fn difficulty_color(difficulty:u32)->impl IntoView{
+    match difficulty{
+        0..=1000=>view! {
+            <span class="text-white">Easy - {difficulty}</span>
+        },
+        1000..=1500=>view! {
+            <span class="text-orange">Medium - {difficulty}</span>
+        },
+        _=>view! {
+            <span class="text-red">Hard - {difficulty}</span>
+        }
+    }
+}
+
 #[component]
 pub fn Problems() -> impl IntoView {
     let params = use_params::<Page>();
@@ -62,6 +76,7 @@ pub fn Problems() -> impl IntoView {
                             <th>Title</th>
                             <th>AC Rate</th>
                             <th>Attempt</th>
+                            <th>Difficulty</th>
                         </tr>
                     </thead>
                     <tbody class="text-lg">
@@ -76,12 +91,13 @@ pub fn Problems() -> impl IntoView {
                                                 .into_iter()
                                                 .map(|info| {
                                                     view! {
-                                                        <tr>
+                                                        <tr class="odd:bg-gray">
                                                             <td>
                                                                 <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
                                                             </td>
                                                             <td class="text-center">{info.ac_rate} %</td>
                                                             <td class="text-center">{info.submit_count}</td>
+                                                            <td>{difficulty_color(info.difficulty)}</td>
                                                         </tr>
                                                     }
                                                 })
