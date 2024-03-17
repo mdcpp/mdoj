@@ -164,9 +164,9 @@ impl RateLimitController {
 
         Ok(remote)
     }
-    /// check rate limit
+    /// check rate limit and get corresponding resource bucket
     ///
-    /// f should be a FnOnce that emit a future yield TokenState
+    /// `f` should be a FnOnce that emit a future yield TokenState
     ///
     /// There are three type of traffic
     ///

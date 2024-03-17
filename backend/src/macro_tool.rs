@@ -2,6 +2,9 @@
 // use tracing::Span;
 // use tracing_opentelemetry::OpenTelemetrySpanExt;
 
+/// Report error message to frontend
+/// 
+/// It may contain sensitive information, so it's guarded by feature flag
 #[macro_export]
 #[cfg(feature = "debug")]
 macro_rules! report_internal {
@@ -19,6 +22,9 @@ macro_rules! report_internal {
     }};
 }
 
+/// Log error message to infarstructure and report a error id to frontend
+/// 
+/// It doesn't contain sensitive information either on infrastructure or frontend
 #[macro_export]
 #[cfg(not(feature = "debug"))]
 macro_rules! report_internal {
@@ -39,6 +45,7 @@ macro_rules! report_internal {
     }};
 }
 
+/// Check length of user inputted buffer
 #[macro_export]
 macro_rules! check_length {
     ($target:expr,$src:expr,$field:ident) => {
@@ -54,6 +61,9 @@ macro_rules! check_length {
     };
 }
 
+/// Check length of user inputted buffer if it buffer is Some
+/// 
+/// It's useful because user may not input all fields
 #[macro_export]
 macro_rules! check_exist_length {
     ($target:expr,$src:expr,$field:ident) => {
@@ -71,6 +81,9 @@ macro_rules! check_exist_length {
     };
 }
 
+/// Fill many optional fields of active model at single line
+/// 
+/// This is useful when you want to update a model(user might not update all fields)
 #[macro_export]
 macro_rules! fill_exist_active_model {
     ($target:expr,$src:expr,$field:ident) => {
@@ -84,6 +97,7 @@ macro_rules! fill_exist_active_model {
     };
 }
 
+/// Fill many fields of active model at single line
 #[macro_export]
 macro_rules! fill_active_model {
     ($target:expr,$src:expr , $field:ident) => {
@@ -95,7 +109,9 @@ macro_rules! fill_active_model {
     };
 }
 
-/// overflow protection
+/// Overflow protection
+/// 
+/// check number and use `Residual`` operator to return [`Error::NumberTooLarge`]
 #[macro_export]
 macro_rules! ofl {
     ($n:expr) => {
@@ -103,9 +119,20 @@ macro_rules! ofl {
     };
 }
 
-/// shorthanded union macro
+/// Shorthanded `union`
+/// 
+/// This is an extremely dangerous macro to use
+/// 
+/// ```ignore
+/// union!(
+///     [Column::Id], // columns to select
+///     user.find_related(Entity), // first query
+///     Entity::find().filter(Column::Public.eq(true)) // second query
+/// ).build_any(*builder)
+/// ```
 ///
-/// Note that it return select query column(for partial model)
+/// Note that it return [`sea_query::query::SelectStatement`],
+/// which require you to build actual sql with builder backend
 #[macro_export]
 macro_rules! union {
     ($cols:expr,$a:expr,$b:expr) => {{
@@ -157,7 +184,14 @@ macro_rules! NonZeroU32 {
 /// parse request
 ///
 /// the req must have field `size`, `offset`, `request`
-///
+/// 
+/// It does the following things:
+/// 
+/// 1. parse request into payload
+/// 2. check if size is too large(>[`i32::MAX`])
+/// 3. rate limiter with linear function
+/// 4. extract sign from size 
+/// 
 /// Be awared don't mess up the order of returned tuple
 ///
 /// ```ignore

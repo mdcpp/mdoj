@@ -46,6 +46,7 @@ pub struct PartialModel {
     pub create_at: chrono::NaiveDateTime,
 }
 
+/// A partial model with only enough information to do `ParentalFilter`
 #[derive(DerivePartialModel, FromQueryResult)]
 #[sea_orm(entity = "Entity")]
 pub struct IdModel {
