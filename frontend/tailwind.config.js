@@ -16,6 +16,15 @@ module.exports = {
       'gray': '#3d3d3d',
       'orange': '#fa920a',
     },
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: '1rem',
+        sm: '2rem',
+        lg: '4rem',
+        xl: '5rem',
+      },
+    },
     extend: {},
   },
   plugins: [],

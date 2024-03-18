@@ -8,6 +8,7 @@ pub mod navbar;
 pub mod redirect_if;
 pub mod select;
 pub mod text_input;
+pub mod toggle;
 use std::rc::Rc;
 
 pub use button::Button;

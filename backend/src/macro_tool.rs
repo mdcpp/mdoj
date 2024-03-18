@@ -3,7 +3,7 @@
 // use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Report error message to frontend
-/// 
+///
 /// It may contain sensitive information, so it's guarded by feature flag
 #[macro_export]
 #[cfg(feature = "debug")]
@@ -23,7 +23,7 @@ macro_rules! report_internal {
 }
 
 /// Log error message to infarstructure and report a error id to frontend
-/// 
+///
 /// It doesn't contain sensitive information either on infrastructure or frontend
 #[macro_export]
 #[cfg(not(feature = "debug"))]
@@ -62,7 +62,7 @@ macro_rules! check_length {
 }
 
 /// Check length of user inputted buffer if it buffer is Some
-/// 
+///
 /// It's useful because user may not input all fields
 #[macro_export]
 macro_rules! check_exist_length {
@@ -82,7 +82,7 @@ macro_rules! check_exist_length {
 }
 
 /// Fill many optional fields of active model at single line
-/// 
+///
 /// This is useful when you want to update a model(user might not update all fields)
 #[macro_export]
 macro_rules! fill_exist_active_model {
@@ -110,7 +110,7 @@ macro_rules! fill_active_model {
 }
 
 /// Overflow protection
-/// 
+///
 /// check number and use `Residual`` operator to return [`Error::NumberTooLarge`]
 #[macro_export]
 macro_rules! ofl {
@@ -120,9 +120,9 @@ macro_rules! ofl {
 }
 
 /// Shorthanded `union`
-/// 
+///
 /// This is an extremely dangerous macro to use
-/// 
+///
 /// ```ignore
 /// union!(
 ///     [Column::Id], // columns to select
@@ -184,14 +184,14 @@ macro_rules! NonZeroU32 {
 /// parse request
 ///
 /// the req must have field `size`, `offset`, `request`
-/// 
+///
 /// It does the following things:
-/// 
+///
 /// 1. parse request into payload
 /// 2. check if size is too large(>[`i32::MAX`])
 /// 3. rate limiter with linear function
-/// 4. extract sign from size 
-/// 
+/// 4. extract sign from size
+///
 /// Be awared don't mess up the order of returned tuple
 ///
 /// ```ignore
