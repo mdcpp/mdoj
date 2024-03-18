@@ -4,7 +4,9 @@ use super::Merge;
 
 #[component]
 pub fn Toggle(
-    #[prop(into, default = "checkbox".to_owned().into())] kind: MaybeProp<String>,
+    #[prop(into, default = "checkbox".to_owned().into())] kind: MaybeProp<
+        String,
+    >,
     #[prop(into)] value: RwSignal<bool>,
     #[prop(into, optional)] id: Option<AttributeValue>,
     #[prop(into, optional)] class: Option<AttributeValue>,

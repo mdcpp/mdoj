@@ -5,23 +5,27 @@ use crate::{
     components::*,
     config::{use_token, WithToken},
     error::*,
-    grpc::{problem_set_client::*, *}, pages::problems::toggle::Toggle,
+    grpc::{problem_set_client::*, *},
+    pages::problems::toggle::Toggle,
 };
-
 
 #[derive(Clone, PartialEq, Default)]
 enum Endpoint {
-    #[default]List=1,
-    ListBy=2,
-    Text=3
+    #[default]
+    List = 1,
+    ListBy = 2,
+    Text = 3,
 }
 
-impl IntoParam for Endpoint{
-    fn into_param(value: Option<&str>, name: &str)-> Result<Self, ParamsError> {
-        Ok(match value.unwrap_or_default(){
-            "1"=>Endpoint::List,
-            "2"=>Endpoint::ListBy,
-            _=>Endpoint::Text,
+impl IntoParam for Endpoint {
+    fn into_param(
+        value: Option<&str>,
+        name: &str,
+    ) -> Result<Self, ParamsError> {
+        Ok(match value.unwrap_or_default() {
+            "1" => Endpoint::List,
+            "2" => Endpoint::ListBy,
+            _ => Endpoint::Text,
         })
     }
 }
@@ -30,11 +34,11 @@ impl IntoParam for Endpoint{
 struct Page {
     pager: Option<String>,
     offset: Option<usize>,
-    endpoints: Endpoint
+    endpoints: Endpoint,
 }
 
 fn difficulty_color(difficulty: u32) -> impl IntoView {
-    let color:&'static str =match difficulty {
+    let color: &'static str = match difficulty {
         0..=1000 => "green",
         1001..=1500 => "orange",
         _ => "red",
@@ -47,61 +51,60 @@ fn difficulty_color(difficulty: u32) -> impl IntoView {
 }
 
 #[component]
-pub fn ProblemSearch() -> impl IntoView{
+pub fn ProblemSearch() -> impl IntoView {
     // 1. Make it works
     // 2. Make it pretty
     // 3. Integrate with the problem list
     let search_text = create_rw_signal("".to_owned());
     let reverse = create_rw_signal(false);
 
-    let submit=create_action(move |(search_text, reverse): &(String, bool)| {
-        let serach_text = search_text.clone();
+    let submit =
+        create_action(move |(search_text, reverse): &(String, bool)| {
+            let serach_text = search_text.clone();
 
-        let navigate = use_navigate();
-        let (get_token, _) = use_token();
+            let navigate = use_navigate();
+            let (get_token, _) = use_token();
 
-        async move {
-            // let mut problem_set = problem_set_client::ProblemSetClient::new(
-            //     new_client().await?,
-            // );
-            // match search_text.is_empty(){
-            //     true=>{
-            //         let resp = problem_set
-            //             .list(
-            //                 ListProblemRequest {
-            //                     size: 50,
-            //                     offset: None,
-            //                     request: Some(
-            //                         list_problem_request::Request::Create(
-            //                             list_problem_request::Create {
-            //                                 sort_by: ProblemSortBy::UpdateDate
-            //                                     .into(),
-            //                                 start_from_end: Some(*reverse),
-            //                             },
-            //                         ),
-            //                     ),
-            //                 }
-            //                 .with_token(get_token()),
-            //             )
-            //             .await?;
-            //         let resp = resp.into_inner();
-            //         Some(resp)
-            //     }
-            // }
-            todo!()
-        }
-    });
+            async move {
+                // let mut problem_set = problem_set_client::ProblemSetClient::new(
+                //     new_client().await?,
+                // );
+                // match search_text.is_empty(){
+                //     true=>{
+                //         let resp = problem_set
+                //             .list(
+                //                 ListProblemRequest {
+                //                     size: 50,
+                //                     offset: None,
+                //                     request: Some(
+                //                         list_problem_request::Request::Create(
+                //                             list_problem_request::Create {
+                //                                 sort_by: ProblemSortBy::UpdateDate
+                //                                     .into(),
+                //                                 start_from_end: Some(*reverse),
+                //                             },
+                //                         ),
+                //                     ),
+                //                 }
+                //                 .with_token(get_token()),
+                //             )
+                //             .await?;
+                //         let resp = resp.into_inner();
+                //         Some(resp)
+                //     }
+                // }
+                todo!()
+            }
+        });
 
-    let disabled=Signal::derive(move || {
-        submit.pending()()
-    });
+    let disabled = Signal::derive(move || submit.pending()());
 
-    view!{
+    view! {
         <div>
             <label for="search_text" class="text-text pb-2">
                 List of problems
             </label>
-            <TextInput 
+            <TextInput
                 id="search_text"
                 value=search_text
                 placeholder="Title tag1,tag2"
