@@ -1809,6 +1809,7 @@ dependencies = [
  "prost 0.12.3",
  "pulldown-cmark",
  "serde",
+ "serde_qs",
  "syntect",
  "thiserror",
  "tokio",

@@ -1,40 +1,118 @@
+use std::{borrow::BorrowMut, ops::DerefMut};
+
 use leptos::*;
 use leptos_router::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     components::*,
-    config::{use_token, WithToken},
+    config::{self, use_token, WithToken},
     error::*,
     grpc::{problem_set_client::*, *},
     pages::problems::toggle::Toggle,
 };
 
-#[derive(Clone, PartialEq, Default)]
-enum Endpoint {
-    #[default]
-    List = 1,
-    ListBy = 2,
-    Text = 3,
+const PAGESIZE: i64 = 12;
+
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq, Params)]
+pub struct Pager {
+    text: Option<String>,
+    sort_by: Option<i32>,
+    offset: usize,
+    page: Option<String>,
+    start_from_end: Option<bool>,
 }
 
-impl IntoParam for Endpoint {
-    fn into_param(
-        value: Option<&str>,
-        name: &str,
-    ) -> Result<Self, ParamsError> {
-        Ok(match value.unwrap_or_default() {
-            "1" => Endpoint::List,
-            "2" => Endpoint::ListBy,
-            _ => Endpoint::Text,
-        })
+impl Pager {
+    //. store pager to url
+    fn store(&self) {
+        let navigate = leptos_router::use_navigate();
+
+        let param = serde_qs::to_string(self).unwrap();
+
+        navigate(
+            &["/problems".to_string(), param].concat(),
+            Default::default(),
+        );
     }
-}
+    /// load pager from url, return default if not found
+    fn load() -> Pager {
+        use_query::<Pager>()
+            .with(|v| v.clone().ok())
+            .unwrap_or_default()
+    }
+    async fn next(
+        &self,
+        size: i64,
+        offset: u64,
+    ) -> Result<(Self, Vec<ProblemInfo>)> {
+        let (get_token, _) = use_token();
+        let res = match &self.sort_by {
+            None => {
+                ProblemSetClient::new(new_client().await?)
+                    .search_by_text(
+                        TextSearchRequest {
+                            size,
+                            offset: Some(offset),
+                            request: Some(match &self.page {
+                                Some(page) => {
+                                    text_search_request::Request::Pager(
+                                        Paginator {
+                                            session: page.to_string(),
+                                        },
+                                    )
+                                }
+                                None => text_search_request::Request::Text(
+                                    self.text.clone().unwrap_or_default(),
+                                ),
+                            }),
+                        }
+                        .with_token(get_token),
+                    )
+                    .await?
+            }
+            Some(sort_by) => {
+                ProblemSetClient::new(new_client().await?)
+                    .list(
+                        ListProblemRequest {
+                            size,
+                            offset: Some(offset),
+                            request: Some(match &self.page {
+                                Some(page) => {
+                                    list_problem_request::Request::Pager(
+                                        Paginator {
+                                            session: page.to_string(),
+                                        },
+                                    )
+                                }
+                                None => list_problem_request::Request::Create(
+                                    list_problem_request::Create {
+                                        sort_by: *sort_by,
+                                        start_from_end: self.start_from_end,
+                                    },
+                                ),
+                            }),
+                        }
+                        .with_token(get_token),
+                    )
+                    .await?
+            }
+        }
+        .into_inner();
+        let mut list = res.list;
+        if size < 0 {
+            list.reverse();
+        }
 
-#[derive(Default, Clone, PartialEq, Params)]
-struct Page {
-    pager: Option<String>,
-    offset: Option<usize>,
-    endpoints: Endpoint,
+        // FIXME: pagaintor session at start of list if reversed
+        let pager = Self {
+            text: self.text.clone(),
+            offset: self.offset + list.len(),
+            page: Some(res.next_session),
+            ..self.clone()
+        };
+        Ok((pager, list))
+    }
 }
 
 fn difficulty_color(difficulty: u32) -> impl IntoView {
@@ -51,7 +129,7 @@ fn difficulty_color(difficulty: u32) -> impl IntoView {
 }
 
 #[component]
-pub fn ProblemSearch() -> impl IntoView {
+pub fn ProblemSearch(set_pager: WriteSignal<Pager>) -> impl IntoView {
     // 1. Make it works
     // 2. Make it pretty
     // 3. Integrate with the problem list
@@ -62,7 +140,6 @@ pub fn ProblemSearch() -> impl IntoView {
         create_action(move |(search_text, reverse): &(String, bool)| {
             let serach_text = search_text.clone();
 
-            let navigate = use_navigate();
             let (get_token, _) = use_token();
 
             async move {
@@ -93,7 +170,6 @@ pub fn ProblemSearch() -> impl IntoView {
                 //         Some(resp)
                 //     }
                 // }
-                todo!()
             }
         });
 
@@ -121,93 +197,82 @@ pub fn ProblemSearch() -> impl IntoView {
 }
 
 #[component]
-pub fn Problems() -> impl IntoView {
-    let params = use_params::<Page>();
-    let page = move || params.with(|v| v.clone().unwrap_or_default());
-    let (token, _) = use_token();
-    let page_and_token = move || (page(), token());
+pub fn ProblemList(pager: ReadSignal<Pager>) -> impl IntoView {
+    // pager
+    let problems = create_resource(pager, |pager| async move {
+        // FIXME: update pager state to url bar
+        let (pager, list) = pager.next(-PAGESIZE, 0).await.unwrap();
+        pager.store();
+        list
+    });
 
-    let problems =
-        create_resource(page_and_token, |(page, token)| async move {
-            let result: Result<ListProblemResponse> = async {
-                Ok(ProblemSetClient::new(new_client().await?)
-                    .list(
-                        ListProblemRequest {
-                            size: 50,
-                            offset: None,
-                            request: Some(
-                                list_problem_request::Request::Create(
-                                    list_problem_request::Create {
-                                        sort_by: ProblemSortBy::UpdateDate
-                                            .into(),
-                                        start_from_end: Some(false),
-                                    },
-                                ),
-                            ),
-                        }
-                        .with_token(token),
-                    )
-                    .await?
-                    .into_inner())
-            }
-            .await;
-            match result {
-                Ok(v) => Some(v),
-                Err(e) => None,
-            }
-        });
+    view! {
+        <Transition fallback=move || {
+            view! { <p>Loading</p> }
+        }>
+            <div class="table w-full table-auto">
+                <div class="table-header-group text-left">
+                    <div class="table-row">
+                        <div class="table-cell">Title</div>
+                        <div class="hidden md:table-cell">AC Rate</div>
+                        <div class="hidden md:table-cell">Attempt</div>
+                        <div class="table-cell">Difficulty</div>
+                    </div>
+                </div>
+                {move || {
+                    problems
+                        .get()
+                        .map(|v| {
+                            view! {
+                                <div class="table-row-group" style="line-height: 3rem">
+                                {
+                                    v
+                                    .into_iter()
+                                    .map(|info| {
+                                        view! {
+                                            <div class="table-row odd:bg-gray">
+                                                <div class="w-2/3 truncate table-cell">
+                                                    <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
+                                                </div>
+                                                <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
+                                                <div class="text-center hidden md:table-cell">{info.submit_count}</div>
+                                                <div class="table-cell">{difficulty_color(info.difficulty)}</div>
+                                            </div>
+                                        }
+                                    })
+                                    .collect_view()
+                                }
+                                </div>
+                                <ul>
+                                    // {
+                                    //     (-(params.offset/PAGESIZE)..(v.remain/PAGESIZE))
+                                    //     .map(|i|{
+                                    //         view!{
+                                    //             <li>
+                                    //                 {i}
+                                    //             </li>
+                                    //         }
+                                    //     }).into_view()
+                                    // }
+                                    <li>-1</li>
+                                    <li>0</li>
+                                    <li>+1</li>
+                                </ul>
+                            }.into_view()
+                        })
+                }}
+            </div>
+        </Transition>
+    }
+}
+#[component]
+pub fn Problems() -> impl IntoView {
+    let (pager, set_pager) = create_signal(Pager::default());
 
     view! {
         <div class="h-full container container-lg items-center justify-between text-lg">
-            <ProblemSearch/>
-            <Transition fallback=move || {
-                view! { <p>Loading</p> }
-            }>
-                <div class="table w-full table-auto">
-                    <div class="table-header-group text-left">
-                        <div class="table-row">
-                            <div class="table-cell">Title</div>
-                            <div class="hidden md:table-cell">AC Rate</div>
-                            <div class="hidden md:table-cell">Attempt</div>
-                            <div class="table-cell">Difficulty</div>
-                        </div>
-                    </div>
-                    <div class="table-row-group" style="line-height: 3rem">
-                        {move || {
-                            problems
-                                .get()
-                                .map(|v| {
-                                    v.map(|v| {
-                                        view! {
-                                            {v
-                                                .list
-                                                .into_iter()
-                                                .map(|info| {
-                                                    view! {
-                                                        <div class="table-row odd:bg-gray">
-                                                            <div class="w-2/3 truncate table-cell">
-                                                                <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
-                                                            </div>
-                                                            <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
-                                                            <div class="text-center hidden md:table-cell">{info.submit_count}</div>
-                                                            <div class="table-cell">{difficulty_color(info.difficulty)}</div>
-                                                        </div>
-                                                    }
-                                                })
-                                                .collect_view()}
-                                        }
-                                            .into_view()
-                                    })
-                                })
-                        }}
-                    </div>
-                </div>
-                <ul>
-                    <li>-1</li>
-                    <li>0</li>
-                    <li>+1</li>
-                </ul>
-            </Transition>
+            <ProblemSearch set_pager=set_pager/>
+            <ProblemList pager=pager/>
         </div>
     }
 }
