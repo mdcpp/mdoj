@@ -87,7 +87,9 @@ impl Pager {
                                 }
                                 None => list_problem_request::Request::Create(
                                     list_problem_request::Create {
-                                        sort_by: self.sort_by.unwrap_or(ProblemSortBy::UpdateDate as i32),
+                                        sort_by: self.sort_by.unwrap_or(
+                                            ProblemSortBy::UpdateDate as i32,
+                                        ),
                                         start_from_end: self.start_from_end,
                                     },
                                 ),

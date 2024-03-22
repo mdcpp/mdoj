@@ -1,21 +1,18 @@
-use k256::ecdsa::{
-    signature::{Signer, Verifier},
-    Signature, SigningKey, VerifyingKey,
-};
-use rand::rngs::OsRng;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+// use k256::ecdsa::{SigningKey, VerifyingKey};
+use rand::{rngs::OsRng, Rng};
+use serde::{de::DeserializeOwned, Serialize};
 use tracing::Span;
 
 use crate::init::config::GlobalConfig;
-use base64::{engine::general_purpose::URL_SAFE, Engine};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use blake2::{Blake2b512, Digest};
 
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("bincode: `{0}`")]
-    Bincode(#[from] bincode::Error),
+    #[error("postcard: `{0}`")]
+    Bincode(#[from] postcard::Error),
     #[error("Invalid signature")]
     InvalidSignature,
     #[error("base64: `{0}`")]
@@ -29,29 +26,25 @@ impl From<Error> for tonic::Status {
     }
 }
 
-/// signed object
-#[derive(Serialize, Deserialize)]
-struct Signed {
-    data: Vec<u8>,
-    signature: Signature,
-}
 pub struct CryptoController {
     salt: Vec<u8>,
-    signing_key: SigningKey,
-    verifying_key: VerifyingKey,
+    // signing_key: SigningKey,
+    // verifying_key: VerifyingKey,
+    xor_key: u8,
 }
 
 impl CryptoController {
     #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
     pub fn new(config: &GlobalConfig, span: &Span) -> Self {
         let salt = config.database.salt.as_bytes().to_vec();
-        let signing_key = SigningKey::random(&mut OsRng);
-        let verifying_key = *signing_key.verifying_key();
+        // let signing_key = SigningKey::random(&mut OsRng);
+        // let verifying_key = *signing_key.verifying_key();
 
         Self {
             salt,
-            signing_key,
-            verifying_key,
+            // signing_key,
+            // verifying_key,
+            xor_key: OsRng.gen(),
         }
     }
     /// hash `src` and compare hash value with `hashed`
@@ -75,35 +68,38 @@ impl CryptoController {
         let hashed = hasher.finalize();
         hashed.to_vec()
     }
-    /// serialize and sign the object with blake2b512, append the signature and return
+    /// Serialize and calculate checksum and return
+    ///
+    /// Note that it shouldn't be an security measurement
     #[tracing::instrument(level = "debug", skip_all, name = "encode")]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<String> {
-        let raw = bincode::serialize(&obj)?;
+        let mut raw = postcard::to_allocvec(&obj)?;
 
-        let signature: Signature = self.signing_key.sign(&raw);
+        let checksum: u8 = raw
+            .iter()
+            .fold(self.xor_key ^ (raw.len() % 255) as u8, |acc, x| acc ^ x);
+        raw.push(checksum);
 
-        let signed = Signed {
-            data: raw,
-            signature,
-        };
-        Ok(URL_SAFE.encode(bincode::serialize(&signed)?))
+        Ok(URL_SAFE_NO_PAD.encode(raw))
     }
-    /// extract signature and object of encoded bytes(serde will handle it)
+    /// Extract checksum and object of encoded bytes(serde will handle it)
     ///
     /// check signature and return the object
     ///
     /// Error if signature invaild
     #[tracing::instrument(level = "debug", skip_all, name = "decode")]
     pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
-        let raw = URL_SAFE.decode(raw)?;
-        let raw: Signed = bincode::deserialize(&raw)?;
-        let signature = raw.signature;
+        let mut raw = URL_SAFE_NO_PAD.decode(raw)?;
 
-        self.verifying_key
-            .verify(&raw.data, &signature)
-            .map_err(|_| Error::InvalidSignature)?;
+        let mut signature = raw.pop().ok_or(Error::InvalidSignature)?;
 
-        let obj = bincode::deserialize(&raw.data)?;
-        Ok(obj)
+        signature ^= (raw.len() % 255) as u8;
+        signature ^= raw.iter().fold(self.xor_key, |acc, x| acc ^ x);
+
+        if signature != 0 {
+            return Err(Error::InvalidSignature);
+        }
+
+        postcard::from_bytes(&raw).map_err(Into::into)
     }
 }
