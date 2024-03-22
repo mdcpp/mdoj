@@ -31,7 +31,7 @@ impl Pager {
         let param = serde_qs::to_string(self).unwrap();
 
         navigate(
-            &["/problems".to_string(), param].concat(),
+            &["/problems?".to_string(), param].concat(),
             Default::default(),
         );
     }
@@ -47,8 +47,8 @@ impl Pager {
         offset: u64,
     ) -> Result<(Self, Vec<ProblemInfo>)> {
         let (get_token, _) = use_token();
-        let res = match &self.sort_by {
-            None => {
+        let res = match &self.text {
+            Some(text) => {
                 ProblemSetClient::new(new_client().await?)
                     .search_by_text(
                         TextSearchRequest {
@@ -63,7 +63,7 @@ impl Pager {
                                     )
                                 }
                                 None => text_search_request::Request::Text(
-                                    self.text.clone().unwrap_or_default(),
+                                    text.clone(),
                                 ),
                             }),
                         }
@@ -71,7 +71,7 @@ impl Pager {
                     )
                     .await?
             }
-            Some(sort_by) => {
+            None => {
                 ProblemSetClient::new(new_client().await?)
                     .list(
                         ListProblemRequest {
@@ -87,7 +87,7 @@ impl Pager {
                                 }
                                 None => list_problem_request::Request::Create(
                                     list_problem_request::Create {
-                                        sort_by: *sort_by,
+                                        sort_by: self.sort_by.unwrap_or(ProblemSortBy::UpdateDate as i32),
                                         start_from_end: self.start_from_end,
                                     },
                                 ),
@@ -130,9 +130,10 @@ fn difficulty_color(difficulty: u32) -> impl IntoView {
 
 #[component]
 pub fn ProblemSearch(set_pager: WriteSignal<Pager>) -> impl IntoView {
-    // 1. Make it works
-    // 2. Make it pretty
-    // 3. Integrate with the problem list
+    // 1. add sort_by
+    // 2. add search bar
+    // 3. check reverse logic
+    // 4. check hydration
     let search_text = create_rw_signal("".to_owned());
     let reverse = create_rw_signal(false);
 
@@ -183,14 +184,14 @@ pub fn ProblemSearch(set_pager: WriteSignal<Pager>) -> impl IntoView {
             <TextInput
                 id="search_text"
                 value=search_text
+                class="w-full"
                 placeholder="Title tag1,tag2"
             />
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Button kind="submit" class="w-full" disabled>
                     Search
                 </Button>
-                <Toggle value=reverse /><span>Start from end</span>
+                <div><Toggle value=reverse />Start from end</div>
             </div>
         </div>
     }
@@ -198,11 +199,8 @@ pub fn ProblemSearch(set_pager: WriteSignal<Pager>) -> impl IntoView {
 
 #[component]
 pub fn ProblemList(pager: ReadSignal<Pager>) -> impl IntoView {
-    // pager
     let problems = create_resource(pager, |pager| async move {
-        // FIXME: update pager state to url bar
         let (pager, list) = pager.next(-PAGESIZE, 0).await.unwrap();
-        pager.store();
         list
     });
 
