@@ -1,6 +1,6 @@
-use std::{borrow::BorrowMut, ops::DerefMut};
+use std::{borrow::BorrowMut, default, ops::DerefMut};
 
-use leptos::*;
+use leptos::{html::s, *};
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
 
@@ -12,23 +12,106 @@ use crate::{
     pages::problems::toggle::Toggle,
 };
 
-const PAGESIZE: i64 = 12;
+const PAGESIZEu64: u64 = 12;
+const PAGESIZEusize: usize = 12;
+const PAGESIZEi64: i64 = 12;
 
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq, Params)]
-pub struct Pager {
+pub struct RawPager {
+    /// trailing pager session
+    tp: Option<String>,
+    /// leading pager session
+    lp: Option<String>,
+    /// trailing pager offset
+    to: Option<u64>,
+    /// leading pager offset
+    lo: Option<u64>,
+    /// text search
     text: Option<String>,
+    /// column search
     sort_by: Option<i32>,
-    offset: usize,
-    page: Option<String>,
-    start_from_end: Option<bool>,
+    /// start from end
+    se: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
+pub enum SearchDeps {
+    Text(String),
+    Column(ProblemSortBy),
+    #[default]
+    None,
+}
+/// Abtraction of paged(rather than cursor) content
+#[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
+pub struct Pager {
+    // search deps
+    deps: SearchDeps,
+    session: Option<String>,
+    /// whether to session is at end
+    at_end: bool,
+    offset: (u64, u64),
+    start_from_end: bool,
+}
+
+impl From<Pager> for RawPager {
+    fn from(value: Pager) -> Self {
+        Self {
+            tp: todo!(),
+            lp: todo!(),
+            to: todo!(),
+            lo: todo!(),
+            text: todo!(),
+            sort_by: todo!(),
+            se: todo!(),
+        }
+    }
+}
+
+/// merge two option
+macro_rules! merge {
+    ($a:expr,$b:expr) => {
+        match $a {
+            Some(x) => Some(x),
+            None => $b,
+        }
+    };
+}
+
+impl From<RawPager> for Pager {
+    fn from(value: RawPager) -> Self {
+        let deps = match (value.text, value.sort_by) {
+            (Some(text), _) => SearchDeps::Text(text),
+            (_, Some(sort_by)) => {
+                SearchDeps::Column(sort_by.try_into().unwrap_or_default())
+            }
+            _ => SearchDeps::None,
+        };
+        Self {
+            at_end: value.tp.is_some(),
+            deps,
+            session: merge!(value.tp, value.lp),
+            offset: (
+                value.to.unwrap_or_default(),
+                value.lo.unwrap_or_default(),
+            ),
+            start_from_end: value.se.unwrap_or_default(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Default)]
+struct RenderInfo {
+    previous_page: u64,
+    list: Vec<ProblemInfo>,
+    next_page: u64,
 }
 
 impl Pager {
-    //. store pager to url
+    /// store pager to url
     fn store(&self) {
         let navigate = leptos_router::use_navigate();
-
-        let param = serde_qs::to_string(self).unwrap();
+        let raw: RawPager = self.clone().into();
+        let param = serde_qs::to_string(&raw).unwrap();
 
         navigate(
             &["/problems?".to_string(), param].concat(),
@@ -37,30 +120,29 @@ impl Pager {
     }
     /// load pager from url, return default if not found
     fn load() -> Pager {
-        use_query::<Pager>()
-            .with(|v| v.clone().ok())
+        use_query::<RawPager>()
+            .with(|v| v.clone().map(Into::into).ok())
             .unwrap_or_default()
     }
-    async fn next(
-        &self,
+    /// emit rpc with corresponding endpoint and search parameter(if session is empty)
+    async fn raw_next(
+        &mut self,
         size: i64,
         offset: u64,
-    ) -> Result<(Self, Vec<ProblemInfo>)> {
+        session: Option<Paginator>,
+    ) -> Result<ListProblemResponse> {
         let (get_token, _) = use_token();
-        let res = match &self.text {
-            Some(text) => {
+        let offset = Some(offset);
+        Ok(match &self.deps {
+            SearchDeps::Text(text) => {
                 ProblemSetClient::new(new_client().await?)
                     .search_by_text(
                         TextSearchRequest {
                             size,
-                            offset: Some(offset),
-                            request: Some(match &self.page {
-                                Some(page) => {
-                                    text_search_request::Request::Pager(
-                                        Paginator {
-                                            session: page.to_string(),
-                                        },
-                                    )
+                            offset,
+                            request: Some(match session {
+                                Some(session) => {
+                                    text_search_request::Request::Pager(session)
                                 }
                                 None => text_search_request::Request::Text(
                                     text.clone(),
@@ -71,26 +153,51 @@ impl Pager {
                     )
                     .await?
             }
-            None => {
+            SearchDeps::Column(col) => {
                 ProblemSetClient::new(new_client().await?)
                     .list(
                         ListProblemRequest {
                             size,
-                            offset: Some(offset),
-                            request: Some(match &self.page {
-                                Some(page) => {
+                            offset,
+                            request: Some(match session {
+                                Some(session) => {
                                     list_problem_request::Request::Pager(
-                                        Paginator {
-                                            session: page.to_string(),
-                                        },
+                                        session,
                                     )
                                 }
                                 None => list_problem_request::Request::Create(
                                     list_problem_request::Create {
-                                        sort_by: self.sort_by.unwrap_or(
-                                            ProblemSortBy::UpdateDate as i32,
+                                        sort_by: *col as i32,
+                                        start_from_end: Some(
+                                            self.start_from_end,
                                         ),
-                                        start_from_end: self.start_from_end,
+                                    },
+                                ),
+                            }),
+                        }
+                        .with_token(get_token),
+                    )
+                    .await?
+            }
+            SearchDeps::None => {
+                ProblemSetClient::new(new_client().await?)
+                    .list(
+                        ListProblemRequest {
+                            size,
+                            offset,
+                            request: Some(match session {
+                                Some(session) => {
+                                    list_problem_request::Request::Pager(
+                                        session,
+                                    )
+                                }
+                                None => list_problem_request::Request::Create(
+                                    list_problem_request::Create {
+                                        sort_by: ProblemSortBy::UpdateDate
+                                            as i32,
+                                        start_from_end: Some(
+                                            self.start_from_end,
+                                        ),
                                     },
                                 ),
                             }),
@@ -100,20 +207,40 @@ impl Pager {
                     .await?
             }
         }
-        .into_inner();
-        let mut list = res.list;
-        if size < 0 {
-            list.reverse();
-        }
+        .into_inner())
+    }
+    async fn next(&mut self, pages: i64) -> Result<RenderInfo> {
+        let mut offset = 0;
 
-        // FIXME: pagaintor session at start of list if reversed
-        let pager = Self {
-            text: self.text.clone(),
-            offset: self.offset + list.len(),
-            page: Some(res.next_session),
-            ..self.clone()
-        };
-        Ok((pager, list))
+        if pages.is_negative() ^ self.at_end {
+            offset = self.offset.1 - self.offset.0;
+        }
+        let mut res = self
+            .raw_next(
+                pages * PAGESIZEi64,
+                offset,
+                self.session.clone().map(|session| Paginator { session }),
+            )
+            .await?;
+
+        if pages.is_negative() {
+            res.list.reverse();
+        }
+        let res_len = res.list.len() as u64;
+
+        if pages.is_positive() {
+            self.offset.0 = self.offset.1;
+            self.offset.1 += res_len;
+        } else {
+            self.offset.1 = self.offset.0;
+            self.offset.0 = self.offset.0.saturating_sub(res_len);
+        }
+        Ok(RenderInfo {
+            // FIXME: add bound check for underflow entity
+            previous_page: (self.offset.0) as u64 / PAGESIZEu64,
+            list: res.list,
+            next_page: (res.remain + PAGESIZEu64 - 1) / PAGESIZEu64,
+        })
     }
 }
 
@@ -201,9 +328,10 @@ pub fn ProblemSearch(set_pager: WriteSignal<Pager>) -> impl IntoView {
 
 #[component]
 pub fn ProblemList(pager: ReadSignal<Pager>) -> impl IntoView {
-    let problems = create_resource(pager, |pager| async move {
-        let (pager, list) = pager.next(-PAGESIZE, 0).await.unwrap();
-        list
+    let problems = create_resource(pager, |mut pager| async move {
+        let render = pager.next(1).await.unwrap();
+        pager.store();
+        render
     });
 
     view! {
@@ -226,7 +354,7 @@ pub fn ProblemList(pager: ReadSignal<Pager>) -> impl IntoView {
                             view! {
                                 <div class="table-row-group" style="line-height: 3rem">
                                 {
-                                    v
+                                    v.list
                                     .into_iter()
                                     .map(|info| {
                                         view! {
@@ -244,19 +372,28 @@ pub fn ProblemList(pager: ReadSignal<Pager>) -> impl IntoView {
                                 }
                                 </div>
                                 <ul>
-                                    // {
-                                    //     (-(params.offset/PAGESIZE)..(v.remain/PAGESIZE))
-                                    //     .map(|i|{
-                                    //         view!{
-                                    //             <li>
-                                    //                 {i}
-                                    //             </li>
-                                    //         }
-                                    //     }).into_view()
-                                    // }
-                                    <li>-1</li>
-                                    <li>0</li>
-                                    <li>+1</li>
+                                {
+                                    (0..(v.previous_page))
+                                    .map(|i|{
+                                        view!{
+                                            <li>
+                                                back {i}th page
+                                            </li>
+                                        }
+                                    }).collect_view()
+                                }
+                                </ul>
+                                <ul>
+                                {
+                                    (0..(v.next_page))
+                                    .map(|i|{
+                                        view!{
+                                            <li>
+                                                advance {i}th page
+                                            </li>
+                                        }
+                                    }).collect_view()
+                                }
                                 </ul>
                             }.into_view()
                         })
