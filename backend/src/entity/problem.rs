@@ -261,8 +261,13 @@ impl Source for TextPagerTrait {
         data: &Self::Data,
         _db: &DatabaseConnection,
     ) -> Result<Select<Self::Entity>, Error> {
-        Entity::read_filter(Entity::find(), auth)
-            .map(|x| x.filter(Column::Title.like(data).or(Column::Tags.like(data))))
+        Entity::read_filter(Entity::find(), auth).map(|x| {
+            x.filter(
+                Column::Title
+                    .contains(data)
+                    .or(tag_cond(Column::Tags, data.as_str())),
+            )
+        })
     }
 }
 

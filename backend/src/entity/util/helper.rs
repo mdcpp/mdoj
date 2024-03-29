@@ -10,6 +10,24 @@ use crate::util::error::Error;
 
 use super::paginator::Paginate;
 
+const MAX_TAG: usize = 16;
+
+/// aggregate conditions for tags(separated by whitespace) with or
+///
+/// return a `Expr::val("1").eq("0")` if tags is empty
+#[inline]
+pub fn tag_cond(col: impl ColumnTrait, tags: &str) -> SimpleExpr {
+    let mut expr = Expr::val("1").eq("0");
+    for tag in tags
+        .split_whitespace()
+        .take(MAX_TAG)
+        .filter(|&x| !x.is_empty())
+    {
+        expr = expr.or(col.contains(tag));
+    }
+    expr
+}
+
 /// bool to order
 #[inline]
 pub fn order_by_bool<E: EntityTrait>(
