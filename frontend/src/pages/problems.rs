@@ -43,7 +43,9 @@ pub struct RawPager {
     se: Option<u32>,
 }
 
-/// Abtraction of paged(rather than cursor) content
+/// Abtraction of paged(rather than cursor api of backend) content
+///
+/// It provides an clean interface to load next/previous page and store state
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct Pager {
     // search deps
@@ -236,15 +238,21 @@ impl Pager {
         }
         .into_inner())
     }
+    /// move to next page
+    ///
+    /// note that use can pass pages of 0 to fetch the current page from server again
+    ///
+    /// * `pages` - how many pages to move.
     pub async fn next(&mut self, pages: i64) -> Result<RenderInfo> {
-        let mut offset = 0;
+        /// FIXME: add overflow check for invaild offset(report to client?), also, pages==0 has bug to load next page instead
+        let mut offset = PAGESIZEU64* (pages.abs() as u64);
 
-        if pages.is_negative() ^ self.at_end {
-            offset = self.offset.1 - self.offset.0;
+        if !pages.is_negative() ^ self.at_end {
+            offset -= self.offset.1 - self.offset.0;
         }
         let mut res = self
             .raw_next(
-                pages * PAGESIZEI64,
+                PAGESIZEI64,
                 offset,
                 self.session.clone().map(|session| Paginator { session }),
             )
@@ -265,7 +273,7 @@ impl Pager {
             self.offset.0 = self.offset.0.saturating_sub(res_len);
         }
 
-        // self_.store();
+        self.session=Some(res.next_session);
 
         Ok(RenderInfo {
             // FIXME: add bound check for underflow entity
