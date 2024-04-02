@@ -12,10 +12,10 @@ use crate::{
     grpc::{problem_set_client::*, *},
     pages::problems::toggle::Toggle,
 };
-
-const PAGESIZEU64: u64 = 12;
-const PAGESIZEUSIZE: usize = 12;
-const PAGESIZEI64: i64 = 12;
+use crate::pages::error_fallback;
+const PAGESIZEU64: u64 = 10;
+const PAGESIZEUSIZE: usize = 10;
+const PAGESIZEI64: i64 = 10;
 
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub enum SearchDeps {
@@ -45,7 +45,7 @@ pub struct RawPager {
 
 /// Abtraction of paged(rather than cursor api of backend) content
 ///
-/// It provides an clean interface to load next/previous page and store state
+/// It provides a clean interface to load next/previous page and store state
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub struct Pager {
     // search deps
@@ -244,11 +244,10 @@ impl Pager {
     ///
     /// * `pages` - how many pages to move.
     pub async fn next(&mut self, pages: i64) -> Result<RenderInfo> {
-        /// FIXME: add overflow check for invaild offset(report to client?), also, pages==0 has bug to load next page instead
-        let mut offset = PAGESIZEU64* (pages.abs() as u64);
-
-        if !pages.is_negative() ^ self.at_end {
-            offset -= self.offset.1 - self.offset.0;
+        /// FIXME: add bound check
+        let mut offset=(pages.abs()as u64)*PAGESIZEU64;
+        if (pages>0)^self.at_end{
+            offset+=self.offset.1-self.offset.0;
         }
         let mut res = self
             .raw_next(
@@ -274,6 +273,7 @@ impl Pager {
         }
 
         self.session=Some(res.next_session);
+        self.store();
 
         Ok(RenderInfo {
             // FIXME: add bound check for underflow entity
@@ -297,7 +297,7 @@ struct RenderInfo {
 }
 
 #[component]
-pub fn ProblemList(render: ReadSignal<RenderInfo>, next_action:Action<i64,()>) -> impl IntoView {
+pub fn ProblemList(render: ReadSignal<Result<RenderInfo>>, next_action:Action<i64,()>) -> impl IntoView {
     fn difficulty_color(difficulty: u32) -> impl IntoView {
         let color: &'static str = match difficulty {
             0..=1000 => "green",
@@ -312,74 +312,75 @@ pub fn ProblemList(render: ReadSignal<RenderInfo>, next_action:Action<i64,()>) -
     }
 
     let list= move|| {
-        let view=render();
         view! {
             <div class="table-row-group" style="line-height: 3rem">
             {
-                view.list
-                .into_iter()
-                .map(|info| {
-                    view! {
-                        <div class="table-row odd:bg-gray">
-                            <div class="w-2/3 truncate table-cell">
-                                <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
+                move||render.get().map(|v|
+                    v.list
+                    .into_iter()
+                    .map(|info| {
+                        view! {
+                            <div class="table-row odd:bg-gray">
+                                <div class="w-2/3 truncate table-cell">
+                                    <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
+                                </div>
+                                <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
+                                <div class="text-center hidden md:table-cell">{info.submit_count}</div>
+                                <div class="table-cell">{difficulty_color(info.difficulty)}</div>
                             </div>
-                            <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
-                            <div class="text-center hidden md:table-cell">{info.submit_count}</div>
-                            <div class="table-cell">{difficulty_color(info.difficulty)}</div>
-                        </div>
-                    }
-                })
-                .collect_view()
+                        }
+                    })
+                    .collect_view()
+                )
             }
             </div>
             <ul>
             {
-                (1..=(view.previous_page))
-                .map(|i|{
-                    view!{
-                        <li on:click=move |_| next_action.dispatch(-(i as i64))>
-                            back {i}th page
-                        </li>
-                    }
-                }).collect_view()
+                move||render.get().clone().map(|v|
+                    (1..=(v.previous_page))
+                    .map(|i|{
+                        view!{
+                            <li on:click=move |_| next_action.dispatch(-(i as i64))>
+                                back {i}th page
+                            </li>
+                        }
+                    }).collect_view()
+                )
             }
             </ul>
             <ul>
             {
-                (1..=(view.next_page))
-                .map(|i|{
-                    view!{
-                        <li on:click=move |_| next_action.dispatch(i as i64)>
-                            advance {i}th page
-                        </li>
-                    }
-                }).collect_view()
+                move||render.get().clone().map(|v|
+                    (1..=(v.next_page))
+                    .map(|i|{
+                        view!{
+                            <li on:click=move |_| next_action.dispatch(i as i64)>
+                                advance {i}th page
+                            </li>
+                        }
+                    }).collect_view()
+                )
             }
             </ul>
         }.into_view()
     };
     view! {
-        <Transition fallback=move || {
-            view! { <p>Loading</p> }
-        }>
-            <div class="table w-full table-auto">
-                <div class="table-header-group text-left">
-                    <div class="table-row">
-                        <div class="table-cell">Title</div>
-                        <div class="hidden md:table-cell">AC Rate</div>
-                        <div class="hidden md:table-cell">Attempt</div>
-                        <div class="table-cell">Difficulty</div>
-                    </div>
+        <div class="table w-full table-auto">
+            <div class="table-header-group text-left">
+                <div class="table-row">
+                    <div class="table-cell">Title</div>
+                    <div class="hidden md:table-cell">AC Rate</div>
+                    <div class="hidden md:table-cell">Attempt</div>
+                    <div class="table-cell">Difficulty</div>
                 </div>
-                {list}
             </div>
-        </Transition>
+            {list}
+        </div>
     }
 }
 
 #[component]
-pub fn ProblemSearch(set_render: WriteSignal<RenderInfo>) -> impl IntoView {
+pub fn ProblemSearch(set_render: WriteSignal<Result<RenderInfo>>) -> impl IntoView {
     let search_text = create_rw_signal("".to_owned());
     let reverse = create_rw_signal(false);
 
@@ -445,21 +446,25 @@ pub fn ProblemSearch(set_render: WriteSignal<RenderInfo>) -> impl IntoView {
 
 #[component]
 pub fn Problems() -> impl IntoView {
-    let render_resource =create_resource(||(), |_|async{
-        let mut pager=Pager::load();
-        let is_default=pager.is_default();
-        pager.next(match is_default{true=>1,false=>0}).await.unwrap()
-    });
+    let (render, set_render) = create_signal(Ok(RenderInfo::default()));
 
-    let (render, set_render) = create_signal(RenderInfo::default());
+    let render_resource =create_resource(||(), move|_| {
+        let set_render=set_render.clone();
+        let mut pager = Pager::load();
+        let pages = match pager.is_default() {
+            true => 1,
+            false => 0
+        };
+        async move {
+            set_render.set(pager.next(pages).await);
+        }
+    });
 
     let next_action=create_action(move |(pages):&(i64)|{
         let mut pager=Pager::load();
         let pages=*pages;
         async move{
-            let render=pager.next(pages).await.unwrap();
-            pager.store();
-            set_render.set(render);
+            set_render.set(pager.next(pages).await);
         }
     });
 
@@ -469,12 +474,11 @@ pub fn Problems() -> impl IntoView {
             <Transition fallback=move || {
                 view! { <p>Loading</p> }
             }>
-            {
-                render_resource.get().map(|view|{
-                    set_render.set(view.clone());
-                    view!{<ProblemList render=render next_action=next_action/>}
-                })
-            }
+                <ErrorBoundary fallback=error_fallback>
+                {
+                    render_resource.get().map(|_|view!{<ProblemList render=render next_action=next_action/>})
+                }
+                </ErrorBoundary>
             </Transition>
         </div>
     }
