@@ -1,5 +1,4 @@
-use std::{borrow::BorrowMut, default, ops::DerefMut};
-use std::rc::Rc;
+use std::{borrow::BorrowMut, default, ops::DerefMut, rc::Rc};
 
 use leptos::{html::s, *};
 use leptos_router::*;
@@ -10,12 +9,9 @@ use crate::{
     config::{self, use_token, WithToken},
     error::*,
     grpc::{problem_set_client::*, *},
-    pages::problems::toggle::Toggle,
+    pages::{error_fallback, problems::toggle::Toggle},
 };
-use crate::pages::error_fallback;
-const PAGESIZEU64: u64 = 10;
-const PAGESIZEUSIZE: usize = 10;
-const PAGESIZEI64: i64 = 10;
+const PAGESIZE: u64 = 10;
 
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq)]
 pub enum SearchDeps {
@@ -27,20 +23,19 @@ pub enum SearchDeps {
 
 #[derive(Deserialize, Serialize, Default, Clone, PartialEq, Params)]
 pub struct RawPager {
-    /// trailing pager session
-    tp: Option<String>,
-    /// leading pager session
-    lp: Option<String>,
-    /// trailing pager offset
-    to: Option<u64>,
-    /// leading pager offset
-    lo: Option<u64>,
-    /// text search
+    /// session
+    s: Option<String>,
+    /// offset
+    o: Option<u64>,
+    /// direction
+    d: Option<u8>,
     text: Option<String>,
     /// column search
     sort_by: Option<i32>,
     /// start from end
-    se: Option<u32>,
+    e: Option<u8>,
+    /// page_number
+    p: Option<u64>,
 }
 
 /// Abtraction of paged(rather than cursor api of backend) content
@@ -51,20 +46,11 @@ pub struct Pager {
     // search deps
     deps: SearchDeps,
     session: Option<String>,
-    /// whether to session is at end
-    at_end: bool,
-    offset: (u64, u64),
+    direction: bool,
+    offset: u64,
+    // how many page before this page
+    page_number: u64,
     start_from_end: bool,
-}
-
-/// merge two option
-macro_rules! merge {
-    ($a:expr,$b:expr) => {
-        match $a {
-            Some(x) => Some(x),
-            None => $b,
-        }
-    };
 }
 
 impl From<RawPager> for Pager {
@@ -77,18 +63,15 @@ impl From<RawPager> for Pager {
             _ => SearchDeps::None,
         };
         Self {
-            at_end: value.tp.is_some(),
             deps,
-            session: merge!(value.tp, value.lp),
-            offset: (
-                value.to.unwrap_or_default(),
-                value.lo.unwrap_or_default(),
-            ),
-            start_from_end: value.se.unwrap_or_default()==1,
+            session: value.s,
+            direction: value.d.unwrap_or_default() == 1,
+            offset: value.o.unwrap_or_default(),
+            page_number: value.p.unwrap_or_default(),
+            start_from_end: value.e.unwrap_or_default() == 1,
         }
     }
 }
-
 
 impl From<Pager> for RawPager {
     fn from(value: Pager) -> Self {
@@ -100,69 +83,40 @@ impl From<Pager> for RawPager {
             _ => {}
         };
 
-        let mut tp = None;
-        let mut lp = None;
-        if let Some(session) = value.session {
-            match value.at_end {
-                true => lp = Some(session),
-                false => tp = Some(session),
-            }
-        }
-
+        /// FIXME: use None on default value to shorten url
         Self {
-            tp,
-            lp,
-            to: Some(value.offset.0),
-            lo: Some(value.offset.1),
+            s: value.session,
+            o: Some(value.offset),
+            d: Some(value.direction as u8),
             text,
             sort_by,
-            se: Some(value.start_from_end as u32),
+            e: Some(value.start_from_end as u8),
+            p: Some(value.page_number),
         }
     }
 }
 
 impl Pager {
-    pub fn search(deps: SearchDeps,start_from_end:bool)->Self{
-        let self_=Self{
-            deps,
-            session: None,
-            at_end: false,
-            offset: (0, 0),
-            start_from_end,
+    fn into_query(self) -> String {
+        let raw: RawPager = self.into();
+        ["?", &*serde_qs::to_string(&raw).unwrap()].concat()
+    }
+    fn get() -> Memo<Self> {
+        Memo::new(move |_| {
+            use_query::<RawPager>()
+                .with(|v| v.clone().map(Into::into).ok())
+                .unwrap_or_default()
+        })
+    }
+    async fn get_respond(&mut self) -> Result<ListProblemResponse> {
+        let size = match self.direction {
+            true => -(PAGESIZE as i64),
+            false => PAGESIZE as i64,
         };
-        self_.store();
-        self_
-    }
-    pub fn is_default(&self)->bool{
-        self.offset.0==0
-    }
-    /// store pager to url
-    fn store(&self) {
-        let navigate = leptos_router::use_navigate();
-        let raw: RawPager = self.clone().into();
-        let param = serde_qs::to_string(&raw).unwrap();
-
-        navigate(
-            &["/problems?".to_string(), param].concat(),
-            Default::default(),
-        );
-    }
-    /// load pager from url, return default if not found
-    fn load() -> Pager {
-        use_query::<RawPager>()
-            .with(|v| v.clone().map(Into::into).ok())
-            .unwrap_or_default()
-    }
-    /// emit rpc with corresponding endpoint and search parameter(if session is empty)
-    async fn raw_next(
-        &mut self,
-        size: i64,
-        offset: u64,
-        session: Option<Paginator>,
-    ) -> Result<ListProblemResponse> {
         let (get_token, _) = use_token();
-        let offset = Some(offset);
-        Ok(match &self.deps {
+        let offset = Some(self.offset);
+        let session = self.session.clone().map(|session| Paginator { session });
+        let mut res = match &self.deps {
             SearchDeps::Text(text) => {
                 ProblemSetClient::new(new_client().await?)
                     .search_by_text(
@@ -236,68 +190,93 @@ impl Pager {
                     .await?
             }
         }
-        .into_inner())
+        .into_inner();
+
+        if self.direction {
+            res.list.reverse();
+        }
+        Ok(res)
     }
-    /// move to next page
-    ///
-    /// note that use can pass pages of 0 to fetch the current page from server again
-    ///
-    /// * `pages` - how many pages to move.
-    pub async fn next(&mut self, pages: i64) -> Result<RenderInfo> {
-        /// FIXME: add bound check
-        let mut offset=(pages.abs()as u64)*PAGESIZEU64;
-        if (pages>0)^self.at_end{
-            offset+=self.offset.1-self.offset.0;
-        }
-        let mut res = self
-            .raw_next(
-                PAGESIZEI64,
-                offset,
-                self.session.clone().map(|session| Paginator { session }),
-            )
-            .await?;
+    fn get_queries(
+        &self,
+        new_session: String,
+        remain: u64,
+    ) -> (Vec<String>, Vec<String>) {
+        let deps = self.deps.clone();
+        let start_from_end = self.start_from_end;
 
-        match pages{
-            0 if self.at_end =>res.list.reverse(),
-            x if x<0=>res.list.reverse(),
-            _=>(),
-        }
-        let res_len = res.list.len() as u64;
-
-        if pages.is_positive() {
-            self.offset.0 = self.offset.1;
-            self.offset.1 += res_len;
-        } else {
-            self.offset.1 = self.offset.0;
-            self.offset.0 = self.offset.0.saturating_sub(res_len);
+        let mut previous_session = self.session.clone();
+        let mut next_session = Some(new_session);
+        if self.direction {
+            std::mem::swap(&mut previous_session, &mut next_session);
         }
 
-        self.session=Some(res.next_session);
-        self.store();
-
-        Ok(RenderInfo {
-            // FIXME: add bound check for underflow entity
-            previous_page: (self.offset.0) as u64 / PAGESIZEU64,
-            list: res.list,
-            next_page: (res.remain + PAGESIZEU64 - 1) / PAGESIZEU64,
-        })
+        let previous: Vec<_> = (0..self.page_number)
+            .map(|p| {
+                Self {
+                    deps: deps.clone(),
+                    session: previous_session.clone(),
+                    direction: true,
+                    offset: p * PAGESIZE,
+                    page_number: self.page_number.saturating_sub(p + 1),
+                    start_from_end,
+                }
+                .into_query()
+            })
+            .collect();
+        let next: Vec<_> = (0..remain.div_ceil(PAGESIZE))
+            .map(|p| {
+                Self {
+                    deps: deps.clone(),
+                    session: next_session.clone(),
+                    direction: false,
+                    offset: p * PAGESIZE,
+                    page_number: self.page_number.saturating_add(p + 1),
+                    start_from_end,
+                }
+                .into_query()
+            })
+            .collect();
+        (previous, next)
     }
-    // pub async fn load_and_next(pages: i64) -> Result<RenderInfo>{
-    //     let mut self_=Self::load();
-    //     let list=self_.next(pages).await?;
-    //     Ok(list)
-    // }
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Default)]
 struct RenderInfo {
-    previous_page: u64,
+    previous_queries: Vec<String>,
     list: Vec<ProblemInfo>,
-    next_page: u64,
+    next_queries: Vec<String>,
+}
+
+impl RenderInfo {
+    fn get() -> impl Fn() -> Resource<Pager, Result<Self>> {
+        let pager = Pager::get();
+        move || {
+            create_resource(
+                move || pager.get(),
+                move |_| {
+                    let mut pager = pager.get().clone();
+                    async move {
+                        pager.get_respond().await.map(|res| {
+                            let list = res.list;
+                            let (previous_queries, next_queries) =
+                                pager.get_queries(res.next_session, res.remain);
+
+                            Self {
+                                list,
+                                previous_queries,
+                                next_queries,
+                            }
+                        })
+                    }
+                },
+            )
+        }
+    }
 }
 
 #[component]
-pub fn ProblemList(render: ReadSignal<Result<RenderInfo>>, next_action:Action<i64,()>) -> impl IntoView {
+pub fn ProblemList() -> impl IntoView {
     fn difficulty_color(difficulty: u32) -> impl IntoView {
         let color: &'static str = match difficulty {
             0..=1000 => "green",
@@ -311,175 +290,78 @@ pub fn ProblemList(render: ReadSignal<Result<RenderInfo>>, next_action:Action<i6
         }
     }
 
-    let list= move|| {
-        view! {
-            <div class="table-row-group" style="line-height: 3rem">
-            {
-                move||render.get().map(|v|
-                    v.list
-                    .into_iter()
-                    .map(|info| {
-                        view! {
-                            <div class="table-row odd:bg-gray">
-                                <div class="w-2/3 truncate table-cell">
-                                    <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
-                                </div>
-                                <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
-                                <div class="text-center hidden md:table-cell">{info.submit_count}</div>
-                                <div class="table-cell">{difficulty_color(info.difficulty)}</div>
-                            </div>
-                        }
-                    })
-                    .collect_view()
-                )
-            }
-            </div>
-            <ul>
-            {
-                move||render.get().clone().map(|v|
-                    (1..=(v.previous_page))
-                    .map(|i|{
-                        view!{
-                            <li on:click=move |_| next_action.dispatch(-(i as i64))>
-                                back {i}th page
-                            </li>
-                        }
-                    }).collect_view()
-                )
-            }
-            </ul>
-            <ul>
-            {
-                move||render.get().clone().map(|v|
-                    (1..=(v.next_page))
-                    .map(|i|{
-                        view!{
-                            <li on:click=move |_| next_action.dispatch(i as i64)>
-                                advance {i}th page
-                            </li>
-                        }
-                    }).collect_view()
-                )
-            }
-            </ul>
-        }.into_view()
-    };
-    view! {
-        <div class="table w-full table-auto">
-            <div class="table-header-group text-left">
-                <div class="table-row">
-                    <div class="table-cell">Title</div>
-                    <div class="hidden md:table-cell">AC Rate</div>
-                    <div class="hidden md:table-cell">Attempt</div>
-                    <div class="table-cell">Difficulty</div>
-                </div>
-            </div>
-            {list}
-        </div>
-    }
-}
-
-#[component]
-pub fn ProblemSearch(set_render: WriteSignal<Result<RenderInfo>>) -> impl IntoView {
-    let search_text = create_rw_signal("".to_owned());
-    let reverse = create_rw_signal(false);
-
-    let submit =
-        create_action(move |(search_text, reverse): &(String, bool)| {
-            let serach_text = search_text.clone();
-
-            let (get_token, _) = use_token();
-
-            async move {
-                // let mut problem_set = problem_set_client::ProblemSetClient::new(
-                //     new_client().await?,
-                // );
-                // match search_text.is_empty(){
-                //     true=>{
-                //         let resp = problem_set
-                //             .list(
-                //                 ListProblemRequest {
-                //                     size: 50,
-                //                     offset: None,
-                //                     request: Some(
-                //                         list_problem_request::Request::Create(
-                //                             list_problem_request::Create {
-                //                                 sort_by: ProblemSortBy::UpdateDate
-                //                                     .into(),
-                //                                 start_from_end: Some(*reverse),
-                //                             },
-                //                         ),
-                //                     ),
-                //                 }
-                //                 .with_token(get_token()),
-                //             )
-                //             .await?;
-                //         let resp = resp.into_inner();
-                //         Some(resp)
-                //     }
-                // }
-            }
-        });
-
-    let disabled = Signal::derive(move || submit.pending()());
+    let r = RenderInfo::get()();
 
     view! {
         <div>
-            <label for="search_text" class="text-text pb-2">
-                List of problems
-            </label>
-            <TextInput
-                id="search_text"
-                value=search_text
-                class="w-full"
-                placeholder="Title tag1,tag2"
-            />
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button kind="submit" class="w-full" disabled>
-                    Search
-                </Button>
-                <div><Toggle value=reverse />Start from end</div>
-            </div>
+            <Transition fallback=move || {
+                view! { <p>Loading</p> }
+            }>
+            {move || {
+                r.get()
+                    .map(|v| v.map(|v|view!{
+                        <div class="table w-full table-auto">
+                            <div class="table-header-group text-left">
+                                <div class="table-row">
+                                    <div class="table-cell">Title</div>
+                                    <div class="hidden md:table-cell">AC Rate</div>
+                                    <div class="hidden md:table-cell">Attempt</div>
+                                    <div class="table-cell">Difficulty</div>
+                                </div>
+                            </div>
+                            <div class="table-row-group" style="line-height: 3rem">
+                            {
+                                v.list.into_iter().map(|info| {
+                                    view! {
+                                        <div class="table-row odd:bg-gray">
+                                            <div class="w-2/3 truncate table-cell">
+                                                <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
+                                            </div>
+                                            <div class="text-center hidden md:table-cell">{info.ac_rate} %</div>
+                                            <div class="text-center hidden md:table-cell">{info.submit_count}</div>
+                                            <div class="table-cell">{difficulty_color(info.difficulty)}</div>
+                                        </div>
+                                    }
+                                })
+                                .collect_view()
+                            }
+                            </div>
+                        </div>
+                        <ul>
+                        {
+                            v.previous_queries.into_iter().enumerate()
+                            .map(|(n,query)|view!{
+                                <li>
+                                    <A href=format!("/problems{}", query)>back {n+1} page</A>
+                                </li>
+                            }).collect_view()
+                        }
+                        </ul>
+                        <ul>
+                        {
+                            v.next_queries.into_iter().enumerate()
+                            .map(|(n,query)|view!{
+                                <li>
+                                    <A href=format!("/problems{}", query)>back {n+1} page</A>
+                                </li>
+                            }).collect_view()
+                        }
+                        </ul>
+                    }))
+                }
+            }
+            </Transition>
         </div>
     }
 }
 
 #[component]
 pub fn Problems() -> impl IntoView {
-    let (render, set_render) = create_signal(Ok(RenderInfo::default()));
-
-    let render_resource =create_resource(||(), move|_| {
-        let set_render=set_render.clone();
-        let mut pager = Pager::load();
-        let pages = match pager.is_default() {
-            true => 1,
-            false => 0
-        };
-        async move {
-            set_render.set(pager.next(pages).await);
-        }
-    });
-
-    let next_action=create_action(move |(pages):&(i64)|{
-        let mut pager=Pager::load();
-        let pages=*pages;
-        async move{
-            set_render.set(pager.next(pages).await);
-        }
-    });
-
     view! {
         <div class="h-full container container-lg items-center justify-between text-lg">
-            <ProblemSearch set_render=set_render/>
-            <Transition fallback=move || {
-                view! { <p>Loading</p> }
-            }>
-                <ErrorBoundary fallback=error_fallback>
-                {
-                    render_resource.get().map(|_|view!{<ProblemList render=render next_action=next_action/>})
-                }
-                </ErrorBoundary>
-            </Transition>
+            <ErrorBoundary fallback=error_fallback>
+                <ProblemList/>
+            </ErrorBoundary>
         </div>
     }
 }
