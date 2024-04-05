@@ -73,6 +73,15 @@ impl From<RawPager> for Pager {
     }
 }
 
+macro_rules! on_option{
+    ($e:expr,$t:ident) =>{
+        match ($e as $t)==$t::default(){
+            true=>None,
+            false=>Some($e as $t)
+        }
+    }
+}
+
 impl From<Pager> for RawPager {
     fn from(value: Pager) -> Self {
         let mut text = None;
@@ -83,15 +92,14 @@ impl From<Pager> for RawPager {
             _ => {}
         };
 
-        /// FIXME: use None on default value to shorten url
         Self {
             s: value.session,
-            o: Some(value.offset),
-            d: Some(value.direction as u8),
+            o: on_option!(value.offset,u64),
+            d: on_option!(value.direction, u8),
             text,
             sort_by,
-            e: Some(value.start_from_end as u8),
-            p: Some(value.page_number),
+            e: on_option!(value.start_from_end,u8),
+            p: on_option!(value.page_number,u64),
         }
     }
 }
@@ -100,6 +108,22 @@ impl Pager {
     fn into_query(self) -> String {
         let raw: RawPager = self.into();
         ["?", &*serde_qs::to_string(&raw).unwrap()].concat()
+    }
+    fn text_search(text:String)->Self{
+        Self{
+            deps:SearchDeps::Text(text),
+            ..Default::default()
+        }
+    }
+    fn column_search(col:ProblemSortBy)->Self{
+        Self{
+            deps:SearchDeps::Column(col),
+            .. Default::default()
+        }
+    }
+    fn from_end(mut self, start_from_end:bool) ->Self{
+        self.start_from_end=start_from_end;
+        self
     }
     fn get() -> Memo<Self> {
         Memo::new(move |_| {
@@ -276,6 +300,31 @@ impl RenderInfo {
 }
 
 #[component]
+pub fn ProblemSearch()->impl IntoView{
+    let filter_text=create_rw_signal("".to_owned());
+    let start_from_end=create_rw_signal(false);
+    let sort_by=create_rw_signal(ProblemSortBy::AcRate as i32);
+
+    let submit=Memo::new(move |_|{
+        let start_from_end =start_from_end.get();
+        let text=filter_text.get();
+        let sort_by:ProblemSortBy=sort_by.get().try_into().unwrap_or(ProblemSortBy::UpdateDate);
+
+        let pager=match text.is_empty(){
+            true=> Pager::column_search(sort_by),
+            false=>Pager::text_search(text)
+        }.from_end(start_from_end);
+        let query=pager.into_query();
+        ["/problems",&query].concat()
+    });
+
+    view!{
+        <div>
+
+        </div>
+    }
+}
+#[component]
 pub fn ProblemList() -> impl IntoView {
     fn difficulty_color(difficulty: u32) -> impl IntoView {
         let color: &'static str = match difficulty {
@@ -342,7 +391,7 @@ pub fn ProblemList() -> impl IntoView {
                             v.next_queries.into_iter().enumerate()
                             .map(|(n,query)|view!{
                                 <li>
-                                    <A href=format!("/problems{}", query)>back {n+1} page</A>
+                                    <A href=format!("/problems{}", query)>next {n+1} page</A>
                                 </li>
                             }).collect_view()
                         }
