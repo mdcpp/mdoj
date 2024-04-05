@@ -190,7 +190,7 @@ impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
             return Ok((
                 Self {
                     last_id: R::get_id(model),
-                    last_direction: abs_dir,
+                    last_direction: false,
                     direction: abs_dir,
                     data,
                     source: PhantomData,
@@ -346,7 +346,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
             return Ok((
                 Self {
                     last_id: R::get_id(model),
-                    last_direction: abs_dir,
+                    last_direction: false,
                     direction: abs_dir,
                     data,
                     source: PhantomData,
