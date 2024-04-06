@@ -73,17 +73,17 @@ impl From<RawPager> for Pager {
     }
 }
 
-macro_rules! on_option{
-    ($e:expr,$t:ident) =>{
-        match ($e as $t)==$t::default(){
-            true=>None,
-            false=>Some($e as $t)
-        }
-    }
-}
-
 impl From<Pager> for RawPager {
     fn from(value: Pager) -> Self {
+        macro_rules! on_option {
+            ($e:expr,$t:ident) => {
+                match ($e as $t) == $t::default() {
+                    true => None,
+                    false => Some($e as $t),
+                }
+            };
+        }
+
         let mut text = None;
         let mut sort_by = None;
         match value.deps {
@@ -94,12 +94,12 @@ impl From<Pager> for RawPager {
 
         Self {
             s: value.session,
-            o: on_option!(value.offset,u64),
+            o: on_option!(value.offset, u64),
             d: on_option!(value.direction, u8),
             text,
             sort_by,
-            e: on_option!(value.start_from_end,u8),
-            p: on_option!(value.page_number,u64),
+            e: on_option!(value.start_from_end, u8),
+            p: on_option!(value.page_number, u64),
         }
     }
 }
@@ -109,20 +109,20 @@ impl Pager {
         let raw: RawPager = self.into();
         ["?", &*serde_qs::to_string(&raw).unwrap()].concat()
     }
-    fn text_search(text:String)->Self{
-        Self{
-            deps:SearchDeps::Text(text),
+    fn text_search(text: String) -> Self {
+        Self {
+            deps: SearchDeps::Text(text),
             ..Default::default()
         }
     }
-    fn column_search(col:ProblemSortBy)->Self{
-        Self{
-            deps:SearchDeps::Column(col),
-            .. Default::default()
+    fn column_search(col: ProblemSortBy) -> Self {
+        Self {
+            deps: SearchDeps::Column(col),
+            ..Default::default()
         }
     }
-    fn from_end(mut self, start_from_end:bool) ->Self{
-        self.start_from_end=start_from_end;
+    fn from_end(mut self, start_from_end: bool) -> Self {
+        self.start_from_end = start_from_end;
         self
     }
     fn get() -> Memo<Self> {
@@ -300,26 +300,46 @@ impl RenderInfo {
 }
 
 #[component]
-pub fn ProblemSearch()->impl IntoView{
-    let filter_text=create_rw_signal("".to_owned());
-    let start_from_end=create_rw_signal(false);
-    let sort_by=create_rw_signal(ProblemSortBy::AcRate as i32);
+pub fn ProblemSearch() -> impl IntoView {
+    let filter_text = create_rw_signal("".to_owned());
+    let start_from_end = create_rw_signal(false);
+    let sort_by = create_rw_signal((ProblemSortBy::AcRate as i32).to_string());
 
-    let submit=Memo::new(move |_|{
-        let start_from_end =start_from_end.get();
-        let text=filter_text.get();
-        let sort_by:ProblemSortBy=sort_by.get().try_into().unwrap_or(ProblemSortBy::UpdateDate);
+    let submit = Memo::new(move |_| {
+        let start_from_end = start_from_end.get();
+        let text = filter_text.get();
+        let sort_by: ProblemSortBy = sort_by
+            .get()
+            .parse::<i32>()
+            .unwrap_or_default()
+            .try_into()
+            .unwrap_or(ProblemSortBy::UpdateDate);
 
-        let pager=match text.is_empty(){
-            true=> Pager::column_search(sort_by),
-            false=>Pager::text_search(text)
-        }.from_end(start_from_end);
-        let query=pager.into_query();
-        ["/problems",&query].concat()
+        let pager = match text.is_empty() {
+            true => Pager::column_search(sort_by),
+            false => Pager::text_search(text),
+        }
+        .from_end(start_from_end);
+        let query = pager.into_query();
+        ["/problems", &query].concat()
     });
 
-    view!{
+    view! {
         <div>
+            <TextInput value=filter_text/>
+            <span>
+                <Toggle value=start_from_end/>
+                Reverse
+            </span>
+            <Select value=sort_by>
+                <SelectOption value="0">UpdateDate</SelectOption>
+                <SelectOption value="1">CreateDate</SelectOption>
+                <SelectOption value="2">AcRate</SelectOption>
+                <SelectOption value="3">SubmitCount</SelectOption>
+                <SelectOption value="4">Difficulty</SelectOption>
+                <SelectOption value="6">Public</SelectOption>
+            </Select>
+            // a form with a text input and a dropdown list and a toggle
 
         </div>
     }
@@ -409,6 +429,7 @@ pub fn Problems() -> impl IntoView {
     view! {
         <div class="h-full container container-lg items-center justify-between text-lg">
             <ErrorBoundary fallback=error_fallback>
+                <ProblemSearch/>
                 <ProblemList/>
             </ErrorBoundary>
         </div>

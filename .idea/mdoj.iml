@@ -11,6 +11,7 @@
       <excludeFolder url="file://$MODULE_DIR$/judger/plugins" />
       <excludeFolder url="file://$MODULE_DIR$/judger/plugins-out" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/judger/nsjail-docker" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
