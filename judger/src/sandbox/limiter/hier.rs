@@ -1,7 +1,4 @@
 use cgroups_rs::*;
-use std::time::Duration;
-
-pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
 pub enum MonitorKind {
     Cpu,

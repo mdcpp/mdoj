@@ -1,3 +1,8 @@
+//! Provide ability to limit resource and retrieve final cpu and memory usage
+//!
+//! To use this module, you need to create it (provide resource limitation) and mount it,
+//! finally, spawn process(it's user's responsibility to ensure the process
+//! is spawned within the cgroup)
 pub(self) mod hier;
 pub(self) mod stat;
 pub(self) mod wrapper;
@@ -10,6 +15,9 @@ use hier::*;
 use std::sync::Arc;
 use tokio::time::*;
 
+const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
+
+/// Exit reason of the process
 pub enum ExitReason {
     TimeOut,
     MemoryOut,
@@ -21,7 +29,7 @@ pub async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> ExitReason {
     let oom_signal = wrapper.oom();
 
     loop {
-        sleep(MONITOR_ACCURACY/2).await;
+        sleep(MONITOR_ACCURACY / 2).await;
 
         if let Ok(oom_hint) = oom_signal.try_recv() {
             log::trace!("oom hint: {}", oom_hint);
@@ -46,16 +54,10 @@ impl Drop for Limiter {
         if let Some(monitor_task) = &self.monitor_task {
             monitor_task.abort();
         }
-        if MONITER_KIND.heir().v2() {
-            self.cgroup.kill().expect("cgroup.kill does not exist");
-        } else {
-            // use rustix::process::*;
-            // pid should not be reused until SIGPIPE send(when Process is Drop)
-            // therefore, it is safe to try killing the process(only true for nsjail)
-
-            // current implementation of v1 support do nothing, wait for action of cleaning
-            // up the process on drop
-            // for pid in self.cgroup.tasks() {}
+        debug_assert!(self.cgroup.tasks().is_empty());
+        match self.cgroup.tasks().is_empty() {
+            true => log::warn!("cgroup still have process running"),
+            false => self.cgroup.delete().expect("cgroup cannot be deleted"),
         }
     }
 }
@@ -71,7 +73,7 @@ impl Limiter {
                 .memory_swap_limit(0)
                 .done()
                 .cpu()
-                .period((MONITOR_ACCURACY/2).as_nanos() as u64)
+                .period((MONITOR_ACCURACY / 2).as_nanos() as u64)
                 .quota(MONITOR_ACCURACY.as_nanos() as i64)
                 .realtime_period(MONITOR_ACCURACY.as_nanos() as u64)
                 .realtime_runtime(MONITOR_ACCURACY.as_nanos() as i64)
@@ -87,12 +89,31 @@ impl Limiter {
         })
     }
     /// wait for resource to exhaust
+    ///
+    /// Please remember that [`Drop::drop`] only optimistic kill(`SIGKILL`)
+    /// the process inside it,
+    /// user SHOULD NOT rely on this to kill the process.
+    ///
+    ///
+    /// 2. Actively limit(notify) cpu resource is achieved by polling the cgroup,
+    /// the delay require special attention, it is only guaranteed
+    /// to below limitation provided + [`MONITOR_ACCURACY`].
     pub async fn wait_exhaust(&mut self) -> ExitReason {
-        self.monitor_task.take().unwrap().await.unwrap()
+        let reason = self.monitor_task.take().unwrap().await.unwrap();
+        // optimistic kill(`SIGKILL`) the process inside
+        self.cgroup.kill().expect("cgroup.kill does not exist");
+        reason
     }
-    /// get the current resource usage
-    pub async fn stat(self)->(Cpu,Memory){
+    /// get the final resource usage
+    ///
+    /// Please remember thatActively limit(notify) cpu resource is achieved
+    /// by polling the cgroup, therefore the delay requirespecial attention,
+    /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
+    pub async fn stat(self) -> (Cpu, Memory) {
+        // there should be no process left
+        debug_assert!(self.cgroup.tasks().is_empty());
+        // poll once more to get final stat
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
-        (wrapper.cpu(),wrapper.memory())
+        (wrapper.cpu(), wrapper.memory())
     }
 }
