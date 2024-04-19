@@ -17,6 +17,10 @@ use tokio::time::*;
 
 const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
+lazy_static::lazy_static! {
+    pub static ref CGROUP_V2:bool=hier::MONITER_KIND.heir().v2();
+}
+
 /// Exit reason of the process
 pub enum ExitReason {
     TimeOut,
@@ -43,7 +47,6 @@ pub async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> ExitReason {
     }
 }
 
-/// limiter that monitor the resource usage of a cgroup
 pub struct Limiter {
     cgroup: Arc<Cgroup>,
     monitor_task: Option<tokio::task::JoinHandle<ExitReason>>,

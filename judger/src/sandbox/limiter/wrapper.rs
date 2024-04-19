@@ -12,6 +12,7 @@ impl<'a> CgroupWrapper<'a> {
     pub fn new(cgroup: &'a Cgroup) -> Self {
         Self { cgroup }
     }
+    /// get cpu usage(statistics)
     pub fn cpu(&self) -> Cpu {
         match MONITER_KIND.deref() {
             MonitorKind::Cpu => {
@@ -25,10 +26,12 @@ impl<'a> CgroupWrapper<'a> {
             }
         }
     }
+    /// get an receiver(synchronize) for oom event
     pub fn oom(&self) -> std::sync::mpsc::Receiver<String> {
         let controller = self.cgroup.controller_of::<MemController>().unwrap();
         controller.register_oom_event("mdoj-oom-handler").unwrap()
     }
+    /// get memory usage(statistics)
     pub fn memory(&self) -> Memory {
         let controller = self.cgroup.controller_of::<MemController>().unwrap();
         let kusage = controller.kmem_stat();

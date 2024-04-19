@@ -6,6 +6,12 @@ pub struct Memory {
     pub total: u64,
 }
 
+impl Memory {
+    pub fn get_reserved(&self) -> u64 {
+        self.total.min(self.user + self.kernel)
+    }
+}
+
 pub struct Cpu {
     pub kernel: u64,
     pub user: u64,

@@ -1,3 +1,4 @@
+use crate::config::Accounting;
 use cgroups_rs::*;
 
 pub enum MonitorKind {
@@ -7,11 +8,14 @@ pub enum MonitorKind {
 
 lazy_static::lazy_static! {
     pub static ref MONITER_KIND: MonitorKind =
-        match hierarchies::auto().v2(){
-            true=>MonitorKind::Cpu,
-            false=>MonitorKind::CpuAcct
-        }
-    ;
+        match crate::config::CONFIG.accounting {
+            Accounting::Auto =>match hierarchies::auto().v2(){
+                true=>MonitorKind::Cpu,
+                false=>MonitorKind::CpuAcct
+            },
+            Accounting::CpuAccounting => MonitorKind::CpuAcct,
+            Accounting::Cpu => MonitorKind::Cpu,
+        };
 }
 
 impl MonitorKind {
