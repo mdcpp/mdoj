@@ -1,5 +1,4 @@
 use std::{
-    future::IntoFuture,
     io::SeekFrom,
     ops::DerefMut,
     pin::{pin, Pin},
@@ -14,7 +13,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 enum Stage<F> {
     Reading(OwnedMutexGuard<F>),
     Seeking(OwnedMutexGuard<F>),
@@ -59,9 +58,9 @@ where
     fn clone(&self) -> Self {
         Self {
             file: self.file.clone(),
-            start: self.start.clone(),
-            size: self.size.clone(),
-            cursor: self.cursor.clone(),
+            start: self.start,
+            size: self.size,
+            cursor: self.cursor,
             stage: Stage::Done,
         }
     }

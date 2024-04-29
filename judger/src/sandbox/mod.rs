@@ -4,8 +4,7 @@ mod process;
 
 use std::{ffi::OsStr, path::Path, time::Duration};
 
-pub use self::monitor::{Cpu, Memory, Stat};
-pub use process::*;
+pub use self::monitor::{Cpu, Memory};
 
 pub trait Context: Limit {
     type FS: Filesystem;

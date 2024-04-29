@@ -36,7 +36,7 @@ impl<'a> CgroupWrapper<'a> {
         let controller = self.cgroup.controller_of::<MemController>().unwrap();
         let kusage = controller.kmem_stat();
 
-        let kernel = kusage.max_usage_in_bytes as u64;
+        let kernel = kusage.max_usage_in_bytes;
         let user = controller.memory_stat().max_usage_in_bytes;
         let total = kernel + user;
 

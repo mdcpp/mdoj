@@ -6,17 +6,17 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(test)]
+use std::io::Cursor;
 use tar::*;
+#[cfg(test)]
+use tokio::io::BufReader;
 use tokio::{
     fs::File,
     io::{AsyncRead, AsyncSeek},
     sync::Mutex,
     task::spawn_blocking,
 };
-#[cfg(test)]
-use std::io::Cursor;
-#[cfg(test)]
-use tokio::io::BufReader;
 
 use super::{block::TarBlock, entry::Entry};
 
@@ -106,9 +106,9 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use std::ffi::OsStr;
     use tokio::io::AsyncReadExt;
-    use super::*;
 
     macro_rules! assert_content {
         ($entry:expr, $content:expr) => {
