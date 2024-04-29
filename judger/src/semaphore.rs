@@ -111,9 +111,25 @@ impl Semaphore {
     }
 }
 
-pub(super) struct Permit {
+pub struct Permit {
     semaphore: Semaphore,
     permit: u64,
+}
+
+impl Permit {
+    #[inline]
+    pub fn merge(&mut self, mut other: Permit) {
+        self.permit += other.permit;
+        other.permit = 0;
+    }
+    pub async fn add(&mut self, permit: u64) -> Result<(), Error> {
+        let other = self.semaphore.get_permit(permit).await?;
+        self.merge(other);
+        Ok(())
+    }
+    pub fn count(&self) -> u64 {
+        self.permit
+    }
 }
 
 impl Drop for Permit {

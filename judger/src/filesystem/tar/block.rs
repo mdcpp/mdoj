@@ -14,7 +14,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 enum Stage<F> {
     Reading(OwnedMutexGuard<F>),
     Seeking(OwnedMutexGuard<F>),
@@ -28,6 +28,7 @@ impl<F> Stage<F> {
     }
 }
 
+#[derive(Debug)]
 pub struct TarBlock<F>
 where
     F: AsyncRead + AsyncSeek + Unpin,
@@ -37,6 +38,18 @@ where
     size: u64,
     cursor: u64,
     stage: Stage<F>,
+}
+
+impl<F> PartialEq for TarBlock<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin,
+{
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.file, &other.file)
+            && self.start == other.start
+            && self.size == other.size
+            && self.cursor == other.cursor
+    }
 }
 
 impl<F> Clone for TarBlock<F>
@@ -100,7 +113,7 @@ where
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        if self.check_bound(){
+        if self.check_bound() {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "tar block out of bound",
