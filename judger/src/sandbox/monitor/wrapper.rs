@@ -27,7 +27,7 @@ impl<'a> CgroupWrapper<'a> {
         }
     }
     /// get an receiver(synchronize) for oom event
-    pub fn oom(&self) -> std::sync::mpsc::Receiver<String> {
+    pub fn oom_signal(&self) -> std::sync::mpsc::Receiver<String> {
         let controller = self.cgroup.controller_of::<MemController>().unwrap();
         controller.register_oom_event("mdoj-oom-handler").unwrap()
     }
@@ -45,5 +45,12 @@ impl<'a> CgroupWrapper<'a> {
             user,
             total,
         }
+    }
+    /// check if oom
+    ///
+    /// use [`oom_signal`] if long polling is required
+    pub fn oom(&self) -> bool {
+        let controller: &MemController = self.cgroup.controller_of().unwrap();
+        controller.memory_stat().oom_control.oom_kill != 0
     }
 }

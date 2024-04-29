@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::error::Error as CrateError;
+use crate::Error as CrateError;
 use spin::Mutex;
 use tokio::sync::oneshot::*;
 
@@ -21,8 +21,8 @@ pub enum Error {
 impl From<Error> for CrateError {
     fn from(value: Error) -> CrateError {
         match value {
-            Error::MaxWaitReached => CrateError::QueueFull,
-            Error::ImpossibleResourceCondition => CrateError::LowMemory,
+            Error::MaxWaitReached => CrateError::Insufficient("queuing quota"),
+            Error::ImpossibleResourceCondition => CrateError::Insufficient("memory"),
         }
     }
 }

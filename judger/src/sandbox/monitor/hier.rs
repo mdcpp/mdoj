@@ -8,7 +8,7 @@ pub enum MonitorKind {
 
 lazy_static::lazy_static! {
     pub static ref MONITER_KIND: MonitorKind =
-        match crate::config::CONFIG.accounting {
+        match crate::CONFIG.accounting {
             Accounting::Auto =>match hierarchies::auto().v2(){
                 true=>MonitorKind::Cpu,
                 false=>MonitorKind::CpuAcct

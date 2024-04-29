@@ -1,4 +1,17 @@
+use std::time::Duration;
+
 use cgroups_rs::cpuacct::CpuAcct;
+
+use super::output::Output;
+
+pub type MemAndCpu = (Memory, Cpu);
+
+pub struct Stat {
+    pub memory: Memory,
+    pub cpu: Cpu,
+    pub output: Output,
+    pub walltime: Duration,
+}
 
 pub struct Memory {
     pub kernel: u64,
@@ -7,11 +20,12 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn get_reserved(&self) -> u64 {
+    pub fn get_reserved_size(&self) -> u64 {
         self.total.min(self.user + self.kernel)
     }
 }
 
+#[derive(Clone)]
 pub struct Cpu {
     pub kernel: u64,
     pub user: u64,
@@ -60,8 +74,8 @@ mod test {
     fn cpu_from_raw() {
         let raw = "usage_usec 158972260000\nuser_usec 115998852000\nsystem_usec 42973408000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n";
         let cpu = Cpu::from_raw(raw);
-        assert_eq!(cpu.kernel, 158972260000);
+        assert_eq!(cpu.kernel, 42973408000);
         assert_eq!(cpu.user, 115998852000);
-        assert_eq!(cpu.total, 42973408000);
+        assert_eq!(cpu.total, 158972260000);
     }
 }

@@ -1,58 +1,40 @@
-//! Provide ability to limit resource and retrieve final cpu and memory usage
-//!
-//! To use this module, you need to create it (provide resource limitation) and mount it,
-//! finally, spawn process(it's user's responsibility to ensure the process
-//! is spawned within the cgroup)
-pub(self) mod hier;
-pub(self) mod stat;
-pub(self) mod wrapper;
-
-pub use stat::*;
-
-use crate::error::Error;
-use cgroups_rs::{cgroup_builder::CgroupBuilder, *};
-use hier::*;
-use std::sync::Arc;
+use super::{stat::*, *};
+use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
+use std::sync::{atomic::Ordering, Arc};
 use tokio::time::*;
 
 const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
-lazy_static::lazy_static! {
-    pub static ref CGROUP_V2:bool=hier::MONITER_KIND.heir().v2();
-}
+const CG_PATH_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-/// Exit reason of the process
-pub enum ExitReason {
-    TimeOut,
-    MemoryOut,
-}
-
-pub async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> ExitReason {
+async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> MonitorKind {
     let wrapper = wrapper::CgroupWrapper::new(&cgroup);
 
-    let oom_signal = wrapper.oom();
+    let oom_signal = wrapper.oom_signal();
 
     loop {
         sleep(MONITOR_ACCURACY / 2).await;
 
         if let Ok(oom_hint) = oom_signal.try_recv() {
             log::trace!("oom hint: {}", oom_hint);
-            return ExitReason::MemoryOut;
+            return MonitorKind::Memory;
         }
 
         if Cpu::out_of_resources(&cpu, wrapper.cpu()) {
-            return ExitReason::TimeOut;
+            return MonitorKind::Cpu;
         }
         wrapper.cpu();
     }
 }
 
-pub struct Limiter {
+/// monitor resource of cpu and memory
+pub struct Monitor {
     cgroup: Arc<Cgroup>,
-    monitor_task: Option<tokio::task::JoinHandle<ExitReason>>,
+    cpu: Cpu,
+    monitor_task: Option<tokio::task::JoinHandle<MonitorKind>>,
 }
 
-impl Drop for Limiter {
+impl Drop for Monitor {
     fn drop(&mut self) {
         if let Some(monitor_task) = &self.monitor_task {
             monitor_task.abort();
@@ -65,11 +47,12 @@ impl Drop for Limiter {
     }
 }
 
-impl Limiter {
+impl Monitor {
     /// create a new limiter and mount at given path
-    pub fn new_mount(cg_path: &str, cpu: Cpu, mem: Memory) -> Result<Self, Error> {
+    pub fn new((mem, cpu): MemAndCpu) -> Result<Self> {
+        let cg_name = format!("mdoj.{}", CG_PATH_COUNTER.fetch_add(1, Ordering::AcqRel));
         let cgroup = Arc::new(
-            CgroupBuilder::new(cg_path)
+            CgroupBuilder::new(&cg_name)
                 .memory()
                 .kernel_memory_limit(mem.kernel as i64)
                 .memory_hard_limit(mem.user as i64)
@@ -84,13 +67,21 @@ impl Limiter {
                 .build(MONITER_KIND.heir())?,
         );
 
-        let monitor_task = Some(tokio::spawn(monitor(cgroup.clone(), cpu)));
+        let monitor_task = Some(tokio::spawn(monitor(cgroup.clone(), cpu.clone())));
 
         Ok(Self {
             cgroup,
             monitor_task,
+            cpu,
         })
     }
+    pub fn get_cg_path(&self) -> &str {
+        self.cgroup.path()
+    }
+}
+
+impl super::Monitor for Monitor {
+    type Resource = MemAndCpu;
     /// wait for resource to exhaust
     ///
     /// Please remember that [`Drop::drop`] only optimistic kill(`SIGKILL`)
@@ -101,22 +92,38 @@ impl Limiter {
     /// 2. Actively limit(notify) cpu resource is achieved by polling the cgroup,
     /// the delay require special attention, it is only guaranteed
     /// to below limitation provided + [`MONITOR_ACCURACY`].
-    pub async fn wait_exhaust(&mut self) -> ExitReason {
+    ///
+    /// This method is cancellation safe
+    async fn wait_exhaust(&mut self) -> MonitorKind {
         let reason = self.monitor_task.take().unwrap().await.unwrap();
         // optimistic kill(`SIGKILL`) the process inside
         self.cgroup.kill().expect("cgroup.kill does not exist");
         reason
+    }
+    fn poll_exhaust(&mut self) -> Option<MonitorKind> {
+        debug_assert!(self.cgroup.tasks().is_empty());
+
+        let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
+
+        if wrapper.oom() {
+            return Some(MonitorKind::Memory);
+        } else if Cpu::out_of_resources(&self.cpu, wrapper.cpu()) {
+            return Some(MonitorKind::Cpu);
+        }
+        None
     }
     /// get the final resource usage
     ///
     /// Please remember thatActively limit(notify) cpu resource is achieved
     /// by polling the cgroup, therefore the delay requirespecial attention,
     /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
-    pub async fn stat(self) -> (Cpu, Memory) {
+    async fn stat(self) -> Self::Resource {
         // there should be no process left
         debug_assert!(self.cgroup.tasks().is_empty());
         // poll once more to get final stat
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
-        (wrapper.cpu(), wrapper.memory())
+        (wrapper.memory(), wrapper.cpu())
     }
 }
+
+// FIXME: mock cgroup and test it
