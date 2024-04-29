@@ -1,6 +1,5 @@
 use leptos::*;
 
-use super::Merge;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SelectedValue(ReadSignal<String>);

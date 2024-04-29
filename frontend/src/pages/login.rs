@@ -50,8 +50,7 @@ pub fn Login() -> impl IntoView {
 
     let error_msg = move || {
         submit.value()()
-            .map(|r| r.err())
-            .flatten()
+            .and_then(|r| r.err())
             .map(|e| match e {
                 ErrorKind::NotFound => {
                     "Username or password is incorrect".to_owned()

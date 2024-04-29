@@ -1,5 +1,4 @@
 pub use grpc::backend::*;
-use tonic::Code;
 
 use crate::{config::server_config, error::*};
 

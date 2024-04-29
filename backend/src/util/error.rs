@@ -143,7 +143,7 @@ impl ToString for Tracing {
             "trace_id: {}, span_id: {}, log_id: {}",
             self.trace_id,
             self.span_id,
-            self.log_id.to_string()
+            self.log_id
         )
     }
 }

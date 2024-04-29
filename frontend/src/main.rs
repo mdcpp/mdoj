@@ -1,4 +1,3 @@
-use anyhow::Result;
 
 #[cfg(feature = "ssr")]
 #[actix_web::main]

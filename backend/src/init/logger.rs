@@ -152,5 +152,5 @@ pub fn init(config: &GlobalConfig) -> super::Result<OtelGuard> {
         _ => Level::INFO,
     };
 
-    init_tracing_subscriber(level, config.opentelemetry.as_ref().map(|x| x.as_str()))
+    init_tracing_subscriber(level, config.opentelemetry.as_deref())
 }
