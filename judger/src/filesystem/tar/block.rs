@@ -1,27 +1,29 @@
+use crate::filesystem::macro_::{chain_poll, report_poll};
+use std::future::Future;
+use std::io;
 use std::{
     io::SeekFrom,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
 };
-
-use std::future::Future;
-use std::io;
 use tokio::{
-    io::{AsyncRead, AsyncSeek},
+    io::{AsyncRead, AsyncSeek, AsyncWrite},
     sync::{Mutex, OwnedMutexGuard},
 };
 
+const MEMBLOCK_BLOCKSIZE: usize = 4096;
+
 #[derive(Default, Debug)]
-enum Stage<F> {
+enum TarStage<F> {
     Reading(OwnedMutexGuard<F>),
     Seeking(OwnedMutexGuard<F>),
     #[default]
     Done,
 }
 
-impl<F> Stage<F> {
+impl<F> TarStage<F> {
     fn take(&mut self) -> Self {
         std::mem::take(self)
     }
@@ -36,7 +38,7 @@ where
     start: u64,
     size: u64,
     cursor: u64,
-    stage: Stage<F>,
+    stage: TarStage<F>,
 }
 
 impl<F> PartialEq for TarBlock<F>
@@ -61,7 +63,7 @@ where
             start: self.start,
             size: self.size,
             cursor: self.cursor,
-            stage: Stage::Done,
+            stage: TarStage::Done,
         }
     }
 }
@@ -76,7 +78,7 @@ where
             start,
             size,
             cursor: 0,
-            stage: Stage::Done,
+            stage: TarStage::Done,
         }
     }
     #[cfg(test)]
@@ -86,7 +88,7 @@ where
             start,
             size,
             cursor: 0,
-            stage: Stage::Done,
+            stage: TarStage::Done,
         }
     }
     #[inline]
@@ -120,49 +122,32 @@ where
         }
         let original_size = buf.filled().len();
         match self.stage.take() {
-            Stage::Reading(mut locked) => {
-                let file = pin!(locked.deref_mut());
-                if let Poll::Ready(x) = file.poll_read(cx, buf) {
-                    return match x {
-                        Ok(_) => {
-                            let read_byte = (buf.filled().len() - original_size) as u64;
-                            match read_byte > self.get_remain() {
-                                true => {
-                                    buf.set_filled(original_size + self.get_remain() as usize);
-                                    self.cursor += self.get_remain();
-                                }
-                                false => self.cursor += read_byte,
-                            };
-                            Poll::Ready(Ok(()))
-                        }
-                        Err(err) => Poll::Ready(Err(err)),
-                    };
-                }
-            }
-            Stage::Seeking(mut locked) => {
-                let file = pin!(locked.deref_mut());
-                if let Poll::Ready(x) = file.poll_complete(cx) {
-                    match x {
-                        Ok(x) => {
-                            self.as_mut().stage = Stage::Reading(locked);
-                            self.as_mut().cursor = x - self.start;
-                            cx.waker().wake_by_ref();
-                        }
-                        Err(err) => {
-                            return Poll::Ready(Err(err));
-                        }
+            TarStage::Reading(mut locked) => {
+                report_poll!(chain_poll!(pin!(locked.deref_mut()).poll_read(cx, buf)));
+                let read_byte = (buf.filled().len() - original_size) as u64;
+                match read_byte > self.get_remain() {
+                    true => {
+                        buf.set_filled(original_size + self.get_remain() as usize);
+                        self.cursor += self.get_remain();
                     }
-                }
+                    false => self.cursor += read_byte,
+                };
+                return Poll::Ready(Ok(()));
             }
-            Stage::Done => {
-                if let Poll::Ready(mut locked) = pin!(self.file.clone().lock_owned()).poll(cx) {
-                    let file = pin!(locked.deref_mut());
-                    if let Err(err) = file.start_seek(self.get_seek_from()) {
-                        return Poll::Ready(Err(err));
-                    }
-                    self.as_mut().stage = Stage::Seeking(locked);
-                    cx.waker().wake_by_ref();
+            TarStage::Seeking(mut locked) => {
+                let result = chain_poll!(pin!(locked.deref_mut()).poll_complete(cx));
+                let read_byte = report_poll!(result);
+                self.as_mut().stage = TarStage::Reading(locked);
+                self.as_mut().cursor = read_byte - self.start;
+                cx.waker().wake_by_ref();
+            }
+            TarStage::Done => {
+                let mut locked = chain_poll!(pin!(self.file.clone().lock_owned()).poll(cx));
+                if let Err(err) = pin!(locked.deref_mut()).start_seek(self.get_seek_from()) {
+                    return Poll::Ready(Err(err));
                 }
+                self.as_mut().stage = TarStage::Seeking(locked);
+                cx.waker().wake_by_ref();
             }
         }
         Poll::Pending
@@ -198,11 +183,11 @@ where
 mod test {
     use std::io::Cursor;
 
-    use tokio::io::{AsyncReadExt, BufReader};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader};
 
     use super::*;
     #[tokio::test]
-    async fn normal_read() {
+    async fn tar_normal_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -212,7 +197,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn end_of_file_read() {
+    async fn tar_end_of_file_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -225,7 +210,7 @@ mod test {
         );
     }
     #[tokio::test]
-    async fn multi_sequential_read() {
+    async fn tar_multi_sequential_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -234,7 +219,7 @@ mod test {
         }
     }
     #[tokio::test]
-    async fn multi_reader_read() {
+    async fn tar_multi_reader_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let underlying = Arc::new(Mutex::new(underlying));
         let block = TarBlock::new(underlying, 3, 11);

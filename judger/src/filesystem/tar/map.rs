@@ -39,7 +39,7 @@ where
     if let Some(link_path) = entry.link_name()? {
         map.insert(
             path.as_os_str().to_owned(),
-            Entry::Link(Arc::new(link_path.as_os_str().to_owned())),
+            Entry::SymLink(Arc::new(link_path.as_os_str().to_owned())),
         );
     } else {
         let start = entry.raw_file_position();

@@ -15,15 +15,19 @@ prost-types = { workspace = true }
 thiserror = "1.0.40"
 toml = { workspace = true }
 derive_builder = { workspace = true }
-fuser = "0.14.0"
 tar = "0.4.40"
 grpc = { path = "../grpc" }
 crossbeam = "0.8.4"
 lazy_static = "1.4.0"
 
+[dependencies.fuse3]
+version = "0.7.1"
+features = ["tokio-runtime", "unprivileged"]
+
 [dependencies.rustix]
 version = "0.38.28"
 features = ["process", "thread"]
+
 [dependencies.uuid]
 version = "1.6.1"
 features = ["serde"]

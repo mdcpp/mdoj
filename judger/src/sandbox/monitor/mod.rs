@@ -1,18 +1,18 @@
 //! Provide ability to limit resource such as memory limit, cpu limit, walltime limit and output limit
- mod hier;
- mod mem_cpu;
- mod output;
- mod stat;
- mod walltime;
- mod wrapper;
+mod hier;
+mod mem_cpu;
+mod output;
+mod stat;
+mod walltime;
+mod wrapper;
 
 use std::{fmt::Display, sync::atomic::AtomicUsize, time::Duration};
 
 pub use stat::*;
 use tokio::io::AsyncRead;
 
- use crate::Error;
- type Result<T> = std::result::Result<T, Error>;
+use crate::Error;
+type Result<T> = std::result::Result<T, Error>;
 use hier::*;
 
 use self::output::Output;

@@ -49,14 +49,12 @@ pub fn Login() -> impl IntoView {
     });
 
     let error_msg = move || {
-        submit.value()()
-            .and_then(|r| r.err())
-            .map(|e| match e {
-                ErrorKind::NotFound => {
-                    "Username or password is incorrect".to_owned()
-                }
-                e => e.to_string(),
-            })
+        submit.value()().and_then(|r| r.err()).map(|e| match e {
+            ErrorKind::NotFound => {
+                "Username or password is incorrect".to_owned()
+            }
+            e => e.to_string(),
+        })
     };
 
     view! {
