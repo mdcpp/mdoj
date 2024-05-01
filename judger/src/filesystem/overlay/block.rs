@@ -168,7 +168,7 @@ mod test {
 
     use super::*;
     #[tokio::test]
-    async fn mem_normal_read() {
+    async fn normal_read() {
         let data = b"hello world".to_vec();
         let mut block = MemBlock::new(data);
         let mut buf = [0_u8; 11];
@@ -177,7 +177,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn mem_end_of_file_read() {
+    async fn end_of_file_read() {
         let mut block = MemBlock::new(b"1234".to_vec());
         let mut buf = Vec::new();
         block.read_to_end(&mut buf).await.unwrap();
@@ -185,7 +185,7 @@ mod test {
         assert_eq!(&*buf, b"1234");
     }
     #[tokio::test]
-    async fn mem_start_seek() {
+    async fn start_seek() {
         let mut block = MemBlock::new(b"111hello world1111".to_vec());
         block.seek(SeekFrom::Start(3)).await.unwrap();
 
@@ -195,7 +195,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn mem_end_seek() {
+    async fn end_seek() {
         let mut block = MemBlock::new(b"111hello world1111".to_vec());
         block.seek(SeekFrom::End(15)).await.unwrap();
 
@@ -205,7 +205,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn mem_rel_seek() {
+    async fn rel_seek() {
         let mut block = MemBlock::new(b"111hello world1111".to_vec());
         for _ in 0..3 {
             block.seek(SeekFrom::Current(1)).await.unwrap();
@@ -217,7 +217,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn mem_normal_write() {
+    async fn normal_write() {
         let mut block = MemBlock::default();
         block.write_all(b"hello").await.unwrap();
         block.write_all(b" ").await.unwrap();
@@ -233,7 +233,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn mem_multi_read() {
+    async fn multi_read() {
         let block = MemBlock::new(b"hello world".to_vec());
 
         for _ in 0..3000 {

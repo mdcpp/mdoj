@@ -187,7 +187,7 @@ mod test {
 
     use super::*;
     #[tokio::test]
-    async fn tar_normal_read() {
+    async fn normal_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -197,7 +197,7 @@ mod test {
         assert_eq!(buf, *b"hello world");
     }
     #[tokio::test]
-    async fn tar_end_of_file_read() {
+    async fn end_of_file_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -210,7 +210,7 @@ mod test {
         );
     }
     #[tokio::test]
-    async fn tar_multi_sequential_read() {
+    async fn multi_sequential_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let mut block = TarBlock::from_raw(underlying, 3, 11);
 
@@ -219,7 +219,7 @@ mod test {
         }
     }
     #[tokio::test]
-    async fn tar_multi_reader_read() {
+    async fn multi_reader_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let underlying = Arc::new(Mutex::new(underlying));
         let block = TarBlock::new(underlying, 3, 11);
