@@ -19,6 +19,7 @@ fn to_internal_path<'a>(path: &'a impl AsRef<Path>) -> impl Iterator<Item = &'a 
         })
 }
 
+#[derive(Debug)]
 pub enum InsertResult<N> {
     AlreadyExists(N),
     Inserted(Option<N>),
@@ -26,27 +27,48 @@ pub enum InsertResult<N> {
     IsRoot,
 }
 
+impl<N> PartialEq for InsertResult<Arc<N>> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::AlreadyExists(l0), Self::AlreadyExists(r0)) => Arc::ptr_eq(l0, r0),
+            (Self::Inserted(l0), Self::Inserted(r0)) => match (l0, r0) {
+                (Some(l0), Some(r0)) => Arc::ptr_eq(l0, r0),
+                (None, None) => true,
+                _ => false,
+            },
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct LockNode<V: Sized> {
     children: HashMap<OsString, ArcRwNode<V>>,
-    value: MaybeUninit<V>,
+    value: V,
 }
 
 impl<V: Sized> Deref for LockNode<V> {
     type Target = V;
     fn deref(&self) -> &Self::Target {
-        unsafe { self.value.assume_init_ref() }
+        &self.value
     }
 }
 
 impl<V: Sized> DerefMut for LockNode<V> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { self.value.assume_init_mut() }
+        &mut self.value
     }
 }
 
 type ArcRwNode<T> = Arc<RwLock<LockNode<T>>>;
 
 impl<V: Sized> LockNode<V> {
+    fn new(value: V) -> Self {
+        Self {
+            children: Default::default(),
+            value,
+        }
+    }
     /// get child node by component
     #[inline]
     pub async fn get_by_component(&mut self, component: &OsStr) -> Option<ArcRwNode<V>> {
@@ -60,13 +82,8 @@ impl<V: Sized> LockNode<V> {
         component: OsString,
         value: V,
     ) -> Option<ArcRwNode<V>> {
-        self.children.insert(
-            component,
-            Arc::new(RwLock::new(LockNode {
-                children: Default::default(),
-                value: MaybeUninit::new(value),
-            })),
-        )
+        self.children
+            .insert(component, Arc::new(RwLock::new(LockNode::new(value))))
     }
     pub async fn remove_component(&mut self, component: &OsStr) -> Option<ArcRwNode<V>> {
         self.children.remove(component)
@@ -77,6 +94,7 @@ impl<V: Sized> LockNode<V> {
         path: impl Iterator<Item = &OsStr>,
     ) -> Option<ArcRwNode<V>> {
         let mut root = self_;
+        let path = path.peekable();
         for component in path {
             let child = root.read().await.children.get(component)?.clone();
             root = child;
@@ -107,29 +125,18 @@ impl<V: Sized> LockNode<V> {
     }
 }
 
-impl<V: Sized> LockNode<V> {
-    fn new(value: V) -> Self {
-        Self {
-            children: Default::default(),
-            value: MaybeUninit::new(value),
-        }
-    }
-    fn new_uninit() -> Self {
-        Self {
-            children: Default::default(),
-            value: MaybeUninit::uninit(),
-        }
-    }
-}
-
 /// Path tree with partial locking
+#[derive(Clone)]
 pub struct LockPathTree<V: Sized>(ArcRwNode<V>);
 
 impl<V: Sized> LockPathTree<V> {
-    pub fn new() -> Self {
-        LockPathTree(Arc::new(RwLock::new(LockNode::new_uninit())))
+    pub fn new(root: V) -> Self {
+        LockPathTree(Arc::new(RwLock::new(LockNode::new(root))))
     }
-    /// insert path recursively
+    pub async fn get_by_path(&self, path: impl AsRef<Path>) -> Option<ArcRwNode<V>> {
+        LockNode::get_by_path(self.0.clone(), to_internal_path(&path)).await
+    }
+    /// insert path
     #[inline]
     pub async fn insert_path(
         &self,
@@ -142,112 +149,152 @@ impl<V: Sized> LockPathTree<V> {
 
 struct Node<V: Sized> {
     children: HashMap<OsString, Node<V>>,
-    value: Option<V>,
+    value: V,
 }
 
-impl<V: Sized> Default for Node<V> {
-    fn default() -> Self {
+impl<V: Sized> Node<V> {
+    fn new(value: V) -> Self {
         Self {
             children: Default::default(),
-            value: Default::default(),
+            value,
         }
     }
 }
 
 pub struct PathTree<V: Sized>(Node<V>);
 
-impl<V: Sized> PathTree<V> {
+impl<V: Sized> PathTree<V>
+where
+    V: Default,
+{
     pub fn new() -> Self {
-        PathTree(Node {
-            children: HashMap::new(),
-            value: None,
-        })
+        PathTree(Node::new(Default::default()))
     }
-    #[inline]
-    fn get_mut_child<'a>(&'a mut self, path: impl AsRef<Path>) -> Option<&'a mut Node<V>> {
+    pub fn insert_path(&mut self, path: impl AsRef<Path>, mut value: V) -> Option<V>
+    where
+        V: Default,
+    {
         let mut root = &mut self.0;
-        for component in path.as_ref().components() {
-            match component {
-                Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
-                Component::RootDir | Component::CurDir | Component::ParentDir => {
-                    log::trace!("RootDir | CurDir | ParentDir");
-                }
-                Component::Normal(x) => {
-                    root = root.children.get_mut(x)?;
-                }
-            }
+        let path = to_internal_path(&path).collect::<Vec<_>>();
+        let (last, path) = path.split_last().unwrap();
+        for component in path {
+            root = root
+                .children
+                .entry(component.to_os_string())
+                .or_insert_with(|| Node::new(Default::default()));
         }
-        Some(root)
-    }
-    pub fn insert_path(&mut self, path: impl AsRef<Path>, value: V) -> Option<V> {
-        let mut root = &mut self.0;
-        for component in path.as_ref().components() {
-            match component {
-                Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
-                Component::RootDir | Component::CurDir | Component::ParentDir => {
-                    log::trace!("RootDir | CurDir | ParentDir");
-                }
-                Component::Normal(x) => {
-                    // bypass borrow checker
-                    match root.children.contains_key(x) {
-                        true => {
-                            root = root.children.get_mut(x).unwrap();
-                        }
-                        false => {
-                            let node = Node {
-                                children: HashMap::new(),
-                                value: None,
-                            };
-                            root.children.insert(x.to_os_string(), node);
-                            root = root.children.get_mut(x).unwrap();
-                        }
-                    };
-                }
+        match root.children.get_mut(*last) {
+            Some(x) => {
+                std::mem::swap(&mut x.value, &mut value);
+                Some(value)
             }
+            None => None,
         }
-        root.value.replace(value)
-    }
-    #[inline]
-    fn get_child(&self, path: impl AsRef<Path>) -> Option<&Node<V>> {
-        let mut root = &self.0;
-        for component in path.as_ref().components() {
-            match component {
-                Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
-                Component::RootDir | Component::CurDir | Component::ParentDir => {
-                    log::trace!("RootDir | CurDir | ParentDir");
-                }
-                Component::Normal(x) => {
-                    root = root.children.get(x)?;
-                }
-            }
-        }
-        Some(root)
     }
     fn get_mut(&mut self, path: impl AsRef<Path>) -> Option<&mut V> {
-        self.get_mut_child(path)
-            .and_then(|node| node.value.as_mut())
+        let this = &mut *self;
+        let mut root = &mut this.0;
+        for component in to_internal_path(&path) {
+            root = root.children.get_mut(component)?;
+        }
+        Some(&mut root.value)
     }
     fn get(&self, path: impl AsRef<Path>) -> Option<&V> {
-        self.get_child(path).and_then(|node| node.value.as_ref())
+        let this = &self;
+        let mut root = &this.0;
+        for component in to_internal_path(&path) {
+            root = root.children.get(component)?;
+        }
+        Some(&root.value)
     }
 }
 
 #[cfg(test)]
+mod lock_test {
+    use super::*;
+
+    #[tokio::test]
+    async fn insert_parent_not_found() {
+        let tree = LockPathTree::new(0);
+        assert_eq!(
+            tree.insert_path("a/b/c", 1).await,
+            InsertResult::ParentNotFound
+        );
+    }
+    #[tokio::test]
+    async fn insert_is_root() {
+        let tree = LockPathTree::new(0);
+        assert_eq!(tree.insert_path("", 1).await, InsertResult::IsRoot);
+    }
+    #[tokio::test]
+    async fn insert() {
+        let tree = LockPathTree::new(0);
+        macro_rules! insert {
+            ($path:expr, $val:expr) => {
+                assert_eq!(
+                    tree.insert_path($path, $val).await,
+                    InsertResult::Inserted(None)
+                );
+            };
+        }
+        macro_rules! lookup {
+            ($path:expr,$val:expr) => {
+                assert_eq!(
+                    tree.get_by_path($path).await.unwrap().read().await.value,
+                    $val
+                );
+            };
+        }
+
+        insert!("a", 1);
+        insert!("a/u", 2);
+        insert!("a/h", 3);
+        insert!("a/h/f", 4);
+        lookup!("/", 0);
+        lookup!("a", 1);
+        lookup!("a/u", 2);
+        lookup!("a/h", 3);
+        lookup!("a/h/f", 4);
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+    async fn multi_lookup() {
+        let tree = LockPathTree::new(0);
+        tree.insert_path("a", 1).await;
+        tree.insert_path("a/u", 2).await;
+        tree.insert_path("a/h", 3).await;
+        tree.insert_path("a/h/f", 4).await;
+        async fn lookup(tree: &LockPathTree<i32>, path: &str, val: i32) {
+            for _ in 0..30 {
+                let tree = tree.clone();
+                let path = path.to_string();
+                tokio::spawn(async move {
+                    for _ in 0..300 {
+                        assert_eq!(
+                            tree.get_by_path(&path).await.unwrap().read().await.value,
+                            val
+                        );
+                    }
+                })
+                .await
+                .unwrap();
+            }
+        }
+        tokio::join!(
+            lookup(&tree, "a", 1),
+            lookup(&tree, "a/u", 2),
+            lookup(&tree, "a/h", 3),
+            lookup(&tree, "a/h/f", 4)
+        );
+    }
+    #[cfg(taregt_os = "windows")]
+    #[tokio::test]
+    #[should_panic]
+    async fn windows() {
+        let tree = LockPathTree::new(0);
+        tree.insert_path("C:\\a", 1).await;
+    }
+}
+#[cfg(test)]
 mod test {
     use super::*;
-    mod lock {
-        use super::*;
-
-        #[tokio::test]
-        async fn insert_lookup() {
-            // tree.insert_path(Path::new("/abc/efg"), value)
-        }
-    }
-
-    mod mutable {
-        use super::*;
-    }
-
-    // #[tokio::test]
-    // async fn lock
 }

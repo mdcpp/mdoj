@@ -3,17 +3,15 @@ use std::future::Future;
 use std::io;
 use std::{
     io::SeekFrom,
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
 };
 use tokio::{
-    io::{AsyncRead, AsyncSeek, AsyncWrite},
+    io::{AsyncRead, AsyncSeek},
     sync::{Mutex, OwnedMutexGuard},
 };
-
-const MEMBLOCK_BLOCKSIZE: usize = 4096;
 
 #[derive(Default, Debug)]
 enum TarStage<F> {
@@ -183,7 +181,7 @@ where
 mod test {
     use std::io::Cursor;
 
-    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader};
+    use tokio::io::{AsyncReadExt, BufReader};
 
     use super::*;
     #[tokio::test]
@@ -218,18 +216,20 @@ mod test {
             assert_eq!(block.read_u8().await.unwrap(), *c);
         }
     }
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
     async fn multi_reader_read() {
         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
         let underlying = Arc::new(Mutex::new(underlying));
         let block = TarBlock::new(underlying, 3, 11);
 
-        for _ in 0..3000 {
+        for _ in 0..30 {
             let mut block = block.clone();
             tokio::spawn(async move {
+                for _ in 0..400 {
                 let mut buf = [0_u8; 11];
                 block.read_exact(&mut buf).await.unwrap();
                 assert_eq!(buf, *b"hello world");
+                }
             });
         }
     }

@@ -4,15 +4,9 @@ use std::{
 };
 
 use spin::RwLock;
-use tokio::{
-    io::{AsyncRead, AsyncSeek},
-    sync::Mutex,
-};
+use tokio::io::{AsyncRead, AsyncSeek};
 
-use crate::{
-    filesystem::overlay::{ArcEntry, MixedEntry},
-    semaphore::Semaphore,
-};
+use crate::{filesystem::overlay::ArcEntry, semaphore::Semaphore};
 
 pub struct INodeTable<F>
 where

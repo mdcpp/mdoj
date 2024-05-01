@@ -1,13 +1,7 @@
-use std::{
-    collections::BTreeMap,
-    sync::{atomic::AtomicU64, Arc},
-};
+use std::{collections::BTreeMap, sync::atomic::AtomicU64};
 
 use spin::RwLock;
-use tokio::{
-    io::{AsyncRead, AsyncSeek},
-    sync::Mutex,
-};
+use tokio::io::{AsyncRead, AsyncSeek};
 
 use crate::filesystem::overlay::*;
 
@@ -16,7 +10,7 @@ where
     F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
     handle_generator: AtomicU64,
-    table: RwLock<BTreeMap<u64, Arc<Mutex<MixedEntry<F>>>>>,
+    table: RwLock<BTreeMap<u64, ArcEntry<F>>>,
 }
 
 impl<F> HandleTable<F>
