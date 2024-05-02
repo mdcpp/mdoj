@@ -5,32 +5,38 @@
 //!
 //! And we map each type of content to BTreeMap<PathBuf, Entry>
 
-use std::{ffi::OsString, sync::Arc};
+use std::ffi::OsString;
 
 use tokio::io::{AsyncRead, AsyncSeek};
-
-use crate::filesystem::INODE;
 
 use super::block::TarBlock;
 
 /// Entry from tar file, should be readonly
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum Entry<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
-    SymLink(Arc<OsString>),
-    HardLink(INODE),
+    SymLink(OsString),
+    HardLink(u64),
+    #[default]
     Directory,
     File(TarBlock<F>),
 }
 
-// impl<F> Entry<F>
-// where
-//     F: AsyncRead + AsyncSeek + Unpin + 'static,
-// {
-//     pub fn read(&mut self)
-// }
+impl<F> Clone for Entry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
+            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
+            Self::Directory => Self::Directory,
+            Self::File(arg0) => Self::File(arg0.clone()),
+        }
+    }
+}
 
 impl<F> PartialEq for Entry<F>
 where

@@ -3,7 +3,7 @@ use std::future::Future;
 use std::io;
 use std::{
     io::SeekFrom,
-    ops::{Deref, DerefMut},
+    ops::Deref,
     pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
@@ -13,7 +13,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-const MEMBLOCK_BLOCKSIZE: usize = 4096;
+pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
 
 #[derive(Debug, Default)]
 enum MemStage {

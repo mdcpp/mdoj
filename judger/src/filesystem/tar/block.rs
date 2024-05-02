@@ -226,9 +226,9 @@ mod test {
             let mut block = block.clone();
             tokio::spawn(async move {
                 for _ in 0..400 {
-                let mut buf = [0_u8; 11];
-                block.read_exact(&mut buf).await.unwrap();
-                assert_eq!(buf, *b"hello world");
+                    let mut buf = [0_u8; 11];
+                    block.read_exact(&mut buf).await.unwrap();
+                    assert_eq!(buf, *b"hello world");
                 }
             });
         }
