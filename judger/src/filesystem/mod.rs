@@ -1,11 +1,12 @@
-mod fuse;
+use fuse3::FileType;
+
+mod adapter;
 mod macro_;
 mod overlay;
-mod path_tree;
 mod table;
 mod tar;
+mod tree;
 
-type INODE = u64;
-type HANDLE = u64;
-
-use path_tree::*;
+trait EntryTrait {
+    fn kind(&self) -> FileType;
+}

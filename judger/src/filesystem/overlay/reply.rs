@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use fuse3::{raw::{reply::*, Request}, Timestamp};
+use fuse3::{
+    raw::{reply::*, Request},
+    Timestamp,
+};
 use tokio::io::{AsyncRead, AsyncSeek};
 
 use super::Entry;
