@@ -1,12 +1,14 @@
-use fuse3::FileType;
-
-mod adapter;
+// mod adapter;
+mod entry;
 mod macro_;
-mod overlay;
+// mod overlay;
 mod table;
-mod tar;
 mod tree;
 
-trait EntryTrait {
-    fn kind(&self) -> FileType;
+#[derive(thiserror::Error, Debug)]
+pub enum FuseError {
+    #[error("io error")]
+    IoError(#[from] std::io::Error),
+    #[error("not a readable file")]
+    NotReadable,
 }

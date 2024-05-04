@@ -1,4 +1,6 @@
 use crate::filesystem::macro_::{chain_poll, report_poll};
+use fuse3::FileType;
+use std::ffi::OsString;
 use std::future::Future;
 use std::io;
 use std::{
@@ -13,7 +15,41 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
+use super::MEMBLOCK_BLOCKSIZE;
+
+#[derive(Default, Clone, Debug)]
+pub enum Entry {
+    SymLink(OsString),
+    HardLink(u64),
+    #[default]
+    Directory,
+    File(MemBlock),
+    Removed,
+}
+
+impl Entry {
+    pub fn new_dir() -> Self {
+        Self::default()
+    }
+    pub fn new_file() -> Self {
+        Self::File(MemBlock::new(Vec::new()))
+    }
+    pub fn new_symlink(target: OsString) -> Self {
+        Self::SymLink(target)
+    }
+    pub fn new_hardlink(inode: u64) -> Self {
+        Self::HardLink(inode)
+    }
+    pub fn kind(&self) -> FileType {
+        match self {
+            Self::SymLink(_) => FileType::Symlink,
+            Self::HardLink(_) => FileType::RegularFile,
+            Self::Directory => FileType::Directory,
+            Self::File(_) => FileType::RegularFile,
+            Self::Removed => FileType::RegularFile,
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 enum MemStage {
@@ -31,8 +67,8 @@ impl MemStage {
     }
 }
 
-#[derive(Default)]
-pub struct MemBlock {
+#[derive(Default, Debug)]
+struct MemBlock {
     data: Arc<Mutex<Vec<u8>>>,
     cursor: usize,
     stage: MemStage,
@@ -51,7 +87,7 @@ impl Clone for MemBlock {
 }
 
 impl MemBlock {
-    pub fn new(data: Vec<u8>) -> Self {
+    fn new(data: Vec<u8>) -> Self {
         Self {
             data: Arc::new(Mutex::new(data)),
             cursor: 0,

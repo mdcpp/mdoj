@@ -1,5 +1,3 @@
-mod block;
-mod entry;
 mod reply;
 
 pub use block::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;

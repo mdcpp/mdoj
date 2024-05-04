@@ -1,3 +1,5 @@
+use tokio::sync::broadcast::error;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{0}")]
@@ -8,4 +10,6 @@ pub enum Error {
     // OutOfResource(crate::sandbox::ResourceKind),
     #[error("io error")]
     IoError(#[from] std::io::Error),
+    #[error("invaild tarball: `{0}`")]
+    InvalidTarball(&'static str),
 }

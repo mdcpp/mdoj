@@ -1,4 +1,14 @@
+//! collection of entry
+//!
+//! In tar file, structure is like this:
+//! | type | content | ...
+//!
+//! And we map each type of content to BTreeMap<PathBuf, Entry>
+
+use std::ffi::OsString;
+
 use crate::filesystem::macro_::{chain_poll, report_poll};
+use fuse3::FileType;
 use std::future::Future;
 use std::io;
 use std::{
@@ -12,6 +22,73 @@ use tokio::{
     io::{AsyncRead, AsyncSeek},
     sync::{Mutex, OwnedMutexGuard},
 };
+
+/// Entry from tar file, should be readonly
+#[derive(Debug, Default)]
+pub enum Entry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    SymLink(OsString),
+    HardLink(u64),
+    #[default]
+    Directory,
+    File(TarBlock<F>),
+}
+
+impl<F> Entry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    #[inline]
+    pub fn new_dir() -> Self {
+        Self::default()
+    }
+    #[inline]
+    pub fn new_file(block: TarBlock<F>) -> Self {
+        Self::File(block)
+    }
+    #[inline]
+    pub fn new_symlink(target: OsString) -> Self {
+        Self::SymLink(target)
+    }
+    #[inline]
+    pub fn kind(&self) -> FileType {
+        match self {
+            Self::SymLink(_) => FileType::Symlink,
+            Self::HardLink(_) => FileType::RegularFile,
+            Self::Directory => FileType::Directory,
+            Self::File(_) => FileType::RegularFile,
+        }
+    }
+}
+
+impl<F> Clone for Entry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
+            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
+            Self::Directory => Self::Directory,
+            Self::File(arg0) => Self::File(arg0.clone()),
+        }
+    }
+}
+
+impl<F> PartialEq for Entry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::SymLink(l0), Self::SymLink(r0)) => l0 == r0,
+            (Self::File(l0), Self::File(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
 
 #[derive(Default, Debug)]
 enum TarStage<F> {

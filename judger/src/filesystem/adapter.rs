@@ -1,6 +1,5 @@
 use std::num::NonZeroU32;
 
-use crate::filesystem::overlay::BLOCKSIZE;
 use crate::semaphore::Semaphore;
 use fuse3::{
     raw::{reply::*, Request},
@@ -10,7 +9,7 @@ use std::future::{ready as future_ready, Future};
 use tokio::io::{AsyncRead, AsyncSeek};
 
 use super::{
-    overlay::{Entry, Overlay},
+    overlay::{Overlay},
     table::HandleTable,
     tree::ArcNode,
 };

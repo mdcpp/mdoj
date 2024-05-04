@@ -2,4 +2,4 @@ mod handle;
 mod inode;
 
 pub use handle::HandleTable;
-pub use inode::{INodeTable, Identified};
+pub use inode::{InodeHandle, InodeTable};
