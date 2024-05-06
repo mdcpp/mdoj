@@ -7,12 +7,15 @@
 
 use std::ffi::OsString;
 
-use crate::filesystem::macro_::{chain_poll, report_poll};
+use crate::filesystem::{
+    macro_::{chain_poll, report_poll},
+    FuseError,
+};
+use bytes::Bytes;
 use fuse3::FileType;
-use std::future::Future;
-use std::io;
 use std::{
-    io::SeekFrom,
+    future::Future,
+    io::{self, SeekFrom},
     ops::DerefMut,
     pin::{pin, Pin},
     sync::Arc,
@@ -22,6 +25,8 @@ use tokio::{
     io::{AsyncRead, AsyncSeek},
     sync::{Mutex, OwnedMutexGuard},
 };
+
+use super::wrapper::FuseRead;
 
 /// Entry from tar file, should be readonly
 #[derive(Debug, Default)]
@@ -60,6 +65,16 @@ where
             Self::Directory => FileType::Directory,
             Self::File(_) => FileType::RegularFile,
         }
+    }
+    pub async fn read(&mut self, offset: u64, size: u32) -> Result<Bytes, FuseError> {
+        // FIXME: follow symlink
+        if let Self::File(block) = self {
+            return FuseRead(block).read(offset, size).await;
+        }
+        Err(FuseError::IsDir)
+    }
+    pub async fn write(&mut self, offset: u64, data: &[u8]) -> Result<u32, FuseError> {
+        Err(FuseError::Unimplemented)
     }
 }
 
@@ -104,6 +119,12 @@ impl<F> TarStage<F> {
     }
 }
 
+/// A block in tar file, should be readonly
+///
+/// Note that [`TarBlock`] behavior like [`tokio::fs::File`],
+/// except that it dones't shares the same underlying file session
+/// by cloning(Reads, writes, and seeks would **not** affect both
+/// [`TarBlock`] instances simultaneously.)
 #[derive(Debug)]
 pub struct TarBlock<F>
 where
@@ -145,7 +166,7 @@ where
 
 impl<F> TarBlock<F>
 where
-    F: AsyncRead + AsyncSeek + Unpin,
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
     pub fn new(file: Arc<Mutex<F>>, start: u64, size: u64) -> Self {
         Self {
@@ -231,7 +252,7 @@ where
 
 impl<F> AsyncSeek for TarBlock<F>
 where
-    F: AsyncRead + AsyncSeek + Unpin,
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
     fn start_seek(self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         let self_ = self.get_mut();

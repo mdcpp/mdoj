@@ -16,9 +16,6 @@ pub trait Limit {
     fn get_memory(&mut self) -> Memory;
     fn get_args(&mut self) -> impl Iterator<Item = &OsStr>;
     fn get_output_limit(&mut self) -> u64;
-    // fn get_reserved_size(&mut self) -> u64 {
-    //     self.get_memory().get_reserved_size() + self.get_fs_size() + self.get_output_limit()
-    // }
     fn get_walltime(&mut self) -> Duration {
         Duration::from_secs(60 * 30)
     }

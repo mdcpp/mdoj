@@ -1,10 +1,13 @@
-use crate::filesystem::macro_::{chain_poll, report_poll};
+use crate::filesystem::{
+    macro_::{chain_poll, report_poll},
+    FuseError,
+};
+use bytes::Bytes;
 use fuse3::FileType;
-use std::ffi::OsString;
-use std::future::Future;
-use std::io;
 use std::{
-    io::SeekFrom,
+    ffi::OsString,
+    future::Future,
+    io::{self, SeekFrom},
     ops::Deref,
     pin::{pin, Pin},
     sync::Arc,
@@ -15,6 +18,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
+use super::wrapper::{FuseRead, FuseWrite};
 use super::MEMBLOCK_BLOCKSIZE;
 
 #[derive(Default, Clone, Debug)]
@@ -49,6 +53,19 @@ impl Entry {
             Self::Removed => FileType::RegularFile,
         }
     }
+    pub async fn read(&mut self, offset: u64, size: u32) -> Result<Bytes, FuseError> {
+        // FIXME: follow symlink
+        if let Self::File(block) = self {
+            return FuseRead(block).read(offset, size).await;
+        }
+        Err(FuseError::IsDir)
+    }
+    pub async fn write(&mut self, offset: u64, data: &[u8]) -> Result<u32, FuseError> {
+        if let Self::File(block) = self {
+            return FuseWrite(block).write(offset, data).await;
+        }
+        Err(FuseError::IsDir)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -68,7 +85,7 @@ impl MemStage {
 }
 
 #[derive(Default, Debug)]
-struct MemBlock {
+pub struct MemBlock {
     data: Arc<Mutex<Vec<u8>>>,
     cursor: usize,
     stage: MemStage,
@@ -280,5 +297,31 @@ mod test {
                 assert_eq!(buf, *b"hello world");
             });
         }
+    }
+    #[tokio::test]
+    #[should_panic]
+    async fn test_take_read() {
+        let block = MemBlock::new(b"hello world".to_vec());
+        let mut buffer = [0; 5];
+
+        // read at most five bytes
+        let mut handle = block.take(5);
+        handle.read_exact(&mut buffer).await.unwrap();
+        assert_eq!(buffer, *b"hello");
+
+        // read the rest
+        let mut buffer = [0; 6];
+        handle.read_exact(&mut buffer).await.unwrap();
+        assert_eq!(buffer, *b" world");
+    }
+    #[tokio::test]
+    async fn test_take_short_read() {
+        let block = MemBlock::new(b"hello ".to_vec());
+        let mut buffer = Vec::new();
+
+        // read at most five bytes
+        let mut handle = block.take(100);
+        handle.read_to_end(&mut buffer).await.unwrap();
+        assert_eq!(buffer, b"hello ");
     }
 }

@@ -1,41 +1,25 @@
 use super::prelude::ReadEntry;
-use std::{
-    collections::BTreeMap,
-    ffi::OsString,
-    io::Read,
-    os::unix::ffi::OsStringExt,
-    path::Path,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
-};
+use std::{ffi::OsString, io::Read, os::unix::ffi::OsStringExt, path::Path, sync::Arc};
 
-use spin::rwlock::RwLock;
 #[cfg(test)]
 use std::io::Cursor;
 use tar::{Archive, EntryType};
-// use tar::*;
 #[cfg(test)]
 use tokio::io::BufReader;
 use tokio::{
     fs::File,
     io::{AsyncRead, AsyncSeek},
     sync::Mutex,
-    task::spawn_blocking,
 };
 
 use crate::{
-    filesystem::{
-        table::{InodeHandle, InodeTable},
-        tree::{arc_lock, ArcNode, InsertResult, Node, Tree},
-    },
+    filesystem::{table, tree::*},
     Error,
 };
 
 use super::{ro::TarBlock, Entry, InoEntry};
 
-impl<F> InodeTable<ArcNode<InoEntry<F>>>
+impl<F> table::InodeTable<ArcNode<InoEntry<F>>>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
@@ -55,7 +39,7 @@ where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
     pub tree: Tree<InoEntry<F>>,
-    pub inode: InodeTable<ArcNode<InoEntry<F>>>,
+    pub inode: table::InodeTable<ArcNode<InoEntry<F>>>,
 }
 
 impl<F> Default for TarTree<F>
@@ -63,7 +47,7 @@ where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
     fn default() -> Self {
-        let inode = InodeTable::default();
+        let inode = table::InodeTable::default();
         let handle = inode.allocate_root();
         let root = Node::new(InoEntry {
             entry: Entry::Read(ReadEntry::new_dir()),

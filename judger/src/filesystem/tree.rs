@@ -90,6 +90,11 @@ impl<V: Sized> Node<V> {
             *x = arc_lock(node);
         })
     }
+    pub fn list_child(&self) -> impl Iterator<Item = (&OsStr, ArcNode<V>)> {
+        self.children
+            .iter()
+            .map(|(a, b)| (a.as_os_str(), b.clone()))
+    }
     /// get child node by component
     #[inline]
     pub fn get_by_component(&self, component: &OsStr) -> Option<ArcNode<V>> {
