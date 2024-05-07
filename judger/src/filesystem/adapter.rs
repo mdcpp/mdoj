@@ -1,29 +1,23 @@
-use std::{ffi::OsStr, num::NonZeroU32};
+use std::{ffi::OsStr, num::NonZeroU32, path::Path};
 
 use crate::{
     filesystem::{reply::ImmutParsable, FuseError},
-    semaphore::Semaphore,
+    semaphore::{Permit, Semaphore},
+    Error,
 };
 use fuse3::{
     raw::{reply::*, Request},
     FileType, Result as FuseResult,
 };
 use std::future::{ready as future_ready, Future};
-use tokio::io::{AsyncRead, AsyncSeek};
-
-use super::{
-    entry::prelude::*,
-    table::{self, HandleTable},
-    tree::ArcNode,
+use tokio::{
+    fs::File,
+    io::{AsyncRead, AsyncSeek},
 };
 
-type VecStream<I> = tokio_stream::Iter<std::vec::IntoIter<I>>;
+use super::{entry::prelude::*, table::HandleTable, tree::ArcNode};
 
-// macro_rules! cerr {
-//     ($e:ident) => {
-//         Errno::from(libc::$e)
-//     };
-// }
+type VecStream<I> = tokio_stream::Iter<std::vec::IntoIter<I>>;
 
 pub struct Filesystem<F>
 where
@@ -32,6 +26,7 @@ where
     handle_table: HandleTable<ArcNode<InoEntry<F>>>,
     tree: TarTree<F>,
     semaphore: Semaphore,
+    _permit: Permit,
 }
 
 impl<F> fuse3::raw::Filesystem for Filesystem<F>
@@ -187,6 +182,7 @@ where
         write_flags: u32,
         flags: u32,
     ) -> impl Future<Output = FuseResult<ReplyWrite>> + Send {
+        /// FIXME: use semaphore to limit the write
         async move {
             let entry = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
             let mut entry = entry.write().await;
@@ -196,5 +192,40 @@ where
                 .map(|written| ReplyWrite { written })
                 .map_err(Into::into)
         }
+    }
+}
+
+pub struct Template<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
+{
+    tree: TarTree<F>,
+    semaphore: Semaphore,
+}
+
+impl<F> Template<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
+{
+    fn new_inner(tree: TarTree<F>, memory: u64) -> Self {
+        Self {
+            tree,
+            semaphore: Semaphore::new(memory, 10),
+        }
+    }
+    pub async fn as_template(&self, size: u64) -> Filesystem<F> {
+        Filesystem {
+            handle_table: HandleTable::new(),
+            tree: self.tree.cloned().await,
+            semaphore: self.semaphore.clone(),
+            _permit: self.semaphore.get_permit(size).await.unwrap(),
+        }
+    }
+}
+
+impl Template<File> {
+    pub async fn new(path: impl AsRef<Path> + Clone, size: u64) -> Result<Self, Error> {
+        let tree = TarTree::new(path).await?;
+        Ok(Self::new_inner(tree, size))
     }
 }

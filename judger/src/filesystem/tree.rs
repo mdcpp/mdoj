@@ -221,6 +221,29 @@ impl<V: Sized> Tree<V> {
         })
         .await
     }
+    pub fn iter(&self) -> TreeIter<V> {
+        TreeIter::new(self.0.clone())
+    }
+}
+
+pub struct TreeIter<V: Sized> {
+    stack: Vec<ArcNode<V>>,
+}
+
+impl<V: Sized> TreeIter<V> {
+    fn new(root: ArcNode<V>) -> Self {
+        Self { stack: vec![root] }
+    }
+    pub async fn next(&mut self) -> Option<ArcNode<V>> {
+        let node = self.stack.pop()?;
+        {
+            let lock = node.read().await;
+            for (_, child) in lock.children.iter() {
+                self.stack.push(child.clone());
+            }
+        }
+        Some(node)
+    }
 }
 
 #[cfg(test)]
@@ -321,5 +344,25 @@ mod test {
     async fn windows() {
         let tree = Tree::new(Node::new(0));
         tree.insert_path("C:\\a", 1).await;
+    }
+    #[tokio::test]
+    async fn iter() {
+        let tree = Tree::new(Node::new(0));
+        tree.insert_path("a", Node::new(1)).await;
+        tree.insert_path("a/u", Node::new(2)).await;
+        tree.insert_path("a/u/f", Node::new(3)).await;
+        tree.insert_path("a/u/f/h", Node::new(4)).await;
+        let mut iter = tree.iter();
+        macro_rules! check_next {
+            ($e:expr) => {
+                assert_eq!(iter.next().await.unwrap().read().await.value, $e);
+            };
+        }
+        check_next!(0);
+        check_next!(1);
+        check_next!(2);
+        check_next!(3);
+        check_next!(4);
+        assert!(iter.next().await.is_none());
     }
 }

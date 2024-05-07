@@ -1,6 +1,7 @@
 mod config;
 mod error;
 mod filesystem;
+mod language;
 mod sandbox;
 mod semaphore;
 

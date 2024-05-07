@@ -1,5 +1,5 @@
 use super::prelude::ReadEntry;
-use std::{ffi::OsString, io::Read, os::unix::ffi::OsStringExt, path::Path, sync::Arc};
+use std::{ffi::OsString, io::Read, ops::Deref, os::unix::ffi::OsStringExt, path::Path, sync::Arc};
 
 #[cfg(test)]
 use std::io::Cursor;
@@ -63,6 +63,18 @@ impl<F> TarTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
+    pub async fn cloned(&self) -> Self {
+        let tree = self.tree.cloned();
+        let inode = table::InodeTable::default();
+        let mut iter = tree.iter();
+
+        while let Some(entry) = iter.next().await {
+            let entry_inode = entry.read().await.inode;
+            inode.clone_update_entry(entry_inode, entry).await;
+        }
+
+        Self { tree, inode }
+    }
     async fn parse_entry<R: Read>(
         &mut self,
         entry: tar::Entry<'_, R>,

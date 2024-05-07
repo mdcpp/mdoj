@@ -10,7 +10,7 @@ use super::FuseError;
 
 mod ro;
 mod rw;
-mod template;
+mod tar;
 mod wrapper;
 
 pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
@@ -18,7 +18,7 @@ pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
 pub mod prelude {
     pub use super::ro::Entry as ReadEntry;
     pub use super::rw::Entry as WriteEntry;
-    pub use super::template::TarTree;
+    pub use super::tar::TarTree;
     pub use super::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;
     pub use super::{Entry, InoEntry};
 }
