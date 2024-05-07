@@ -11,6 +11,7 @@ pub trait Argument {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>>;
 }
 
+/// factory pattern for conbinating arguments
 #[derive(Default)]
 pub struct ArgFactory {
     args: Vec<Cow<'static, OsStr>>,
@@ -27,6 +28,7 @@ impl ArgFactory {
     }
 }
 
+/// base auguments for nsjail
 pub struct BaseArg;
 
 impl Argument for BaseArg {
@@ -43,6 +45,7 @@ impl Argument for BaseArg {
     }
 }
 
+/// arguments for setting cgroup
 pub struct CGroupMountArg<'a> {
     pub cg_name: &'a str,
 }
@@ -51,6 +54,7 @@ impl<'a> Argument for CGroupMountArg<'a> {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         // note that there is cg_name, cg_path and cg_mount, they are different!
         match super::monitor::CGROUP_V2.deref() {
+            // this is a patch(not default behavior of nsjail)
             true => vec![
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_cpu_parent")),
                 Cow::Owned(OsString::from(self.cg_name)),
@@ -68,6 +72,7 @@ impl<'a> Argument for CGroupMountArg<'a> {
     }
 }
 
+/// arguments for setting cgroup version
 pub struct CGroupVersionArg;
 
 impl Argument for CGroupVersionArg {
@@ -80,6 +85,7 @@ impl Argument for CGroupVersionArg {
     }
 }
 
+/// arguments for rootfs mount
 pub struct MountArg<'a> {
     pub rootfs: &'a OsStr,
 }
@@ -94,6 +100,7 @@ impl<'a> Argument for MountArg<'a> {
     }
 }
 
+/// arguments for launching inner process
 pub struct InnerProcessArg<'a, I>
 where
     I: Iterator<Item = &'a OsStr>,

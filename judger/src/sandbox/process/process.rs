@@ -10,6 +10,7 @@ use tokio::{
 
 use super::{corpse::Corpse, nsjail::*};
 
+/// A unlaunched process that is mounted with a filesystem
 struct MountedProcess<C: Context> {
     context: C,
     fs: C::FS,
@@ -24,6 +25,7 @@ impl<C: Context> MountedProcess<C> {
     }
 }
 
+/// a monitored process
 struct MonitoredProcess<C: Context> {
     fs: C::FS,
     context: C,
@@ -39,7 +41,7 @@ impl<C: Context> MonitoredProcess<C> {
         let mem = context.get_memory();
         let cpu = context.get_cpu();
         let walltime = context.get_walltime();
-        let output_limit = context.get_output_limit();
+        let output_limit = context.get_output();
         let (fake_stdout, stdout) = io::duplex(1024);
 
         Ok(Self {
@@ -67,6 +69,7 @@ impl<C: Context> From<MonitoredProcess<C>> for Process<C> {
     }
 }
 
+/// A running process
 pub struct Process<C: Context> {
     fs: C::FS,
     context: C,
@@ -102,6 +105,7 @@ impl<C: Context> Process<C> {
 
         Ok(cmd.spawn()?)
     }
+    /// spawn a process and wait for it to finish
     pub async fn wait(mut self, input: Vec<u8>) -> Result<Corpse, Error> {
         let mut process = self.spawn_raw_process()?;
 

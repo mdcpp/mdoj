@@ -3,6 +3,7 @@ use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
 use std::sync::{atomic::Ordering, Arc};
 use tokio::time::*;
 
+/// maximum allow time deviation for cpu monitor
 const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
 const CG_PATH_COUNTER: AtomicUsize = AtomicUsize::new(0);

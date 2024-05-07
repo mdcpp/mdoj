@@ -2,6 +2,7 @@ use std::process::ExitStatus;
 
 use super::monitor::{MonitorKind, Stat};
 
+/// A corpse of a process
 pub struct Corpse {
     /// exit code of signal
     pub(super) code: Option<ExitStatus>,

@@ -1,8 +1,11 @@
 use crate::config::Accounting;
 use cgroups_rs::*;
 
+/// type of monitor for cpu
 pub enum MonitorKind {
+    /// use `cpu.stat` from cpu subsystem
     Cpu,
+    /// use cpu accounting subsystem
     CpuAcct,
 }
 
@@ -19,6 +22,7 @@ lazy_static::lazy_static! {
 }
 
 impl MonitorKind {
+    /// get the hierarchy(cgroup v1/v2) of monitor
     pub fn heir(&self) -> Box<dyn Hierarchy> {
         match self {
             MonitorKind::Cpu => hierarchies::auto(),

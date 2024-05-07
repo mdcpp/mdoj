@@ -31,7 +31,6 @@ impl super::Monitor for Monitor {
         }
         Some(MonitorKind::Walltime)
     }
-
     async fn stat(self) -> Self::Resource {
         match self.start {
             Some(start) => Instant::now().duration_since(start),

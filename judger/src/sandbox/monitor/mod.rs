@@ -23,8 +23,26 @@ lazy_static::lazy_static! {
 
 pub trait Monitor {
     type Resource;
-    async fn wait_exhaust(&mut self) -> MonitorKind;
+    /// wait for exhuast of resource
+    ///
+    /// This function is cancel safe.
+    async fn wait_exhaust(&mut self) -> MonitorKind {
+        log::warn!("unimplemented wait_exhaust!");
+        loop {
+            if let Some(reason) = self.poll_exhaust() {
+                return reason;
+            }
+            tokio::time::sleep(Duration::from_millis(12)).await;
+        }
+    }
+    /// poll for exhuast of resource
+    ///
+    /// Implementor should do bith [`wait_exhaust`] and [`poll_exhaust`]
+    /// for better performance.
     fn poll_exhaust(&mut self) -> Option<MonitorKind>;
+    /// get the resource usage
+    ///
+    /// Please note that [`poll_exhaust`] might not be called before this function
     async fn stat(self) -> Self::Resource;
 }
 

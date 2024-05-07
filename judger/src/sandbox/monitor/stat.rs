@@ -6,6 +6,7 @@ use super::output::Output;
 
 pub type MemAndCpu = (Memory, Cpu);
 
+/// statistics of resource usage
 pub struct Stat {
     pub memory: Memory,
     pub cpu: Cpu,
@@ -13,6 +14,8 @@ pub struct Stat {
     pub walltime: Duration,
 }
 
+/// memory usage(in bytes)
+#[derive(Clone)]
 pub struct Memory {
     pub kernel: u64,
     pub user: u64,
@@ -25,6 +28,7 @@ impl Memory {
     }
 }
 
+/// cpu usage(in nanoseconds)
 #[derive(Clone)]
 pub struct Cpu {
     pub kernel: u64,
