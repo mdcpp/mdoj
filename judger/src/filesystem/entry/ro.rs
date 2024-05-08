@@ -177,6 +177,10 @@ where
             stage: TarStage::Done,
         }
     }
+    #[inline]
+    pub fn get_size(&self) -> u64 {
+        self.size
+    }
     #[cfg(test)]
     fn from_raw(file: F, start: u64, size: u64) -> Self {
         Self {

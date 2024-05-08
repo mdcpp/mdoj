@@ -66,6 +66,7 @@ impl<E: Clone> InodeTable<E> {
         let inode = self
             .inode_generator
             .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        log::trace!("allocate inode: {}", inode);
         InodeHandle { inode, table: self }
     }
     /// update(clone) entry by providing new entry with inode

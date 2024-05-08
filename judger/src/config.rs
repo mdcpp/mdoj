@@ -36,14 +36,34 @@ pub enum Accounting {
     Cpu,
 }
 
+fn default_ratio_cpu() -> f32 {
+    1.0
+}
+fn default_ratio_memory() -> f32 {
+    1.0
+}
+
 #[derive(Serialize, Deserialize, Default)]
-pub struct Machine {
-    cpu: Option<f32>,
-    memory: Option<f32>,
+pub struct Ratio {
+    #[serde(default = "default_ratio_cpu")]
+    pub cpu: f32,
+    #[serde(default = "default_ratio_memory")]
+    pub memory: f32,
 }
 
 fn default_log() -> u8 {
     1
+}
+
+fn default_ratio() -> Ratio {
+    Ratio {
+        cpu: 1.0,
+        memory: 1024.0,
+    }
+}
+
+fn default_memory() -> u64 {
+    1024 * 1024 * 1024
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -51,12 +71,14 @@ fn default_log() -> u8 {
 pub struct Config {
     #[serde(default)]
     pub accounting: Accounting,
-    #[serde(default)]
-    pub machine: Machine,
+    #[serde(default = "default_ratio")]
+    pub ratio: Ratio,
     #[serde(default)]
     pub rootless: bool,
     #[serde(default = "default_log")]
     pub log: u8,
     #[serde(default)]
     pub secret: Option<String>,
+    #[serde(default = "default_memory")]
+    pub memory: u64,
 }

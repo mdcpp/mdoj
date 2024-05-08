@@ -11,6 +11,7 @@ mod table;
 mod tree;
 
 pub use entry::prelude::*;
+use tokio::sync::broadcast::error;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FuseError {
@@ -30,10 +31,13 @@ pub enum FuseError {
     InodeNotFound,
     #[error("missed handle")]
     HandleNotFound,
+    #[error("underlaying file error")]
+    Underlaying,
 }
 
 impl From<FuseError> for fuse3::Errno {
     fn from(value: FuseError) -> Self {
+        log::warn!("FUSE driver broken: {}", value);
         match value {
             FuseError::IsDir => libc::EISDIR,
             FuseError::NotDir => libc::ENOTDIR,

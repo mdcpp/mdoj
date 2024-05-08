@@ -1,8 +1,14 @@
-use std::ffi::OsString;
+use std::{
+    ffi::OsString,
+    io::SeekFrom,
+    sync::atomic::{AtomicI64, Ordering},
+};
 
 use bytes::Bytes;
 use fuse3::{raw::reply::DirectoryEntry, FileType};
-use tokio::io::{AsyncRead, AsyncSeek};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt};
+
+use crate::semaphore::Semaphore;
 
 use self::prelude::*;
 
@@ -21,6 +27,41 @@ pub mod prelude {
     pub use super::tar::TarTree;
     pub use super::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;
     pub use super::{Entry, InoEntry};
+}
+
+impl<F> ReadEntry<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
+{
+    async fn into_write(
+        value: ReadEntry<F>,
+        resource: &AtomicI64,
+    ) -> Result<WriteEntry, FuseError> {
+        if let ReadEntry::File(block) = &value {
+            let required_space = block.get_size() as i64;
+            if resource.fetch_sub(required_space, Ordering::AcqRel) < required_space {
+                return Err(FuseError::OutOfPermit);
+            }
+        }
+        let value = match value {
+            ReadEntry::SymLink(target) => WriteEntry::SymLink(target),
+            ReadEntry::HardLink(inode) => WriteEntry::HardLink(inode),
+            ReadEntry::Directory => WriteEntry::Directory,
+            ReadEntry::File(mut block) => {
+                block
+                    .seek(SeekFrom::Start(0))
+                    .await
+                    .map_err(|_| FuseError::Underlaying)?;
+                let mut data = Vec::new();
+                block
+                    .read_to_end(&mut data)
+                    .await
+                    .map_err(|_| FuseError::Underlaying)?;
+                WriteEntry::new_data(data)
+            }
+        };
+        Ok(value)
+    }
 }
 
 #[derive(Debug)]
@@ -72,27 +113,34 @@ where
             Entry::Write(write_entry) => write_entry.kind(),
         }
     }
-    pub async fn read(&mut self, offset: u64, size: u32) -> Result<Bytes, FuseError> {
-        match &mut self.entry {
-            Entry::Read(entry) => entry.read(offset, size).await,
-            Entry::Write(entry) => entry.read(offset, size).await,
+    pub async fn read(
+        &mut self,
+        offset: u64,
+        size: u32,
+        resource: &AtomicI64,
+    ) -> Result<Bytes, FuseError> {
+        if let Entry::Read(entry) = &mut self.entry {
+            self.entry = Entry::Write(ReadEntry::into_write(entry.clone(), &resource).await?);
+        }
+        if let Entry::Write(entry) = &mut self.entry {
+            entry.read(offset, size).await
+        } else {
+            unreachable!()
         }
     }
-    pub async fn write(&mut self, offset: u64, data: &[u8]) -> Result<u32, FuseError> {
+    pub async fn write(
+        &mut self,
+        offset: u64,
+        data: &[u8],
+        resource: &AtomicI64,
+    ) -> Result<u32, FuseError> {
+        let required_space = data.len() as i64;
+        if resource.fetch_sub(required_space, Ordering::AcqRel) < required_space {
+            return Err(FuseError::OutOfPermit);
+        }
         match &mut self.entry {
             Entry::Read(entry) => entry.write(offset, data).await,
             Entry::Write(entry) => entry.write(offset, data).await,
-        }
-    }
-    // pub async fn
-    pub async fn dir_entry(&self, name: OsString) -> DirectoryEntry {
-        // But for libfuse, an offset of zero means that offsets are
-        // not supported, so we shift everything by one.
-        DirectoryEntry {
-            inode: self.inode,
-            kind: self.kind().await,
-            name,
-            offset: 0,
         }
     }
 }

@@ -38,6 +38,9 @@ impl Entry {
     pub fn new_file() -> Self {
         Self::File(MemBlock::new(Vec::new()))
     }
+    pub fn new_data(data: Vec<u8>) -> Self {
+        Self::File(MemBlock::new(data))
+    }
     pub fn new_symlink(target: OsString) -> Self {
         Self::SymLink(target)
     }
