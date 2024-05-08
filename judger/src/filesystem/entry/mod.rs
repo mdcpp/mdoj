@@ -5,10 +5,8 @@ use std::{
 };
 
 use bytes::Bytes;
-use fuse3::{raw::reply::DirectoryEntry, FileType};
+use fuse3::FileType;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt};
-
-use crate::semaphore::Semaphore;
 
 use self::prelude::*;
 

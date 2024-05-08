@@ -4,6 +4,7 @@
 //!
 
 mod adapter;
+mod adj;
 mod entry;
 mod macro_;
 mod reply;

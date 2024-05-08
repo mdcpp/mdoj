@@ -2931,6 +2931,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "peekmore",
  "prost 0.12.3",
  "prost-types",
  "rustix 0.38.31",
@@ -3892,6 +3893,12 @@ name = "pathdiff"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
+
+[[package]]
+name = "peekmore"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9163e1259760e83d528d1b3171e5100c1767f10c52e1c4d6afad26e63d47d758"
 
 [[package]]
 name = "pem-rfc7468"
