@@ -1,4 +1,3 @@
-// FIXME: we don't need Meter
 mod pubsub;
 mod route;
 mod score;

@@ -1,9 +1,24 @@
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
+    path::{Component, Path},
 };
 
 const ID_MIN: usize = 1;
+const REMAIN_CAPACITY: u32 = 1 << 31;
+
+pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a {
+    path.components().filter_map(|component| match component {
+        Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
+        Component::RootDir | Component::CurDir | Component::ParentDir => None,
+        Component::Normal(x) => Some(x),
+    })
+    // .collect::<Vec<_>>()
+}
+
+pub trait DeepClone {
+    async fn deep_clone(&self) -> Self;
+}
 
 struct Node<V> {
     parent_idx: usize,
@@ -11,30 +26,53 @@ struct Node<V> {
     children: HashMap<OsString, usize>,
 }
 
+impl<V: DeepClone> DeepClone for Node<V> {
+    async fn deep_clone(&self) -> Self {
+        Self {
+            parent_idx: self.parent_idx,
+            value: self.value.deep_clone().await,
+            children: self.children.iter().map(|(k, v)| (k.clone(), *v)).collect(),
+        }
+    }
+}
+
 pub struct AdjTable<V> {
     by_id: Vec<Node<V>>,
+}
+
+impl<V: DeepClone> DeepClone for AdjTable<V> {
+    async fn deep_clone(&self) -> Self {
+        let mut by_id = Vec::with_capacity(self.by_id.len());
+        for node in &self.by_id {
+            by_id.push(node.deep_clone().await);
+        }
+        Self { by_id }
+    }
 }
 
 impl<V> AdjTable<V> {
     pub fn new() -> Self {
         Self { by_id: vec![] }
     }
-    pub fn insert_root(&mut self, value: V) -> NodeWrapper<V> {
+    pub fn insert_root(&mut self, value: V) -> NodeWrapperMut<V> {
         let idx = self.by_id.len();
         self.by_id.push(Node {
             parent_idx: 0,
             value,
             children: HashMap::new(),
         });
-        NodeWrapper { table: self, idx }
+        NodeWrapperMut { table: self, idx }
     }
-    pub fn get_root(&mut self) -> NodeWrapper<V> {
+    pub fn get_root(&self) -> NodeWrapper<V> {
         NodeWrapper {
             table: self,
             idx: 0,
         }
     }
-    pub fn get_by_id(&mut self, id: usize) -> Option<NodeWrapper<V>> {
+    pub fn get_remain_capacity(&self) -> u32 {
+        REMAIN_CAPACITY - self.by_id.len() as u32
+    }
+    pub fn get(&self, id: usize) -> Option<NodeWrapper<V>> {
         if id < ID_MIN || id >= self.by_id.len() + ID_MIN {
             return None;
         }
@@ -43,8 +81,17 @@ impl<V> AdjTable<V> {
             idx: id - ID_MIN,
         })
     }
+    pub fn get_mut(&mut self, id: usize) -> Option<NodeWrapperMut<V>> {
+        if id < ID_MIN || id >= self.by_id.len() + ID_MIN {
+            return None;
+        }
+        Some(NodeWrapperMut {
+            table: self,
+            idx: id - ID_MIN,
+        })
+    }
     pub fn get_by_path<'a>(
-        &mut self,
+        &self,
         mut path: impl Iterator<Item = &'a OsStr>,
     ) -> Option<NodeWrapper<V>> {
         let mut idx = self.get_root().idx;
@@ -61,7 +108,7 @@ impl<V> AdjTable<V> {
         &mut self,
         path: impl Iterator<Item = OsString>,
         mut default_value: F,
-    ) -> NodeWrapper<V>
+    ) -> NodeWrapperMut<V>
     where
         F: FnMut() -> V,
     {
@@ -79,14 +126,14 @@ impl<V> AdjTable<V> {
                 self.by_id[idx].children.insert(name, new_idx);
             }
         }
-        NodeWrapper { table: self, idx }
+        NodeWrapperMut { table: self, idx }
     }
-    pub fn insert_by_path<F>(
+    pub fn insert_by_path<'a, F>(
         &mut self,
-        path: impl Iterator<Item = OsString>,
+        path: impl Iterator<Item = &'a OsStr>,
         mut default_value: F,
         value: V,
-    ) -> NodeWrapper<V>
+    ) -> NodeWrapperMut<V>
     where
         F: FnMut() -> V,
     {
@@ -96,8 +143,8 @@ impl<V> AdjTable<V> {
         let mut seg;
         while path.peek().is_some() {
             seg = path.next().unwrap();
-            if self.by_id[idx].children.contains_key(&seg) {
-                idx = self.by_id[idx].children[&seg];
+            if self.by_id[idx].children.contains_key(seg) {
+                idx = self.by_id[idx].children[seg];
             } else {
                 let new_idx = self.by_id.len();
                 self.by_id.push(Node {
@@ -105,17 +152,17 @@ impl<V> AdjTable<V> {
                     value: default_value(),
                     children: HashMap::new(),
                 });
-                self.by_id[idx].children.insert(seg, new_idx);
+                self.by_id[idx].children.insert(seg.to_os_string(), new_idx);
                 idx = new_idx;
             }
         }
         self.by_id[idx].value = value;
-        NodeWrapper { table: self, idx }
+        NodeWrapperMut { table: self, idx }
     }
 }
 
 pub struct NodeWrapper<'a, V> {
-    table: &'a mut AdjTable<V>,
+    table: &'a AdjTable<V>,
     idx: usize,
 }
 
@@ -126,21 +173,8 @@ impl<'a, V> NodeWrapper<'a, V> {
     pub fn is_root(&self) -> bool {
         self.idx == 0
     }
-    pub fn insert(&mut self, name: OsString, value: V) -> NodeWrapper<V> {
-        let idx = self.table.by_id.len();
-        self.table.by_id.push(Node {
-            parent_idx: self.idx,
-            value,
-            children: HashMap::new(),
-        });
-        self.table.by_id[self.idx].children.insert(name, idx);
-        NodeWrapper {
-            table: self.table,
-            idx,
-        }
-    }
-    pub fn parent(self) -> Option<NodeWrapper<'a, V>> {
-        if self.idx == 0 {
+    pub fn parent(&self) -> Option<NodeWrapper<'a, V>> {
+        if self.is_root() {
             return None;
         }
         let parent_idx = self.table.by_id[self.idx].parent_idx;
@@ -149,14 +183,87 @@ impl<'a, V> NodeWrapper<'a, V> {
             idx: parent_idx,
         })
     }
-    fn children(self) -> impl Iterator<Item = usize> + 'a {
+    pub fn children(self) -> impl Iterator<Item = usize> + 'a {
+        log::info!(
+            "children length: {}",
+            self.table.by_id[self.idx].children.len()
+        );
         self.table.by_id[self.idx]
             .children
             .iter()
             .map(|(_, &idx)| idx + ID_MIN)
     }
-    fn get_value(&self) -> &V {
+    pub fn get_value(&self) -> &V {
         &self.table.by_id[self.idx].value
+    }
+    pub fn get_name(&self) -> &OsStr {
+        if self.is_root() {
+            OsStr::new("/")
+        } else {
+            self.table.by_id[self.table.by_id[self.idx].parent_idx]
+                .children
+                .iter()
+                .find(|(_, &idx)| idx == self.idx)
+                .unwrap()
+                .0
+        }
+    }
+    pub fn get_by_component(&self, component: &OsStr) -> Option<NodeWrapper<V>> {
+        if let Some(&idx) = self.table.by_id[self.idx].children.get(component) {
+            Some(NodeWrapper {
+                table: self.table,
+                idx,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct NodeWrapperMut<'a, V> {
+    table: &'a mut AdjTable<V>,
+    idx: usize,
+}
+
+impl<'a, V> NodeWrapperMut<'a, V> {
+    pub fn insert(&mut self, name: OsString, value: V) -> NodeWrapperMut<V> {
+        let idx = self.table.by_id.len();
+        self.table.by_id.push(Node {
+            parent_idx: self.idx,
+            value,
+            children: HashMap::new(),
+        });
+        self.table.by_id[self.idx].children.insert(name, idx);
+        NodeWrapperMut {
+            table: self.table,
+            idx,
+        }
+    }
+    pub fn get_id(&self) -> usize {
+        NodeWrapper {
+            table: self.table,
+            idx: self.idx,
+        }
+        .get_id()
+    }
+    pub fn get_value(&mut self) -> &mut V {
+        &mut self.table.by_id[self.idx].value
+    }
+    pub fn get_by_component(&mut self, component: &OsStr) -> Option<NodeWrapperMut<V>> {
+        if let Some(&idx) = self.table.by_id[self.idx].children.get(component) {
+            Some(NodeWrapperMut {
+                table: self.table,
+                idx,
+            })
+        } else {
+            None
+        }
+    }
+    pub fn children(&mut self) -> impl Iterator<Item = usize> + '_ {
+        self.table.by_id[self.idx]
+            .children
+            .iter()
+            .map(|(_, &idx)| idx)
     }
 }
 
@@ -188,10 +295,10 @@ mod test {
         );
         let root = table.get_root();
         let l1 = root.children().next().unwrap();
-        let l2 = table.get_by_id(l1).unwrap().children().next().unwrap();
-        let l3 = table.get_by_id(l2).unwrap().children().next().unwrap();
-        let l4 = table.get_by_id(l3).unwrap().children().next().unwrap();
+        let l2 = table.get(l1).unwrap().children().next().unwrap();
+        let l3 = table.get(l2).unwrap().children().next().unwrap();
+        let l4 = table.get(l3).unwrap().children().next().unwrap();
         assert_eq!(l4, 5);
-        assert_eq!(table.get_by_id(l4).unwrap().get_value(), &10);
+        assert_eq!(table.get(l4).unwrap().get_value(), &10);
     }
 }

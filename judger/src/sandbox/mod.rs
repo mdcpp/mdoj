@@ -1,10 +1,11 @@
+mod error;
 mod monitor;
 mod process;
 
 use std::{ffi::OsStr, path::Path, time::Duration};
 
 pub use self::monitor::{Cpu, Memory};
-
+pub use error::Error;
 /// Context of the sandbox
 ///
 /// define resource limit and filesystem is out of the scope of `filesystem`

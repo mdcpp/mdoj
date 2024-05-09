@@ -50,7 +50,7 @@ impl Drop for Monitor {
 
 impl Monitor {
     /// create a new limiter and mount at given path
-    pub fn new((mem, cpu): MemAndCpu) -> Result<Self> {
+    pub fn new((mem, cpu): MemAndCpu) -> Result<Self, Error> {
         let cg_name = format!("mdoj.{}", CG_PATH_COUNTER.fetch_add(1, Ordering::AcqRel));
         let cgroup = Arc::new(
             CgroupBuilder::new(&cg_name)

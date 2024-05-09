@@ -1,5 +1,4 @@
-use super::hier::*;
-use super::stat::*;
+use super::{hier::*, stat::*};
 use cgroups_rs::{cpu::CpuController, cpuacct::CpuAcctController, memory::MemController, Cgroup};
 use std::ops::Deref;
 

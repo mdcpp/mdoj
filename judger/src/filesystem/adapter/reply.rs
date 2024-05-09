@@ -1,4 +1,4 @@
-use std::{ffi::OsString, sync::Arc, time::Duration};
+use std::{ffi::OsString, time::Duration};
 
 use fuse3::{
     raw::{reply::*, Request},
@@ -6,71 +6,74 @@ use fuse3::{
 };
 use tokio::io::{AsyncRead, AsyncSeek};
 
-use super::{
-    entry::{prelude::BLOCKSIZE, InoEntry},
-    tree::ArcNode,
-};
+use crate::filesystem::{Entry, BLOCKSIZE};
 
-pub async fn dir_entry_plus<F>(
-    parent_attr: FileAttr,
+pub fn dir_entry_plus<F>(
     name: OsString,
-    entry: ArcNode<InoEntry<F>>,
+    entry: &Entry<F>,
+    inode: u64,
+    offset: i64,
 ) -> DirectoryEntryPlus
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
-    let entry = entry.read().await;
     DirectoryEntryPlus {
-        inode: entry.inode,
-        generation: 1,
-        kind: entry.kind().await,
+        inode,
+        generation: 0,
+        kind: entry.kind(),
         name,
-        offset: 1,
-        attr: parent_attr,
+        offset,
+        attr: file_attr(entry, inode),
         entry_ttl: Duration::from_secs(30),
         attr_ttl: Duration::from_secs(30),
     }
 }
 
-pub async fn dir_entry<F>(name: OsString, entry: ArcNode<InoEntry<F>>) -> DirectoryEntry
+pub fn dir_entry<F>(name: OsString, entry: &Entry<F>, inode: u64) -> DirectoryEntry
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
-    let entry = entry.read().await;
     DirectoryEntry {
-        inode: entry.inode,
-        kind: entry.kind().await,
+        inode,
+        kind: entry.kind(),
         name,
         offset: 1,
     }
 }
 
-#[inline]
-pub async fn reply_entry<F>(request: Request, entry: ArcNode<InoEntry<F>>) -> ReplyEntry
+pub fn reply_attr<F>(entry: &Entry<F>, inode: u64) -> ReplyAttr
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
-    let nlink = Arc::strong_count(&entry) - 1;
-    let entry = entry.read().await;
-    ReplyEntry {
+    ReplyAttr {
         ttl: Duration::from_secs(30),
-        attr: file_attr(&entry).await,
-        generation: 1,
+        attr: file_attr(&entry, inode),
     }
 }
 
-pub async fn file_attr<F>(entry: &InoEntry<F>) -> FileAttr
+pub fn reply_entry<F>(request: Request, entry: &Entry<F>, inode: u64) -> ReplyEntry
+where
+    F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
+{
+    ReplyEntry {
+        ttl: Duration::from_secs(30),
+        attr: file_attr(&entry, inode),
+        generation: 0,
+    }
+}
+
+pub fn file_attr<F>(entry: &Entry<F>, inode: u64) -> FileAttr
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
     FileAttr {
-        ino: entry.inode,
-        size: 0,
+        ino: inode,
+        size: entry.get_size(),
         blocks: 0,
         atime: Timestamp::new(0, 0),
         mtime: Timestamp::new(0, 0),
         ctime: Timestamp::new(0, 0),
-        kind: entry.kind().await,
+        kind: entry.kind(),
         perm: (libc::S_IREAD
             | libc::S_IWRITE
             | libc::S_IEXEC

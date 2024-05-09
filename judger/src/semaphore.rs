@@ -6,7 +6,6 @@ use std::{
     },
 };
 
-use crate::Error as CrateError;
 use spin::Mutex;
 use tokio::sync::oneshot::*;
 
@@ -18,14 +17,14 @@ pub enum Error {
     ImpossibleResourceCondition,
 }
 
-impl From<Error> for CrateError {
-    fn from(value: Error) -> CrateError {
-        match value {
-            Error::MaxWaitReached => CrateError::Insufficient("queuing quota"),
-            Error::ImpossibleResourceCondition => CrateError::Insufficient("memory"),
-        }
-    }
-}
+// impl From<Error> for CrateError {
+//     fn from(value: Error) -> CrateError {
+//         match value {
+//             Error::MaxWaitReached => CrateError::Insufficient("queuing quota"),
+//             Error::ImpossibleResourceCondition => CrateError::Insufficient("memory"),
+//         }
+//     }
+// }
 
 struct SemaphoreInner {
     permits: atomic::AtomicU64,

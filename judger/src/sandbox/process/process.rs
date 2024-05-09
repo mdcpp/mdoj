@@ -1,15 +1,10 @@
-use super::{monitor::*, Context};
-use crate::sandbox::Filesystem;
-use crate::Error;
+use super::{corpse::Corpse, error::Error, monitor::*, nsjail::*, Context, Filesystem};
 use std::process::Stdio;
 use tokio::{
     io::{self, AsyncWriteExt, DuplexStream},
     process::*,
     time,
 };
-
-use super::{corpse::Corpse, nsjail::*};
-
 /// A unlaunched process that is mounted with a filesystem
 struct MountedProcess<C: Context> {
     context: C,
@@ -81,6 +76,7 @@ impl<C: Context> Process<C> {
     pub fn new(context: C) -> Result<Self, Error> {
         MonitoredProcess::new(context).map(Into::into)
     }
+    /// spawn a raw process
     fn spawn_raw_process(&mut self) -> Result<Child, Error> {
         let mut cmd = Command::new(NSJAIL_PATH);
         cmd.kill_on_drop(true);

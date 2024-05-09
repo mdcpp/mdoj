@@ -5,14 +5,7 @@
 //!
 //! And we map each type of content to BTreeMap<PathBuf, Entry>
 
-use std::ffi::OsString;
-
-use crate::filesystem::{
-    macro_::{chain_poll, report_poll},
-    FuseError,
-};
-use bytes::Bytes;
-use fuse3::FileType;
+use crate::filesystem::macro_::{chain_poll, report_poll};
 use std::{
     future::Future,
     io::{self, SeekFrom},
@@ -22,88 +15,9 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::{
-    io::{AsyncRead, AsyncSeek},
+    io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt},
     sync::{Mutex, OwnedMutexGuard},
 };
-
-use super::wrapper::FuseRead;
-
-/// Entry from tar file, should be readonly
-#[derive(Debug, Default)]
-pub enum Entry<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    SymLink(OsString),
-    HardLink(u64),
-    #[default]
-    Directory,
-    File(TarBlock<F>),
-}
-
-impl<F> Entry<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    #[inline]
-    pub fn new_dir() -> Self {
-        Self::default()
-    }
-    #[inline]
-    pub fn new_file(block: TarBlock<F>) -> Self {
-        Self::File(block)
-    }
-    #[inline]
-    pub fn new_symlink(target: OsString) -> Self {
-        Self::SymLink(target)
-    }
-    #[inline]
-    pub fn kind(&self) -> FileType {
-        match self {
-            Self::SymLink(_) => FileType::Symlink,
-            Self::HardLink(_) => FileType::RegularFile,
-            Self::Directory => FileType::Directory,
-            Self::File(_) => FileType::RegularFile,
-        }
-    }
-    pub async fn read(&mut self, offset: u64, size: u32) -> Result<Bytes, FuseError> {
-        // FIXME: follow symlink
-        if let Self::File(block) = self {
-            return FuseRead(block).read(offset, size).await;
-        }
-        Err(FuseError::IsDir)
-    }
-    pub async fn write(&mut self, offset: u64, data: &[u8]) -> Result<u32, FuseError> {
-        Err(FuseError::Unimplemented)
-    }
-}
-
-impl<F> Clone for Entry<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    fn clone(&self) -> Self {
-        match self {
-            Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
-            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
-            Self::Directory => Self::Directory,
-            Self::File(arg0) => Self::File(arg0.clone()),
-        }
-    }
-}
-
-impl<F> PartialEq for Entry<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::SymLink(l0), Self::SymLink(r0)) => l0 == r0,
-            (Self::File(l0), Self::File(r0)) => l0 == r0,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
-    }
-}
 
 #[derive(Default, Debug)]
 enum TarStage<F> {
@@ -116,6 +30,12 @@ enum TarStage<F> {
 impl<F> TarStage<F> {
     fn take(&mut self) -> Self {
         std::mem::take(self)
+    }
+    fn take_seeking(&mut self) -> OwnedMutexGuard<F> {
+        if let Self::Seeking(locked) = self.take() {
+            return locked;
+        }
+        unreachable!("")
     }
 }
 
@@ -181,6 +101,13 @@ where
     pub fn get_size(&self) -> u64 {
         self.size
     }
+    pub async fn read_all(&self) -> std::io::Result<Vec<u8>> {
+        let mut buf = Vec::with_capacity(self.size as usize);
+        let mut block = self.clone();
+        block.seek(SeekFrom::Start(0)).await?;
+        block.read_to_end(&mut buf).await?;
+        Ok(buf)
+    }
     #[cfg(test)]
     fn from_raw(file: F, start: u64, size: u64) -> Self {
         Self {
@@ -221,8 +148,8 @@ where
             )));
         }
         let original_size = buf.filled().len();
-        match self.stage.take() {
-            TarStage::Reading(mut locked) => {
+        match &mut self.stage {
+            TarStage::Reading(ref mut locked) => {
                 report_poll!(chain_poll!(pin!(locked.deref_mut()).poll_read(cx, buf)));
                 let read_byte = (buf.filled().len() - original_size) as u64;
                 match read_byte > self.get_remain() {
@@ -232,12 +159,13 @@ where
                     }
                     false => self.cursor += read_byte,
                 };
+                self.stage.take();
                 return Poll::Ready(Ok(()));
             }
-            TarStage::Seeking(mut locked) => {
+            TarStage::Seeking(ref mut locked) => {
                 let result = chain_poll!(pin!(locked.deref_mut()).poll_complete(cx));
                 let read_byte = report_poll!(result);
-                self.as_mut().stage = TarStage::Reading(locked);
+                self.as_mut().stage = TarStage::Reading(self.stage.take_seeking());
                 self.as_mut().cursor = read_byte - self.start;
                 cx.waker().wake_by_ref();
             }
@@ -283,7 +211,7 @@ where
 mod test {
     use std::io::Cursor;
 
-    use tokio::io::{AsyncReadExt, BufReader};
+    use tokio::io::BufReader;
 
     use super::*;
     #[tokio::test]

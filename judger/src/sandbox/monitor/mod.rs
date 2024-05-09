@@ -11,11 +11,11 @@ use std::{fmt::Display, sync::atomic::AtomicUsize, time::Duration};
 pub use stat::*;
 use tokio::io::AsyncRead;
 
-use crate::Error;
-type Result<T> = std::result::Result<T, Error>;
 use hier::*;
 
 use self::output::Output;
+
+use super::Error;
 
 lazy_static::lazy_static! {
     pub static ref CGROUP_V2:bool=hier::MONITER_KIND.heir().v2();
@@ -70,7 +70,6 @@ impl Display for MonitorKind {
     }
 }
 
-// FIXME: composite
 /// composite monitor
 pub struct StatMonitor<P: AsyncRead + Unpin> {
     mem_cpu: mem_cpu::Monitor,
@@ -148,7 +147,7 @@ impl<P: AsyncRead + Unpin> Default for StatMonitorBuilder<P> {
 }
 
 impl<P: AsyncRead + Unpin> StatMonitorBuilder<P> {
-    pub fn mem_cpu(mut self, mem_cpu: MemAndCpu) -> Result<Self> {
+    pub fn mem_cpu(mut self, mem_cpu: MemAndCpu) -> Result<Self, Error> {
         self.mem_cpu = Some(mem_cpu::Monitor::new(mem_cpu)?);
         Ok(self)
     }
@@ -160,7 +159,7 @@ impl<P: AsyncRead + Unpin> StatMonitorBuilder<P> {
         self.walltime = Some(walltime::Monitor::new(walltime));
         self
     }
-    pub fn build(self) -> Result<StatMonitor<P>> {
+    pub fn build(self) -> Result<StatMonitor<P>, Error> {
         Ok(StatMonitor {
             mem_cpu: self
                 .mem_cpu

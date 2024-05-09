@@ -1,11 +1,5 @@
-use crate::filesystem::{
-    macro_::{chain_poll, report_poll},
-    FuseError,
-};
-use bytes::Bytes;
-use fuse3::FileType;
+use crate::filesystem::macro_::{chain_poll, report_poll};
 use std::{
-    ffi::OsString,
     future::Future,
     io::{self, SeekFrom},
     ops::Deref,
@@ -18,58 +12,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-use super::wrapper::{FuseRead, FuseWrite};
 use super::MEMBLOCK_BLOCKSIZE;
-
-#[derive(Default, Clone, Debug)]
-pub enum Entry {
-    SymLink(OsString),
-    HardLink(u64),
-    #[default]
-    Directory,
-    File(MemBlock),
-    Removed,
-}
-
-impl Entry {
-    pub fn new_dir() -> Self {
-        Self::default()
-    }
-    pub fn new_file() -> Self {
-        Self::File(MemBlock::new(Vec::new()))
-    }
-    pub fn new_data(data: Vec<u8>) -> Self {
-        Self::File(MemBlock::new(data))
-    }
-    pub fn new_symlink(target: OsString) -> Self {
-        Self::SymLink(target)
-    }
-    pub fn new_hardlink(inode: u64) -> Self {
-        Self::HardLink(inode)
-    }
-    pub fn kind(&self) -> FileType {
-        match self {
-            Self::SymLink(_) => FileType::Symlink,
-            Self::HardLink(_) => FileType::RegularFile,
-            Self::Directory => FileType::Directory,
-            Self::File(_) => FileType::RegularFile,
-            Self::Removed => FileType::RegularFile,
-        }
-    }
-    pub async fn read(&mut self, offset: u64, size: u32) -> Result<Bytes, FuseError> {
-        // FIXME: follow symlink
-        if let Self::File(block) = self {
-            return FuseRead(block).read(offset, size).await;
-        }
-        Err(FuseError::IsDir)
-    }
-    pub async fn write(&mut self, offset: u64, data: &[u8]) -> Result<u32, FuseError> {
-        if let Self::File(block) = self {
-            return FuseWrite(block).write(offset, data).await;
-        }
-        Err(FuseError::IsDir)
-    }
-}
 
 #[derive(Debug, Default)]
 enum MemStage {
@@ -107,7 +50,7 @@ impl Clone for MemBlock {
 }
 
 impl MemBlock {
-    fn new(data: Vec<u8>) -> Self {
+    pub fn new(data: Vec<u8>) -> Self {
         Self {
             data: Arc::new(Mutex::new(data)),
             cursor: 0,
