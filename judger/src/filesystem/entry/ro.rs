@@ -50,14 +50,13 @@ where
     pub fn get_size(&self) -> u32 {
         self.size
     }
-    // pub async fn read_all(&self) -> std::io::Result<Vec<u8>> {
-    //     // let mut buf = Vec::with_capacity(self.size as usize);
-    //     // let mut block = self.clone();
-    //     // block.seek(SeekFrom::Start(0)).await?;
-    //     // block.read_to_end(&mut buf).await?;
-    //     // Ok(buf)
-    //     todo!()
-    // }
+    pub async fn read_all(&self) -> std::io::Result<Vec<u8>> {
+        let mut lock = self.file.lock().await;
+        lock.seek(SeekFrom::Start(self.start)).await?;
+        let mut buf = vec![0_u8; self.size as usize];
+        lock.read_exact(&mut buf).await?;
+        Ok(buf)
+    }
     #[cfg(test)]
     fn from_raw(file: F, start: u64, size: u32) -> Self {
         Self {

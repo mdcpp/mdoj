@@ -3,7 +3,9 @@
 mod adapter;
 mod entry;
 mod error;
+mod mkdtemp;
 mod resource;
 mod table;
 
-pub use entry::prelude::*;
+pub use adapter::{Filesystem, Template};
+pub use fuse3::raw::MountHandle;

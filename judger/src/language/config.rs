@@ -1,23 +1,28 @@
-use std::{ffi::OsString, time::Duration};
+use std::{ffi::OsString, path::Path, time::Duration};
 
 use serde::Deserialize;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::{
+    fs::read_dir,
+    io::{AsyncRead, AsyncReadExt},
+};
 use uuid::Uuid;
 
 use crate::sandbox::{Cpu, Memory};
 
-pub struct Config {
+async fn load_plugin(path: impl AsRef<Path>) {
+    let dir_list = read_dir(path).await;
+}
+
+pub struct Spec {
     pub compile_limit: (Cpu, Memory, u64, Duration),
     pub judge_limit: (Cpu, Memory, u64, Duration),
     pub compile_command: Vec<OsString>,
     pub judge_command: Vec<OsString>,
 }
 
-impl Config {
-    async fn from_reader(mut reader: impl AsyncRead + Unpin) -> Self {
-        let mut buf = String::new();
-        reader.read_to_string(&mut buf).await.unwrap();
-        let mut raw: Raw = toml::from_str(&buf).unwrap();
+impl Spec {
+    pub fn from_str(content: &str) -> Self {
+        let mut raw: Raw = toml::from_str(content).unwrap();
         raw.compile.fill();
         raw.judge.fill();
 

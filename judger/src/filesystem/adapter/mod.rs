@@ -10,7 +10,7 @@ pub use template::Template;
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::semaphore::Semaphore;
+    // use crate::semaphore::Semaphore;
     use env_logger::*;
 
     #[tokio::test]
@@ -22,17 +22,9 @@ mod test {
             .ok();
 
         log::info!("mounting test tarball in .temp ...");
-        let global_resource = Semaphore::new(4096 * 1024 * 1024, 1);
         let template = Template::new("test/nested.tar").await.unwrap();
-        let filesystem = template
-            .as_filesystem(
-                global_resource
-                    .get_permit(1024 * 1024 * 1024)
-                    .await
-                    .unwrap(),
-            )
-            .await;
-        let mut mount_handle = filesystem.mount("./.temp/18").await.unwrap();
+        let filesystem = template.as_filesystem(1024 * 1024 * 1024);
+        let mut mount_handle = filesystem.mount("./.temp/1").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {

@@ -3,12 +3,10 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use futures_core::Future;
 use spin::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit};
 
-use crate::{
-    filesystem::{resource::Resource, Entry, TarTree, BLOCKSIZE},
-    semaphore::Permit,
-};
+use crate::filesystem::entry::{Entry, TarTree, BLOCKSIZE};
+use crate::filesystem::resource::Resource;
 
 use super::{error::FuseError, handle::HandleTable, reply::*};
 use fuse3::{
@@ -24,19 +22,17 @@ where
     handle_table: HandleTable<AsyncMutex<Entry<F>>>,
     tree: Mutex<TarTree<F>>,
     resource: Arc<Resource>,
-    _permit: Permit,
 }
 
 impl<F> Filesystem<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
-    pub(super) fn new(tree: TarTree<F>, permit: Permit) -> Self {
+    pub(super) fn new(tree: TarTree<F>, permit: u64) -> Self {
         Self {
             handle_table: HandleTable::new(),
             tree: Mutex::new(tree),
-            resource: Arc::new(Resource::new(permit.count())),
-            _permit: permit,
+            resource: Arc::new(Resource::new(permit)),
         }
     }
     pub async fn mount(self, path: impl AsRef<Path> + Clone) -> std::io::Result<MountHandle> {
@@ -81,13 +77,29 @@ where
         async move {
             let tree = self.tree.lock();
             let parent_node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
-            let node = parent_node.get_by_component(name).ok_or(FuseError::InvalidPath)?;
+            let node = parent_node
+                .get_by_component(name)
+                .ok_or(FuseError::InvalidPath)?;
             // FIXME: unsure about the inode
             Ok(reply_entry(&req, node.get_value(), node.get_id() as u64))
         }
     }
     fn forget(&self, _: Request, inode: u64, _: u64) -> impl Future<Output = ()> + Send {
         async {}
+    }
+    fn release(
+        &self,
+        req: Request,
+        inode: u64,
+        fh: u64,
+        flags: u32,
+        lock_owner: u64,
+        flush: bool,
+    ) -> impl Future<Output = FuseResult<()>> + Send {
+        async move {
+            self.handle_table.remove(fh);
+            Ok(())
+        }
     }
     fn statfs(
         &self,
@@ -410,5 +422,79 @@ where
             let ino = node.get_id() as u64;
             Ok(reply_entry(&req, node.get_value(), ino))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{
+        ffi::OsStr,
+        sync::atomic::{AtomicU64, Ordering},
+    };
+
+    use fuse3::{
+        raw::{Filesystem as _, Request},
+        Errno,
+    };
+    use tokio::fs::File;
+
+    use crate::filesystem::adapter::Template;
+
+    use super::Filesystem;
+
+    const UNIQUE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    async fn nested_tar() -> Filesystem<File> {
+        let template = Template::new("test/nested.tar").await.unwrap();
+        template.as_filesystem(1024 * 1024)
+    }
+    fn spawn_request() -> Request {
+        Request {
+            unique: UNIQUE_COUNTER.fetch_add(1, Ordering::AcqRel),
+            uid: 1000,
+            gid: 1000,
+            pid: 2,
+        }
+    }
+
+    #[tokio::test]
+    async fn lookup() {
+        let fs = nested_tar().await;
+        assert_eq!(
+            fs.lookup(spawn_request(), 1, OsStr::new("nest"))
+                .await
+                .unwrap()
+                .attr
+                .ino,
+            2
+        );
+        assert_eq!(
+            fs.lookup(spawn_request(), 1, OsStr::new("o.txt"))
+                .await
+                .unwrap()
+                .attr
+                .ino,
+            5
+        );
+        assert_eq!(
+            fs.lookup(spawn_request(), 2, OsStr::new("a.txt"))
+                .await
+                .unwrap()
+                .attr
+                .ino,
+            3
+        );
+        assert_eq!(
+            fs.lookup(spawn_request(), 2, OsStr::new("o.txt"))
+                .await
+                .unwrap_err(),
+            Errno::new_not_exist()
+        );
+        assert_eq!(
+            fs.lookup(spawn_request(), 100, OsStr::new("o.txt"))
+                .await
+                .unwrap_err(),
+            libc::ENOENT.into()
+        )
     }
 }

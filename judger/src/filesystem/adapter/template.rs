@@ -5,10 +5,7 @@ use tokio::{
     io::{AsyncRead, AsyncSeek},
 };
 
-use crate::{
-    filesystem::{table::DeepClone, TarTree},
-    semaphore::Permit,
-};
+use crate::filesystem::entry::TarTree;
 
 use super::fuse::Filesystem;
 
@@ -26,8 +23,11 @@ where
     pub fn new_inner(tree: TarTree<F>) -> Self {
         Self { tree }
     }
-    pub async fn as_filesystem(&self, permit: Permit) -> Filesystem<F> {
+    pub fn as_filesystem(&self, permit: u64) -> Filesystem<F> {
         Filesystem::new(self.tree.clone(), permit)
+    }
+    pub async fn read_by_path(&self, path: impl AsRef<Path>) -> Option<Vec<u8>> {
+        self.tree.read_by_path(path).await
     }
 }
 

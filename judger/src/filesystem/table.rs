@@ -16,25 +16,11 @@ pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a
     // .collect::<Vec<_>>()
 }
 
-pub trait DeepClone {
-    async fn deep_clone(&self) -> Self;
-}
-
 #[derive(Clone)]
 struct Node<V> {
     parent_idx: usize,
     value: V,
     children: BTreeMap<OsString, usize>, // FIXME: use BtreeMap
-}
-
-impl<V: DeepClone> DeepClone for Node<V> {
-    async fn deep_clone(&self) -> Self {
-        Self {
-            parent_idx: self.parent_idx,
-            value: self.value.deep_clone().await,
-            children: self.children.iter().map(|(k, v)| (k.clone(), *v)).collect(),
-        }
-    }
 }
 
 #[derive(Clone)]

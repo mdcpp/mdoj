@@ -1,11 +1,6 @@
 mod ro;
 mod rw;
 mod tar;
-pub mod prelude {
-    pub use super::tar::TarTree;
-    pub use super::Entry;
-    pub use super::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;
-}
 
 use self::{ro::TarBlock, rw::MemBlock};
 use bytes::Bytes;
@@ -16,9 +11,10 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-use super::{resource::Resource, table::DeepClone};
+use super::resource::Resource;
 
-pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
+pub use tar::TarTree;
+pub const BLOCKSIZE: usize = 4096;
 
 pub trait FuseReadTrait {
     async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<Bytes>;
@@ -94,6 +90,13 @@ where
         match self {
             Self::TarFile(block) => Some(Ok(block.read(offset, size).await.unwrap())),
             Self::MemFile(block) => Some(block.read(offset, size).await),
+            _ => None,
+        }
+    }
+    pub async fn read_all(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::TarFile(block) => Some(block.read_all().await.expect("tar ball corrupted")),
+            Self::MemFile(block) => None,
             _ => None,
         }
     }

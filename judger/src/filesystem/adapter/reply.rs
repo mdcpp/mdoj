@@ -6,7 +6,7 @@ use fuse3::{
 };
 use tokio::io::{AsyncRead, AsyncSeek};
 
-use crate::filesystem::{Entry, BLOCKSIZE};
+use crate::filesystem::{entry::Entry, entry::BLOCKSIZE};
 
 const TTL: Duration = Duration::from_secs(1);
 

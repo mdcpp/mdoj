@@ -1,7 +1,7 @@
 use std::{io, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
-use super::{FuseReadTrait, FuseWriteTrait, MEMBLOCK_BLOCKSIZE};
+use super::{FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
 
 /// A block in memory
 ///

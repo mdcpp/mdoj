@@ -2,7 +2,11 @@ mod error;
 mod monitor;
 mod process;
 
-use std::{ffi::OsStr, path::Path, time::Duration};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 pub use self::monitor::{Cpu, Memory};
 pub use error::Error;
@@ -26,7 +30,12 @@ pub trait Limit {
 
 pub trait Filesystem {
     fn mount(&mut self) -> impl AsRef<Path> + Send;
-    fn get_size(&mut self) -> u64;
+}
+
+impl Filesystem for PathBuf {
+    fn mount(&mut self) -> impl AsRef<Path> + Send {
+        self.as_path().iter()
+    }
 }
 
 impl Limit for (Cpu, Memory, u64, Duration) {
