@@ -8,7 +8,7 @@ impl Resource {
     }
     pub fn comsume(&self, size: u32) -> Option<()> {
         let a = self.0.fetch_sub(size as u64, Ordering::AcqRel);
-        if (a | (1 << 63)) != 0 {
+        if (a & (1 << 63)) != 0 {
             None
         } else {
             Some(())

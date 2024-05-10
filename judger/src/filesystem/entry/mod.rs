@@ -1,31 +1,31 @@
-use std::{ffi::OsString, ops::Deref, sync::Arc};
+mod ro;
+mod rw;
+mod tar;
+pub mod prelude {
+    pub use super::tar::TarTree;
+    pub use super::Entry;
+    pub use super::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;
+}
 
+use self::{ro::TarBlock, rw::MemBlock};
 use bytes::Bytes;
 use fuse3::FileType;
+use std::{ffi::OsString, ops::Deref, sync::Arc};
 use tokio::{
     io::{AsyncRead, AsyncSeek},
     sync::{Mutex, OwnedMutexGuard},
 };
 
-use self::{
-    ro::TarBlock,
-    rw::MemBlock,
-    wrapper::{FuseRead, FuseWrite},
-};
-
-use super::{adj::DeepClone, resource::Resource};
-
-mod ro;
-mod rw;
-mod tar;
-mod wrapper;
+use super::{table::DeepClone, resource::Resource};
 
 pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
 
-pub mod prelude {
-    pub use super::tar::TarTree;
-    pub use super::Entry;
-    pub use super::MEMBLOCK_BLOCKSIZE as BLOCKSIZE;
+pub trait FuseReadTrait {
+    async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<Bytes>;
+}
+
+pub trait FuseWriteTrait {
+    async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32>;
 }
 
 async fn clone_arc<T: Clone>(arc: &Arc<Mutex<T>>) -> Arc<Mutex<T>> {
@@ -34,6 +34,9 @@ async fn clone_arc<T: Clone>(arc: &Arc<Mutex<T>>) -> Arc<Mutex<T>> {
     Arc::new(Mutex::new(lock.deref().clone()))
 }
 
+/// Entry in the filesystem
+///
+/// cloning the entry would clone file state
 #[derive(Debug, Default)]
 pub enum Entry<F>
 where
@@ -43,21 +46,21 @@ where
     HardLink(u64),
     #[default]
     Directory,
-    TarFile(Arc<Mutex<TarBlock<F>>>),
-    MemFile(Arc<Mutex<MemBlock>>),
+    TarFile(TarBlock<F>),
+    MemFile(MemBlock),
 }
 
-impl<F> DeepClone for Entry<F>
+impl<F> Clone for Entry<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
-    async fn deep_clone(&self) -> Self {
+    fn clone(&self) -> Self {
         match self {
-            Self::SymLink(x) => Self::SymLink(x.clone()),
-            Self::HardLink(x) => Self::HardLink(*x),
+            Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
+            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
             Self::Directory => Self::Directory,
-            Self::TarFile(block) => Self::TarFile(clone_arc(block).await),
-            Self::MemFile(block) => Self::MemFile(clone_arc(block).await),
+            Self::TarFile(arg0) => Self::TarFile(arg0.clone()),
+            Self::MemFile(arg0) => Self::MemFile(arg0.clone()),
         }
     }
 }
@@ -66,6 +69,9 @@ impl<F> Entry<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
+    pub fn new_file() -> Self {
+        Self::MemFile(MemBlock::default())
+    }
     pub fn kind(&self) -> FileType {
         match self {
             Self::SymLink(_) => FileType::Symlink,
@@ -80,90 +86,33 @@ where
             Self::SymLink(x) => x.len() as u64,
             Self::HardLink(_) => 0,
             Self::Directory => 0,
-            Self::TarFile(_) | Self::MemFile(_) => 1,
+            Self::TarFile(x) => x.get_size() as u64,
+            Self::MemFile(x) => x.get_size(),
         }
     }
-    pub fn get_read_handle(&self) -> Option<ReadHandle<F>> {
+    pub async fn read(&mut self, offset: u64, size: u32) -> Option<std::io::Result<Bytes>> {
         match self {
-            Self::TarFile(block) => Some(ReadHandle::TarFile(block.clone())),
-            Self::MemFile(block) => Some(ReadHandle::MemFile(block.clone())),
+            Self::TarFile(block) => Some(Ok(block.read(offset, size).await.unwrap())),
+            Self::MemFile(block) => Some(block.read(offset, size).await),
             _ => None,
         }
     }
-    pub fn get_write_handle(&mut self) -> Option<WriteHandle<F>> {
-        match self {
-            Self::TarFile(block) => {
-                let tar_block = block.clone();
-                let mem_block = Arc::new(Mutex::new(MemBlock::new(Vec::new())));
-                *self = Self::MemFile(mem_block.clone());
-                Some(WriteHandle::TarFile(
-                    tar_block,
-                    mem_block.try_lock_owned().unwrap(),
-                ))
-            }
-            Self::MemFile(block) => Some(WriteHandle::MemFile(block.clone())),
-            _ => None,
-        }
-    }
-}
-
-pub enum ReadHandle<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    TarFile(Arc<Mutex<TarBlock<F>>>),
-    MemFile(Arc<Mutex<MemBlock>>),
-}
-
-impl<F> ReadHandle<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    pub async fn read(&self, offset: u64, size: u32) -> std::io::Result<Bytes> {
-        match self {
-            Self::TarFile(block) => {
-                let mut lock = block.lock().await;
-                FuseRead(&mut *lock).read(offset, size).await
-            }
-            Self::MemFile(block) => {
-                let mut lock = block.lock().await;
-                FuseRead(&mut *lock).read(offset, size).await
-            }
-        }
-    }
-}
-
-pub enum WriteHandle<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    TarFile(Arc<Mutex<TarBlock<F>>>, OwnedMutexGuard<MemBlock>),
-    MemFile(Arc<Mutex<MemBlock>>),
-}
-
-impl<F> WriteHandle<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
     pub async fn write(
-        &self,
+        self_: Arc<Mutex<Self>>,
         offset: u64,
         data: &[u8],
         resource: &Resource,
-    ) -> std::io::Result<u32> {
-        match self {
-            Self::TarFile(tar_block, mem_block) => {
-                // let mut lock = tar_block.lock().await;
-                // let mem_block=MemBlock::new(lock.read_all().await.unwrap());
+    ) -> Option<std::io::Result<u32>> {
+        let mut lock = self_.lock().await;
+        if resource.comsume(data.len() as u32).is_none() {
+            return Some(Err(std::io::Error::from(std::io::ErrorKind::Other)));
+        }
+        match &mut *lock {
+            Self::MemFile(block) => Some(block.write(offset, data).await),
+            Self::TarFile(block) => {
                 todo!()
             }
-            Self::MemFile(block) => {
-                resource
-                    .comsume(data.len() as u32)
-                    .ok_or(std::io::Error::from(std::io::ErrorKind::Other))?;
-                let mut lock = block.lock().await;
-                FuseWrite(&mut *lock).write(offset, data).await
-            }
+            _ => None,
         }
     }
 }

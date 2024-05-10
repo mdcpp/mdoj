@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap},
     ffi::{OsStr, OsString},
     path::{Component, Path},
 };
@@ -20,10 +20,11 @@ pub trait DeepClone {
     async fn deep_clone(&self) -> Self;
 }
 
+#[derive(Clone)]
 struct Node<V> {
     parent_idx: usize,
     value: V,
-    children: HashMap<OsString, usize>,
+    children: BTreeMap<OsString, usize>, // FIXME: use BtreeMap
 }
 
 impl<V: DeepClone> DeepClone for Node<V> {
@@ -36,18 +37,9 @@ impl<V: DeepClone> DeepClone for Node<V> {
     }
 }
 
+#[derive(Clone)]
 pub struct AdjTable<V> {
     by_id: Vec<Node<V>>,
-}
-
-impl<V: DeepClone> DeepClone for AdjTable<V> {
-    async fn deep_clone(&self) -> Self {
-        let mut by_id = Vec::with_capacity(self.by_id.len());
-        for node in &self.by_id {
-            by_id.push(node.deep_clone().await);
-        }
-        Self { by_id }
-    }
 }
 
 impl<V> AdjTable<V> {
@@ -59,7 +51,7 @@ impl<V> AdjTable<V> {
         self.by_id.push(Node {
             parent_idx: 0,
             value,
-            children: HashMap::new(),
+            children: BTreeMap::new(),
         });
         NodeWrapperMut { table: self, idx }
     }
@@ -121,7 +113,7 @@ impl<V> AdjTable<V> {
                 self.by_id.push(Node {
                     parent_idx: idx,
                     value: default_value(),
-                    children: HashMap::new(),
+                    children: BTreeMap::new(),
                 });
                 self.by_id[idx].children.insert(name, new_idx);
             }
@@ -150,7 +142,7 @@ impl<V> AdjTable<V> {
                 self.by_id.push(Node {
                     parent_idx: idx,
                     value: default_value(),
-                    children: HashMap::new(),
+                    children: BTreeMap::new(),
                 });
                 self.by_id[idx].children.insert(seg.to_os_string(), new_idx);
                 idx = new_idx;
@@ -184,10 +176,6 @@ impl<'a, V> NodeWrapper<'a, V> {
         })
     }
     pub fn children(self) -> impl Iterator<Item = usize> + 'a {
-        log::info!(
-            "children length: {}",
-            self.table.by_id[self.idx].children.len()
-        );
         self.table.by_id[self.idx]
             .children
             .iter()
@@ -231,7 +219,7 @@ impl<'a, V> NodeWrapperMut<'a, V> {
         self.table.by_id.push(Node {
             parent_idx: self.idx,
             value,
-            children: HashMap::new(),
+            children: BTreeMap::new(),
         });
         self.table.by_id[self.idx].children.insert(name, idx);
         NodeWrapperMut {
@@ -263,7 +251,7 @@ impl<'a, V> NodeWrapperMut<'a, V> {
         self.table.by_id[self.idx]
             .children
             .iter()
-            .map(|(_, &idx)| idx)
+            .map(|(_, &idx)| idx + ID_MIN)
     }
 }
 

@@ -18,7 +18,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::filesystem::adj::{to_internal_path, AdjTable, DeepClone};
+use crate::filesystem::table::{to_internal_path, AdjTable};
 
 use super::{ro::TarBlock, Entry};
 
@@ -26,12 +26,12 @@ pub struct TarTree<F>(AdjTable<Entry<F>>)
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
-impl<F> DeepClone for TarTree<F>
+impl<F> Clone for TarTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
-    async fn deep_clone(&self) -> Self {
-        Self(self.0.deep_clone().await)
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 
@@ -80,11 +80,7 @@ where
             EntryType::Regular | EntryType::Continuous => {
                 let start = entry.raw_file_position();
                 let size = entry.size();
-                Entry::TarFile(Arc::new(Mutex::new(TarBlock::new(
-                    file.clone(),
-                    start,
-                    size,
-                ))))
+                Entry::TarFile(TarBlock::new(file.clone(), start, size as u32))
             }
             EntryType::Symlink => Entry::SymLink(OsString::from_vec(
                 entry.link_name_bytes().unwrap().into_owned(),

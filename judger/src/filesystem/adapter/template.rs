@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    filesystem::{adj::DeepClone, TarTree},
+    filesystem::{table::DeepClone, TarTree},
     semaphore::Permit,
 };
 
@@ -27,7 +27,7 @@ where
         Self { tree }
     }
     pub async fn as_filesystem(&self, permit: Permit) -> Filesystem<F> {
-        Filesystem::new(self.tree.deep_clone().await, permit)
+        Filesystem::new(self.tree.clone(), permit)
     }
 }
 

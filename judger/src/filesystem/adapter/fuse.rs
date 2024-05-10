@@ -3,9 +3,10 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use futures_core::Future;
 use spin::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek};
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::{
-    filesystem::{resource::Resource, TarTree, BLOCKSIZE},
+    filesystem::{resource::Resource, Entry, TarTree, BLOCKSIZE},
     semaphore::Permit,
 };
 
@@ -20,7 +21,7 @@ pub struct Filesystem<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
-    handle_table: HandleTable<usize>,
+    handle_table: HandleTable<AsyncMutex<Entry<F>>>,
     tree: Mutex<TarTree<F>>,
     resource: Arc<Resource>,
     _permit: Permit,
@@ -80,17 +81,9 @@ where
         async move {
             let tree = self.tree.lock();
             let node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
-            log::info!(
-                "parent name: {}",
-                String::from_utf8_lossy(node.get_name().as_encoded_bytes())
-            );
-            log::info!(
-                "lookup name: {}",
-                String::from_utf8_lossy(name.as_encoded_bytes())
-            );
             let entry = node.get_by_component(name).ok_or(FuseError::InvalidPath)?;
             // FIXME: unsure about the inode
-            Ok(reply_entry(req, entry.get_value(), parent))
+            Ok(reply_entry(&req, entry.get_value(), parent))
         }
     }
     fn forget(&self, _: Request, inode: u64, _: u64) -> impl Future<Output = ()> + Send {
@@ -127,7 +120,9 @@ where
             if node.get_value().kind() != FileType::Directory {
                 return Err(FuseError::NotDir.into());
             }
-            let fh = self.handle_table.add(node.get_id());
+            let fh = self
+                .handle_table
+                .add(AsyncMutex::new(node.get_value().clone()));
             Ok(ReplyOpen { fh, flags: 0 })
         }
     }
@@ -140,7 +135,12 @@ where
         async move {
             let tree = self.tree.lock();
             let entry = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
-            let fh = self.handle_table.add(entry.get_id());
+            if entry.get_value().kind() == FileType::Directory {
+                return Err(FuseError::IsDir.into());
+            }
+            let fh = self
+                .handle_table
+                .add(AsyncMutex::new(entry.get_value().clone()));
             Ok(ReplyOpen { fh, flags: 0 })
         }
     }
@@ -215,12 +215,14 @@ where
 
             let entries = vec![
                 Ok(dir_entry_plus(
+                    &req,
                     OsStr::new(".").to_os_string(),
                     node.get_value(),
                     node.get_id() as u64,
                     1,
                 )),
                 Ok(dir_entry_plus(
+                    &req,
                     OsStr::new("..").to_os_string(),
                     parent_node.get_value(),
                     parent_node.get_id() as u64,
@@ -234,6 +236,7 @@ where
                     .map(|(offset, inode)| {
                         let node = tree.get(inode).unwrap();
                         dir_entry_plus(
+                            &req,
                             node.get_name().to_os_string(),
                             node.get_value(),
                             inode as u64,
@@ -259,20 +262,13 @@ where
         size: u32,
     ) -> impl Future<Output = FuseResult<ReplyData>> + Send {
         async move {
-            let handle = {
-                let tree = self.tree.lock();
-                let entry = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
-                let node = tree.get(entry).ok_or(FuseError::InvaildIno)?;
-                let entry = node.get_value();
-                entry.get_read_handle()
-            }
-            .ok_or(FuseError::IsDir)?;
-
-            handle
+            let entry = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
+            let mut lock = entry.lock().await;
+            Ok(lock
                 .read(offset, size)
                 .await
-                .map(|data| ReplyData { data })
-                .map_err(Into::into)
+                .ok_or(Into::<Errno>::into(FuseError::IsDir))?
+                .map(|data| ReplyData { data })?)
         }
     }
     fn write(
@@ -286,17 +282,16 @@ where
         flags: u32,
     ) -> impl Future<Output = FuseResult<ReplyWrite>> + Send {
         async move {
-            let handle = {
-                let mut tree = self.tree.lock();
-                let entry = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
-                let mut node = tree.get_mut(entry).ok_or(FuseError::InvaildIno)?;
-                let entry = node.get_value();
-                entry.get_write_handle()
-            }
-            .ok_or(FuseError::IsDir)?;
-            let resource = self.resource.clone();
-            let written = handle.write(offset, data, &resource).await?;
-            Ok(ReplyWrite { written })
+            let entry = self
+                .handle_table
+                .get(fh)
+                .ok_or(FuseError::HandleNotFound)
+                .unwrap();
+
+            Ok(Entry::write(entry, offset, data, &self.resource)
+                .await
+                .ok_or_else(|| Into::<Errno>::into(FuseError::IsDir))?
+                .map(|written| ReplyWrite { written })?)
         }
     }
     fn access(
@@ -305,6 +300,7 @@ where
         inode: u64,
         mask: u32,
     ) -> impl Future<Output = FuseResult<()>> + Send {
+        // FIXME: only allow current user to access
         async { Ok(()) }
     }
     fn fsync(
@@ -346,7 +342,6 @@ where
             }
         }
     }
-
     fn interrupt(&self, req: Request, unique: u64) -> impl Future<Output = FuseResult<()>> + Send {
         async { Ok(()) }
     }
@@ -361,7 +356,59 @@ where
             let tree = self.tree.lock();
             let entry = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
             // FIXME: unsure about the inode
-            Ok(reply_attr(entry.get_value(), inode))
+            Ok(reply_attr(&req, entry.get_value(), inode))
+        }
+    }
+    fn setattr(
+        &self,
+        req: Request,
+        inode: Inode,
+        fh: Option<u64>,
+        set_attr: SetAttr,
+    ) -> impl Future<Output = FuseResult<ReplyAttr>> + Send {
+        async move {
+            let tree = self.tree.lock();
+            let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+            Ok(reply_attr(&req, node.get_value(), inode))
+        }
+    }
+    fn create(
+        &self,
+        req: Request,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32,
+    ) -> impl Future<Output = FuseResult<ReplyCreated>> + Send {
+        async move {
+            let mut tree = self.tree.lock();
+            let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+            if parent_node.get_value().kind() != FileType::Directory {
+                return Err(FuseError::NotDir.into());
+            }
+            let mut node = parent_node.insert(name.to_os_string(), Entry::new_file());
+
+            // FIXME: append mode
+            Ok(reply_created(&req, node.get_value()))
+        }
+    }
+    fn mkdir(
+        &self,
+        req: Request,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        umask: u32,
+    ) -> impl Future<Output = FuseResult<ReplyEntry>> + Send {
+        async move {
+            let mut tree = self.tree.lock();
+            let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+            if parent_node.get_value().kind() != FileType::Directory {
+                return Err(FuseError::NotDir.into());
+            }
+            let mut node = parent_node.insert(name.to_os_string(), Entry::Directory);
+            let ino = node.get_id() as u64;
+            Ok(reply_entry(&req, node.get_value(), ino))
         }
     }
 }

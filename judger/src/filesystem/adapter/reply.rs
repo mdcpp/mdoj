@@ -8,7 +8,10 @@ use tokio::io::{AsyncRead, AsyncSeek};
 
 use crate::filesystem::{Entry, BLOCKSIZE};
 
+const TTL: Duration = Duration::from_secs(1);
+
 pub fn dir_entry_plus<F>(
+    req: &Request,
     name: OsString,
     entry: &Entry<F>,
     inode: u64,
@@ -23,9 +26,9 @@ where
         kind: entry.kind(),
         name,
         offset,
-        attr: file_attr(entry, inode),
-        entry_ttl: Duration::from_secs(30),
-        attr_ttl: Duration::from_secs(30),
+        attr: file_attr(req, entry, inode),
+        entry_ttl: TTL,
+        attr_ttl: TTL,
     }
 }
 
@@ -41,28 +44,28 @@ where
     }
 }
 
-pub fn reply_attr<F>(entry: &Entry<F>, inode: u64) -> ReplyAttr
+pub fn reply_attr<F>(req: &Request, entry: &Entry<F>, inode: u64) -> ReplyAttr
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
     ReplyAttr {
-        ttl: Duration::from_secs(30),
-        attr: file_attr(&entry, inode),
+        ttl: TTL,
+        attr: file_attr(req, &entry, inode),
     }
 }
 
-pub fn reply_entry<F>(request: Request, entry: &Entry<F>, inode: u64) -> ReplyEntry
+pub fn reply_entry<F>(req: &Request, entry: &Entry<F>, inode: u64) -> ReplyEntry
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
     ReplyEntry {
-        ttl: Duration::from_secs(30),
-        attr: file_attr(&entry, inode),
+        ttl: TTL,
+        attr: file_attr(req, &entry, inode),
         generation: 0,
     }
 }
 
-pub fn file_attr<F>(entry: &Entry<F>, inode: u64) -> FileAttr
+pub fn file_attr<F>(req: &Request, entry: &Entry<F>, inode: u64) -> FileAttr
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
@@ -81,9 +84,22 @@ where
             | libc::S_IRWXO
             | libc::S_ISVTX) as u16,
         nlink: 1,
-        uid: 0,
-        gid: 0,
+        uid: req.uid,
+        gid: req.gid,
         rdev: 179 << 16 + 02,
         blksize: BLOCKSIZE as u32,
+    }
+}
+
+pub fn reply_created<F>(req: &Request, entry: &Entry<F>) -> ReplyCreated
+where
+    F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
+{
+    ReplyCreated {
+        ttl: TTL,
+        attr: file_attr(req, entry, 0),
+        generation: 0,
+        fh: 0,
+        flags: 0,
     }
 }

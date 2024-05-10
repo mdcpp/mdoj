@@ -32,7 +32,7 @@ mod test {
                     .unwrap(),
             )
             .await;
-        let mut mount_handle = filesystem.mount("./.temp/1").await.unwrap();
+        let mut mount_handle = filesystem.mount("./.temp/11").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {

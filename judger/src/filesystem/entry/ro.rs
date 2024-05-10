@@ -5,39 +5,16 @@
 //!
 //! And we map each type of content to BTreeMap<PathBuf, Entry>
 
-use crate::filesystem::macro_::{chain_poll, report_poll};
 use std::{
-    future::Future,
     io::{self, SeekFrom},
-    ops::DerefMut,
-    pin::{pin, Pin},
     sync::Arc,
-    task::{Context, Poll},
 };
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt},
-    sync::{Mutex, OwnedMutexGuard},
+    sync::Mutex,
 };
 
-#[derive(Default, Debug)]
-enum TarStage<F> {
-    Reading(OwnedMutexGuard<F>),
-    Seeking(OwnedMutexGuard<F>),
-    #[default]
-    Done,
-}
-
-impl<F> TarStage<F> {
-    fn take(&mut self) -> Self {
-        std::mem::take(self)
-    }
-    fn take_seeking(&mut self) -> OwnedMutexGuard<F> {
-        if let Self::Seeking(locked) = self.take() {
-            return locked;
-        }
-        unreachable!("")
-    }
-}
+use super::FuseReadTrait;
 
 /// A block in tar file, should be readonly
 ///
@@ -52,9 +29,87 @@ where
 {
     file: Arc<Mutex<F>>,
     start: u64,
-    size: u64,
-    cursor: u64,
-    stage: TarStage<F>,
+    size: u32,
+    cursor: u32,
+}
+
+impl<F> TarBlock<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    pub fn new(file: Arc<Mutex<F>>, start: u64, size: u32) -> Self {
+        log::info!("new block: start={}, size={}", start, size);
+        Self {
+            file,
+            start,
+            size,
+            cursor: 0,
+        }
+    }
+    #[inline]
+    pub fn get_size(&self) -> u32 {
+        self.size
+    }
+    // pub async fn read_all(&self) -> std::io::Result<Vec<u8>> {
+    //     // let mut buf = Vec::with_capacity(self.size as usize);
+    //     // let mut block = self.clone();
+    //     // block.seek(SeekFrom::Start(0)).await?;
+    //     // block.read_to_end(&mut buf).await?;
+    //     // Ok(buf)
+    //     todo!()
+    // }
+    #[cfg(test)]
+    fn from_raw(file: F, start: u64, size: u32) -> Self {
+        Self {
+            file: Arc::new(Mutex::new(file)),
+            start,
+            size,
+            cursor: 0,
+        }
+    }
+    #[inline]
+    fn get_seek_from(&self, offset: u64) -> Option<SeekFrom> {
+        if self.cursor > self.size {
+            None
+        } else {
+            Some(SeekFrom::Start(self.start + offset + (self.cursor) as u64))
+        }
+    }
+    #[inline]
+    fn get_remain(&self) -> u32 {
+        self.size - self.cursor
+    }
+}
+
+impl<F> FuseReadTrait for TarBlock<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + 'static,
+{
+    async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<bytes::Bytes> {
+        let size = size as usize;
+        let mut lock = self.file.lock().await;
+        let seek_from = self.get_seek_from(offset).ok_or(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "tar block out of bound",
+        ))?;
+        lock.seek(seek_from).await?;
+
+        let mut buf = vec![0_u8; size];
+
+        let mut readed_byte = 0;
+        while readed_byte < size {
+            match lock.read(&mut buf).await {
+                Err(err) if readed_byte == 0 => return Err(err),
+                Ok(0) | Err(_) => break,
+                Ok(x) => readed_byte += x,
+            };
+        }
+        readed_byte = readed_byte.min(size);
+        self.cursor += readed_byte as u32;
+
+        buf.resize(readed_byte, 0_u8);
+        Ok(bytes::Bytes::from(buf))
+    }
 }
 
 impl<F> PartialEq for TarBlock<F>
@@ -78,189 +133,73 @@ where
             file: self.file.clone(),
             start: self.start,
             size: self.size,
-            cursor: self.cursor,
-            stage: TarStage::Done,
-        }
-    }
-}
-
-impl<F> TarBlock<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    pub fn new(file: Arc<Mutex<F>>, start: u64, size: u64) -> Self {
-        Self {
-            file,
-            start,
-            size,
             cursor: 0,
-            stage: TarStage::Done,
-        }
-    }
-    #[inline]
-    pub fn get_size(&self) -> u64 {
-        self.size
-    }
-    pub async fn read_all(&self) -> std::io::Result<Vec<u8>> {
-        let mut buf = Vec::with_capacity(self.size as usize);
-        let mut block = self.clone();
-        block.seek(SeekFrom::Start(0)).await?;
-        block.read_to_end(&mut buf).await?;
-        Ok(buf)
-    }
-    #[cfg(test)]
-    fn from_raw(file: F, start: u64, size: u64) -> Self {
-        Self {
-            file: Arc::new(Mutex::new(file)),
-            start,
-            size,
-            cursor: 0,
-            stage: TarStage::Done,
-        }
-    }
-    #[inline]
-    fn get_seek_from(&self) -> SeekFrom {
-        SeekFrom::Start(self.start + self.cursor)
-    }
-    #[inline]
-    fn check_bound(&self) -> bool {
-        self.cursor > self.size
-    }
-    #[inline]
-    fn get_remain(&self) -> u64 {
-        self.size - self.cursor
-    }
-}
-
-impl<F> AsyncRead for TarBlock<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        if self.check_bound() {
-            return Poll::Ready(Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "tar block out of bound",
-            )));
-        }
-        let original_size = buf.filled().len();
-        match &mut self.stage {
-            TarStage::Reading(ref mut locked) => {
-                report_poll!(chain_poll!(pin!(locked.deref_mut()).poll_read(cx, buf)));
-                let read_byte = (buf.filled().len() - original_size) as u64;
-                match read_byte > self.get_remain() {
-                    true => {
-                        buf.set_filled(original_size + self.get_remain() as usize);
-                        self.cursor += self.get_remain();
-                    }
-                    false => self.cursor += read_byte,
-                };
-                self.stage.take();
-                return Poll::Ready(Ok(()));
-            }
-            TarStage::Seeking(ref mut locked) => {
-                let result = chain_poll!(pin!(locked.deref_mut()).poll_complete(cx));
-                let read_byte = report_poll!(result);
-                self.as_mut().stage = TarStage::Reading(self.stage.take_seeking());
-                self.as_mut().cursor = read_byte - self.start;
-                cx.waker().wake_by_ref();
-            }
-            TarStage::Done => {
-                let mut locked = chain_poll!(pin!(self.file.clone().lock_owned()).poll(cx));
-                if let Err(err) = pin!(locked.deref_mut()).start_seek(self.get_seek_from()) {
-                    return Poll::Ready(Err(err));
-                }
-                self.as_mut().stage = TarStage::Seeking(locked);
-                cx.waker().wake_by_ref();
-            }
-        }
-        Poll::Pending
-    }
-}
-
-impl<F> AsyncSeek for TarBlock<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + 'static,
-{
-    fn start_seek(self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
-        let self_ = self.get_mut();
-        self_.cursor = match position {
-            io::SeekFrom::Start(x) => x,
-            io::SeekFrom::End(x) => (self_.size as i64 + x).try_into().unwrap_or_default(),
-            io::SeekFrom::Current(x) => (self_.cursor as i64 + x).try_into().unwrap_or_default(),
-        };
-        if self_.check_bound() {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "tar block out of bound",
-            ));
-        }
-        Ok(())
-    }
-
-    fn poll_complete(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Ok(self.cursor))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use std::io::Cursor;
-
-    use tokio::io::BufReader;
-
-    use super::*;
-    #[tokio::test]
-    async fn normal_read() {
-        let underlying = BufReader::new(Cursor::new(b"111hello world111"));
-        let mut block = TarBlock::from_raw(underlying, 3, 11);
-
-        let mut buf = [0_u8; 11];
-        block.read_exact(&mut buf).await.unwrap();
-
-        assert_eq!(buf, *b"hello world");
-    }
-    #[tokio::test]
-    async fn end_of_file_read() {
-        let underlying = BufReader::new(Cursor::new(b"111hello world"));
-        let mut block = TarBlock::from_raw(underlying, 3, 11);
-
-        let mut buf = [0_u8; 11];
-        block.read_exact(&mut buf).await.unwrap();
-
-        assert_eq!(
-            block.read_u8().await.unwrap_err().kind(),
-            io::ErrorKind::UnexpectedEof
-        );
-    }
-    #[tokio::test]
-    async fn multi_sequential_read() {
-        let underlying = BufReader::new(Cursor::new(b"111hello world111"));
-        let mut block = TarBlock::from_raw(underlying, 3, 11);
-
-        for c in b"hello world" {
-            assert_eq!(block.read_u8().await.unwrap(), *c);
-        }
-    }
-    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
-    async fn multi_reader_read() {
-        let underlying = BufReader::new(Cursor::new(b"111hello world111"));
-        let underlying = Arc::new(Mutex::new(underlying));
-        let block = TarBlock::new(underlying, 3, 11);
-
-        for _ in 0..30 {
-            let mut block = block.clone();
-            tokio::spawn(async move {
-                for _ in 0..400 {
-                    let mut buf = [0_u8; 11];
-                    block.read_exact(&mut buf).await.unwrap();
-                    assert_eq!(buf, *b"hello world");
-                }
-            });
         }
     }
 }
+
+// #[cfg(test)]
+// mod test {
+//     use std::io::Cursor;
+
+//     use tokio::{fs::File, io::BufReader};
+
+//     use super::*;
+//     #[tokio::test]
+//     async fn file_io() {
+//         let file = File::open("test/single_file.tar").await.unwrap();
+//         let mut block = TarBlock::new(Arc::new(Mutex::new(file)), 512, 11);
+//         let mut buf = [0_u8; 11];
+//         block.read_exact(&mut buf).await.unwrap();
+//         assert_eq!(buf, *b"hello world");
+//     }
+//     #[tokio::test]
+//     async fn normal_read() {
+//         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
+//         let mut block = TarBlock::from_raw(underlying, 3, 11);
+
+//         let mut buf = [0_u8; 11];
+//         block.read_exact(&mut buf).await.unwrap();
+
+//         assert_eq!(buf, *b"hello world");
+//     }
+//     #[tokio::test]
+//     async fn end_of_file_read() {
+//         let underlying = BufReader::new(Cursor::new(b"111hello world"));
+//         let mut block = TarBlock::from_raw(underlying, 3, 11);
+
+//         let mut buf = [0_u8; 11];
+//         block.read_exact(&mut buf).await.unwrap();
+
+//         assert_eq!(
+//             block.read_u8().await.unwrap_err().kind(),
+//             io::ErrorKind::UnexpectedEof
+//         );
+//     }
+//     #[tokio::test]
+//     async fn multi_sequential_read() {
+//         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
+//         let mut block = TarBlock::from_raw(underlying, 3, 11);
+
+//         for c in b"hello world" {
+//             assert_eq!(block.read_u8().await.unwrap(), *c);
+//         }
+//     }
+//     #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+//     async fn multi_reader_read() {
+//         let underlying = BufReader::new(Cursor::new(b"111hello world111"));
+//         let underlying = Arc::new(Mutex::new(underlying));
+//         let block = TarBlock::new(underlying, 3, 11);
+
+//         for _ in 0..30 {
+//             let mut block = block.clone();
+//             tokio::spawn(async move {
+//                 for _ in 0..400 {
+//                     let mut buf = [0_u8; 11];
+//                     block.read_exact(&mut buf).await.unwrap();
+//                     assert_eq!(buf, *b"hello world");
+//                 }
+//             });
+//         }
+//     }
+// }

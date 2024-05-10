@@ -24,6 +24,8 @@ pub enum FuseError {
 
 impl From<FuseError> for fuse3::Errno {
     fn from(value: FuseError) -> Self {
+        #[cfg(test)]
+        log::warn!("FUSE driver return result: {}", value);
         match value {
             FuseError::IsDir => libc::EISDIR,
             FuseError::NotDir => libc::ENOTDIR,
