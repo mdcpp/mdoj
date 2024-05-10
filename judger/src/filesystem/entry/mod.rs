@@ -16,7 +16,7 @@ use tokio::{
     sync::{Mutex, OwnedMutexGuard},
 };
 
-use super::{table::DeepClone, resource::Resource};
+use super::{resource::Resource, table::DeepClone};
 
 pub const MEMBLOCK_BLOCKSIZE: usize = 4096;
 
@@ -109,9 +109,7 @@ where
         }
         match &mut *lock {
             Self::MemFile(block) => Some(block.write(offset, data).await),
-            Self::TarFile(block) => {
-                todo!()
-            }
+            Self::TarFile(block) => Some(Err(std::io::Error::from(std::io::ErrorKind::Other))),
             _ => None,
         }
     }

@@ -80,10 +80,10 @@ where
     ) -> impl Future<Output = FuseResult<ReplyEntry>> + Send {
         async move {
             let tree = self.tree.lock();
-            let node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
-            let entry = node.get_by_component(name).ok_or(FuseError::InvalidPath)?;
+            let parent_node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
+            let node = parent_node.get_by_component(name).ok_or(FuseError::InvalidPath)?;
             // FIXME: unsure about the inode
-            Ok(reply_entry(&req, entry.get_value(), parent))
+            Ok(reply_entry(&req, node.get_value(), node.get_id() as u64))
         }
     }
     fn forget(&self, _: Request, inode: u64, _: u64) -> impl Future<Output = ()> + Send {
@@ -134,13 +134,13 @@ where
     ) -> impl Future<Output = FuseResult<ReplyOpen>> + Send {
         async move {
             let tree = self.tree.lock();
-            let entry = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
-            if entry.get_value().kind() == FileType::Directory {
+            let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+            if node.get_value().kind() == FileType::Directory {
                 return Err(FuseError::IsDir.into());
             }
             let fh = self
                 .handle_table
-                .add(AsyncMutex::new(entry.get_value().clone()));
+                .add(AsyncMutex::new(node.get_value().clone()));
             Ok(ReplyOpen { fh, flags: 0 })
         }
     }
@@ -262,8 +262,8 @@ where
         size: u32,
     ) -> impl Future<Output = FuseResult<ReplyData>> + Send {
         async move {
-            let entry = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
-            let mut lock = entry.lock().await;
+            let session = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
+            let mut lock = session.lock().await;
             Ok(lock
                 .read(offset, size)
                 .await
@@ -282,13 +282,13 @@ where
         flags: u32,
     ) -> impl Future<Output = FuseResult<ReplyWrite>> + Send {
         async move {
-            let entry = self
+            let session = self
                 .handle_table
                 .get(fh)
                 .ok_or(FuseError::HandleNotFound)
                 .unwrap();
 
-            Ok(Entry::write(entry, offset, data, &self.resource)
+            Ok(Entry::write(session, offset, data, &self.resource)
                 .await
                 .ok_or_else(|| Into::<Errno>::into(FuseError::IsDir))?
                 .map(|written| ReplyWrite { written })?)
@@ -354,9 +354,9 @@ where
     ) -> impl Future<Output = FuseResult<ReplyAttr>> + Send {
         async move {
             let tree = self.tree.lock();
-            let entry = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+            let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
             // FIXME: unsure about the inode
-            Ok(reply_attr(&req, entry.get_value(), inode))
+            Ok(reply_attr(&req, node.get_value(), inode))
         }
     }
     fn setattr(

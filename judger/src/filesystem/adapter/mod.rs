@@ -21,7 +21,7 @@ mod test {
             .try_init()
             .ok();
 
-        log::info!("mounting test tarball in .temp/1 ...");
+        log::info!("mounting test tarball in .temp ...");
         let global_resource = Semaphore::new(4096 * 1024 * 1024, 1);
         let template = Template::new("test/nested.tar").await.unwrap();
         let filesystem = template
@@ -32,7 +32,7 @@ mod test {
                     .unwrap(),
             )
             .await;
-        let mut mount_handle = filesystem.mount("./.temp/11").await.unwrap();
+        let mut mount_handle = filesystem.mount("./.temp/18").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {
