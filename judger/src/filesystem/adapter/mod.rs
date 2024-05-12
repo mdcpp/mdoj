@@ -24,7 +24,7 @@ mod test {
         log::info!("mounting test tarball in .temp ...");
         let template = Template::new("test/nested.tar").await.unwrap();
         let filesystem = template.as_filesystem(1024 * 1024 * 1024);
-        let mut mount_handle = filesystem.mount("./.temp/1").await.unwrap();
+        let mut mount_handle = filesystem.mount_with_path("./.temp/1").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {

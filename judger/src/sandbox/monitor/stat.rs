@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    ops::{Div, Mul},
+    time::Duration,
+};
 
 use cgroups_rs::cpuacct::CpuAcct;
 
@@ -22,6 +25,30 @@ pub struct Memory {
     pub total: u64,
 }
 
+impl Mul<f64> for Memory {
+    type Output = Memory;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Memory {
+            kernel: (self.kernel as f64 * rhs) as u64,
+            user: (self.user as f64 * rhs) as u64,
+            total: (self.total as f64 * rhs) as u64,
+        }
+    }
+}
+
+impl Div<f64> for Memory {
+    type Output = Memory;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Memory {
+            kernel: (self.kernel as f64 / rhs) as u64,
+            user: (self.user as f64 / rhs) as u64,
+            total: (self.total as f64 / rhs) as u64,
+        }
+    }
+}
+
 impl Memory {
     pub fn get_reserved_size(&self) -> u64 {
         self.total.min(self.user + self.kernel)
@@ -34,6 +61,30 @@ pub struct Cpu {
     pub kernel: u64,
     pub user: u64,
     pub total: u64,
+}
+
+impl Mul<f64> for Cpu {
+    type Output = Cpu;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Cpu {
+            kernel: (self.kernel as f64 * rhs) as u64,
+            user: (self.user as f64 * rhs) as u64,
+            total: (self.total as f64 * rhs) as u64,
+        }
+    }
+}
+
+impl Div<f64> for Cpu {
+    type Output = Cpu;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Cpu {
+            kernel: (self.kernel as f64 / rhs) as u64,
+            user: (self.user as f64 / rhs) as u64,
+            total: (self.total as f64 / rhs) as u64,
+        }
+    }
 }
 
 impl Cpu {

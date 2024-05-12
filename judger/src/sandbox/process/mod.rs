@@ -18,3 +18,6 @@ mod nsjail;
 mod process;
 
 use super::*;
+
+pub use corpse::*;
+pub use process::*;

@@ -10,12 +10,15 @@ use std::{
 
 pub use self::monitor::{Cpu, Memory};
 pub use error::Error;
+pub use monitor::MonitorKind;
+pub use process::{Corpse, Process};
+
 /// Context of the sandbox
 ///
 /// define resource limit and filesystem is out of the scope of `filesystem`
 pub trait Context: Limit {
     type FS: Filesystem;
-    fn create_fs(&mut self) -> Self::FS;
+    fn get_fs(&mut self) -> Self::FS;
     fn get_args(&mut self) -> impl Iterator<Item = &OsStr>;
 }
 
@@ -29,11 +32,11 @@ pub trait Limit {
 }
 
 pub trait Filesystem {
-    fn mount(&mut self) -> impl AsRef<Path> + Send;
+    fn get_path(&mut self) -> impl AsRef<Path> + Send;
 }
 
 impl Filesystem for PathBuf {
-    fn mount(&mut self) -> impl AsRef<Path> + Send {
+    fn get_path(&mut self) -> impl AsRef<Path> + Send {
         self.as_path().iter()
     }
 }

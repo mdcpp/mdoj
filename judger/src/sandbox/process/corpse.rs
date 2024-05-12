@@ -35,4 +35,7 @@ impl Corpse {
     pub fn stat(&self) -> &Stat {
         &self.stat
     }
+    pub fn success(&self) -> bool {
+        self.reason.is_none() && self.code.is_some() && self.code.unwrap().success()
+    }
 }

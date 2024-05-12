@@ -14,7 +14,7 @@ struct MountedProcess<C: Context> {
 impl<C: Context> MountedProcess<C> {
     fn new(mut context: C) -> Self {
         Self {
-            fs: context.create_fs(),
+            fs: context.get_fs(),
             context,
         }
     }
@@ -91,7 +91,7 @@ impl<C: Context> Process<C> {
                 cg_name: self.monitor.get_cg_path(),
             })
             .add(MountArg {
-                rootfs: self.fs.mount().as_ref().as_os_str(),
+                rootfs: self.fs.get_path().as_ref().as_os_str(),
             })
             .add(InnerProcessArg {
                 inner_args: self.context.get_args(),
@@ -109,7 +109,7 @@ impl<C: Context> Process<C> {
         tokio::spawn(async move { stdin.write_all(&input).await });
 
         let stdout = process.stdout.take().unwrap();
-        tokio::spawn(async move {
+        let io_proxy=tokio::spawn(async move {
             let mut stdout = stdout;
             if let Err(err) = io::copy(&mut stdout, &mut self.stdout).await {
                 log::debug!("Fail forwarding buffer: {}", err);
@@ -123,6 +123,9 @@ impl<C: Context> Process<C> {
                 time::sleep(time::Duration::from_millis(100)).await;
                 Some(x?)}
         };
+        // wait for the proxy to finish for full output
+        // in case of OLE, the monitor will drop and the proxy will be cancelled(yield)
+        io_proxy.await.unwrap();
 
         Ok(Corpse {
             code,

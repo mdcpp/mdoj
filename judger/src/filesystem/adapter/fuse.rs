@@ -35,7 +35,10 @@ where
             resource: Arc::new(Resource::new(permit)),
         }
     }
-    pub async fn mount(self, path: impl AsRef<Path> + Clone) -> std::io::Result<MountHandle> {
+    pub async fn mount_with_path(
+        self,
+        path: impl AsRef<Path> + Clone,
+    ) -> std::io::Result<MountHandle> {
         let uid = unsafe { libc::getuid() };
         let gid = unsafe { libc::getgid() };
 
