@@ -109,7 +109,7 @@ impl<C: Context> Process<C> {
         tokio::spawn(async move { stdin.write_all(&input).await });
 
         let stdout = process.stdout.take().unwrap();
-        let io_proxy=tokio::spawn(async move {
+        let io_proxy = tokio::spawn(async move {
             let mut stdout = stdout;
             if let Err(err) = io::copy(&mut stdout, &mut self.stdout).await {
                 log::debug!("Fail forwarding buffer: {}", err);

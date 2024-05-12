@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use tokio::{fs::File, sync::Semaphore};
 use uuid::Uuid;
 
-use super::config::*;
+use super::spec::*;
 use crate::{filesystem::Template, CONFIG};
 
 static PLUGIN_PATH: &str = "./plugins";

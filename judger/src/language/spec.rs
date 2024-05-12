@@ -14,19 +14,24 @@ async fn load_plugin(path: impl AsRef<Path>) {
 }
 
 pub struct Spec {
+    pub fs_limit: u64,
     pub compile_limit: (Cpu, Memory, u64, Duration),
-    pub judge_limit: (Cpu, Memory, u64, Duration),
+    judge_limit: (Cpu, Memory, u64, Duration),
     pub compile_command: Vec<OsString>,
     pub judge_command: Vec<OsString>,
 }
 
 impl Spec {
+    pub fn get_judge_limit(&self, cpu: Cpu, mem: Memory) -> (Cpu, Memory, u64, Duration) {
+        todo!()
+    }
     pub fn from_str(content: &str) -> Self {
         let mut raw: Raw = toml::from_str(content).unwrap();
         raw.compile.fill();
         raw.judge.fill();
 
         Self {
+            fs_limit: todo!(),
             compile_limit: (
                 Cpu {
                     kernel: todo!(),
