@@ -18,7 +18,7 @@ impl Runner {
     pub fn new(filesystem: MountHandle, spec: Arc<Spec>) -> Self {
         Self { filesystem, spec }
     }
-    pub async fn run(self, (mem, cpu): (u64, u64), input: Vec<u8>) -> Result<Judger> {
+    pub async fn run(&mut self, (mem, cpu): (u64, u64), input: Vec<u8>) -> Result<Judger> {
         let ctx = RunCtx {
             spec: self.spec.clone(),
             path: self.filesystem.get_path().to_path_buf(),
@@ -26,8 +26,7 @@ impl Runner {
         };
         let process = Process::new(ctx)?;
         let corpse = process.wait(input).await?;
-        drop(self.filesystem);
-        Ok(Judger::new(self.spec, corpse))
+        Ok(Judger::new(self.spec.clone(), corpse))
     }
 }
 

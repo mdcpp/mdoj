@@ -1,5 +1,5 @@
 use std::{
-    ops::{Div, Mul},
+    ops::{Add, AddAssign, Div, Mul},
     time::Duration,
 };
 
@@ -10,7 +10,7 @@ use super::output::Output;
 pub type MemAndCpu = (Memory, Cpu);
 
 /// statistics of resource usage
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Stat {
     pub memory: Memory,
     pub cpu: Cpu,
@@ -18,12 +18,29 @@ pub struct Stat {
     pub walltime: Duration,
 }
 
+impl AddAssign<Stat> for Stat {
+    fn add_assign(&mut self, rhs: Stat) {
+        self.memory += rhs.memory;
+        self.cpu += rhs.cpu;
+        self.output += rhs.output;
+        self.walltime += rhs.walltime;
+    }
+}
+
 /// memory usage(in bytes)
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Memory {
     pub kernel: u64,
     pub user: u64,
     pub total: u64,
+}
+
+impl AddAssign<Memory> for Memory {
+    fn add_assign(&mut self, rhs: Memory) {
+        self.kernel += rhs.kernel;
+        self.user += rhs.user;
+        self.total += rhs.total;
+    }
 }
 
 impl Mul<f64> for Memory {
@@ -57,11 +74,19 @@ impl Memory {
 }
 
 /// cpu usage(in nanoseconds)
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Cpu {
     pub kernel: u64,
     pub user: u64,
     pub total: u64,
+}
+
+impl AddAssign<Cpu> for Cpu {
+    fn add_assign(&mut self, rhs: Cpu) {
+        self.kernel += rhs.kernel;
+        self.user += rhs.user;
+        self.total += rhs.total;
+    }
 }
 
 impl Mul<f64> for Cpu {

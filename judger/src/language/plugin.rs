@@ -1,24 +1,47 @@
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, pin::Pin, sync::Arc};
 
+use async_stream::{stream, try_stream};
+use futures_core::Stream;
 use rustix::path::Arg;
-use tokio::fs::{read_dir, File};
+use tokio::{
+    fs::{read_dir, File},
+    io::{AsyncRead, AsyncSeek},
+};
 use uuid::Uuid;
 
-use crate::{
-    filesystem::*,
-    sandbox::{Cpu, Memory},
-};
+use crate::{filesystem::*, sandbox::Stat};
 
 use super::{
     builder::*,
     spec::Spec,
-    stage::{AssertionMode, Compiler, StatusCode},
+    stage::{Compiler, StatusCode},
 };
 use crate::Result;
 
+macro_rules! trys {
+    ($ele:expr) => {
+        match $ele {
+            Ok(x) => x,
+            Err(err) => {
+                return Box::pin(stream! {
+                    yield Err(err);
+                });
+            }
+        }
+    };
+    ($ele:expr,$ret:expr) => {
+        match $ele {
+            Some(x) => x,
+            None => {
+                return Box::pin(stream! {yield $ret;});
+            }
+        }
+    };
+}
+
 static EXTENSION: &str = "lang";
 
-pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin>> {
+pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin<File>>> {
     let mut plugins = Vec::new();
     let mut dir_list = read_dir(path).await?;
     while let Some(entry) = dir_list.next_entry().await? {
@@ -32,9 +55,11 @@ pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin>> {
     Ok(plugins)
 }
 
-pub struct PluginMap(BTreeMap<Uuid, Plugin>);
+pub struct Map<F>(BTreeMap<Uuid, Plugin<F>>)
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
-impl PluginMap {
+impl Map<File> {
     pub async fn new(path: impl AsRef<Path>) -> Result<Self> {
         let plugins = load_plugins(path).await?;
         let mut map = BTreeMap::new();
@@ -44,24 +69,42 @@ impl PluginMap {
         }
         Ok(Self(map))
     }
+    pub fn get(&self, id: &Uuid) -> Option<Plugin<File>> {
+        self.0.get(id).cloned()
+    }
 }
 
 impl JudgeResult {
-    fn new(status: StatusCode) -> Self {
+    fn compile_error() -> Self {
         Self {
-            status,
+            status: StatusCode::CompileError,
             time: 0,
             memory: 0,
         }
     }
 }
 
-pub struct Plugin {
+pub struct Plugin<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
+{
     pub(super) spec: Arc<Spec>,
-    pub(super) template: Arc<Template<File>>,
+    pub(super) template: Arc<Template<F>>,
 }
 
-impl Plugin {
+impl<F> Clone for Plugin<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            spec: self.spec.clone(),
+            template: self.template.clone(),
+        }
+    }
+}
+
+impl Plugin<File> {
     pub async fn new(path: impl AsRef<Path> + Clone) -> Result<Self> {
         let template = Arc::new(Template::new(path.clone()).await?);
         let spec_source = template.read_by_path("spec.toml").await.expect(&format!(
@@ -72,34 +115,49 @@ impl Plugin {
 
         Ok(Self { spec, template })
     }
-    pub async fn as_compiler(self: Arc<Self>, source: Vec<u8>) -> Result<Compiler> {
+}
+
+impl<F> Plugin<F>
+where
+    F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
+{
+    pub async fn as_compiler(&self, source: Vec<u8>) -> Result<Compiler> {
         let filesystem = self.template.as_filesystem(self.spec.fs_limit);
         filesystem.insert_by_path(self.spec.file.as_os_str(), source);
         Ok(Compiler::new(self.spec.clone(), filesystem.mount().await?))
     }
-    async fn judge(self: Arc<Self>, args: JudgeArgs) -> Result<JudgeResult> {
-        // for judge: it has three stages: compile, run, judge
-        let compiler = self.as_compiler(args.source).await?;
-        Ok(match compiler.compile().await? {
-            Some(runner) => {
-                let judger = runner.run((args.mem, args.cpu), args.input).await?;
-                let status = judger.get_result(&args.output, args.mode);
+    pub async fn judge(
+        &self,
+        args: JudgeArgs,
+    ) -> Pin<Box<dyn Stream<Item = Result<JudgeResult>> + Send>> {
+        let compiler = trys!(self.as_compiler(args.source).await);
+        let maybe_runner = trys!(compiler.compile().await);
+        let mut runner = trys!(maybe_runner, Ok(JudgeResult::compile_error()));
+
+        let mem_cpu = (args.mem, args.cpu);
+        let mode = args.mode;
+        let mut io = args.input.into_iter().zip(args.output.into_iter());
+        Box::pin(try_stream! {
+            while let Some((input,output))=io.next(){
+                let judger = runner.run(mem_cpu.clone(), input).await?;
+                let status = judger.get_result(&output, mode);
 
                 let stat = judger.stat();
-
-                JudgeResult {
+                yield JudgeResult {
                     status,
                     time: stat.cpu.total,
                     memory: stat.memory.total,
+                };
+                if status!=StatusCode::Accepted{
+                    break;
                 }
             }
-            None => JudgeResult::new(StatusCode::CompileError),
         })
     }
-    async fn execute(self: Arc<Self>, args: ExecuteArgs) -> Result<Option<ExecuteResult>> {
+    pub async fn execute(&self, args: ExecuteArgs) -> Result<Option<ExecuteResult>> {
         let compiler = self.as_compiler(args.source).await?;
         Ok(match compiler.compile().await? {
-            Some(runner) => {
+            Some(mut runner) => {
                 let judger = runner.run((args.mem, args.cpu), args.input).await?;
 
                 todo!("stream output");

@@ -17,10 +17,10 @@ toml = { workspace = true }
 derive_builder = { workspace = true }
 tar = "0.4.40"
 grpc = { path = "../grpc" }
-crossbeam = "0.8.4"
 lazy_static = "1.4.0"
 libc = "0.2.154"
 bytes = "1.6.0"
+async-stream = "0.3.5"
 
 [dependencies.fuse3]
 version = "0.7.1"
@@ -67,4 +67,3 @@ features = ["mutex", "spin_mutex"]
 tempfile = "3.8.0"
 tower = "0.4.13"
 tower-layer = "0.3.2"
-

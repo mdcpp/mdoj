@@ -1,10 +1,12 @@
+use grpc::judger::JudgeResponse;
+
 use super::stage::{AssertionMode, StatusCode};
 
 pub struct JudgeArgs {
     pub(super) mem: u64,
     pub(super) cpu: u64,
-    pub(super) input: Vec<u8>,
-    pub(super) output: Vec<u8>,
+    pub(super) input: Vec<Vec<u8>>,
+    pub(super) output: Vec<Vec<u8>>,
     pub(super) mode: AssertionMode,
     pub(super) source: Vec<u8>,
 }
@@ -22,6 +24,12 @@ pub struct JudgeResult {
     pub memory: u64,
 }
 
+impl From<JudgeResult> for JudgeResponse {
+    fn from(value: JudgeResult) -> Self {
+        todo!()
+    }
+}
+
 pub struct ExecuteResult {
     pub time: u64,
     pub memory: u64,
@@ -32,8 +40,8 @@ pub struct ExecuteResult {
 pub struct JudgeArgBuilder {
     mem: Option<u64>,
     cpu: Option<u64>,
-    input: Option<Vec<u8>>,
-    output: Option<Vec<u8>>,
+    input: Option<Vec<Vec<u8>>>,
+    output: Option<Vec<Vec<u8>>>,
     mode: Option<AssertionMode>,
     source: Option<Vec<u8>>,
 }
@@ -57,12 +65,12 @@ impl JudgeArgBuilder {
         self.cpu = Some(cpu);
         self
     }
-    pub fn input(mut self, input: Vec<u8>) -> Self {
-        self.input = Some(input);
+    pub fn input(mut self, input: impl Iterator<Item = Vec<u8>>) -> Self {
+        self.input = Some(input.collect());
         self
     }
-    pub fn output(mut self, output: Vec<u8>) -> Self {
-        self.output = Some(output);
+    pub fn output(mut self, output: impl Iterator<Item = Vec<u8>>) -> Self {
+        self.output = Some(output.collect());
         self
     }
     pub fn mode(mut self, mode: AssertionMode) -> Self {

@@ -1,17 +1,9 @@
-use std::{ffi::OsString, path::Path, time::Duration};
+use std::{ffi::OsString, time::Duration};
 
 use serde::Deserialize;
-use tokio::{
-    fs::read_dir,
-    io::{AsyncRead, AsyncReadExt},
-};
 use uuid::Uuid;
 
 use crate::sandbox::{Cpu, Memory, Stat};
-
-async fn load_plugin(path: impl AsRef<Path>) {
-    let dir_list = read_dir(path).await;
-}
 
 pub struct CpuFactor {
     kernel: u64,

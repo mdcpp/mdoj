@@ -4,4 +4,4 @@ mod spec;
 mod stage;
 
 pub use builder::*;
-pub use plugin::Plugin;
+pub use plugin::{Map, Plugin};
