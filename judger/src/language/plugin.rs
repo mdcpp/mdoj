@@ -1,7 +1,8 @@
-use std::{path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use rustix::path::Arg;
 use tokio::fs::{read_dir, File};
+use uuid::Uuid;
 
 use crate::{
     filesystem::*,
@@ -31,6 +32,20 @@ pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin>> {
     Ok(plugins)
 }
 
+pub struct PluginMap(BTreeMap<Uuid, Plugin>);
+
+impl PluginMap {
+    pub async fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let plugins = load_plugins(path).await?;
+        let mut map = BTreeMap::new();
+
+        for plugin in plugins {
+            map.insert(plugin.spec.id, plugin);
+        }
+        Ok(Self(map))
+    }
+}
+
 impl JudgeResult {
     fn new(status: StatusCode) -> Self {
         Self {
@@ -43,12 +58,12 @@ impl JudgeResult {
 
 pub struct Plugin {
     pub(super) spec: Arc<Spec>,
-    pub(super) template: Template<File>,
+    pub(super) template: Arc<Template<File>>,
 }
 
 impl Plugin {
     pub async fn new(path: impl AsRef<Path> + Clone) -> Result<Self> {
-        let template = Template::new(path.clone()).await?;
+        let template = Arc::new(Template::new(path.clone()).await?);
         let spec_source = template.read_by_path("spec.toml").await.expect(&format!(
             "sepc.toml not found in plugin {}",
             path.as_ref().display()
@@ -62,7 +77,7 @@ impl Plugin {
         filesystem.insert_by_path(self.spec.file.as_os_str(), source);
         Ok(Compiler::new(self.spec.clone(), filesystem.mount().await?))
     }
-    pub async fn judge(self: Arc<Self>, args: JudgeArgs) -> Result<JudgeResult> {
+    async fn judge(self: Arc<Self>, args: JudgeArgs) -> Result<JudgeResult> {
         // for judge: it has three stages: compile, run, judge
         let compiler = self.as_compiler(args.source).await?;
         Ok(match compiler.compile().await? {
@@ -81,7 +96,7 @@ impl Plugin {
             None => JudgeResult::new(StatusCode::CompileError),
         })
     }
-    pub async fn execute(self: Arc<Self>, args: ExecuteArgs) -> Result<Option<ExecuteResult>> {
+    async fn execute(self: Arc<Self>, args: ExecuteArgs) -> Result<Option<ExecuteResult>> {
         let compiler = self.as_compiler(args.source).await?;
         Ok(match compiler.compile().await? {
             Some(runner) => {
@@ -95,5 +110,8 @@ impl Plugin {
             }
             None => None,
         })
+    }
+    pub fn get_memory_reserved(&self, mem: u64) -> u64 {
+        self.spec.get_memory_reserved_size(mem)
     }
 }

@@ -1,5 +1,7 @@
 mod builder;
-mod daemon;
 mod plugin;
 mod spec;
 mod stage;
+
+pub use builder::*;
+pub use plugin::Plugin;

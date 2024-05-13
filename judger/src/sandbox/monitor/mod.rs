@@ -27,7 +27,9 @@ pub trait Monitor {
     ///
     /// This function is cancel safe.
     async fn wait_exhaust(&mut self) -> MonitorKind {
-        log::warn!("unimplemented wait_exhaust!");
+        // those low level call is likely have event listener(like epoll)
+        // monitor should use those listener to implement this function
+        log::warn!("unimplemented wait_exhaust, use poll_exhaust instead!");
         loop {
             if let Some(reason) = self.poll_exhaust() {
                 return reason;
@@ -87,7 +89,6 @@ impl<P: AsyncRead + Unpin> Monitor for StatMonitor<P> {
             x = self.walltime.wait_exhaust() => x,
         }
     }
-
     fn poll_exhaust(&mut self) -> Option<MonitorKind> {
         macro_rules! check_exhaust {
             ($f:ident) => {

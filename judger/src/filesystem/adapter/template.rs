@@ -9,31 +9,28 @@ use crate::filesystem::entry::TarTree;
 
 use super::fuse::Filesystem;
 
-pub struct Template<F>
+pub struct Template<F>(TarTree<F>)
 where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    tree: TarTree<F>,
-}
+    F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
 impl<F> Template<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
-    pub fn new_inner(tree: TarTree<F>) -> Self {
-        Self { tree }
-    }
+    /// use template to create a filesystem
     pub fn as_filesystem(&self, permit: u64) -> Filesystem<F> {
-        Filesystem::new(self.tree.clone(), permit)
+        Filesystem::new(self.0.clone(), permit)
     }
+    /// read a file by path
     pub async fn read_by_path(&self, path: impl AsRef<Path>) -> Option<Vec<u8>> {
-        self.tree.read_by_path(path).await
+        self.0.read_by_path(path).await
     }
 }
 
 impl Template<File> {
+    /// Create a new template from a tar file
     pub async fn new(path: impl AsRef<Path> + Clone) -> std::io::Result<Self> {
         let tree = TarTree::new(path).await?;
-        Ok(Self::new_inner(tree))
+        Ok(Self(tree))
     }
 }

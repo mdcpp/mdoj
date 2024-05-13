@@ -6,6 +6,7 @@ use std::{
 
 use tokio::fs::remove_dir;
 
+/// A safe wrapper around [`libc::mkdtemp`]
 pub struct MkdTemp(PathBuf);
 
 impl Drop for MkdTemp {
@@ -15,6 +16,7 @@ impl Drop for MkdTemp {
 }
 
 impl MkdTemp {
+    /// Create a new MkdTemp
     pub fn new() -> Self {
         Self(unsafe { Self::new_inner("/tmp/mdoj-fs-runtime-XXXXXX") })
     }
@@ -24,6 +26,7 @@ impl MkdTemp {
         let str_path = OsStr::from_bytes(template.to_bytes());
         PathBuf::from(str_path)
     }
+    /// get_path acquired by the MkdTemp
     pub fn get_path(&self) -> &Path {
         self.0.as_path()
     }

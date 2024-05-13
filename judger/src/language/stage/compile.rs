@@ -42,16 +42,16 @@ struct CompileCtx {
 
 impl Limit for CompileCtx {
     fn get_cpu(&mut self) -> crate::sandbox::Cpu {
-        todo!()
+        self.spec.compile_limit.cpu.clone()
     }
     fn get_memory(&mut self) -> crate::sandbox::Memory {
-        todo!()
+        self.spec.compile_limit.memory.clone()
     }
     fn get_output(&mut self) -> u64 {
-        todo!()
+        self.spec.compile_limit.output
     }
     fn get_walltime(&mut self) -> Duration {
-        todo!()
+        self.spec.compile_limit.walltime
     }
 }
 

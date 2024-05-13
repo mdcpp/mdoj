@@ -5,8 +5,9 @@ use std::{
 };
 
 const ID_MIN: usize = 1;
-const REMAIN_CAPACITY: u32 = 1 << 31;
+const MAX_ID_CAPACITY: u32 = 1 << 31;
 
+/// convert a path to internal path(prefixes on the tree)
 pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a {
     path.components().filter_map(|component| match component {
         Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
@@ -16,6 +17,7 @@ pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a
     // .collect::<Vec<_>>()
 }
 
+/// A node on adjacency table
 #[derive(Clone)]
 struct Node<V> {
     parent_idx: usize,
@@ -23,6 +25,10 @@ struct Node<V> {
     children: BTreeMap<OsString, usize>, // FIXME: use BtreeMap
 }
 
+/// A table to store the tree structure with
+/// the ability to allocate id up to [`MAX_ID_CAPACITY`]
+///
+/// The table has ability to store a multiple disconnected tree
 #[derive(Clone)]
 pub struct AdjTable<V> {
     by_id: Vec<Node<V>>,
@@ -32,6 +38,7 @@ impl<V> AdjTable<V> {
     pub fn new() -> Self {
         Self { by_id: vec![] }
     }
+    /// Insert a root node
     pub fn insert_root(&mut self, value: V) -> NodeWrapperMut<V> {
         let idx = self.by_id.len();
         self.by_id.push(Node {
@@ -41,15 +48,23 @@ impl<V> AdjTable<V> {
         });
         NodeWrapperMut { table: self, idx }
     }
-    pub fn get_root(&self) -> NodeWrapper<V> {
+    /// get first inserted node(one of the root node)
+    ///
+    /// # Panics
+    /// It panic if the table is empty(there is no root node)
+    pub fn get_first(&self) -> NodeWrapper<V> {
         NodeWrapper {
             table: self,
             idx: 0,
         }
     }
+    /// get remain capacity of the table
+    ///
+    /// The capacity is the maximum number of ino that can be allocated
     pub fn get_remain_capacity(&self) -> u32 {
-        REMAIN_CAPACITY - self.by_id.len() as u32
+        MAX_ID_CAPACITY - self.by_id.len() as u32
     }
+    /// get a node by id
     pub fn get(&self, id: usize) -> Option<NodeWrapper<V>> {
         if id < ID_MIN || id >= self.by_id.len() + ID_MIN {
             return None;
@@ -59,6 +74,7 @@ impl<V> AdjTable<V> {
             idx: id - ID_MIN,
         })
     }
+    /// get a mutable node by id
     pub fn get_mut(&mut self, id: usize) -> Option<NodeWrapperMut<V>> {
         if id < ID_MIN || id >= self.by_id.len() + ID_MIN {
             return None;
@@ -68,11 +84,12 @@ impl<V> AdjTable<V> {
             idx: id - ID_MIN,
         })
     }
+    /// get a node by path
     pub fn get_by_path<'a>(
         &self,
         mut path: impl Iterator<Item = &'a OsStr>,
     ) -> Option<NodeWrapper<V>> {
-        let mut idx = self.get_root().idx;
+        let mut idx = self.get_first().idx;
         while let Some(name) = path.next() {
             if self.by_id[idx].children.contains_key(name) {
                 idx = self.by_id[idx].children[name];
@@ -82,6 +99,9 @@ impl<V> AdjTable<V> {
         }
         Some(NodeWrapper { table: self, idx })
     }
+    /// get a mutable node by path or inserted(if not exists)
+    ///
+    /// Note that it could create multiple nodes along the search
     pub fn get_by_path_or_insert<F>(
         &mut self,
         path: impl Iterator<Item = OsString>,
@@ -90,7 +110,7 @@ impl<V> AdjTable<V> {
     where
         F: FnMut() -> V,
     {
-        let mut idx = self.get_root().idx;
+        let mut idx = self.get_first().idx;
         for name in path {
             if self.by_id[idx].children.contains_key(&name) {
                 idx = self.by_id[idx].children[&name];
@@ -106,6 +126,10 @@ impl<V> AdjTable<V> {
         }
         NodeWrapperMut { table: self, idx }
     }
+    /// insert a node by path
+    ///
+    /// if the path is not exists, it will create the path
+    /// (edge is filled with [`default_value()`])
     pub fn insert_by_path<'a, F>(
         &mut self,
         path: impl Iterator<Item = &'a OsStr>,
@@ -115,7 +139,7 @@ impl<V> AdjTable<V> {
     where
         F: FnMut() -> V,
     {
-        let mut idx = self.get_root().idx;
+        let mut idx = self.get_first().idx;
         let mut path = path.peekable();
         debug_assert!(path.peek().is_some());
         let mut seg;
@@ -145,12 +169,15 @@ pub struct NodeWrapper<'a, V> {
 }
 
 impl<'a, V> NodeWrapper<'a, V> {
+    /// get id of the node
     pub fn get_id(&self) -> usize {
         self.idx + ID_MIN
     }
+    /// check if the node is root
     pub fn is_root(&self) -> bool {
         self.idx == 0
     }
+    /// get parent node
     pub fn parent(&self) -> Option<NodeWrapper<'a, V>> {
         if self.is_root() {
             return None;
@@ -161,15 +188,18 @@ impl<'a, V> NodeWrapper<'a, V> {
             idx: parent_idx,
         })
     }
+    /// get children nodes' id
     pub fn children(self) -> impl Iterator<Item = usize> + 'a {
         self.table.by_id[self.idx]
             .children
             .iter()
             .map(|(_, &idx)| idx + ID_MIN)
     }
+    /// get value of the node
     pub fn get_value(&self) -> &V {
         &self.table.by_id[self.idx].value
     }
+    /// get name of the node
     pub fn get_name(&self) -> &OsStr {
         if self.is_root() {
             OsStr::new("/")
@@ -182,6 +212,7 @@ impl<'a, V> NodeWrapper<'a, V> {
                 .0
         }
     }
+    /// get node by component
     pub fn get_by_component(&self, component: &OsStr) -> Option<NodeWrapper<V>> {
         if let Some(&idx) = self.table.by_id[self.idx].children.get(component) {
             Some(NodeWrapper {
@@ -200,19 +231,21 @@ pub struct NodeWrapperMut<'a, V> {
 }
 
 impl<'a, V> NodeWrapperMut<'a, V> {
-    pub fn insert(&mut self, name: OsString, value: V) -> NodeWrapperMut<V> {
+    /// insert a node by component
+    pub fn insert(&mut self, component: OsString, value: V) -> NodeWrapperMut<V> {
         let idx = self.table.by_id.len();
         self.table.by_id.push(Node {
             parent_idx: self.idx,
             value,
             children: BTreeMap::new(),
         });
-        self.table.by_id[self.idx].children.insert(name, idx);
+        self.table.by_id[self.idx].children.insert(component, idx);
         NodeWrapperMut {
             table: self.table,
             idx,
         }
     }
+    /// get id of the node
     pub fn get_id(&self) -> usize {
         NodeWrapper {
             table: self.table,
@@ -220,9 +253,11 @@ impl<'a, V> NodeWrapperMut<'a, V> {
         }
         .get_id()
     }
+    /// get value of the node
     pub fn get_value(&mut self) -> &mut V {
         &mut self.table.by_id[self.idx].value
     }
+    /// get children node by component
     pub fn get_by_component(&mut self, component: &OsStr) -> Option<NodeWrapperMut<V>> {
         if let Some(&idx) = self.table.by_id[self.idx].children.get(component) {
             Some(NodeWrapperMut {
@@ -233,6 +268,7 @@ impl<'a, V> NodeWrapperMut<'a, V> {
             None
         }
     }
+    /// get children nodes' id
     pub fn children(&mut self) -> impl Iterator<Item = usize> + '_ {
         self.table.by_id[self.idx]
             .children
@@ -267,7 +303,7 @@ mod test {
             || 4,
             10,
         );
-        let root = table.get_root();
+        let root = table.get_first();
         let l1 = root.children().next().unwrap();
         let l2 = table.get(l1).unwrap().children().next().unwrap();
         let l3 = table.get(l2).unwrap().children().next().unwrap();

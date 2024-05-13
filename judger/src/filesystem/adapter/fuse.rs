@@ -29,13 +29,15 @@ impl<F> Filesystem<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
-    pub(super) fn new(tree: TarTree<F>, permit: u64) -> Self {
+    /// Create a new filesystem
+    pub(super) fn new(tree: TarTree<F>, fs_size: u64) -> Self {
         Self {
             handle_table: HandleTable::new(),
             tree: Mutex::new(tree),
-            resource: Arc::new(Resource::new(permit)),
+            resource: Arc::new(Resource::new(fs_size)),
         }
     }
+    /// Mount the filesystem to a path
     pub async fn mount_with_path(
         self,
         path: impl AsRef<Path> + Clone,
@@ -51,6 +53,7 @@ where
             .mount_with_unprivileged(self, path.as_ref())
             .await
     }
+    /// Insert a file by path
     pub fn insert_by_path(&self, path: impl AsRef<Path>, content: Vec<u8>) {
         let mut tree = self.tree.lock();
         tree.insert_by_path(
@@ -183,7 +186,7 @@ where
                 return Err(FuseError::NotDir.into());
             }
 
-            let parent_node = node.parent().unwrap_or_else(|| tree.get_root());
+            let parent_node = node.parent().unwrap_or_else(|| tree.get_first());
 
             let entries = vec![
                 Ok(dir_entry(
@@ -235,7 +238,7 @@ where
                 return Err(FuseError::NotDir.into());
             }
 
-            let parent_node = node.parent().unwrap_or_else(|| tree.get_root());
+            let parent_node = node.parent().unwrap_or_else(|| tree.get_first());
 
             let entries = vec![
                 Ok(dir_entry_plus(
