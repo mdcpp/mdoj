@@ -10,6 +10,7 @@ use super::output::Output;
 pub type MemAndCpu = (Memory, Cpu);
 
 /// statistics of resource usage
+#[derive(Clone)]
 pub struct Stat {
     pub memory: Memory,
     pub cpu: Cpu,

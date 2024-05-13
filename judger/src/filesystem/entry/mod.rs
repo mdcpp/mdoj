@@ -68,6 +68,9 @@ where
     pub fn new_file() -> Self {
         Self::MemFile(MemBlock::default())
     }
+    pub fn new_file_with_content(content: Vec<u8>) -> Self {
+        Self::MemFile(MemBlock::new(content))
+    }
     pub fn kind(&self) -> FileType {
         match self {
             Self::SymLink(_) => FileType::Symlink,

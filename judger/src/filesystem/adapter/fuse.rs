@@ -3,10 +3,11 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use futures_core::Future;
 use spin::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek};
-use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit};
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::filesystem::entry::{Entry, TarTree, BLOCKSIZE};
 use crate::filesystem::resource::Resource;
+use crate::filesystem::table::to_internal_path;
 
 use super::{error::FuseError, handle::HandleTable, reply::*};
 use fuse3::{
@@ -49,6 +50,14 @@ where
         Session::new(mount_options)
             .mount_with_unprivileged(self, path.as_ref())
             .await
+    }
+    pub fn insert_by_path(&self, path: impl AsRef<Path>, content: Vec<u8>) {
+        let mut tree = self.tree.lock();
+        tree.insert_by_path(
+            to_internal_path(path.as_ref()),
+            || Entry::Directory,
+            Entry::new_file_with_content(content),
+        );
     }
 }
 

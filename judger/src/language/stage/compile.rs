@@ -7,18 +7,18 @@ use crate::{
     Result,
 };
 
-use super::JudgeRunner;
+use super::Runner;
 
-pub struct CompileRunner {
+pub struct Compiler {
     spec: Arc<Spec>,
     handle: MountHandle,
 }
 
-impl CompileRunner {
+impl Compiler {
     pub fn new(spec: Arc<Spec>, handle: MountHandle) -> Self {
         Self { spec, handle }
     }
-    pub async fn run(self) -> Result<Option<JudgeRunner>> {
+    pub async fn compile(self) -> Result<Option<Runner>> {
         let ctx = CompileCtx {
             spec: self.spec.clone(),
             path: self.handle.get_path().to_path_buf(),
@@ -30,7 +30,7 @@ impl CompileRunner {
             return Ok(None);
         }
 
-        let runner = JudgeRunner::new(self.handle, self.spec);
+        let runner = Runner::new(self.handle, self.spec);
         Ok(Some(runner))
     }
 }

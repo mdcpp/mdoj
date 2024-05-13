@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-pub use self::monitor::{Cpu, Memory};
+pub use self::monitor::{Cpu, Memory, Stat};
 pub use error::Error;
 pub use monitor::MonitorKind;
 pub use process::{Corpse, Process};

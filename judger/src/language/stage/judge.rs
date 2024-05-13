@@ -1,63 +1,43 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use crate::{
-    filesystem::MountHandle,
     language::spec::Spec,
-    sandbox::{Context, Cpu, Limit, Memory, Process},
-    Result,
+    sandbox::{Corpse, MonitorKind, Stat},
 };
 
-use super::assert::AssertRunner;
+use super::{AssertionMode, StatusCode};
 
-pub struct JudgeRunner {
-    filesystem: MountHandle,
+pub struct Judger {
     spec: Arc<Spec>,
+    corpse: Corpse,
 }
 
-impl JudgeRunner {
-    pub fn new(filesystem: MountHandle, spec: Arc<Spec>) -> Self {
-        Self { filesystem, spec }
+impl Judger {
+    pub fn new(spec: Arc<Spec>, corpse: Corpse) -> Self {
+        Self { spec, corpse }
     }
-    pub async fn run(self, (mem, cpu): (Memory, Cpu), input: Vec<u8>) -> Result<AssertRunner> {
-        let ctx = JudgeCtx {
-            spec: self.spec.clone(),
-            path: self.filesystem.get_path().to_path_buf(),
-            limit: self.spec.get_judge_limit(cpu, mem),
-        };
-        let process = Process::new(ctx)?;
-        let corpse = process.wait(input).await?;
-        drop(self.filesystem);
-        Ok(AssertRunner::new(self.spec, corpse))
+    pub fn stat(&self) -> Stat {
+        let stat = self.corpse.stat();
+        self.spec.get_raw_stat(stat)
     }
-}
-
-struct JudgeCtx {
-    spec: Arc<Spec>,
-    path: std::path::PathBuf,
-    limit: (Cpu, Memory, u64, Duration),
-}
-
-impl Limit for JudgeCtx {
-    fn get_cpu(&mut self) -> Cpu {
-        self.limit.0.clone()
+    // pub fn stream_output(&self) -> Vec<u8> {
+    //     self.corpse.stream_stdout()
+    // }
+    fn assert_output(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
+        todo!()
     }
-    fn get_memory(&mut self) -> Memory {
-        self.limit.1.clone()
-    }
-    fn get_output(&mut self) -> u64 {
-        self.limit.2
-    }
-    fn get_walltime(&mut self) -> Duration {
-        self.limit.3
-    }
-}
-
-impl Context for JudgeCtx {
-    type FS = PathBuf;
-    fn get_fs(&mut self) -> Self::FS {
-        self.path.clone()
-    }
-    fn get_args(&mut self) -> impl Iterator<Item = &std::ffi::OsStr> {
-        self.spec.judge_command.iter().map(|s| s.as_ref())
+    pub fn get_result(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
+        match self.corpse.status() {
+            Ok(status) => match status.success() {
+                true => self.assert_output(output, mode),
+                false => StatusCode::WrongAnswer,
+            },
+            Err(reason) => match reason {
+                MonitorKind::Cpu => StatusCode::TimeLimitExceeded,
+                MonitorKind::Memory => StatusCode::MemoryLimitExceeded,
+                MonitorKind::Output => StatusCode::OutputLimitExceeded,
+                MonitorKind::Walltime => StatusCode::RealTimeLimitExceeded,
+            },
+        }
     }
 }
