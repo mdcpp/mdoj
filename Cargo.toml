@@ -8,6 +8,7 @@ members = [
     "backend/migration",
     "grpc",
 ]
+exclude = ["judger/plugins/rlua-54"]
 
 [workspace.dependencies]
 prost = "0.12.3"

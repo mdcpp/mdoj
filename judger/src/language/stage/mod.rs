@@ -3,7 +3,7 @@ mod judge;
 mod run;
 
 pub use compile::Compiler;
-use grpc::judger::JudgeMatchRule;
+use grpc::{judger::JudgeMatchRule, judger::JudgerCode};
 pub use judge::Judger;
 pub use run::Runner;
 
@@ -40,6 +40,22 @@ impl From<JudgeMatchRule> for AssertionMode {
             JudgeMatchRule::ExactSame => AssertionMode::Exact,
             JudgeMatchRule::IgnoreSnl => AssertionMode::SkipSpace,
             JudgeMatchRule::SkipSnl => AssertionMode::SkipContinousSpace,
+        }
+    }
+}
+
+impl From<StatusCode> for JudgerCode {
+    fn from(value: StatusCode) -> Self {
+        match value {
+            StatusCode::Accepted => Self::Ac,
+            StatusCode::WrongAnswer => Self::Wa,
+            StatusCode::RuntimeError => Self::Re,
+            StatusCode::TimeLimitExceeded => Self::Tle,
+            StatusCode::MemoryLimitExceeded => Self::Mle,
+            StatusCode::OutputLimitExceeded => Self::Ole,
+            StatusCode::RealTimeLimitExceeded => Self::Na,
+            StatusCode::CompileError => Self::Ce,
+            StatusCode::SystemError => Self::Na,
         }
     }
 }

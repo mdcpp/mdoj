@@ -24,7 +24,71 @@ impl Judger {
     //     self.corpse.stream_stdout()
     // }
     fn assert_output(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
-        todo!()
+        let input = self.corpse.stdout();
+        match mode {
+            AssertionMode::SkipSpace => {
+                // skip space and newline, continous space and single space is consider different
+                let output = output.iter().map(|x| match x {
+                    b'\n' | b' ' => b' ',
+                    x => *x,
+                });
+                let input = input.iter().map(|x| match x {
+                    b'\n' | b' ' => b' ',
+                    x => *x,
+                });
+                for (i, o) in input.zip(output) {
+                    if i != o {
+                        return StatusCode::WrongAnswer;
+                    }
+                }
+            }
+            AssertionMode::SkipContinousSpace => {
+                // skip space and newline, continous space is consider same
+                let output = output.iter().map(|x| match x {
+                    b'\n' | b' ' => b' ',
+                    x => *x,
+                });
+                let input = input.iter().map(|x| match x {
+                    b'\n' | b' ' => b' ',
+                    x => *x,
+                });
+                let mut output = output.peekable();
+                let mut input = input.peekable();
+                while let (Some(&i), Some(&o)) = (input.peek(), output.peek()) {
+                    if i == b' ' {
+                        while let Some(&x) = input.peek() {
+                            if x != b' ' {
+                                break;
+                            }
+                            input.next();
+                        }
+                        while let Some(&x) = output.peek() {
+                            if x != b' ' {
+                                break;
+                            }
+                            output.next();
+                        }
+                    } else if i != o {
+                        return StatusCode::WrongAnswer;
+                    } else {
+                        input.next();
+                        output.next();
+                    }
+                }
+                if input.peek().is_some() || output.peek().is_some() {
+                    return StatusCode::WrongAnswer;
+                }
+            }
+            AssertionMode::Exact => {
+                for (i, o) in input.iter().zip(output.iter()) {
+                    if i != o {
+                        return StatusCode::WrongAnswer;
+                    }
+                }
+            }
+        }
+
+        StatusCode::Accepted
     }
     pub fn get_result(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
         match self.corpse.status() {

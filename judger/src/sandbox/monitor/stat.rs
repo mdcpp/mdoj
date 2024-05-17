@@ -10,7 +10,7 @@ use super::output::Output;
 pub type MemAndCpu = (Memory, Cpu);
 
 /// statistics of resource usage
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Stat {
     pub memory: Memory,
     pub cpu: Cpu,
@@ -28,7 +28,7 @@ impl AddAssign<Stat> for Stat {
 }
 
 /// memory usage(in bytes)
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Memory {
     pub kernel: u64,
     pub user: u64,
@@ -74,7 +74,7 @@ impl Memory {
 }
 
 /// cpu usage(in nanoseconds)
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Cpu {
     pub kernel: u64,
     pub user: u64,

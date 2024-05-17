@@ -1,5 +1,6 @@
-use std::{ffi::OsString, time::Duration};
+use std::{ffi::OsString, str::FromStr, time::Duration};
 
+use grpc::judger::LangInfo;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -61,6 +62,7 @@ pub struct Spec {
     pub compile_command: Vec<OsString>,
     pub judge_command: Vec<OsString>,
     pub file: OsString,
+    pub info: LangInfo,
 }
 
 impl Spec {
@@ -89,6 +91,7 @@ impl Spec {
 
         // FIXME: use compsition instead
         Self {
+            info: LangInfo::from(&raw),
             id: raw.id,
             fs_limit: raw.fs_limit.unwrap(),
             compile_limit: Stat {
@@ -105,9 +108,19 @@ impl Spec {
                 output: raw.compile.output_limit.unwrap(),
                 walltime: Duration::from_nanos(raw.compile.walltime.unwrap()),
             },
-            compile_command: raw.compile.command,
-            judge_command: raw.judge.command,
-            file: raw.file,
+            compile_command: raw
+                .compile
+                .command
+                .iter()
+                .map(|x| OsString::from(x))
+                .collect(),
+            judge_command: raw
+                .judge
+                .command
+                .iter()
+                .map(|x| OsString::from(x))
+                .collect(),
+            file: OsString::from(raw.file),
             judge_cpu_factor: CpuFactor {
                 kernel: raw.judge.kernel_mem.unwrap(),
                 user: raw.judge.rt_time.unwrap(),
@@ -127,15 +140,26 @@ impl Spec {
 }
 
 #[derive(Deserialize)]
-struct Raw {
+pub struct Raw {
     fs_limit: Option<u64>,
-    file: OsString,
+    file: String,
     info: String,
     extension: String,
     name: String,
     id: Uuid,
     compile: RawCompile,
     judge: RawJudge,
+}
+
+impl<'a> From<&'a Raw> for LangInfo {
+    fn from(value: &'a Raw) -> Self {
+        LangInfo {
+            lang_uid: value.id.to_string(),
+            lang_name: value.name.clone(),
+            info: value.info.clone(),
+            lang_ext: value.extension.clone(),
+        }
+    }
 }
 
 impl Raw {
@@ -150,7 +174,7 @@ impl Raw {
 
 #[derive(Deserialize)]
 struct RawCompile {
-    command: Vec<OsString>,
+    command: Vec<String>,
     kernel_mem: Option<u64>,
     memory: Option<u64>,
     user_mem: Option<u64>,
@@ -206,7 +230,7 @@ impl Default for RawCompile {
 
 #[derive(Deserialize)]
 struct RawJudge {
-    command: Vec<OsString>,
+    command: Vec<String>,
     kernel_mem: Option<u64>,
     rt_time: Option<u64>,
     memory_multiplier: Option<f64>,

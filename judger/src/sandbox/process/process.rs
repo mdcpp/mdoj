@@ -1,5 +1,9 @@
 use super::{corpse::Corpse, error::Error, monitor::*, nsjail::*, Context, Filesystem};
-use std::process::Stdio;
+use std::{
+    ffi::{OsStr, OsString},
+    os::unix::ffi::OsStrExt,
+    process::Stdio,
+};
 use tokio::{
     io::{self, AsyncWriteExt, DuplexStream},
     process::*,
@@ -72,6 +76,17 @@ pub struct Process<C: Context> {
     stdout: DuplexStream,
 }
 
+fn get_inner_args<'a>(
+    mut args: impl Iterator<Item = &'a OsStr>,
+    mut root: OsString,
+) -> Vec<OsString> {
+    // check spec before unwrap
+    root.push(args.next().unwrap());
+    let mut r = vec![root];
+    r.extend(args.map(|x| x.to_os_string()));
+    r
+}
+
 impl<C: Context> Process<C> {
     pub fn new(context: C) -> Result<Self, Error> {
         MonitoredProcess::new(context).map(Into::into)
@@ -84,6 +99,11 @@ impl<C: Context> Process<C> {
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::null());
 
+        let inner_args = get_inner_args(
+            self.context.get_args(),
+            self.fs.get_path().as_ref().as_os_str().to_os_string(),
+        );
+
         let arg_factory = ArgFactory::default()
             .add(BaseArg)
             .add(CGroupVersionArg)
@@ -94,10 +114,13 @@ impl<C: Context> Process<C> {
                 rootfs: self.fs.get_path().as_ref().as_os_str(),
             })
             .add(InnerProcessArg {
-                inner_args: self.context.get_args(),
+                inner_args: inner_args.iter().map(|x| x.as_os_str()),
             });
 
-        cmd.args(arg_factory.build());
+        let args = arg_factory.build();
+
+        log::trace!("spawn process with args: {:?}", args);
+        cmd.args(args);
 
         Ok(cmd.spawn()?)
     }
@@ -118,10 +141,11 @@ impl<C: Context> Process<C> {
 
         let mut monitor = self.monitor;
         let code = tokio::select! {
-            _=monitor.wait_exhaust()=>{None},
+            _=monitor.wait_exhaust()=>None,
             x=process.wait()=>{
                 time::sleep(time::Duration::from_millis(100)).await;
-                Some(x?)}
+                Some(x?)
+            }
         };
         // wait for the proxy to finish for full output
         // in case of OLE, the monitor will drop and the proxy will be cancelled(yield)

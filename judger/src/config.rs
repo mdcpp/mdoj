@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(not(test))]
 use std::path::PathBuf;
+use std::{
+    net::{SocketAddr, SocketAddrV4},
+    str::FromStr,
+};
 
 #[cfg(not(test))]
 fn try_load_config() -> Result<Config, Box<dyn std::error::Error>> {
@@ -36,19 +40,19 @@ pub enum Accounting {
     Cpu,
 }
 
-fn default_ratio_cpu() -> f32 {
+fn default_ratio_cpu() -> f64 {
     1.0
 }
-fn default_ratio_memory() -> f32 {
+fn default_ratio_memory() -> f64 {
     1.0
 }
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Ratio {
     #[serde(default = "default_ratio_cpu")]
-    pub cpu: f32,
+    pub cpu: f64,
     #[serde(default = "default_ratio_memory")]
-    pub memory: f32,
+    pub memory: f64,
 }
 
 fn default_log() -> u8 {
@@ -66,7 +70,11 @@ fn default_memory() -> u64 {
     1024 * 1024 * 1024
 }
 
-#[derive(Serialize, Deserialize, Default)]
+fn default_addr() -> SocketAddr {
+    SocketAddr::from_str("0.0.0.0:8081").unwrap()
+}
+
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default)]
@@ -81,4 +89,20 @@ pub struct Config {
     pub secret: Option<String>,
     #[serde(default = "default_memory")]
     pub memory: u64,
+    #[serde(default = "default_addr")]
+    pub address: SocketAddr,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            accounting: Default::default(),
+            ratio: default_ratio(),
+            rootless: false,
+            log: default_log(),
+            secret: None,
+            memory: default_memory(),
+            address: default_addr(),
+        }
+    }
 }

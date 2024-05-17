@@ -1,3 +1,4 @@
+use core::time;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{
@@ -26,7 +27,8 @@ impl Compiler {
         let process = Process::new(ctx)?;
         let corpse = process.wait(Vec::new()).await?;
         if !corpse.success() {
-            log::debug!("compile failed {:?}", corpse.status());
+            log::trace!("compile failed, corpse: {:?}", corpse);
+            tokio::time::sleep(Duration::from_secs(3600)).await;
             return Ok(None);
         }
 

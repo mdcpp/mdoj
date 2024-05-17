@@ -38,7 +38,7 @@ where
     F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
     pub fn new(file: Arc<Mutex<F>>, start: u64, size: u32) -> Self {
-        log::info!("new block: start={}, size={}", start, size);
+        log::trace!("new block: start={}, size={}", start, size);
         Self {
             file,
             start,
@@ -85,7 +85,8 @@ where
     F: AsyncRead + AsyncSeek + Unpin + 'static,
 {
     async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<bytes::Bytes> {
-        let size = size as usize;
+        let size = size.min(self.size - self.cursor) as usize;
+
         let mut lock = self.file.lock().await;
         let seek_from = self.get_seek_from(offset).ok_or(io::Error::new(
             io::ErrorKind::UnexpectedEof,
@@ -95,18 +96,10 @@ where
 
         let mut buf = vec![0_u8; size];
 
-        let mut readed_byte = 0;
-        while readed_byte < size {
-            match lock.read(&mut buf).await {
-                Err(err) if readed_byte == 0 => return Err(err),
-                Ok(0) | Err(_) => break,
-                Ok(x) => readed_byte += x,
-            };
+        if let Err(err) = lock.read_exact(&mut buf).await {
+            log::warn!("tarball change at runtime, result in error: {}", err);
         }
-        readed_byte = readed_byte.min(size);
-        self.cursor += readed_byte as u32;
 
-        buf.resize(readed_byte, 0_u8);
         Ok(bytes::Bytes::from(buf))
     }
 }

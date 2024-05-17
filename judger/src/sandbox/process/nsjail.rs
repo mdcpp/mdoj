@@ -34,6 +34,8 @@ pub struct BaseArg;
 impl Argument for BaseArg {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         vec![
+            Cow::Borrowed(OsStr::from_bytes(b"-l")),
+            Cow::Borrowed(OsStr::from_bytes(b"/dev/null")),
             Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newuser")),
             Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),
             Cow::Borrowed(OsStr::from_bytes(b"--env")),
@@ -94,6 +96,7 @@ impl<'a> Argument for MountArg<'a> {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         vec![
             Cow::Borrowed(OsStr::from_bytes(b"--rw")),
+            Cow::Borrowed(OsStr::from_bytes(b"--chroot")),
             Cow::Owned(OsString::from(self.rootfs)),
         ]
         .into_iter()

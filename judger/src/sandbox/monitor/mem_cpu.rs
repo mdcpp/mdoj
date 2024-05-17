@@ -1,10 +1,12 @@
+use crate::async_loop;
+
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
 use std::sync::{atomic::Ordering, Arc};
-use tokio::time::*;
+use tokio::{select, time::*};
 
 /// maximum allow time deviation for cpu monitor
-const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
+pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
 const CG_PATH_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -13,18 +15,20 @@ async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> MonitorKind {
 
     let oom_signal = wrapper.oom_signal();
 
-    loop {
-        sleep(MONITOR_ACCURACY / 2).await;
-
-        if let Ok(oom_hint) = oom_signal.try_recv() {
-            log::trace!("oom hint: {}", oom_hint);
-            return MonitorKind::Memory;
-        }
-
+    let cpu_future = async_loop!({
         if Cpu::out_of_resources(&cpu, wrapper.cpu()) {
-            return MonitorKind::Cpu;
+            break;
         }
         wrapper.cpu();
+    });
+
+    select! {
+        _ = cpu_future=>{
+            return MonitorKind::Cpu;
+        },
+        _ = oom_signal.wait()=>{
+            return MonitorKind::Memory;
+        }
     }
 }
 
@@ -52,6 +56,7 @@ impl Monitor {
     /// create a new limiter and mount at given path
     pub fn new((mem, cpu): MemAndCpu) -> Result<Self, Error> {
         let cg_name = format!("mdoj.{}", CG_PATH_COUNTER.fetch_add(1, Ordering::AcqRel));
+        log::trace!("create cgroup, name: {}", cg_name);
         let cgroup = Arc::new(
             CgroupBuilder::new(&cg_name)
                 .memory()
@@ -60,16 +65,18 @@ impl Monitor {
                 .memory_swap_limit(0)
                 .done()
                 .cpu()
-                .period((MONITOR_ACCURACY / 2).as_nanos() as u64)
+                // .period((MONITOR_ACCURACY / 2).as_nanos() as u64)
                 .quota(MONITOR_ACCURACY.as_nanos() as i64)
                 .realtime_period(MONITOR_ACCURACY.as_nanos() as u64)
-                .realtime_runtime(MONITOR_ACCURACY.as_nanos() as i64)
+                // .realtime_runtime(MONITOR_ACCURACY.as_nanos() as i64)
                 .done()
                 .build(MONITER_KIND.heir())?,
         );
+        // FIXME: set oom control
 
         let monitor_task = Some(tokio::spawn(monitor(cgroup.clone(), cpu.clone())));
 
+        log::debug!("cgroup created: {}", cgroup.path());
         Ok(Self {
             cgroup,
             monitor_task,
@@ -96,7 +103,7 @@ impl super::Monitor for Monitor {
     ///
     /// This method is cancellation safe
     async fn wait_exhaust(&mut self) -> MonitorKind {
-        let reason = self.monitor_task.take().unwrap().await.unwrap();
+        let reason = self.monitor_task.as_mut().unwrap().await.unwrap();
         // optimistic kill(`SIGKILL`) the process inside
         self.cgroup.kill().expect("cgroup.kill does not exist");
         reason

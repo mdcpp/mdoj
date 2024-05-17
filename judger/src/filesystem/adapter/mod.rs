@@ -22,9 +22,9 @@ mod test {
             .ok();
 
         log::info!("mounting test tarball in .temp ...");
-        let template = Template::new("test/nested.tar").await.unwrap();
+        let template = Template::new("plugins/rlua-54.lang").await.unwrap();
         let filesystem = template.as_filesystem(1024 * 1024 * 1024);
-        let mut mount_handle = filesystem.mount_with_path("./.temp/1").await.unwrap();
+        let mut mount_handle = filesystem.mount_with_path("./.temp/5").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {

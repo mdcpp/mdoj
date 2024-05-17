@@ -1,4 +1,4 @@
-use grpc::judger::JudgeResponse;
+use grpc::judger::{JudgeResponse, JudgerCode};
 
 use super::stage::{AssertionMode, StatusCode};
 
@@ -26,7 +26,12 @@ pub struct JudgeResult {
 
 impl From<JudgeResult> for JudgeResponse {
     fn from(value: JudgeResult) -> Self {
-        todo!()
+        JudgeResponse {
+            status: Into::<JudgerCode>::into(value.status) as i32,
+            time: value.time,
+            memory: value.memory,
+            accuracy: 0, // FIXME: accuracy
+        }
     }
 }
 

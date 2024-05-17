@@ -14,6 +14,8 @@ use crate::{
     CONFIG,
 };
 
+const PLUGIN_PATH: &str = "plugins";
+
 fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
     let (meta, _, payload) = req.into_parts();
     if CONFIG.secret.is_none() {
@@ -38,6 +40,14 @@ fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
 pub struct Server {
     semaphore: Arc<Semaphore>,
     plugins: Map<File>,
+}
+
+impl Server {
+    pub async fn new() -> crate::Result<Server> {
+        let semaphore = Arc::new(Semaphore::new(CONFIG.memory.try_into().unwrap()));
+        let plugins = Map::new(PLUGIN_PATH).await?;
+        Ok(Server { semaphore, plugins })
+    }
 }
 
 #[tonic::async_trait]
@@ -97,15 +107,28 @@ impl Judger for Server {
     }
 
     async fn judger_info(&self, req: tonic::Request<()>) -> Result<Response<JudgeInfo>, Status> {
-        todo!()
+        check_secret(req)?;
+        let list = self
+            .plugins
+            .iter()
+            .map(|v| v.get_info().clone())
+            .collect::<Vec<_>>();
+        Ok(Response::new(JudgeInfo {
+            memory: CONFIG.memory,
+            accuracy: 0, // FIXME: accuracy
+            langs: Langs { list },
+            cpu_factor: CONFIG.ratio.cpu as f32,
+        }))
     }
 
-    type ExecStream = tokio_stream::Iter<std::vec::IntoIter<Result<ExecResult, Status>>>;
+    type ExecStream = Pin<Box<dyn Stream<Item = Result<ExecResult, Status>> + Send>>;
 
     async fn exec(
         &self,
         req: Request<ExecRequest>,
     ) -> Result<Response<Self::ExecStream>, tonic::Status> {
+        let payload = check_secret(req)?;
+
         todo!()
     }
 }

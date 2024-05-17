@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, path::Path, pin::Pin, sync::Arc};
 
 use async_stream::{stream, try_stream};
 use futures_core::Stream;
+use grpc::judger::LangInfo;
 use rustix::path::Arg;
 use tokio::{
     fs::{read_dir, File},
@@ -46,8 +47,10 @@ pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin<File>>> {
     let mut dir_list = read_dir(path).await?;
     while let Some(entry) = dir_list.next_entry().await? {
         let path = entry.path();
+        log::trace!("find potential plugin from {}", path.display());
         let ext = path.extension();
         if path.is_file() && ext.is_some() && ext.unwrap() == EXTENSION {
+            log::info!("load plugin from {}", path.display());
             let plugin = Plugin::new(path).await?;
             plugins.push(plugin);
         }
@@ -71,6 +74,9 @@ impl Map<File> {
     }
     pub fn get(&self, id: &Uuid) -> Option<Plugin<File>> {
         self.0.get(id).cloned()
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &Plugin<File>> {
+        self.0.values()
     }
 }
 
@@ -121,7 +127,14 @@ impl<F> Plugin<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
+    pub fn get_info(&self) -> &LangInfo {
+        &self.spec.info
+    }
     pub async fn as_compiler(&self, source: Vec<u8>) -> Result<Compiler> {
+        log::trace!(
+            "create compiler from plugin {}",
+            self.spec.info.lang_name.as_str()
+        );
         let filesystem = self.template.as_filesystem(self.spec.fs_limit);
         filesystem.insert_by_path(self.spec.file.as_os_str(), source);
         Ok(Compiler::new(self.spec.clone(), filesystem.mount().await?))
@@ -132,6 +145,7 @@ where
     ) -> Pin<Box<dyn Stream<Item = Result<JudgeResult>> + Send>> {
         let compiler = trys!(self.as_compiler(args.source).await);
         let maybe_runner = trys!(compiler.compile().await);
+        log::debug!("runner created");
         let mut runner = trys!(maybe_runner, Ok(JudgeResult::compile_error()));
 
         let mem_cpu = (args.mem, args.cpu);
