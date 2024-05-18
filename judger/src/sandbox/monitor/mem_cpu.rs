@@ -19,7 +19,6 @@ async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> MonitorKind {
         if Cpu::out_of_resources(&cpu, wrapper.cpu()) {
             break;
         }
-        wrapper.cpu();
     });
 
     select! {
@@ -44,10 +43,17 @@ impl Drop for Monitor {
         if let Some(monitor_task) = &self.monitor_task {
             monitor_task.abort();
         }
-        debug_assert!(self.cgroup.tasks().is_empty());
-        match self.cgroup.tasks().is_empty() {
-            true => log::warn!("cgroup still have process running"),
-            false => self.cgroup.delete().expect("cgroup cannot be deleted"),
+        // FIXME: use explicit control flow
+        // currently is controlled by dropping order, and it can be broken
+        // if one of the thread panics
+        match self.cgroup.v2(){
+            true => {
+                self.cgroup.kill().expect("cgroup.kill does not exist");
+                self.cgroup.delete().unwrap();
+            },
+            false => {
+                self.cgroup.set_release_agent("").unwrap();
+            },
         }
     }
 }

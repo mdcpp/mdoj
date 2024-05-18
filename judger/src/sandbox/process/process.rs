@@ -2,6 +2,7 @@ use super::{corpse::Corpse, error::Error, monitor::*, nsjail::*, Context, Filesy
 use std::{
     ffi::{OsStr, OsString},
     os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
     process::Stdio,
 };
 use tokio::{
@@ -91,6 +92,17 @@ impl<C: Context> Process<C> {
     pub fn new(context: C) -> Result<Self, Error> {
         MonitoredProcess::new(context).map(Into::into)
     }
+    fn get_env(&mut self) -> OsString {
+        let root = self.fs.get_path();
+        // FIXME: check spec before unwrap
+        let jail = self.context.get_args().next().unwrap();
+        let unjailed = [jail, root.as_ref().as_os_str()].join(OsStr::new(""));
+        let unjailed = PathBuf::from(unjailed);
+
+        let mut ancestors = unjailed.ancestors();
+        ancestors.next().unwrap();
+        ancestors.next().unwrap().as_os_str().to_os_string()
+    }
     /// spawn a raw process
     fn spawn_raw_process(&mut self) -> Result<Child, Error> {
         let mut cmd = Command::new(NSJAIL_PATH);
@@ -98,11 +110,7 @@ impl<C: Context> Process<C> {
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::null());
-
-        let inner_args = get_inner_args(
-            self.context.get_args(),
-            self.fs.get_path().as_ref().as_os_str().to_os_string(),
-        );
+        cmd.env("PATH", self.get_env());
 
         let arg_factory = ArgFactory::default()
             .add(BaseArg)
@@ -111,10 +119,10 @@ impl<C: Context> Process<C> {
                 cg_name: self.monitor.get_cg_path(),
             })
             .add(MountArg {
-                rootfs: self.fs.get_path().as_ref().as_os_str(),
+                rootfs: self.fs.get_path().as_ref(),
             })
             .add(InnerProcessArg {
-                inner_args: inner_args.iter().map(|x| x.as_os_str()),
+                inner_args: self.context.get_args(),
             });
 
         let args = arg_factory.build();

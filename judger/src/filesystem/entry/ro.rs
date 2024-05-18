@@ -14,7 +14,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use super::FuseReadTrait;
+use super::{FuseReadTrait, BLOCKSIZE, MAX_READ_BLK};
 
 /// A block in tar file, should be readonly
 ///
@@ -86,6 +86,7 @@ where
 {
     async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<bytes::Bytes> {
         let size = size.min(self.size - self.cursor) as usize;
+        let size=size.min(BLOCKSIZE*MAX_READ_BLK);
 
         let mut lock = self.file.lock().await;
         let seek_from = self.get_seek_from(offset).ok_or(io::Error::new(

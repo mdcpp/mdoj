@@ -77,12 +77,7 @@ where
         mtime: Timestamp::new(0, 0),
         ctime: Timestamp::new(0, 0),
         kind: entry.kind(),
-        perm: (libc::S_IREAD
-            | libc::S_IWRITE
-            | libc::S_IEXEC
-            | libc::S_IRWXU
-            | libc::S_IRWXO
-            | libc::S_ISVTX) as u16,
+        perm: (libc::S_IRWXO | libc::S_IRWXG | libc::S_IRWXU) as u16,
         nlink: 1,
         uid: req.uid,
         gid: req.gid,

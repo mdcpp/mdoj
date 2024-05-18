@@ -4,10 +4,9 @@ mod run;
 
 pub use compile::Compiler;
 use grpc::{judger::JudgeMatchRule, judger::JudgerCode};
-pub use judge::Judger;
 pub use run::Runner;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StatusCode {
     Accepted,
     WrongAnswer,
@@ -46,6 +45,7 @@ impl From<JudgeMatchRule> for AssertionMode {
 
 impl From<StatusCode> for JudgerCode {
     fn from(value: StatusCode) -> Self {
+
         match value {
             StatusCode::Accepted => Self::Ac,
             StatusCode::WrongAnswer => Self::Wa,

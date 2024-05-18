@@ -29,7 +29,7 @@ impl<E> HandleTable<E> {
     }
     /// Get an entry from the table
     pub fn get(&self, handle: u64) -> Option<Arc<E>> {
-        log::debug!("get handle: {}", handle);
+        log::trace!("get handle: {}", handle);
         self.table.lock().get(&handle).cloned()
     }
     /// Remove an entry from the table

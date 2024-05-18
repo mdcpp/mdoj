@@ -132,8 +132,8 @@ impl Spec {
                 total: raw.judge.memory_multiplier.unwrap(),
             },
             judge_limit: (
-                raw.judge.walltime.unwrap(),
-                Duration::from_nanos(raw.judge.rt_time.unwrap()),
+                raw.judge.output.unwrap(),
+                Duration::from_nanos(raw.judge.walltime.unwrap()),
             ),
         }
     }
@@ -219,11 +219,11 @@ impl Default for RawCompile {
             kernel_mem: Some(268435456),
             memory: Some(268435456),
             user_mem: Some(8589934592),
-            rt_time: Some(1000000),
-            cpu_time: Some(10000000000),
-            time: Some(10000000),
+            rt_time: Some(7e8 as u64),
+            cpu_time: Some(10e9 as u64),
+            time: Some(10e9 as u64),
             output_limit: Some(33554432),
-            walltime: Some(360000000),
+            walltime: Some(260e9 as u64),
         }
     }
 }
@@ -236,6 +236,7 @@ struct RawJudge {
     memory_multiplier: Option<f64>,
     cpu_multiplier: Option<f64>,
     walltime: Option<u64>,
+    output: Option<u64>,
 }
 
 impl RawJudge {
@@ -257,7 +258,8 @@ impl RawJudge {
             rt_time,
             memory_multiplier,
             cpu_multiplier,
-            walltime
+            walltime,
+            output
         );
     }
 }
@@ -267,10 +269,11 @@ impl Default for RawJudge {
         Self {
             command: Vec::new(),
             kernel_mem: Some(268435456),
-            rt_time: Some(10000000),
+            rt_time: Some(7e8 as u64),
             memory_multiplier: Some(1.0),
             cpu_multiplier: Some(1.0),
-            walltime: Some(360000000),
+            walltime: Some(360e9 as u64),
+            output: Some(1024*1024*16),
         }
     }
 }

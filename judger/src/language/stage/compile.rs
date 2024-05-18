@@ -28,7 +28,7 @@ impl Compiler {
         let corpse = process.wait(Vec::new()).await?;
         if !corpse.success() {
             log::trace!("compile failed, corpse: {:?}", corpse);
-            tokio::time::sleep(Duration::from_secs(3600)).await;
+            // tokio::time::sleep(Duration::from_secs(600)).await;
             return Ok(None);
         }
 

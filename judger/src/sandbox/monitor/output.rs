@@ -26,6 +26,7 @@ pub struct Monitor<I> {
 ///
 impl<I: AsyncRead + Unpin> Monitor<I> {
     fn inner_new(limit: Output, stdin: I) -> Self {
+        log::info!("Output limit: {}", limit);
         Self {
             buffer: Vec::with_capacity(limit as usize / 4),
             reader: Some(BufReader::new(stdin.take(limit))),

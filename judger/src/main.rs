@@ -20,6 +20,17 @@ async fn main() {
         .try_init()
         .ok();
 
+    let default_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("something panic, exiting...");
+        default_panic(info);
+        std::process::exit(1);
+    }));
+        
+
+    #[cfg(debug_assertions)]
+    log::warn!("running debug build");
+
     let server = Server::new().await.unwrap();
 
     tonic::transport::Server::builder()

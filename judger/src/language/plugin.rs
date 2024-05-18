@@ -155,6 +155,7 @@ where
             while let Some((input,output))=io.next(){
                 let judger = runner.run(mem_cpu.clone(), input).await?;
                 let status = judger.get_result(&output, mode);
+                log::trace!("status: {:?}", status);
 
                 let stat = judger.stat();
                 yield JudgeResult {

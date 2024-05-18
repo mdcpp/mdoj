@@ -3,6 +3,7 @@ use std::{
     ffi::{OsStr, OsString},
     ops::Deref,
     os::unix::ffi::OsStrExt,
+    path::Path,
 };
 
 pub static NSJAIL_PATH: &str = "./nsjail-3.1";
@@ -34,10 +35,13 @@ pub struct BaseArg;
 impl Argument for BaseArg {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         vec![
+            Cow::Borrowed(OsStr::from_bytes(b"-Me")),
             Cow::Borrowed(OsStr::from_bytes(b"-l")),
+            #[cfg(not(debug_assertions))]
             Cow::Borrowed(OsStr::from_bytes(b"/dev/null")),
+            #[cfg(debug_assertions)]
+            Cow::Borrowed(OsStr::from_bytes(b"nsjail.log")),
             Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newuser")),
-            Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),
             Cow::Borrowed(OsStr::from_bytes(b"--env")),
             Cow::Borrowed(OsStr::from_bytes(
                 b"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -58,10 +62,16 @@ impl<'a> Argument for CGroupMountArg<'a> {
         match super::monitor::CGROUP_V2.deref() {
             // this is a patch(not default behavior of nsjail)
             true => vec![
+                Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),
+                Cow::Borrowed(OsStr::from_bytes(b"--cgroup_mem_swap_max")),
+                Cow::Borrowed(OsStr::from_bytes(b"0")),
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_cpu_parent")),
                 Cow::Owned(OsString::from(self.cg_name)),
             ],
             false => vec![
+                Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),
+                Cow::Borrowed(OsStr::from_bytes(b"--cgroup_mem_swap_max")),
+                Cow::Borrowed(OsStr::from_bytes(b"0")),
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_mem_mount")),
                 Cow::Owned(format!("/sys/fs/cgroup/memory/{}", self.cg_name).into()),
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_cpu_mount")),
@@ -89,12 +99,14 @@ impl Argument for CGroupVersionArg {
 
 /// arguments for rootfs mount
 pub struct MountArg<'a> {
-    pub rootfs: &'a OsStr,
+    pub rootfs: &'a Path,
 }
 
 impl<'a> Argument for MountArg<'a> {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         vec![
+            Cow::Borrowed(OsStr::from_bytes(b"--tmpfsmount")),
+            Cow::Borrowed(OsStr::from_bytes(b"/tmp")),
             Cow::Borrowed(OsStr::from_bytes(b"--rw")),
             Cow::Borrowed(OsStr::from_bytes(b"--chroot")),
             Cow::Owned(OsString::from(self.rootfs)),

@@ -15,6 +15,7 @@ use super::resource::Resource;
 
 pub use tar::TarTree;
 pub const BLOCKSIZE: usize = 4096;
+const MAX_READ_BLK: usize = 1024;
 
 pub trait FuseReadTrait {
     async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<Bytes>;
