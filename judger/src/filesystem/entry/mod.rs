@@ -5,10 +5,10 @@ mod tar;
 use self::{ro::TarBlock, rw::MemBlock};
 use bytes::Bytes;
 use fuse3::FileType;
-use std::{ffi::OsString, ops::Deref, sync::Arc};
+use std::{ffi::OsString, sync::Arc};
 use tokio::{
     io::{AsyncRead, AsyncSeek},
-    sync::{Mutex, OwnedMutexGuard},
+    sync::Mutex,
 };
 
 use super::resource::Resource;
@@ -23,12 +23,6 @@ pub trait FuseReadTrait {
 
 pub trait FuseWriteTrait {
     async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32>;
-}
-
-async fn clone_arc<T: Clone>(arc: &Arc<Mutex<T>>) -> Arc<Mutex<T>> {
-    let inner = arc.deref();
-    let lock = inner.lock().await;
-    Arc::new(Mutex::new(lock.deref().clone()))
 }
 
 /// Entry in the filesystem
@@ -66,13 +60,16 @@ impl<F> Entry<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
+    /// create a new file entry with empty content
     pub fn new_file() -> Self {
         Self::MemFile(MemBlock::default())
     }
-    pub fn new_file_with_content(content: Vec<u8>) -> Self {
+    /// create a new file entry with content
+    pub fn new_file_with_vec(content: Vec<u8>) -> Self {
         Self::MemFile(MemBlock::new(content))
     }
-    pub fn kind(&self) -> FileType {
+    /// get kind of the file
+    pub(super) fn kind(&self) -> FileType {
         match self {
             Self::SymLink(_) => FileType::Symlink,
             Self::HardLink(_) => FileType::RegularFile,
@@ -81,6 +78,7 @@ where
             Self::MemFile(_) => FileType::RegularFile,
         }
     }
+    /// get size of the file
     pub fn get_size(&self) -> u64 {
         match self {
             Self::SymLink(x) => x.len() as u64,

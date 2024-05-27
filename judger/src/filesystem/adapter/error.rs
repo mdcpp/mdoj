@@ -1,3 +1,10 @@
+/// Error occurred in the filesystem adapter.
+///
+/// It's only used to manage the error in a centralized way.
+///
+/// User shouldn't rely on this error to as value in another error,
+/// and should always call [`Into::<fuse3::Errno>>::into`]
+/// immediately after the error is returned.
 #[derive(thiserror::Error, Debug)]
 pub enum FuseError {
     #[error("not a readable file")]

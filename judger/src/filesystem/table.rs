@@ -29,6 +29,8 @@ struct Node<V> {
 /// the ability to allocate id up to [`MAX_ID_CAPACITY`]
 ///
 /// The table has ability to store a multiple disconnected tree
+///
+/// Note that cloning the table would actually clone the WHOLE tree
 #[derive(Clone)]
 pub struct AdjTable<V> {
     by_id: Vec<Node<V>>,

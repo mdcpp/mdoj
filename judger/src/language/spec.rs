@@ -273,7 +273,7 @@ impl Default for RawJudge {
             memory_multiplier: Some(1.0),
             cpu_multiplier: Some(1.0),
             walltime: Some(360e9 as u64),
-            output: Some(1024*1024*16),
+            output: Some(1024 * 1024 * 16),
         }
     }
 }

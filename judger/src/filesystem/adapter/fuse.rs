@@ -5,9 +5,9 @@ use spin::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek};
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::filesystem::entry::{Entry, TarTree, BLOCKSIZE};
+use crate::filesystem::entry::{Entry, BLOCKSIZE};
 use crate::filesystem::resource::Resource;
-use crate::filesystem::table::to_internal_path;
+use crate::filesystem::table::{to_internal_path, AdjTable};
 
 use super::{error::FuseError, handle::HandleTable, reply::*};
 use fuse3::{
@@ -15,13 +15,16 @@ use fuse3::{
     Result as FuseResult, *,
 };
 
+/// A asynchorized stream from vector
 type VecStream<I> = tokio_stream::Iter<std::vec::IntoIter<I>>;
+
+// filesystem is an adapter, it should not contain any business logic.
 pub struct Filesystem<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
     handle_table: HandleTable<AsyncMutex<Entry<F>>>,
-    tree: Mutex<TarTree<F>>,
+    tree: Mutex<AdjTable<Entry<F>>>,
     resource: Arc<Resource>,
 }
 
@@ -30,15 +33,16 @@ where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
     /// Create a new filesystem
-    pub(super) fn new(tree: TarTree<F>, fs_size: u64) -> Self {
+    pub(super) fn new(tree: AdjTable<Entry<F>>, fs_size: u64) -> Self {
         Self {
             handle_table: HandleTable::new(),
             tree: Mutex::new(tree),
             resource: Arc::new(Resource::new(fs_size)),
         }
     }
-    /// Mount the filesystem to a path
-    pub async fn mount_with_path(
+    /// Mount the filesystem to a path,
+    /// return a raw handle from `libfuse`
+    pub async fn raw_mount_with_path(
         self,
         path: impl AsRef<Path> + Clone,
     ) -> std::io::Result<MountHandle> {
@@ -53,13 +57,13 @@ where
             .mount_with_unprivileged(self, path.as_ref())
             .await
     }
-    /// Insert a file by path
+    /// Insert a file by path before actual mounts.
     pub fn insert_by_path(&self, path: impl AsRef<Path>, content: Vec<u8>) {
         let mut tree = self.tree.lock();
         tree.insert_by_path(
             to_internal_path(path.as_ref()),
             || Entry::Directory,
-            Entry::new_file_with_content(content),
+            Entry::new_file_with_vec(content),
         );
     }
 }

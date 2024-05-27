@@ -29,7 +29,7 @@ where
 {
     pub async fn mount(self) -> std::io::Result<MountHandle> {
         let mountpoint = MkdTemp::new();
-        let handle = self.mount_with_path(mountpoint.get_path()).await?;
+        let handle = self.raw_mount_with_path(mountpoint.get_path()).await?;
         Ok(MountHandle(Some(handle), Some(mountpoint)))
     }
 }

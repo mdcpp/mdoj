@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{ClientError, Error},
-    language::{JudgeArgBuilder, Map},
+    language::{ExecuteArgBuilder, JudgeArgBuilder, Map},
     CONFIG,
 };
 
@@ -121,7 +121,7 @@ impl Judger for Server {
         }))
     }
 
-    type ExecStream = Pin<Box<dyn Stream<Item = Result<ExecResult, Status>> + Send>>;
+    type ExecStream = tokio_stream::Once<Result<ExecResult, Status>>;
 
     async fn exec(
         &self,
@@ -129,6 +129,41 @@ impl Judger for Server {
     ) -> Result<Response<Self::ExecStream>, tonic::Status> {
         let payload = check_secret(req)?;
 
-        todo!()
+        let memory = payload.memory;
+        let cpu = payload.time;
+
+        let source = payload.code;
+        let input = payload.input;
+
+        let uuid =
+            Uuid::from_str(&payload.lang_uid).map_err(|_| ClientError::InvaildLanguageUuid)?;
+
+        let plugin = self
+            .plugins
+            .get(&uuid)
+            .ok_or(ClientError::InvaildLanguageUuid)?;
+
+        let resource: u32 = plugin
+            .get_memory_reserved(payload.memory)
+            .try_into()
+            .map_err(|_| Error::Platform)?;
+
+        let permit = self
+            .semaphore
+            .clone()
+            .acquire_many_owned(resource)
+            .await
+            .map_err(|_| ClientError::ImpossibleMemoryRequirement)?;
+
+        let args = ExecuteArgBuilder::new()
+            .cpu(cpu)
+            .mem(memory)
+            .source(source)
+            .input(input)
+            .build();
+
+        let result = plugin.execute(args).await?;
+        drop(permit);
+        Ok(Response::new(tokio_stream::once(Ok(result.into()))))
     }
 }

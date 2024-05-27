@@ -1,11 +1,17 @@
+//! collection of steps for judge and execute
+
 mod compile;
 mod judge;
 mod run;
+mod stream;
 
 pub use compile::Compiler;
 use grpc::{judger::JudgeMatchRule, judger::JudgerCode};
 pub use run::Runner;
 
+/// internal status code, use to decouple the grpc status code
+///
+/// Status code is commonly use in OJ, it include example such as: AC, WA...
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StatusCode {
     Accepted,
@@ -19,10 +25,20 @@ pub enum StatusCode {
     SystemError,
 }
 
+/// internal assertion mode, use to decouple the grpc status code
+///
+/// Assertion mode reperesent the way to compare the output
 #[derive(Clone, Copy)]
 pub enum AssertionMode {
+    /// Skip single space and newline
+    ///
+    /// `a b`, and `a\nb\n` are the same
     SkipSpace,
+    /// Skip continous space and newline
+    ///
+    /// `a b`, `ab          ` and `ab` are the same
     SkipContinousSpace,
+    /// Exact match
     Exact,
 }
 
@@ -45,7 +61,6 @@ impl From<JudgeMatchRule> for AssertionMode {
 
 impl From<StatusCode> for JudgerCode {
     fn from(value: StatusCode) -> Self {
-
         match value {
             StatusCode::Accepted => Self::Ac,
             StatusCode::WrongAnswer => Self::Wa,

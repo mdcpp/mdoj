@@ -7,8 +7,9 @@ use crate::{
     Result,
 };
 
-use super::judge::Judger;
+use super::{judge::Judger, stream::Streamer};
 
+/// Second stage of the language process, run the compiled code
 pub struct Runner {
     filesystem: MountHandle,
     spec: Arc<Spec>,
@@ -18,7 +19,7 @@ impl Runner {
     pub fn new(filesystem: MountHandle, spec: Arc<Spec>) -> Self {
         Self { filesystem, spec }
     }
-    pub async fn run(&mut self, (mem, cpu): (u64, u64), input: Vec<u8>) -> Result<Judger> {
+    pub async fn judge(&mut self, (mem, cpu): (u64, u64), input: Vec<u8>) -> Result<Judger> {
         let ctx = RunCtx {
             spec: self.spec.clone(),
             path: self.filesystem.get_path().to_path_buf(),
@@ -27,6 +28,16 @@ impl Runner {
         let process = Process::new(ctx)?;
         let corpse = process.wait(input).await?;
         Ok(Judger::new(self.spec.clone(), corpse))
+    }
+    pub async fn stream(&mut self, (mem, cpu): (u64, u64), input: Vec<u8>) -> Result<Streamer> {
+        let ctx = RunCtx {
+            spec: self.spec.clone(),
+            path: self.filesystem.get_path().to_path_buf(),
+            limit: self.spec.get_judge_limit(cpu, mem),
+        };
+        let process = Process::new(ctx)?;
+        let corpse = process.wait(input).await?;
+        Ok(Streamer::new(self.spec.clone(), corpse))
     }
 }
 

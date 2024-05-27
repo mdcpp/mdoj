@@ -1,4 +1,6 @@
-use grpc::judger::{JudgeResponse, JudgerCode};
+use grpc::judger::{
+    exec_result as execute_response, ExecResult as ExecuteResponse, JudgeResponse, JudgerCode, Log,
+};
 
 use super::stage::{AssertionMode, StatusCode};
 
@@ -36,10 +38,40 @@ impl From<JudgeResult> for JudgeResponse {
 }
 
 pub struct ExecuteResult {
+    pub status: StatusCode,
     pub time: u64,
     pub memory: u64,
     pub output: Vec<u8>,
-    pub code: i32,
+}
+
+impl From<ExecuteResult> for ExecuteResponse {
+    fn from(value: ExecuteResult) -> Self {
+        macro_rules! execute_log {
+            ($msg:expr) => {
+                execute_response::Result::Log(Log {
+                    level: 4,
+                    msg: $msg.to_string(),
+                })
+            };
+        }
+        let result = match value.status {
+            StatusCode::Accepted => execute_response::Result::Output(value.output),
+            StatusCode::WrongAnswer => execute_log!("Wrong Answer"),
+            StatusCode::RuntimeError => {
+                execute_log!("Runtime Error, maybe program return non-zero code")
+            }
+            StatusCode::TimeLimitExceeded | StatusCode::RealTimeLimitExceeded => {
+                execute_log!("Time Limit Exceeded")
+            }
+            StatusCode::MemoryLimitExceeded => execute_log!("Memory Limit Exceeded"),
+            StatusCode::OutputLimitExceeded => execute_log!("Output Limit Exceeded"),
+            StatusCode::CompileError => execute_log!("Compile Error"),
+            _ => execute_log!("System Error"),
+        };
+        ExecuteResponse {
+            result: Some(result),
+        }
+    }
 }
 
 pub struct JudgeArgBuilder {

@@ -26,7 +26,6 @@ async fn main() {
         default_panic(info);
         std::process::exit(1);
     }));
-        
 
     #[cfg(debug_assertions)]
     log::warn!("running debug build");

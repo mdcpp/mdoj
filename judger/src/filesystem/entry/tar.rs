@@ -1,11 +1,4 @@
-use std::{
-    ffi::OsString,
-    io::Read,
-    ops::{Deref, DerefMut},
-    os::unix::ffi::OsStringExt,
-    path::Path,
-    sync::Arc,
-};
+use std::{ffi::OsString, io::Read, os::unix::ffi::OsStringExt, path::Path, sync::Arc};
 
 #[cfg(test)]
 use std::io::Cursor;
@@ -22,7 +15,7 @@ use crate::filesystem::table::{to_internal_path, AdjTable};
 
 use super::{ro::TarBlock, Entry};
 
-pub struct TarTree<F>(AdjTable<Entry<F>>)
+pub struct TarTree<F>(pub AdjTable<Entry<F>>)
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
@@ -32,26 +25,6 @@ where
 {
     fn clone(&self) -> Self {
         Self(self.0.clone())
-    }
-}
-
-impl<F> DerefMut for TarTree<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<F> Deref for TarTree<F>
-where
-    F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
-{
-    type Target = AdjTable<Entry<F>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -142,6 +115,7 @@ mod test {
     macro_rules! assert_kind {
         ($tree:expr,$path:expr, $kind:ident) => {{
             let node = $tree
+                .0
                 .get_by_path(to_internal_path(Path::new($path)))
                 .unwrap();
             let entry = node;

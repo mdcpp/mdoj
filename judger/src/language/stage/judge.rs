@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use crate::{
-    language::spec::Spec,
+    language::{spec::Spec, JudgeResult},
     sandbox::{Corpse, MonitorKind, Stat},
 };
 
 use super::{AssertionMode, StatusCode};
 
+/// The third stage of language processing, compare the output
 pub struct Judger {
     spec: Arc<Spec>,
     corpse: Corpse,
@@ -90,11 +91,11 @@ impl Judger {
 
         StatusCode::Accepted
     }
-    pub fn get_result(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
+    pub fn get_code(&self, output: &[u8], mode: AssertionMode) -> StatusCode {
         match self.corpse.status() {
             Ok(status) => match status.success() {
                 true => self.assert_output(output, mode),
-                false => StatusCode::WrongAnswer,
+                false => StatusCode::RuntimeError,
             },
             Err(reason) => match reason {
                 MonitorKind::Cpu => StatusCode::TimeLimitExceeded,
@@ -102,6 +103,15 @@ impl Judger {
                 MonitorKind::Output => StatusCode::OutputLimitExceeded,
                 MonitorKind::Walltime => StatusCode::RealTimeLimitExceeded,
             },
+        }
+    }
+    pub fn get_result(&self, output: &[u8], mode: AssertionMode) -> JudgeResult {
+        let status = self.get_code(output, mode);
+        let stat = self.stat();
+        JudgeResult {
+            status,
+            time: stat.cpu.total,
+            memory: stat.memory.total,
         }
     }
 }

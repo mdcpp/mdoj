@@ -145,7 +145,6 @@ where
     ) -> Pin<Box<dyn Stream<Item = Result<JudgeResult>> + Send>> {
         let compiler = trys!(self.as_compiler(args.source).await);
         let maybe_runner = trys!(compiler.compile().await);
-        log::debug!("runner created");
         let mut runner = trys!(maybe_runner, Ok(JudgeResult::compile_error()));
 
         let mem_cpu = (args.mem, args.cpu);
@@ -153,36 +152,30 @@ where
         let mut io = args.input.into_iter().zip(args.output.into_iter());
         Box::pin(try_stream! {
             while let Some((input,output))=io.next(){
-                let judger = runner.run(mem_cpu.clone(), input).await?;
-                let status = judger.get_result(&output, mode);
-                log::trace!("status: {:?}", status);
+                let judger = runner.judge(mem_cpu.clone(), input).await?;
 
-                let stat = judger.stat();
-                yield JudgeResult {
-                    status,
-                    time: stat.cpu.total,
-                    memory: stat.memory.total,
-                };
-                if status!=StatusCode::Accepted{
+                yield judger.get_result(&output, mode);
+                if judger.get_code(&output, mode)!=StatusCode::Accepted{
                     break;
                 }
             }
         })
     }
-    pub async fn execute(&self, args: ExecuteArgs) -> Result<Option<ExecuteResult>> {
+    pub async fn execute(&self, args: ExecuteArgs) -> Result<ExecuteResult> {
         let compiler = self.as_compiler(args.source).await?;
-        Ok(match compiler.compile().await? {
+        let maybe_runner = compiler.compile().await?;
+        match maybe_runner {
             Some(mut runner) => {
-                let judger = runner.run((args.mem, args.cpu), args.input).await?;
-
-                todo!("stream output");
-
-                let stat = judger.stat();
-
-                Some(todo!())
+                let executor = runner.stream((args.mem, args.cpu), args.input).await?;
+                Ok(executor.get_result())
             }
-            None => None,
-        })
+            None => Ok(ExecuteResult {
+                status: StatusCode::CompileError,
+                time: 0,
+                memory: 0,
+                output: Vec::new(),
+            }),
+        }
     }
     pub fn get_memory_reserved(&self, mem: u64) -> u64 {
         self.spec.get_memory_reserved_size(mem)

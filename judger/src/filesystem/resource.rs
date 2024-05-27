@@ -1,8 +1,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
-
 /// A resource counter
 ///
-/// unlike `Semaphore`, the resource is not reusable
+/// unlike [`tokio::sync::Semaphore`], the resource is not reusable
 pub struct Resource(AtomicU64);
 
 impl Resource {

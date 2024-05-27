@@ -46,14 +46,14 @@ impl Drop for Monitor {
         // FIXME: use explicit control flow
         // currently is controlled by dropping order, and it can be broken
         // if one of the thread panics
-        match self.cgroup.v2(){
+        match self.cgroup.v2() {
             true => {
                 self.cgroup.kill().expect("cgroup.kill does not exist");
                 self.cgroup.delete().unwrap();
-            },
+            }
             false => {
                 self.cgroup.set_release_agent("").unwrap();
-            },
+            }
         }
     }
 }
