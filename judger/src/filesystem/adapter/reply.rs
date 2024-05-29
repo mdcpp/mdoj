@@ -8,7 +8,7 @@ use tokio::io::{AsyncRead, AsyncSeek};
 
 use crate::filesystem::{entry::Entry, entry::BLOCKSIZE};
 
-const TTL: Duration = Duration::from_secs(1);
+const TTL: Duration = Duration::from_secs(0);
 
 pub fn dir_entry_plus<F>(
     req: &Request,
@@ -86,15 +86,21 @@ where
     }
 }
 
-pub fn reply_created<F>(req: &Request, entry: &Entry<F>) -> ReplyCreated
+pub fn reply_created<F>(
+    req: &Request,
+    entry: &Entry<F>,
+    fh: u64,
+    flags: u32,
+    inode: u64,
+) -> ReplyCreated
 where
     F: AsyncRead + AsyncSeek + Send + Unpin + 'static,
 {
     ReplyCreated {
         ttl: TTL,
-        attr: file_attr(req, entry, 0),
+        attr: file_attr(req, entry, inode),
         generation: 0,
-        fh: 0,
-        flags: 0,
+        fh,
+        flags,
     }
 }

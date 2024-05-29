@@ -1,8 +1,0 @@
-{
-    "files.watcherExclude": {
-        "plugins/**": true
-    },
-    "rust-analyzer.files.excludeDirs": [
-        "plugins","nsjail-docker"
-    ],
-}

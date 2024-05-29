@@ -17,6 +17,11 @@ impl Drop for MountHandle {
         let handle = self.0.take().unwrap();
         let mountpoint = self.1.take().unwrap();
         tokio::spawn(async move {
+            #[cfg(debug_assertions)]
+            {
+                log::warn!("debug mode: wait for 120s before drop mountpoint");
+                tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
+            }
             handle.unmount().await.unwrap();
             drop(mountpoint);
         });

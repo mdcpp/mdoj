@@ -27,6 +27,10 @@ pub enum FuseError {
     Underlaying,
     #[error("invalid path")]
     InvalidPath,
+    #[error("permission deny")]
+    PermissionDeny,
+    #[error("invalid argument")]
+    InvialdArg,
 }
 
 impl From<FuseError> for fuse3::Errno {
@@ -42,9 +46,11 @@ impl From<FuseError> for fuse3::Errno {
                 libc::ENOMEM
             }
             FuseError::InvalidPath | FuseError::InvaildIno => libc::ENOENT,
+            FuseError::PermissionDeny => libc::EACCES,
+            FuseError::InvialdArg => libc::EINVAL,
             _ => {
                 log::warn!("FUSE driver broken: {}", value);
-                libc::ENOMEM
+                libc::EINVAL
             }
         }
         .into()

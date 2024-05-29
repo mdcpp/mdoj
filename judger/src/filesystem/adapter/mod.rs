@@ -17,14 +17,15 @@ mod test {
     #[ignore = "not meant to be tested"]
     async fn test_mount() {
         Builder::from_default_env()
-            .filter_level(log::LevelFilter::Trace)
+            .filter_level(log::LevelFilter::Info)
+            .filter_module("tracing::span::active", log::LevelFilter::Trace)
             .try_init()
             .ok();
 
         log::info!("mounting test tarball in .temp ...");
         let template = Template::new("plugins/rlua-54.lang").await.unwrap();
         let filesystem = template.as_filesystem(1024 * 1024 * 1024);
-        let mut mount_handle = filesystem.raw_mount_with_path("./.temp/5").await.unwrap();
+        let mut mount_handle = filesystem.raw_mount_with_path("./.temp/28").await.unwrap();
         let handle = &mut mount_handle;
 
         tokio::select! {

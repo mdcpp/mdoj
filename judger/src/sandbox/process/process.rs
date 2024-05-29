@@ -96,7 +96,7 @@ impl<C: Context> Process<C> {
         let root = self.fs.get_path();
         // FIXME: check spec before unwrap
         let jail = self.context.get_args().next().unwrap();
-        let unjailed = [jail, root.as_ref().as_os_str()].join(OsStr::new(""));
+        let unjailed = [root.as_ref().as_os_str(), jail].join(OsStr::new(""));
         let unjailed = PathBuf::from(unjailed);
 
         let mut ancestors = unjailed.ancestors();
@@ -109,7 +109,10 @@ impl<C: Context> Process<C> {
         cmd.kill_on_drop(true);
         cmd.stdin(Stdio::piped());
         cmd.stdout(Stdio::piped());
+        #[cfg(not(debug_assertions))]
         cmd.stderr(Stdio::null());
+        #[cfg(debug_assertions)]
+        cmd.stderr(Stdio::inherit());
         cmd.env("PATH", self.get_env());
 
         let arg_factory = ArgFactory::default()

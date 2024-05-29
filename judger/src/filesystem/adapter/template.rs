@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::filesystem::{
     entry::{Entry, TarTree},
-    table::AdjTable,
+    table::{to_internal_path, AdjTable},
 };
 
 use super::fuse::Filesystem;
@@ -26,7 +26,14 @@ where
     }
     /// read a file by path
     pub async fn read_by_path(&self, path: impl AsRef<Path>) -> Option<Vec<u8>> {
-        self.read_by_path(path).await
+        let paths = to_internal_path(path.as_ref());
+        let node = self.0.get_by_path(paths)?;
+        node.get_value()
+            .assume_tar_file()
+            .expect("expect spec.toml")
+            .read_all()
+            .await
+            .ok()
     }
 }
 

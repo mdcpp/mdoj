@@ -112,7 +112,7 @@ impl<V> AdjTable<V> {
     where
         F: FnMut() -> V,
     {
-        let mut idx = self.get_first().idx;
+        let mut idx: usize = self.get_first().idx;
         for name in path {
             if self.by_id[idx].children.contains_key(&name) {
                 idx = self.by_id[idx].children[&name];
@@ -123,6 +123,8 @@ impl<V> AdjTable<V> {
                     value: default_value(),
                     children: BTreeMap::new(),
                 });
+                // FIXME!
+                idx = new_idx;
                 self.by_id[idx].children.insert(name, new_idx);
             }
         }
@@ -173,6 +175,7 @@ pub struct NodeWrapper<'a, V> {
 impl<'a, V> NodeWrapper<'a, V> {
     /// get id of the node
     pub fn get_id(&self) -> usize {
+        debug_assert!(self.idx < self.table.by_id.len());
         self.idx + ID_MIN
     }
     /// check if the node is root
@@ -202,17 +205,16 @@ impl<'a, V> NodeWrapper<'a, V> {
         &self.table.by_id[self.idx].value
     }
     /// get name of the node
-    pub fn get_name(&self) -> &OsStr {
-        if self.is_root() {
+    pub fn get_name(&self) -> Option<&OsStr> {
+        Some(if self.is_root() {
             OsStr::new("/")
         } else {
             self.table.by_id[self.table.by_id[self.idx].parent_idx]
                 .children
                 .iter()
-                .find(|(_, &idx)| idx == self.idx)
-                .unwrap()
+                .find(|(_, &idx)| idx == self.idx)?
                 .0
-        }
+        })
     }
     /// get node by component
     pub fn get_by_component(&self, component: &OsStr) -> Option<NodeWrapper<V>> {
@@ -270,6 +272,15 @@ impl<'a, V> NodeWrapperMut<'a, V> {
             None
         }
     }
+    /// remove children node by component
+    ///
+    /// note that it won't remove the node itself, only the edge
+    pub fn remove_by_component(&mut self, component: &OsStr) -> bool {
+        self.table.by_id[self.idx]
+            .children
+            .remove(component)
+            .is_some()
+    }
     /// get children nodes' id
     pub fn children(&mut self) -> impl Iterator<Item = usize> + '_ {
         self.table.by_id[self.idx]
@@ -281,6 +292,8 @@ impl<'a, V> NodeWrapperMut<'a, V> {
 
 #[cfg(test)]
 mod test {
+    use std::os::unix::ffi::OsStrExt;
+
     use super::*;
     #[test]
     fn test_adj_table() {
@@ -312,5 +325,18 @@ mod test {
         let l4 = table.get(l3).unwrap().children().next().unwrap();
         assert_eq!(l4, 5);
         assert_eq!(table.get(l4).unwrap().get_value(), &10);
+    }
+    #[test]
+    fn parent_child_insert() {
+        let mut table = super::AdjTable::new();
+        let mut root = table.insert_root(0); // inode 1
+        assert_eq!(root.get_id(), 1);
+        let mut a = root.insert(OsStr::new("a").into(), 1); // inode 2
+        assert_eq!(a.get_id(), 2);
+        let c = a.insert(OsStr::new("c").into(), 3); // inode 3
+        assert_eq!(c.get_id(), 3);
+        let mut b = root.insert(OsStr::new("b").into(), 2); // inode 4
+        assert_eq!(b.get_id(), 4);
+        assert_eq!(b.get_value(), &2);
     }
 }

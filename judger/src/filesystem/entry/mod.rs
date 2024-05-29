@@ -5,7 +5,10 @@ mod tar;
 use self::{ro::TarBlock, rw::MemBlock};
 use bytes::Bytes;
 use fuse3::FileType;
-use std::{ffi::OsString, sync::Arc};
+use std::{
+    ffi::{OsStr, OsString},
+    sync::Arc,
+};
 use tokio::{
     io::{AsyncRead, AsyncSeek},
     sync::Mutex,
@@ -78,6 +81,12 @@ where
             Self::MemFile(_) => FileType::RegularFile,
         }
     }
+    pub(super) fn get_symlink(&self) -> Option<&OsStr> {
+        match self {
+            Self::SymLink(x) => Some(&*x),
+            _ => None,
+        }
+    }
     /// get size of the file
     pub fn get_size(&self) -> u64 {
         match self {
@@ -95,10 +104,9 @@ where
             _ => None,
         }
     }
-    pub async fn read_all(&self) -> Option<Vec<u8>> {
+    pub fn assume_tar_file(&self) -> Option<&TarBlock<F>> {
         match self {
-            Self::TarFile(block) => Some(block.read_all().await.expect("tar ball corrupted")),
-            Self::MemFile(block) => None,
+            Entry::TarFile(x) => Some(x),
             _ => None,
         }
     }

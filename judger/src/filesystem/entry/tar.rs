@@ -43,10 +43,6 @@ impl<F> TarTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
-    pub async fn read_by_path(&self, path: impl AsRef<Path>) -> Option<Vec<u8>> {
-        let node = self.0.get_by_path(to_internal_path(path.as_ref()))?;
-        Some(node.get_value().read_all().await.unwrap())
-    }
     async fn parse_entry<R: Read>(
         &mut self,
         entry: tar::Entry<'_, R>,
@@ -63,8 +59,8 @@ where
                 entry.link_name_bytes().unwrap().into_owned(),
             )),
             EntryType::Directory => Entry::Directory,
-            _ => {
-                log::warn!("unsupported entry type: {:?}", entry.header().entry_type());
+            x => {
+                log::warn!("unsupported entry type: {:?}", x);
                 return Ok(());
             }
         };

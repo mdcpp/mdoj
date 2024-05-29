@@ -3,7 +3,7 @@
 - `table.rs`: adjacency table
   - Tree data structure on vector
   - Inode allocation by `MIN_ID + index`
-  - Not `MT-Safe`
+  - Should be use behind lock
 - `handle.rs`: Mount Handle
   - NewType wrapper for dropping
 - `adapter` module: adapter between internal data structure(tree-like) and `libfuse`
@@ -91,7 +91,6 @@ return: list of file(dictionary)
 example(ignore the fact that many file is missing):
 
 ```
-❯ ls /
 ❯ ls -a /
 .   ..   boot   etc   lib    lib64   media
 ```

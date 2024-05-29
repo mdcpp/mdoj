@@ -1,5 +1,6 @@
 use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 
+use bytes::Bytes;
 use futures_core::Future;
 use spin::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek};
@@ -51,7 +52,7 @@ where
 
         let mut mount_options = MountOptions::default();
 
-        mount_options.uid(uid).gid(gid);
+        mount_options.uid(uid).gid(gid).force_readdir_plus(true);
 
         Session::new(mount_options)
             .mount_with_unprivileged(self, path.as_ref())
@@ -154,7 +155,7 @@ where
             let fh = self
                 .handle_table
                 .add(AsyncMutex::new(node.get_value().clone()));
-            Ok(ReplyOpen { fh, flags: 0 })
+            Ok(ReplyOpen { fh, flags })
         }
     }
     fn open(
@@ -172,7 +173,7 @@ where
             let fh = self
                 .handle_table
                 .add(AsyncMutex::new(node.get_value().clone()));
-            Ok(ReplyOpen { fh, flags: 0 })
+            Ok(ReplyOpen { fh, flags })
         }
     }
     fn readdir<'a>(
@@ -207,13 +208,13 @@ where
             .into_iter()
             .chain(
                 node.children()
-                    .map(|inode| {
+                    .filter_map(|inode| {
                         let node = tree.get(inode).unwrap();
-                        dir_entry(
-                            node.get_name().to_os_string(),
+                        Some(dir_entry(
+                            node.get_name()?.to_os_string(),
                             node.get_value(),
                             inode as u64,
-                        )
+                        ))
                     })
                     .map(Ok),
             )
@@ -264,15 +265,15 @@ where
             .chain(
                 node.children()
                     .enumerate()
-                    .map(|(offset, inode)| {
+                    .filter_map(|(offset, inode)| {
                         let node = tree.get(inode).unwrap();
-                        dir_entry_plus(
+                        Some(dir_entry_plus(
                             &req,
-                            node.get_name().to_os_string(),
+                            node.get_name()?.to_os_string(),
                             node.get_value(),
                             inode as u64,
                             (offset + 3) as i64,
-                        )
+                        ))
                     })
                     .map(Ok),
             )
@@ -403,6 +404,7 @@ where
             Ok(reply_attr(&req, node.get_value(), inode))
         }
     }
+    // open and create fd
     fn create(
         &self,
         req: Request,
@@ -418,9 +420,13 @@ where
                 return Err(FuseError::NotDir.into());
             }
             let mut node = parent_node.insert(name.to_os_string(), Entry::new_file());
+            let fh = self
+                .handle_table
+                .add(AsyncMutex::new(node.get_value().clone()));
 
-            // FIXME: append mode
-            Ok(reply_created(&req, node.get_value()))
+            let inode = node.get_id() as u64;
+            let entry = node.get_value();
+            Ok(reply_created(&req, entry, fh, flags, inode))
         }
     }
     fn mkdir(
@@ -440,6 +446,39 @@ where
             let mut node = parent_node.insert(name.to_os_string(), Entry::Directory);
             let ino = node.get_id() as u64;
             Ok(reply_entry(&req, node.get_value(), ino))
+        }
+    }
+    fn readlink(
+        &self,
+        req: Request,
+        inode: Inode,
+    ) -> impl Future<Output = FuseResult<ReplyData>> + Send {
+        async move {
+            let tree = self.tree.lock();
+            let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+            let link = node
+                .get_value()
+                .get_symlink()
+                .ok_or(FuseError::InvialdArg)?;
+            Ok(ReplyData {
+                data: Bytes::copy_from_slice(link.as_encoded_bytes()),
+            })
+        }
+    }
+    fn unlink(
+        &self,
+        req: Request,
+        parent: Inode,
+        name: &OsStr,
+    ) -> impl Future<Output = FuseResult<()>> + Send {
+        async move {
+            let mut tree = self.tree.lock();
+            let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+            if parent_node.get_value().kind() != FileType::Directory {
+                return Err(FuseError::NotDir.into());
+            }
+            parent_node.remove_by_component(name);
+            Ok(())
         }
     }
 }

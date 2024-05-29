@@ -1,21 +1,12 @@
-# memory in byte, time in microsecond
+file = "/code.c"
+fs_limit = 3145728
 info = "gcc 13.2.0 (G++)"
-extension = "c" # same extension means same language
-name = "c-11" # must be same as dictionary name
-uid = "7daff707-26b5-4153-90ae-9858b9fd9619" # be sure it's unique
+extension = "c"
+name = "c-11"
+id = "7daff707-26b5-4153-90ae-9858b9fd9619"
 
 [compile]
-lockdown = true
-command = ["/compile"]
-kernel_mem = 67108864
-user_mem = 268435456
-rt_time = 1000000
-cpu_time = 10000000
-total_time = 10000000
+command = ["/usr/bin/cc","-x", "c", "code.c", "-lm", "-o", "execute"]
 
 [judge]
-command = ["/execute.sh"]
-kernel_mem = 67108864
-multiplier_memory = 1 # user_mem
-rt_time = 1000000
-multiplier_cpu = 1 # cpu_time
+command = ["/execute"]

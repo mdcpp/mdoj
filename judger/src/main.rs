@@ -16,7 +16,7 @@ type Result<T> = std::result::Result<T, error::Error>;
 async fn main() {
     // FIXME: use CONFIG for logging
     env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Trace)
+        .filter_level(log::LevelFilter::Debug)
         .try_init()
         .ok();
 
