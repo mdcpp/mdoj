@@ -236,7 +236,10 @@ pub struct NodeWrapperMut<'a, V> {
 
 impl<'a, V> NodeWrapperMut<'a, V> {
     /// insert a node by component
-    pub fn insert(&mut self, component: OsString, value: V) -> NodeWrapperMut<V> {
+    pub fn insert(&mut self, component: OsString, value: V) -> Option<NodeWrapperMut<V>> {
+        if self.table.by_id[self.idx].children.contains_key(&component) {
+            return None;
+        }
         let idx = self.table.by_id.len();
         self.table.by_id.push(Node {
             parent_idx: self.idx,
@@ -244,10 +247,10 @@ impl<'a, V> NodeWrapperMut<'a, V> {
             children: BTreeMap::new(),
         });
         self.table.by_id[self.idx].children.insert(component, idx);
-        NodeWrapperMut {
+        Some(NodeWrapperMut {
             table: self.table,
             idx,
-        }
+        })
     }
     /// get id of the node
     pub fn get_id(&self) -> usize {
@@ -300,9 +303,9 @@ mod test {
         let mut table = super::AdjTable::new();
         let mut root = table.insert_root(0);
         root.insert(OsStr::new("a").into(), 1);
-        let mut b = root.insert(OsStr::new("b").into(), 2);
+        let mut b = root.insert(OsStr::new("b").into(), 2).unwrap();
 
-        let c = b.insert(OsStr::new("c").into(), 3);
+        let c = b.insert(OsStr::new("c").into(), 3).unwrap();
 
         assert_eq!(c.get_id(), 4);
         assert_eq!(b.children().collect::<Vec<_>>(), vec![4]);
@@ -331,11 +334,11 @@ mod test {
         let mut table = super::AdjTable::new();
         let mut root = table.insert_root(0); // inode 1
         assert_eq!(root.get_id(), 1);
-        let mut a = root.insert(OsStr::new("a").into(), 1); // inode 2
+        let mut a = root.insert(OsStr::new("a").into(), 1).unwrap(); // inode 2
         assert_eq!(a.get_id(), 2);
-        let c = a.insert(OsStr::new("c").into(), 3); // inode 3
+        let c = a.insert(OsStr::new("c").into(), 3).unwrap(); // inode 3
         assert_eq!(c.get_id(), 3);
-        let mut b = root.insert(OsStr::new("b").into(), 2); // inode 4
+        let mut b = root.insert(OsStr::new("b").into(), 2).unwrap(); // inode 4
         assert_eq!(b.get_id(), 4);
         assert_eq!(b.get_value(), &2);
     }

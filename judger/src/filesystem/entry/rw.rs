@@ -1,7 +1,7 @@
 use std::{io, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
-use super::{FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
+use super::{FuseFlushTrait, FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
 
 /// A block in memory
 ///
@@ -12,6 +12,9 @@ use super::{FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
 #[derive(Default, Debug)]
 pub struct MemBlock {
     data: Arc<Mutex<Vec<u8>>>,
+    /// when file is in read mode, cursor is the position of the next byte to read
+    /// 
+    /// when file is in write mode, cursor at of the write buffer(append)
     cursor: usize,
     write_buffer: Vec<u8>,
 }
@@ -23,6 +26,9 @@ impl MemBlock {
             cursor: 0,
             write_buffer: Vec::new(),
         }
+    }
+    pub async fn set_append(&mut self){
+        self.cursor=self.data.lock().await.len();
     }
     pub fn get_size(&self) -> u64 {
         self.data.try_lock().map(|x| x.len()).unwrap_or_default() as u64
@@ -45,16 +51,31 @@ impl FuseReadTrait for MemBlock {
 }
 impl FuseWriteTrait for MemBlock {
     async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32> {
+        // FIXME: file hole may cause OOM
         let mut locked = self.data.lock().await;
-        if locked.len() < offset as usize {
+        if self.cursor as usize > locked.len() {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "mem block out of bound",
             ));
         }
-        locked.resize(offset as usize, 0);
-        locked.extend_from_slice(data);
+        let new_size=self.cursor+offset as usize+data.len();
+        if locked.len() < new_size {
+            locked.resize(new_size, 0);
+        }
+        for i in 0..data.len() {
+            locked[self.cursor + offset as usize + i] = data[i];
+        }
         Ok(data.len() as u32)
+    }
+}
+
+impl FuseFlushTrait for MemBlock {
+    async fn flush(&mut self) -> std::io::Result<()> {
+        let mut locked = self.data.lock().await;
+        locked.extend_from_slice(&self.write_buffer);
+        self.write_buffer.clear();
+        Ok(())
     }
 }
 
@@ -62,7 +83,7 @@ impl Clone for MemBlock {
     fn clone(&self) -> Self {
         Self {
             data: self.data.clone(),
-            cursor: self.cursor.clone(),
+            cursor: 0,
             write_buffer: self.write_buffer.clone(),
         }
     }

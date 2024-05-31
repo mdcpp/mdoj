@@ -28,6 +28,10 @@ pub trait FuseWriteTrait {
     async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32>;
 }
 
+pub trait FuseFlushTrait {
+    async fn flush(&mut self) -> std::io::Result<()>;
+}
+
 /// Entry in the filesystem
 ///
 /// cloning the entry would clone file state
@@ -110,6 +114,14 @@ where
             _ => None,
         }
     }
+    pub async fn set_append(&mut self) {
+        match self {
+            Entry::MemFile(x) => x.set_append().await,
+            _ => {
+                // FIXME: copy on write
+            }
+        }
+    }
     pub async fn write(
         self_: Arc<Mutex<Self>>,
         offset: u64,
@@ -123,6 +135,13 @@ where
         match &mut *lock {
             Self::MemFile(block) => Some(block.write(offset, data).await),
             Self::TarFile(block) => Some(Err(std::io::Error::from(std::io::ErrorKind::Other))),
+            _ => None,
+        }
+    }
+    pub async fn flush(self_: Arc<Mutex<Self>>) -> Option<std::io::Result<()>> {
+        let mut lock = self_.lock().await;
+        match &mut *lock {
+            Self::MemFile(block) => Some(block.flush().await),
             _ => None,
         }
     }

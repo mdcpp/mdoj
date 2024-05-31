@@ -326,6 +326,19 @@ where
                 .map(|written| ReplyWrite { written })?)
         }
     }
+    fn flush(
+        &self,
+        req: Request,
+        inode: Inode,
+        fh: u64,
+        lock_owner: u64,
+    ) -> impl Future<Output = FuseResult<()>> + Send {
+        async move {
+            let node = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
+            Entry::flush(node).await.ok_or(FuseError::Unimplemented);
+            Ok(())
+        }
+    }
     fn access(
         &self,
         req: Request,
@@ -419,10 +432,18 @@ where
             if parent_node.get_value().kind() != FileType::Directory {
                 return Err(FuseError::NotDir.into());
             }
-            let mut node = parent_node.insert(name.to_os_string(), Entry::new_file());
+            let mut node = parent_node
+                .insert(name.to_os_string(), Entry::new_file())
+                .ok_or(FuseError::AlreadyExist)?;
+
+            let mut entry=node.get_value().clone();
+            if flags&u32::from_ne_bytes(libc::O_APPEND.to_ne_bytes()) != 0 {
+                entry.set_append().await;
+            }
+
             let fh = self
                 .handle_table
-                .add(AsyncMutex::new(node.get_value().clone()));
+                .add(AsyncMutex::new(entry));
 
             let inode = node.get_id() as u64;
             let entry = node.get_value();
@@ -443,7 +464,9 @@ where
             if parent_node.get_value().kind() != FileType::Directory {
                 return Err(FuseError::NotDir.into());
             }
-            let mut node = parent_node.insert(name.to_os_string(), Entry::Directory);
+            let mut node = parent_node
+                .insert(name.to_os_string(), Entry::Directory)
+                .ok_or(FuseError::AlreadyExist)?;
             let ino = node.get_id() as u64;
             Ok(reply_entry(&req, node.get_value(), ino))
         }

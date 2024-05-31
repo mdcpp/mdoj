@@ -31,6 +31,8 @@ pub enum FuseError {
     PermissionDeny,
     #[error("invalid argument")]
     InvialdArg,
+    #[error("Already exist")]
+    AlreadyExist
 }
 
 impl From<FuseError> for fuse3::Errno {
@@ -48,8 +50,10 @@ impl From<FuseError> for fuse3::Errno {
             FuseError::InvalidPath | FuseError::InvaildIno => libc::ENOENT,
             FuseError::PermissionDeny => libc::EACCES,
             FuseError::InvialdArg => libc::EINVAL,
+            FuseError::AlreadyExist => libc::EEXIST,
             _ => {
                 log::warn!("FUSE driver broken: {}", value);
+                panic!("test");
                 libc::EINVAL
             }
         }

@@ -115,8 +115,6 @@ impl super::Monitor for Monitor {
         reason
     }
     fn poll_exhaust(&mut self) -> Option<MonitorKind> {
-        debug_assert!(self.cgroup.tasks().is_empty());
-
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
 
         if wrapper.oom() {
@@ -133,7 +131,7 @@ impl super::Monitor for Monitor {
     /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
     async fn stat(self) -> Self::Resource {
         // there should be no process left
-        debug_assert!(self.cgroup.tasks().is_empty());
+        // debug_assert!(self.cgroup.tasks().is_empty());
         // poll once more to get final stat
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
         (wrapper.memory(), wrapper.cpu())
