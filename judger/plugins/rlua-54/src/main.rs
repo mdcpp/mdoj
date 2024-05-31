@@ -1,6 +1,9 @@
 const LUA_SRC: &str = "/code.lua";
 use std::{
-    env::args, fs, io::{stdin, BufRead, Read}, process::exit
+    env::args,
+    fs,
+    io::{stdin, BufRead, Read},
+    process::exit,
 };
 
 use rlua::{prelude::*, Context, Lua, ToLua, Value, Variadic};
@@ -68,7 +71,7 @@ fn lua_read(ctx: Context, string: String) -> rlua::Result<LuaValue> {
 }
 
 pub fn main() {
-    if args().len()!=1{
+    if args().len() != 1 {
         return;
     }
     let lua = Lua::new();
@@ -77,7 +80,7 @@ pub fn main() {
         let write = ctx.create_function(lua_write).unwrap();
         let read = ctx.create_function(lua_read).unwrap();
 
-        let io_table= ctx.create_table().unwrap();
+        let io_table = ctx.create_table().unwrap();
         io_table.set("write", write).unwrap();
         io_table.set("read", read).unwrap();
 
@@ -88,7 +91,7 @@ pub fn main() {
         let source = fs::read(crate::LUA_SRC).unwrap();
         let code = ctx.load(&source);
 
-        if let Err(err)=code.exec(){
+        if let Err(err) = code.exec() {
             eprintln!("{}", err);
             exit(1);
         }
