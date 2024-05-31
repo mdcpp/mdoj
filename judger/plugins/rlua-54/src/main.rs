@@ -1,6 +1,6 @@
 const LUA_SRC: &str = "/code.lua";
 use std::{
-    env::{args, args_os}, fs, io::{stdin, BufRead, Read}, process::exit
+    env::args, fs, io::{stdin, BufRead, Read}, process::exit
 };
 
 use rlua::{prelude::*, Context, Lua, ToLua, Value, Variadic};
