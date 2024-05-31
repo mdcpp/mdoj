@@ -63,7 +63,7 @@ impl CryptoController {
     #[tracing::instrument(name = "crypto_hash_controller", level = "debug", skip_all)]
     pub fn hash(&self, src: &str) -> Vec<u8> {
         let mut hasher = Blake2b512::new();
-        hasher.update(&[src.as_bytes(), self.salt.as_slice()].concat());
+        hasher.update([src.as_bytes(), self.salt.as_slice()].concat());
 
         let hashed = hasher.finalize();
         hashed.to_vec()

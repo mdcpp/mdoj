@@ -45,8 +45,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: build nsjail
         run: cd judger && just build-nsjail
-      - name: build rlua-54
-        run: cd judger && just release-docker
       - name: build judger
         uses: docker/build-push-action@v5
         with:

@@ -1,30 +1,40 @@
-use std::sync::Arc;
+mod config;
+mod error;
+mod filesystem;
+mod language;
+mod sandbox;
+mod server;
 
-use grpc::prelude::judger_server::JudgerServer;
-use init::config::CONFIG;
+pub use config::CONFIG;
 
-pub mod grpc;
-pub mod init;
-pub mod langs;
-pub mod sandbox;
-pub mod server;
-#[cfg(test)]
-pub mod tests;
+use grpc::judger::judger_server::JudgerServer;
+use server::Server;
+
+type Result<T> = std::result::Result<T, error::Error>;
 
 #[tokio::main]
 async fn main() {
-    init::new().await;
+    // FIXME: use CONFIG for logging
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .try_init()
+        .ok();
 
-    let config = CONFIG.get().unwrap();
-    let addr = config.runtime.bind.parse().unwrap();
+    let default_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("something panic, exiting...");
+        default_panic(info);
+        std::process::exit(1);
+    }));
 
-    log::info!("Server started");
+    #[cfg(debug_assertions)]
+    log::warn!("running debug build");
 
-    let server = server::Server::new().await;
+    let server = Server::new().await.unwrap();
 
     tonic::transport::Server::builder()
-        .add_service(JudgerServer::new(Arc::new(server)))
-        .serve(addr)
+        .add_service(JudgerServer::new(server))
+        .serve(CONFIG.address)
         .await
         .unwrap();
 }

@@ -6,19 +6,33 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cgroups-rs = "0.3.2"
+cgroups-rs = "0.3.4"
 env_logger = "0.10.1"
 futures-core = "0.3.30"
-log = "0.4.17"
 prost = { workspace = true }
 prost-types = { workspace = true }
 thiserror = "1.0.40"
 toml = { workspace = true }
 derive_builder = { workspace = true }
+tar = "0.4.40"
+grpc = { path = "../grpc" }
+lazy_static = "1.4.0"
+libc = "0.2.154"
+bytes = "1.6.0"
+async-stream = "0.3.5"
+
+[dependencies.log]
+version = "0.4.17"
+features = ["release_max_level_debug"]
+
+[dependencies.fuse3]
+version = "0.7.1"
+features = ["tokio-runtime", "unprivileged"]
 
 [dependencies.rustix]
 version = "0.38.28"
 features = ["process", "thread"]
+
 [dependencies.uuid]
 version = "1.6.1"
 features = ["serde"]
@@ -32,6 +46,7 @@ features = [
     "fs",
     "io-util",
     "parking_lot",
+    "signal"
 ]
 
 # TODO migrate to 10
@@ -55,6 +70,3 @@ features = ["mutex", "spin_mutex"]
 tempfile = "3.8.0"
 tower = "0.4.13"
 tower-layer = "0.3.2"
-
-[build-dependencies]
-tonic-build = "0.9.2"

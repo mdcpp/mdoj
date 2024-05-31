@@ -45,6 +45,8 @@ jobs:
         run: mkdir -p backend/config && cargo test -p backend
       - name: Run Frontend Unit Test
         run: cargo test -p frontend
+      - name: Run Judger Unit Test
+        run: cargo test -p judger
       - name: Lint
         run: |
           cargo fmt --all -- --check

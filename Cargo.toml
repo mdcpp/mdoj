@@ -7,6 +7,7 @@ members = [
     "testsuit",
     "backend/migration",
     "grpc",
+    "judger/plugins/rlua-54",
 ]
 
 [workspace.dependencies]

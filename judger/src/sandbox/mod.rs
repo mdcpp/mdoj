@@ -1,50 +1,58 @@
-pub(super) mod container;
-pub(super) mod daemon;
-pub(super) mod process;
-pub(super) mod utils;
+mod error;
+mod macro_;
+mod monitor;
+mod process;
 
-use thiserror::Error;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
-pub mod prelude {
-    pub use super::container::Container;
-    pub use super::daemon::ContainerDaemon;
-    pub use super::process::{ExitProc, ExitStatus, RunningProc};
-    pub use super::utils::limiter::cpu::CpuStatistics;
-    pub use super::utils::limiter::mem::MemStatistics;
-    pub use super::utils::semaphore::{MemoryPermit, MemorySemaphore, MemoryStatistic};
-    pub use super::Error;
-    pub use super::Limit;
+pub use self::monitor::{Cpu, Memory, Stat};
+pub use error::Error;
+pub use monitor::MonitorKind;
+pub use process::{Corpse, Process};
+
+/// Context of the sandbox
+///
+/// define resource limit and filesystem is out of the scope of `filesystem`
+pub trait Context: Limit {
+    type FS: Filesystem;
+    fn get_fs(&mut self) -> Self::FS;
+    fn get_args(&mut self) -> impl Iterator<Item = &OsStr>;
 }
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Impossible to run the task given the provided resource preservation policy")]
-    ImpossibleResource,
-    #[error("Resource provided, but the process refused to continue")]
-    Stall,
-    #[error("The pipe has been capture")]
-    CapturedPipe,
-    #[error("IO error: `{0}`")]
-    IO(#[from] std::io::Error),
-    #[error("`{0}`")]
-    ControlGroup(#[from] cgroups_rs::error::Error),
-    #[error("Error from system call `{0}`")]
-    Libc(u32),
-    #[error("Fail calling cgroup, check subsystem and hier support")]
-    CGroup,
-    #[error("Read buffer is full before meeting EOF")]
-    BufferFull,
+pub trait Limit {
+    fn get_cpu(&mut self) -> Cpu;
+    fn get_memory(&mut self) -> Memory;
+    fn get_output(&mut self) -> u64;
+    fn get_walltime(&mut self) -> Duration {
+        Duration::from_secs(60 * 30)
+    }
 }
 
-// const NICE: i32 = 18;
+pub trait Filesystem {
+    fn get_path(&mut self) -> impl AsRef<Path> + Send;
+}
 
-#[derive(Debug, Clone)]
-pub struct Limit {
-    pub lockdown: bool,
-    pub cpu_us: u64,
-    pub rt_us: u64,
-    pub total_us: u64,
-    pub user_mem: u64,
-    pub kernel_mem: u64,
-    pub swap_user: u64,
+impl Filesystem for PathBuf {
+    fn get_path(&mut self) -> impl AsRef<Path> + Send {
+        self.as_path().iter()
+    }
+}
+
+impl Limit for (Cpu, Memory, u64, Duration) {
+    fn get_cpu(&mut self) -> Cpu {
+        self.0.clone()
+    }
+    fn get_memory(&mut self) -> Memory {
+        self.1.clone()
+    }
+    fn get_output(&mut self) -> u64 {
+        self.2
+    }
+    fn get_walltime(&mut self) -> Duration {
+        self.3
+    }
 }

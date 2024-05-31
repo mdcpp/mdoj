@@ -1,15 +1,8 @@
-release-docker:
-    cd plugins/rlua-54 && sh ./build.sh
-    # sudo docker build --build-arg ARCH=$(uname -m) -f ./Dockerfile -t mdoj-judger ..
-
 build-plugin:
-    mkdir -p config plugins-out
     cd plugins && sh build-all.sh
+    mkdir -p config plugins-out
+    mv plugins/*.lang plugins-out/
 
-release-plugin:
-    just build-plugin
-    cd plugins && sh export-all.sh
-    
 build-nsjail:
     sh ./build-nsjail.sh
     cp nsjail-docker/output/*-linux-musl/nsjail-* .
@@ -18,27 +11,9 @@ prepare:
     just build-nsjail
     just build-plugin
 
-clean:
-    sudo rm -rf .temp
-    cargo clean
+clean-nsjail:
+    sudo rm -rf ./nsjail-3.1
     docker images rm nsjail-3.1-$(uname -m)-linux-musl
     docker images rm protobuf-3.21.1-$(uname -m)-linux-musl
     docker images rm libnl-3.2.25-$(uname -m)-linux-musl
     docker images rm musl-cross-make-$(uname -m)-linux-musl
-
-test:
-    sudo rm -rf .temp/*
-    mkdir -p .temp
-    cargo test --no-fail-fast -- --test-threads 1 
-
-run:
-    sudo rm -rf .temp/* 
-    cargo run
-
-run-release:
-    sudo rm -rf .temp/*
-    cargo run --release
-
-ci-test:
-    just ci-test
-    just test

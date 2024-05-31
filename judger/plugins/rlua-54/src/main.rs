@@ -1,29 +1,99 @@
-use std::process::ExitCode;
+const LUA_SRC: &str = "/code.lua";
+use std::{
+    env::args,
+    fs,
+    io::{stdin, BufRead, Read},
+    process::exit,
+};
 
-mod compile;
-mod execute;
-mod violate;
-const LUA_SRC: &str = "/src/code.txt";
+use rlua::{prelude::*, Context, Lua, ToLua, Value, Variadic};
 
-fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().collect();
+fn lua_write(_: Context, strings: Variadic<String>) -> rlua::Result<bool> {
+    for s in strings {
+        print!("{}", String::from_utf8_lossy(s.as_bytes()));
+    }
+    Ok(true)
+}
 
-    let cmd=args.get(1).unwrap().as_str();
+fn lua_read(ctx: Context, string: String) -> rlua::Result<LuaValue> {
+    match string.as_str() {
+        "*all" | "*a" => {
+            let mut buf = Vec::new();
+            stdin().lock().read_to_end(&mut buf).unwrap();
+            let s = ctx.create_string(&buf)?;
+            s.to_lua(ctx)
+        }
+        "*line" | "*l" => {
+            let mut buf = Vec::new();
+            stdin().lock().read_until(b'\n', &mut buf).ok();
+            let s = ctx.create_string(&buf)?;
+            s.to_lua(ctx)
+        }
+        "*number" | "*n" => {
+            let mut reader = stdin().lock();
+            let mut is_float = false;
+            let mut result: Vec<u8> = Vec::new();
 
-    match cmd {
-        "compile" => compile::compile(),
-        "execute" => execute::execute(),
-        "violate" => match args.get(2).unwrap().as_str(){
-            "cpu" => violate::cpu(),
-            "mem" => violate::mem(),
-            "disk" => violate::disk(),
-            "net" => violate::net(),
-            "syscall" => violate::syscall(),
-            _ => println!("3: Invalid command"),
+            loop {
+                let mut buf = vec![0; 1];
+                if reader.read_exact(&mut buf).is_ok() {
+                    let b = buf[0];
+                    match b {
+                        b'0'..=b'9' => result.push(b),
+                        b'.' => {
+                            if is_float {
+                                break;
+                            }
+                            is_float = true;
+                            result.push(b);
+                        }
+                        _ => break,
+                    }
+                }
+            }
+
+            String::from_utf8(result)
+                .unwrap()
+                .parse::<f64>()
+                .unwrap()
+                .to_lua(ctx)
+        }
+        _ => match string.parse::<usize>() {
+            Ok(n) => {
+                let mut buf = vec![0; n];
+                stdin().read_exact(&mut buf).unwrap();
+                let s = ctx.create_string(&buf)?;
+                s.to_lua(ctx)
+            }
+            Err(_) => Ok(Value::Nil),
         },
-        "hello" => println!("hello world"),
-        _ => println!("4: Invalid command: \"{}\"", cmd),
-    };
+    }
+}
 
-    ExitCode::from(0)
+pub fn main() {
+    if args().len() != 1 {
+        return;
+    }
+    let lua = Lua::new();
+    lua.context(|ctx| {
+        let printf = ctx.create_function(lua_write).unwrap();
+        let write = ctx.create_function(lua_write).unwrap();
+        let read = ctx.create_function(lua_read).unwrap();
+
+        let io_table = ctx.create_table().unwrap();
+        io_table.set("write", write).unwrap();
+        io_table.set("read", read).unwrap();
+
+        let globals = ctx.globals();
+        globals.set("printf", printf).unwrap();
+        globals.set("io", io_table).unwrap();
+
+        let source = fs::read(crate::LUA_SRC).unwrap();
+        let code = ctx.load(&source);
+
+        if let Err(err) = code.exec() {
+            eprintln!("{}", err);
+            exit(1);
+        }
+    });
 }
