@@ -29,9 +29,5 @@ COPY --from=builder /usr/local/cargo/bin/judger /
 
 COPY judger/nsjail-3.1 /
 
-WORKDIR /plugins/rlua-54
-COPY judger/plugins/rlua-54/rootfs rootfs
-COPY judger/plugins/rlua-54/spec.toml .
-
 WORKDIR /
 CMD ["/judger"]

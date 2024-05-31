@@ -1,12 +1,12 @@
 fs_limit = 3145728
-file = "/src/code.txt"
+file = "/code.lua"
 info = "A lightweight Lua 5.4 runtime build for both secure sandboxing and modj-sandbox test"
 extension = "lua" # same extension means same language
 name = "rlua-54"
 id = "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" # be sure it's unique
 
 [compile]
-command = ["/rlua-54","compile"]
+command = ["/rlua-54","skip"]
 
 [judge]
-command = ["/rlua-54","execute"]
+command = ["/rlua-54"]

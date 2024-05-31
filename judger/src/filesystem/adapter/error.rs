@@ -32,7 +32,7 @@ pub enum FuseError {
     #[error("invalid argument")]
     InvialdArg,
     #[error("Already exist")]
-    AlreadyExist
+    AlreadyExist,
 }
 
 impl From<FuseError> for fuse3::Errno {

@@ -7,8 +7,8 @@ members = [
     "testsuit",
     "backend/migration",
     "grpc",
+    "judger/plugins/rlua-54",
 ]
-exclude = ["judger/plugins/rlua-54"]
 
 [workspace.dependencies]
 prost = "0.12.3"

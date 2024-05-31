@@ -436,14 +436,12 @@ where
                 .insert(name.to_os_string(), Entry::new_file())
                 .ok_or(FuseError::AlreadyExist)?;
 
-            let mut entry=node.get_value().clone();
-            if flags&u32::from_ne_bytes(libc::O_APPEND.to_ne_bytes()) != 0 {
+            let mut entry = node.get_value().clone();
+            if flags & u32::from_ne_bytes(libc::O_APPEND.to_ne_bytes()) != 0 {
                 entry.set_append().await;
             }
 
-            let fh = self
-                .handle_table
-                .add(AsyncMutex::new(entry));
+            let fh = self.handle_table.add(AsyncMutex::new(entry));
 
             let inode = node.get_id() as u64;
             let entry = node.get_value();

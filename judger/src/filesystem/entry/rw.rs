@@ -13,7 +13,7 @@ use super::{FuseFlushTrait, FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
 pub struct MemBlock {
     data: Arc<Mutex<Vec<u8>>>,
     /// when file is in read mode, cursor is the position of the next byte to read
-    /// 
+    ///
     /// when file is in write mode, cursor at of the write buffer(append)
     cursor: usize,
     write_buffer: Vec<u8>,
@@ -27,8 +27,8 @@ impl MemBlock {
             write_buffer: Vec::new(),
         }
     }
-    pub async fn set_append(&mut self){
-        self.cursor=self.data.lock().await.len();
+    pub async fn set_append(&mut self) {
+        self.cursor = self.data.lock().await.len();
     }
     pub fn get_size(&self) -> u64 {
         self.data.try_lock().map(|x| x.len()).unwrap_or_default() as u64
@@ -59,7 +59,7 @@ impl FuseWriteTrait for MemBlock {
                 "mem block out of bound",
             ));
         }
-        let new_size=self.cursor+offset as usize+data.len();
+        let new_size = self.cursor + offset as usize + data.len();
         if locked.len() < new_size {
             locked.resize(new_size, 0);
         }
