@@ -17,6 +17,6 @@ FROM scratch
 WORKDIR /
 COPY --from=builder /usr/local/cargo/bin/rlua-54 /
 
-COPY sepc.toml /
+COPY spec.toml /
 
 CMD ["/rlua-54/rlua-54"]

@@ -1,5 +1,5 @@
 build-plugin:
-    cd plugins && sh build-all.sh
+    cd plugins && sudo sh build-all.sh
     mkdir -p config plugins-out
     mv plugins/*.lang plugins-out/
 

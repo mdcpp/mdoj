@@ -62,7 +62,7 @@ features = ["rt-multi-thread", "fs", "sync"]
 
 [dependencies.grpc]
 path = "../grpc"
-features = ["serde"]
+features = ["wkt"]
 
 [build-dependencies.tonic-build]
 features = ["prost"]

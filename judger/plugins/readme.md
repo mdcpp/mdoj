@@ -1,76 +1,55 @@
-# Develop a module for new language support
+# Develop a module for new language support(plugin)
 
-`rlua-54` and `rlua-54` is the example plugin
+`rlua-54` and `c-11` is the example plugin
 
-## How it works?
+|name|application| 
+|:-:|:-|
+|rlua-54|interpreter language|
+|c-11|compile language|
 
-Compile Stage:
+an language support it's just a tar file containing a whole filesystem, including `spec.toml` at root of tar file.
 
-1. Start compile command in jail
-2. Daemon write source code to jail's stdout, and close pipe
-3. ``Compile`` subprocess exit
+## How to generate such tar file?
 
-Execute Stage:
+use `docker export`
 
-4. Start execute command in jail
-5. Daemon write input to jail's stdin
-6. ``Execute`` subprocess exit
-7. Daemon exam the exit status of subprocess
-8. Daemon exam the stdout of ``Execute`` subprocess.
-
-If you would like to log, write following string(utf-8 only) to stderr in compile stage:
-
-```log
-<Level><Message>
+```
+docker export ___ > c-11.lang
 ```
 
-Don't append ``\n`` in the end of the stdout, and it should never be ``\r\n``.
+## spec.toml
 
-LEVEL should be number 1-6, would be interpreted as TRACE, DEBUG, INFO, WARN, ERROR.
+Not all field is required, the minimal field required is show as example in `rula-54`.
 
-The return code of non-zero would be considered Compile Error.
+the full spec.toml is show below:
 
-## How to develop a container for language support
-
-One of the recommanded way is with ``docker export``.
-
-Program your own docker image and run:
- 
-```shell
-# if docker is not in rootless mode you need add `sudo` in front of docker command
-docker export ${id of your docker container} | tar -C plugins/${plugin name}/rootfs -xvf -
-```
-
-finish spec.toml like this
-```ini
-# memory in byte, time in microsecond
-info = "A Lua 5.4 runtime build both real workloads and sandbox tests"
-extension = "lua" # same extension means same language
-name = "rlua-54" # must be same as dictionary name
-uid = "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" # be sure it's unique
+```toml
+file = "/code.c"
+fs_limit = 3145728 # number of byte the whole process(compile+judge) is allowed to write
+info = "gcc 13.2.0 (G++)"
+extension = "c"
+name = "c-11"
+id = "7daff707-26b5-4153-90ae-9858b9fd9619" # you can generate it randomly(https://www.uuidgenerator.net)
 
 [compile]
-lockdown = true
-command = ["/rlua-54","compile"]
-kernel_mem = 67108864
-user_mem = 268435456
-rt_time = 1000000
-cpu_time = 10000000
-total_time = 10000000
+command = ["/usr/bin/cc","-x", "c", "code.c", "-lm", "-o", "/execute"]
+kernel_mem = 1 # number of kernel space memory limit in byte
+memory = 1 # number of total memory limit in byte
+user_mem = 1 # number of userspace memory limit in byte
+rt_time = 1 # number of non-preemptible execution time in nanosecond
+cpu_time = 1 # number of preemptible execution time in nanosecond
+total_time = 1 # # number of non-preemptible execution time in nanosecond
+walltime = 1 # number of time in **milliseconds**(realtime, it count even scheduler didn't dispatch any time for the task)/
 
 [judge]
-command = ["/rlua-54","execute"]
-kernel_mem = 67108864
-multiplier_memory = 6 # user_mem
-rt_time = 1000000
-multiplier_cpu = 3 # cpu_time
+command = ["/execute"]
+kernel_mem = 1 # number of kernel space memory limit in byte
+rt_time = 1 # number of non-preemptible execution time in nanosecond
+cpu_time = 1 # number of preemptible execution time in nanosecond
+total_time = 1 # # number of non-preemptible execution time in nanosecond
+memory_multiplier = 1.0 # multiplier for total memory limit in byte
+cpu_multiplier = 1.0  # multiplier for total cpu execution limit in nanosecond
+output = 1 # max output in byte
+walltime = 1 # number of time in **milliseconds**(realtime, it count even scheduler didn't dispatch any time for the task)/
+
 ```
-
-## Troubleshooting
-
-### Execute jail recieve SIGKILL with no reason
-
-Possiblility:
-
-1. Execute jail was lockdown(cannot write anything) for security reason, and the process in which try to open a file with write flag('w' in name of chmod).
-

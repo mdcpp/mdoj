@@ -29,15 +29,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "oj.backend.AnnouncementSortBy",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .compile(&["../proto/backend.proto"], &["../proto"])?;
-    // tonic_build::compile_protos("../proto/backend.proto")?;
-    // tonic_build::compile_protos("../proto/judger.proto")?;
+        .compile(&["../grpc/proto/backend.proto"], &["../grpc/proto"])?;
     tonic_build::configure()
         .build_server(false)
         .type_attribute(
             "oj.backend.SortBy",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .compile(&["../proto/judger.proto"], &["../proto"])?;
+        .compile(&["../grpc/proto/judger.proto"], &["../grpc/proto"])?;
     Ok(())
 }
