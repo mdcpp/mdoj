@@ -2,7 +2,10 @@ use crate::async_loop;
 
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
-use std::sync::{atomic::Ordering, Arc};
+use std::{
+    sync::{atomic::Ordering, Arc},
+    vec,
+};
 use tokio::{select, time::*};
 
 /// maximum allow time deviation for cpu monitor
@@ -76,6 +79,7 @@ impl Monitor {
                 .realtime_period(MONITOR_ACCURACY.as_nanos() as u64)
                 // .realtime_runtime(MONITOR_ACCURACY.as_nanos() as i64)
                 .done()
+                // .set_specified_controllers(vec!["cpu","memory","pids"].into_iter().map(|x|x.to_string()).collect())
                 .build(MONITER_KIND.heir())?,
         );
         // FIXME: set oom control

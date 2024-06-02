@@ -6,6 +6,8 @@ use std::{
     path::Path,
 };
 
+use crate::CONFIG;
+
 pub static NSJAIL_PATH: &str = "./nsjail-3.1";
 
 pub trait Argument {
@@ -34,20 +36,24 @@ pub struct BaseArg;
 
 impl Argument for BaseArg {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
-        vec![
+        let mut args = vec![
             Cow::Borrowed(OsStr::from_bytes(b"-Me")),
             Cow::Borrowed(OsStr::from_bytes(b"-l")),
             #[cfg(not(debug_assertions))]
             Cow::Borrowed(OsStr::from_bytes(b"/dev/null")),
             #[cfg(debug_assertions)]
             Cow::Borrowed(OsStr::from_bytes(b"nsjail.log")),
-            Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newuser")),
             Cow::Borrowed(OsStr::from_bytes(b"--env")),
             Cow::Borrowed(OsStr::from_bytes(
                 b"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             )),
-        ]
-        .into_iter()
+        ];
+
+        if !CONFIG.rootless {
+            log::debug!("running in root mode");
+            args.push(Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newuser")));
+        }
+        args.into_iter()
     }
 }
 
@@ -67,6 +73,8 @@ impl<'a> Argument for CGroupMountArg<'a> {
                 Cow::Borrowed(OsStr::from_bytes(b"0")),
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_cpu_parent")),
                 Cow::Owned(OsString::from(self.cg_name)),
+                // Cow::Borrowed(OsStr::from_bytes(b"--cgroupv2_mount")),
+                // Cow::Owned(OsString::from(self.cg_name)),
             ],
             false => vec![
                 Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),

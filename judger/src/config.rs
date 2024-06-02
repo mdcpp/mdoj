@@ -1,11 +1,9 @@
+use libc::getuid;
 use serde::{Deserialize, Serialize};
 
 #[cfg(not(test))]
 use std::path::PathBuf;
-use std::{
-    net::{SocketAddr, SocketAddrV4},
-    str::FromStr,
-};
+use std::{net::SocketAddr, str::FromStr};
 
 #[cfg(not(test))]
 fn try_load_config() -> Result<Config, Box<dyn std::error::Error>> {
@@ -23,7 +21,7 @@ fn try_load_config() -> Result<Config, Box<dyn std::error::Error>> {
 #[cfg(not(test))]
 lazy_static::lazy_static! {
     pub static ref CONFIG_PATH: PathBuf = PathBuf::from("config.toml");
-    pub static ref CONFIG: Config=try_load_config().unwrap_or_default();
+    pub static ref CONFIG: Config=try_load_config().unwrap_or_default().check();
 }
 
 #[cfg(test)]
@@ -91,6 +89,16 @@ pub struct Config {
     pub memory: u64,
     #[serde(default = "default_addr")]
     pub address: SocketAddr,
+}
+
+impl Config {
+    pub fn check(mut self) -> Self {
+        if !self.rootless && unsafe { getuid() } != 0 {
+            self.rootless = true;
+            log::warn!("rootles is not specified, but not running as root, set rootless=true");
+        }
+        self
+    }
 }
 
 impl Default for Config {
