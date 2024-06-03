@@ -1,4 +1,17 @@
 ## Module Layout
+- `error.rs`: collection of internal error
+- `macro_.rs`: useful macro for async
+- `process` module: collection of process, much like chain of responsibility
+    - `nsjail.rs`: factory for building paramter for nsjail
+    - `process.rs`: a process that hasn't run yet.
+    - `corpse.rs`: a process that is dead and collect by parent process.
+- `monitor` module: composite of different kind of monitors
+    - `stat.rs`: types that foreign function pass as paramter to monitor
+    - `hier.rs`:  provide infomation that which cgroup controller should be use
+    - `wrapper.rs`: newtype wrapper for `cgroups_rs::Cgroup`, it contain low level logic that may differ between cgroup version one and two
+    - `mem_cpu.rs`: monitor for resource usage which rely on cgroup to be functional
+    - `output.rs`: buffer output of process(`man pipe`), check if output limit excessive
+    - `walltime.rs`: check if programm take too long to complete(if a process refuse to consume cpu time)
 
 ## Prerequisite knowledge
 
