@@ -2,16 +2,15 @@ use crate::async_loop;
 
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
-use std::{
-    sync::{atomic::Ordering, Arc},
-    vec,
-};
+use std::sync::{atomic::Ordering, Arc};
 use tokio::{select, time::*};
 
 /// maximum allow time deviation for cpu monitor
 pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
 
-const CG_PATH_COUNTER: AtomicUsize = AtomicUsize::new(0);
+lazy_static::lazy_static! {
+    pub static ref CG_PATH_COUNTER: AtomicUsize=AtomicUsize::new(0);
+}
 
 async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> MonitorKind {
     let wrapper = wrapper::CgroupWrapper::new(&cgroup);
@@ -135,7 +134,7 @@ impl super::Monitor for Monitor {
     /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
     async fn stat(self) -> Self::Resource {
         // FIXME: check running process, this line is commented out because of uncollected process
-        // uncollected process is at state of not running, but pid is still in use 
+        // uncollected process is at state of not running, but pid is still in use
         // debug_assert!(self.cgroup.tasks().is_empty());
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
         (wrapper.memory(), wrapper.cpu())

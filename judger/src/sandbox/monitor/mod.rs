@@ -120,9 +120,6 @@ impl<P: AsyncRead + Unpin> Monitor for StatMonitor<P> {
 }
 
 impl<P: AsyncRead + Unpin> StatMonitor<P> {
-    pub fn new() -> StatMonitorBuilder<P> {
-        StatMonitorBuilder::default()
-    }
     pub fn get_cg_path(&self) -> &str {
         self.mem_cpu.get_cg_path()
     }

@@ -1,8 +1,7 @@
 use super::{corpse::Corpse, error::Error, monitor::*, nsjail::*, Context, Filesystem};
 use std::{
     ffi::{OsStr, OsString},
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Stdio,
 };
 use tokio::{
@@ -75,17 +74,6 @@ pub struct Process<C: Context> {
     context: C,
     monitor: StatMonitor<DuplexStream>,
     stdout: DuplexStream,
-}
-
-fn get_inner_args<'a>(
-    mut args: impl Iterator<Item = &'a OsStr>,
-    mut root: OsString,
-) -> Vec<OsString> {
-    // check spec before unwrap
-    root.push(args.next().unwrap());
-    let mut r = vec![root];
-    r.extend(args.map(|x| x.to_os_string()));
-    r
 }
 
 impl<C: Context> Process<C> {
