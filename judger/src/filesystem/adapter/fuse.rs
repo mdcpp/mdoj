@@ -335,6 +335,8 @@ where
     ) -> impl Future<Output = FuseResult<()>> + Send {
         async move {
             let node = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
+            // The result is intentionally ignored, from the behavior of `ld`,
+            // we know that ld actually flush readonly file.
             Entry::flush(node).await.ok_or(FuseError::Unimplemented);
             Ok(())
         }
@@ -417,7 +419,6 @@ where
             Ok(reply_attr(&req, node.get_value(), inode))
         }
     }
-    // open and create fd
     fn create(
         &self,
         req: Request,
@@ -436,16 +437,11 @@ where
                 .insert(name.to_os_string(), Entry::new_file())
                 .ok_or(FuseError::AlreadyExist)?;
 
-            let mut entry = node.get_value().clone();
-            if flags & u32::from_ne_bytes(libc::O_APPEND.to_ne_bytes()) != 0 {
-                entry.set_append().await;
-            }
-
+            let entry = node.get_value().clone();
             let fh = self.handle_table.add(AsyncMutex::new(entry));
-
             let inode = node.get_id() as u64;
-            let entry = node.get_value();
-            Ok(reply_created(&req, entry, fh, flags, inode))
+
+            Ok(reply_created(&req, node.get_value(), fh, flags, inode))
         }
     }
     fn mkdir(

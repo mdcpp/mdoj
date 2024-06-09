@@ -134,9 +134,9 @@ impl super::Monitor for Monitor {
     /// by polling the cgroup, therefore the delay requirespecial attention,
     /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
     async fn stat(self) -> Self::Resource {
-        // there should be no process left
+        // FIXME: check running process, this line is commented out because of uncollected process
+        // uncollected process is at state of not running, but pid is still in use 
         // debug_assert!(self.cgroup.tasks().is_empty());
-        // poll once more to get final stat
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);
         (wrapper.memory(), wrapper.cpu())
     }

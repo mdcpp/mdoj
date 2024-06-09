@@ -14,7 +14,6 @@ pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a
         Component::RootDir | Component::CurDir | Component::ParentDir => None,
         Component::Normal(x) => Some(x),
     })
-    // .collect::<Vec<_>>()
 }
 
 /// A node on adjacency table
@@ -295,8 +294,6 @@ impl<'a, V> NodeWrapperMut<'a, V> {
 
 #[cfg(test)]
 mod test {
-    use std::os::unix::ffi::OsStrExt;
-
     use super::*;
     #[test]
     fn test_adj_table() {

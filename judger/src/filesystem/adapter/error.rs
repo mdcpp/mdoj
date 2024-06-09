@@ -53,7 +53,6 @@ impl From<FuseError> for fuse3::Errno {
             FuseError::AlreadyExist => libc::EEXIST,
             _ => {
                 log::warn!("FUSE driver broken: {}", value);
-                panic!("test");
                 libc::EINVAL
             }
         }
