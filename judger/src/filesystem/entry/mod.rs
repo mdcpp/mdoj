@@ -16,7 +16,7 @@ use tokio::{
 
 use super::resource::Resource;
 
-pub use tar::TarTree;
+pub use tar::EntryTree;
 pub const BLOCKSIZE: usize = 4096;
 const MAX_READ_BLK: usize = 1024;
 
@@ -40,10 +40,10 @@ pub enum Entry<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
-    SymLink(OsString),
-    HardLink(u64),
     #[default]
     Directory,
+    SymLink(OsString),
+    HardLink(u64),
     TarFile(TarBlock<F>),
     MemFile(MemBlock),
 }
@@ -72,7 +72,7 @@ where
         Self::MemFile(MemBlock::default())
     }
     /// create a new file entry with content
-    pub fn new_file_with_vec(content: Vec<u8>) -> Self {
+    pub fn from_vec(content: Vec<u8>) -> Self {
         Self::MemFile(MemBlock::new(content))
     }
     /// get kind of the file
@@ -86,10 +86,10 @@ where
         }
     }
     pub(super) fn get_symlink(&self) -> Option<&OsStr> {
-        match self {
-            Self::SymLink(x) => Some(&*x),
-            _ => None,
+        if let Self::SymLink(x) = self {
+            return Some(&*x);
         }
+        None
     }
     /// get size of the file
     pub fn get_size(&self) -> u64 {
@@ -101,11 +101,19 @@ where
             Self::MemFile(x) => x.get_size(),
         }
     }
-    pub async fn read(&mut self, offset: u64, size: u32) -> Option<std::io::Result<Bytes>> {
+    /// pull required bytes from the file
+    ///
+    /// return Err if the file is not a readable file
+    /// or the reading process return io error
+    pub async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<Bytes> {
+        // FIXME: this implementation is inefficient
         match self {
-            Self::TarFile(block) => Some(Ok(block.read(offset, size).await.unwrap())),
-            Self::MemFile(block) => Some(block.read(offset, size).await),
-            _ => None,
+            Self::TarFile(block) => block.read(offset, size).await,
+            Self::MemFile(block) => block.read(offset, size).await,
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "not a file",
+            )),
         }
     }
     pub fn assume_tar_file(&self) -> Option<&TarBlock<F>> {
@@ -116,25 +124,27 @@ where
     }
     pub async fn set_append(&mut self) {
         match self {
-            Entry::MemFile(x) => x.set_append().await,
+            Entry::MemFile(x) => x.set_append(),
             _ => {
                 // FIXME: copy on write
             }
         }
     }
-    pub async fn write(
-        self_: Arc<Mutex<Self>>,
-        offset: u64,
-        data: &[u8],
-        resource: &Resource,
-    ) -> Option<std::io::Result<u32>> {
-        let mut lock = self_.lock().await;
-        if resource.comsume(data.len() as u32).is_none() {
-            return Some(Err(std::io::Error::from(std::io::ErrorKind::Other)));
+    /// write data to the file
+    ///
+    /// write is garanteed to be successful if the resource is enough and is [`MemFile`]
+    pub async fn write(&mut self, offset: u64, data: &[u8], resource: &Resource) -> Option<u32> {
+        // FIXME: consume logic should move somewhere else
+        let required_size = data.len() as u64 + offset;
+        if resource
+            .comsume_other(required_size.saturating_sub(self.get_size()))
+            .is_none()
+        {
+            return None;
         }
-        match &mut *lock {
-            Self::MemFile(block) => Some(block.write(offset, data).await),
-            Self::TarFile(block) => Some(Err(std::io::Error::from(std::io::ErrorKind::Other))),
+
+        match self {
+            Self::MemFile(block) => Some(block.write(offset, data).await.unwrap()),
             _ => None,
         }
     }

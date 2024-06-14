@@ -12,6 +12,7 @@ struct Never;
 impl Future for Never {
     type Output = ();
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // it's cancellation safe, because it's a ZST.
         Poll::Pending
     }
 }
@@ -26,7 +27,7 @@ pub struct Monitor<I> {
 ///
 impl<I: AsyncRead + Unpin> Monitor<I> {
     fn inner_new(limit: Output, stdin: I) -> Self {
-        log::info!("Output limit: {}", limit);
+        log::debug!("Output limit: {}", limit);
         Self {
             buffer: Vec::with_capacity(limit as usize / 4),
             reader: Some(BufReader::new(stdin.take(limit))),

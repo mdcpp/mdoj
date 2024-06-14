@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
+
 /// A resource counter
 ///
 /// unlike [`tokio::sync::Semaphore`], the resource is not reusable
@@ -17,5 +18,13 @@ impl Resource {
         } else {
             Some(())
         }
+    }
+    /// consume some amount of resource
+    ///
+    /// return None if the resource is not enough or the size
+    /// is out of range (greater than[`u32::MAX`])
+    pub fn comsume_other<T: TryInto<u32>>(&self, size: T) -> Option<()> {
+        let size = size.try_into().ok()?;
+        self.comsume(size)
     }
 }

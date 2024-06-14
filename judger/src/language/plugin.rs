@@ -10,7 +10,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::{filesystem::*, sandbox::Stat};
+use crate::filesystem::*;
 
 use super::{
     builder::*,
@@ -58,11 +58,11 @@ pub async fn load_plugins(path: impl AsRef<Path>) -> Result<Vec<Plugin<File>>> {
     Ok(plugins)
 }
 
-pub struct Map<F>(BTreeMap<Uuid, Plugin<F>>)
+pub struct PluginMap<F>(BTreeMap<Uuid, Plugin<F>>)
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
-impl Map<File> {
+impl PluginMap<File> {
     pub async fn new(path: impl AsRef<Path>) -> Result<Self> {
         let plugins = load_plugins(path).await?;
         let mut map = BTreeMap::new();

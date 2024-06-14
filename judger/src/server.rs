@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{ClientError, Error},
-    language::{ExecuteArgBuilder, JudgeArgBuilder, Map},
+    language::{ExecuteArgBuilder, JudgeArgBuilder, PluginMap},
     CONFIG,
 };
 
@@ -39,13 +39,13 @@ fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
 
 pub struct Server {
     semaphore: Arc<Semaphore>,
-    plugins: Map<File>,
+    plugins: PluginMap<File>,
 }
 
 impl Server {
     pub async fn new() -> crate::Result<Server> {
         let semaphore = Arc::new(Semaphore::new(CONFIG.memory.try_into().unwrap()));
-        let plugins = Map::new(PLUGIN_PATH).await?;
+        let plugins = PluginMap::new(PLUGIN_PATH).await?;
         Ok(Server { semaphore, plugins })
     }
 }

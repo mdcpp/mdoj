@@ -1,5 +1,5 @@
+use spin::Mutex;
 use std::{io, ops::Deref, sync::Arc};
-use tokio::sync::Mutex;
 
 use super::{FuseFlushTrait, FuseReadTrait, FuseWriteTrait, BLOCKSIZE};
 
@@ -27,17 +27,17 @@ impl MemBlock {
             write_buffer: Vec::new(),
         }
     }
-    pub async fn set_append(&mut self) {
-        self.cursor = self.data.lock().await.len();
+    pub fn set_append(&mut self) {
+        self.cursor = self.data.lock().len();
     }
     pub fn get_size(&self) -> u64 {
-        self.data.try_lock().map(|x| x.len()).unwrap_or_default() as u64
+        self.data.lock().len() as u64
     }
 }
 
 impl FuseReadTrait for MemBlock {
     async fn read(&mut self, offset: u64, size: u32) -> std::io::Result<bytes::Bytes> {
-        let locked = self.data.lock().await;
+        let locked = self.data.lock();
         if locked.len() < offset as usize {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
@@ -52,7 +52,7 @@ impl FuseReadTrait for MemBlock {
 impl FuseWriteTrait for MemBlock {
     async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32> {
         // FIXME: file hole may cause OOM
-        let mut locked = self.data.lock().await;
+        let mut locked = self.data.lock();
         if self.cursor as usize > locked.len() {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
@@ -72,7 +72,7 @@ impl FuseWriteTrait for MemBlock {
 
 impl FuseFlushTrait for MemBlock {
     async fn flush(&mut self) -> std::io::Result<()> {
-        let mut locked = self.data.lock().await;
+        let mut locked = self.data.lock();
         locked.extend_from_slice(&self.write_buffer);
         self.write_buffer.clear();
         Ok(())

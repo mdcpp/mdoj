@@ -64,7 +64,7 @@ where
         tree.insert_by_path(
             to_internal_path(path.as_ref()),
             || Entry::Directory,
-            Entry::new_file_with_vec(content),
+            Entry::from_vec(content),
         );
     }
 }
@@ -164,15 +164,17 @@ where
         inode: u64,
         flags: u32,
     ) -> impl Future<Output = FuseResult<ReplyOpen>> + Send {
+        // ignore write permission, because some application may open files
+        // with write permission but never write
         async move {
             let tree = self.tree.lock();
             let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
             if node.get_value().kind() == FileType::Directory {
                 return Err(FuseError::IsDir.into());
             }
-            let fh = self
-                .handle_table
-                .add(AsyncMutex::new(node.get_value().clone()));
+            let mut entry = node.get_value().clone();
+            entry.set_append().await;
+            let fh = self.handle_table.add(AsyncMutex::new(entry));
             Ok(ReplyOpen { fh, flags })
         }
     }
@@ -296,10 +298,14 @@ where
         async move {
             let session = self.handle_table.get(fh).ok_or(FuseError::HandleNotFound)?;
             let mut lock = session.lock().await;
+
+            if lock.kind() != FileType::RegularFile {
+                return Err(FuseError::IsDir.into());
+            }
+
             Ok(lock
                 .read(offset, size)
                 .await
-                .ok_or(Into::<Errno>::into(FuseError::IsDir))?
                 .map(|data| ReplyData { data })?)
         }
     }
@@ -319,11 +325,17 @@ where
                 .get(fh)
                 .ok_or(FuseError::HandleNotFound)
                 .unwrap();
+            let mut lock = session.lock().await;
 
-            Ok(Entry::write(session, offset, data, &self.resource)
+            if lock.kind() != FileType::RegularFile {
+                return Err(FuseError::IsDir.into());
+            }
+
+            Ok(lock
+                .write(offset, data, &self.resource)
                 .await
-                .ok_or_else(|| Into::<Errno>::into(FuseError::IsDir))?
-                .map(|written| ReplyWrite { written })?)
+                .map(|written| ReplyWrite { written })
+                .ok_or(FuseError::Unimplemented)?)
         }
     }
     fn flush(

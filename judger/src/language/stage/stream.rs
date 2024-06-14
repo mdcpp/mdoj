@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    language::{
-        spec::{self, Spec},
-        ExecuteResult,
-    },
+    language::{spec::Spec, ExecuteResult},
     sandbox::{Corpse, MonitorKind},
 };
 

@@ -15,11 +15,11 @@ use crate::filesystem::table::{to_internal_path, AdjTable};
 
 use super::{ro::TarBlock, Entry};
 
-pub struct TarTree<F>(pub AdjTable<Entry<F>>)
+pub struct EntryTree<F>(pub AdjTable<Entry<F>>)
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static;
 
-impl<F> Clone for TarTree<F>
+impl<F> Clone for EntryTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
@@ -28,7 +28,7 @@ where
     }
 }
 
-impl<F> Default for TarTree<F>
+impl<F> Default for EntryTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
@@ -39,7 +39,7 @@ where
     }
 }
 
-impl<F> TarTree<F>
+impl<F> EntryTree<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl TarTree<File> {
+impl EntryTree<File> {
     pub async fn new(path: impl AsRef<Path> + Clone) -> Result<Self> {
         let file = File::open(path.clone()).await?;
         let std_file = File::open(path).await?.into_std().await;
@@ -92,7 +92,7 @@ impl TarTree<File> {
 }
 
 #[cfg(test)]
-impl<T> TarTree<BufReader<Cursor<T>>>
+impl<T> EntryTree<BufReader<Cursor<T>>>
 where
     T: AsRef<[u8]> + Send + Unpin + Clone + 'static,
 {
@@ -123,7 +123,7 @@ mod test {
     async fn nested_map() {
         let content = include_bytes!("../../../test/nested.tar");
 
-        let tree = TarTree::test_new(content).await.unwrap();
+        let tree = EntryTree::test_new(content).await.unwrap();
 
         assert_kind!(tree, "nest", Directory);
         assert_kind!(tree, "nest/a.txt", RegularFile);

@@ -1,9 +1,11 @@
 use crate::async_loop;
 
+use self::wrapper::CgroupWrapperOwned;
+
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
 use std::sync::{atomic::Ordering, Arc};
-use tokio::{select, time::*};
+use tokio::{select, task::block_in_place, time::*};
 
 /// maximum allow time deviation for cpu monitor
 pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
@@ -51,7 +53,7 @@ impl Drop for Monitor {
         match self.cgroup.v2() {
             true => {
                 self.cgroup.kill().expect("cgroup.kill does not exist");
-                self.cgroup.delete().unwrap();
+                CgroupWrapperOwned::new(&self.cgroup).poll_delete();
             }
             false => {
                 self.cgroup.set_release_agent("").unwrap();

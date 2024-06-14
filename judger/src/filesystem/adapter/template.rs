@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::filesystem::{
-    entry::{Entry, TarTree},
+    entry::{Entry, EntryTree},
     table::{to_internal_path, AdjTable},
 };
 
@@ -22,6 +22,7 @@ where
 {
     /// use template to create a filesystem
     pub fn as_filesystem(&self, permit: u64) -> Filesystem<F> {
+        log::debug!("create filesystem with permit: {}", permit);
         Filesystem::new(self.0.clone(), permit)
     }
     /// read a file by path
@@ -40,7 +41,7 @@ where
 impl Template<File> {
     /// Create a new template from a tar file
     pub async fn new(path: impl AsRef<Path> + Clone) -> std::io::Result<Self> {
-        let tree = TarTree::new(path).await?;
+        let tree = EntryTree::new(path).await?;
         Ok(Self(tree.0))
     }
 }
