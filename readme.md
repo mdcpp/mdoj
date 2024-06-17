@@ -18,9 +18,9 @@ Performance-oriented contest management system for IOI like contest
 
 ## Features
 
-- :whale:Scalable: By using judger cluster, you can scale the system to any size you want
-- :file_cabinet:Extensible: By using plugin system, you can add any language you want
-- :telescope: Powerful logging using ``Open-Telemetry``
+- :whale:Scalable: When deployed in cluster, you can scale the system to satisfy reasonable request.
+- :file_cabinet:Extensible: You can add any programing language by placing a `*.lang` file in `plugins` folder
+- :telescope: Powerful `metrics`/`tracing` using ``Open-Telemetry``
 
 ## Quick Start
 
