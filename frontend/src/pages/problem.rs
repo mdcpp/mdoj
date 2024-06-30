@@ -44,7 +44,7 @@ pub fn Problem() -> impl IntoView {
         });
 
     let submit_langs =
-        create_resource(id_and_token, |(id, token)| async move {
+        create_resource(id_and_token, |(_id, token)| async move {
             let mut client = submit_set_client::SubmitSetClient::new(
                 grpc::new_client().await?,
             );

@@ -1,3 +1,6 @@
+#[cfg(feature = "ssr")]
+use std::sync::OnceLock;
+
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_use::{utils::JsonCodec, *};
@@ -5,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use tonic::{IntoRequest, Request};
 
 use crate::{error::*, grpc};
-
-#[cfg(feature = "ssr")]
-use std::sync::OnceLock;
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
 

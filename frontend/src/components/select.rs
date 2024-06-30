@@ -1,5 +1,7 @@
 use leptos::*;
 
+use crate::components::Merge;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SelectedValue(ReadSignal<String>);
 
@@ -15,7 +17,7 @@ pub fn Select(
     provide_context(SelectedValue(get));
     view! {
         <select
-            class="text-text bg-background rounded-md p-2"
+            class=Merge(class, "text-text bg-background rounded-md p-2")
             id=id
             on:change=move |e| set(event_target_value(&e))
         >
