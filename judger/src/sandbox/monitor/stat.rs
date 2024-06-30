@@ -9,7 +9,9 @@ use super::output::Output;
 
 pub type MemAndCpu = (Memory, Cpu);
 
-/// statistics of resource usage
+/// collections of resource usage
+///
+/// basically, it contains memory usage, cpu usage, output size and walltime
 #[derive(Clone, Default, Debug)]
 pub struct Stat {
     pub memory: Memory,

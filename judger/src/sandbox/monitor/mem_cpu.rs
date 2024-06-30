@@ -5,7 +5,7 @@ use self::wrapper::CgroupWrapperOwned;
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
 use std::sync::{atomic::Ordering, Arc};
-use tokio::{select, task::block_in_place, time::*};
+use tokio::{select, time::*};
 
 /// maximum allow time deviation for cpu monitor
 pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);
@@ -26,12 +26,8 @@ async fn monitor(cgroup: Arc<Cgroup>, cpu: Cpu) -> MonitorKind {
     });
 
     select! {
-        _ = cpu_future=>{
-            return MonitorKind::Cpu;
-        },
-        _ = oom_signal.wait()=>{
-            return MonitorKind::Memory;
-        }
+        _ = cpu_future=> MonitorKind::Cpu,
+        _ = oom_signal.wait()=> MonitorKind::Memory
     }
 }
 
@@ -109,8 +105,8 @@ impl super::Monitor for Monitor {
     ///
     ///
     /// 2. Actively limit(notify) cpu resource is achieved by polling the cgroup,
-    /// the delay require special attention, it is only guaranteed
-    /// to below limitation provided + [`MONITOR_ACCURACY`].
+    ///     the delay require special attention, it is only guaranteed
+    ///     to below limitation provided + [`MONITOR_ACCURACY`].
     ///
     /// This method is cancellation safe
     async fn wait_exhaust(&mut self) -> MonitorKind {

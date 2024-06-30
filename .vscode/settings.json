@@ -3,6 +3,7 @@
         "Frontend",
         "Backend",
         "Judger",
-        "Testsuit"
+        "Testsuit",
+        "Grpc"
     ],
 }

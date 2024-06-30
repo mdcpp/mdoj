@@ -18,6 +18,7 @@ use self::output::Output;
 use super::Error;
 
 lazy_static::lazy_static! {
+    /// is cgroup v2 being used
     pub static ref CGROUP_V2:bool=hier::MONITER_KIND.heir().v2();
 }
 
@@ -29,7 +30,6 @@ pub trait Monitor {
     async fn wait_exhaust(&mut self) -> MonitorKind {
         // those low level call is likely have event listener(like epoll)
         // monitor should use those listener to implement this function
-        log::warn!("unimplemented wait_exhaust, use poll_exhaust instead!");
         loop {
             if let Some(reason) = self.poll_exhaust() {
                 return reason;
@@ -72,7 +72,7 @@ impl Display for MonitorKind {
     }
 }
 
-/// composite monitor
+/// a collection monitor
 pub struct StatMonitor<P: AsyncRead + Unpin> {
     mem_cpu: mem_cpu::Monitor,
     output: output::Monitor<P>,

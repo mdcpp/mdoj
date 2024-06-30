@@ -680,6 +680,7 @@ dependencies = [
  "http 0.2.12",
  "ip_network",
  "k256",
+ "lazy_static",
  "log",
  "migration",
  "opentelemetry",

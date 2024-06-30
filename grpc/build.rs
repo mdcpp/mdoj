@@ -28,8 +28,7 @@ fn main() {
         .file_descriptor_set_path(&descriptor_file)
         .compile(&["proto/backend.proto", "proto/judger.proto"], &["proto"])
         .unwrap();
-    #[cfg(feature = "serde")]
-    #[cfg(feature = "wkt")]
+    #[cfg(all(feature = "wkt", feature = "serde"))]
     {
         use prost_wkt_build::*;
         let descriptor_bytes = std::fs::read(descriptor_file).unwrap();

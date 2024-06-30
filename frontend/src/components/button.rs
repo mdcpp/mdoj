@@ -24,11 +24,10 @@ pub fn Button(
             disabled=disabled
             id=id
             on:click=move |e| {
-                on_click
-                    .map(|f| {
-                        e.stop_propagation();
-                        f(e);
-                    });
+                if let Some(f) = on_click {
+                    e.stop_propagation();
+                    f(e);
+                }
             }
         >
 

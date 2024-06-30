@@ -51,8 +51,8 @@ impl From<FuseError> for fuse3::Errno {
             FuseError::PermissionDeny => libc::EACCES,
             FuseError::InvialdArg => libc::EINVAL,
             FuseError::AlreadyExist => libc::EEXIST,
-            _ => {
-                log::warn!("FUSE driver broken: {}", value);
+            err => {
+                log::warn!("FUSE driver broken: {}", err);
                 libc::EINVAL
             }
         }

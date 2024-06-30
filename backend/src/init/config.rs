@@ -5,8 +5,11 @@ use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
 
-static CONFIG_PATH: &str = "config/config.toml";
-static CONFIG_DIR: &str = "config";
+lazy_static::lazy_static! {
+    pub static ref CONFIG_PATH: PathBuf=PathBuf::from_str(
+        &std::env::var("CONFIG_PATH").unwrap_or("config.toml".to_string()))
+        .expect("Invalid CONFIG_PATH");
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
@@ -27,7 +30,7 @@ pub struct GlobalConfig {
 }
 
 fn default_opentelemetry() -> Option<String> {
-    Some("http://127.0.0.1:4317".to_owned())
+    Some("grpc://127.0.0.1:4317".to_owned())
 }
 
 fn default_bind_address() -> String {
@@ -116,14 +119,12 @@ impl Default for Imgur {
 }
 
 pub async fn init() -> super::Result<GlobalConfig> {
-    fs::create_dir_all(CONFIG_DIR)
-        .await
-        .map_err(Error::ConfigDir)?;
-    if fs::metadata(CONFIG_PATH).await.is_ok() {
+    let config_path=CONFIG_PATH.as_path();
+    if fs::metadata(config_path).await.is_ok() {
         let mut buf = Vec::new();
-        let mut config = fs::File::open(CONFIG_PATH)
+        let mut config = fs::File::open(config_path)
             .await
-            .unwrap_or_else(|_| panic!("{} exist, but is not a toml file", CONFIG_PATH));
+            .unwrap_or_else(|_| panic!("{:?} exist, but is not a toml file", config_path));
         config
             .read_to_end(&mut buf)
             .await
@@ -133,17 +134,17 @@ pub async fn init() -> super::Result<GlobalConfig> {
         let config: GlobalConfig = toml::from_str(config).map_err(Error::ConfigParse)?;
         Ok(config)
     } else {
-        println!("Unable to find {}, generating default config", CONFIG_PATH);
+        println!("Unable to find {:?}, generating default config", config_path);
         let config: GlobalConfig = toml::from_str("").unwrap();
 
         let config_txt = toml::to_string(&config).unwrap();
-        fs::write(CONFIG_PATH, config_txt)
+        fs::write(config_path, config_txt)
             .await
             .map_err(Error::ConfigWrite)?;
 
         println!(
-            "Config generated, please edit {} before restart",
-            CONFIG_PATH
+            "Config generated, please edit {:?} before restart",
+            config_path
         );
         println!("Finished, exiting...");
         std::process::exit(0);

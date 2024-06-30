@@ -11,6 +11,11 @@ mod compile;
 mod judge;
 mod raw;
 
+/// multiplier for cpu limit
+///
+/// To make setting different time limit for different programing language
+/// transparent to backend, we set different factor to different language
+#[derive(Clone)]
 pub struct CpuFactor {
     kernel: u64,
     user: u64,
@@ -18,7 +23,8 @@ pub struct CpuFactor {
 }
 
 impl CpuFactor {
-    pub fn get(&self, cpu: u64) -> Cpu {
+    /// create a [`Cpu`] limit given total cpu limit
+    pub fn create_from(&self, cpu: u64) -> Cpu {
         Cpu {
             kernel: self.kernel,
             user: self.user,
@@ -34,6 +40,11 @@ impl CpuFactor {
     }
 }
 
+/// multiplier for memory limit
+///
+/// To make setting different time limit for different programing language
+/// transparent to backend, we set different factor to different language
+#[derive(Clone)]
 pub struct MemFactor {
     kernel: u64,
     user: u64,
@@ -41,11 +52,12 @@ pub struct MemFactor {
 }
 
 impl MemFactor {
-    pub fn get(&self, mem: u64) -> Memory {
+    /// create a [`Memory`] limit given total memory limit
+    pub fn create_from(&self, total: u64) -> Memory {
         Memory {
             kernel: self.kernel,
             user: self.user,
-            total: (mem as f64 * self.total) as u64,
+            total: (total as f64 * self.total) as u64,
         }
     }
     pub fn get_raw(&self, mem: Memory) -> Memory {
@@ -72,8 +84,8 @@ pub struct Spec {
 
 impl Spec {
     pub fn get_judge_limit(&self, cpu: u64, mem: u64) -> Stat {
-        let cpu = self.judge_cpu_factor.get(cpu);
-        let mem = self.judge_mem_factor.get(mem);
+        let cpu = self.judge_cpu_factor.create_from(cpu);
+        let mem = self.judge_mem_factor.create_from(mem);
         Stat {
             cpu,
             memory: mem,
@@ -87,8 +99,9 @@ impl Spec {
         stat.memory = self.judge_mem_factor.get_raw(stat.memory);
         stat
     }
+    /// get size of memory that should be reserved for the sandbox to prevent OOM
     pub fn get_memory_reserved_size(&self, mem: u64) -> u64 {
-        self.judge_mem_factor.get(mem).get_reserved_size() + self.fs_limit
+        self.judge_mem_factor.create_from(mem).get_reserved_size() + self.fs_limit
     }
     pub fn from_str(content: &str) -> Self {
         let mut raw: Raw = toml::from_str(content).unwrap();
@@ -113,18 +126,8 @@ impl Spec {
                 output: raw.compile.output_limit.unwrap(),
                 walltime: Duration::from_nanos(raw.compile.walltime.unwrap()),
             },
-            compile_command: raw
-                .compile
-                .command
-                .iter()
-                .map(|x| OsString::from(x))
-                .collect(),
-            judge_command: raw
-                .judge
-                .command
-                .iter()
-                .map(|x| OsString::from(x))
-                .collect(),
+            compile_command: raw.compile.command.iter().map(OsString::from).collect(),
+            judge_command: raw.judge.command.iter().map(OsString::from).collect(),
             file: OsString::from(raw.file),
             judge_cpu_factor: CpuFactor {
                 kernel: raw.judge.kernel_mem.unwrap(),

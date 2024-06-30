@@ -14,6 +14,8 @@ pub fn Modal(
     #[prop(into, optional)] on_close: Option<Callback<MouseEvent>>,
     children: Children,
 ) -> impl IntoView {
+    // FIXME: what is level for? color?
+    let _level = level;
     view! {
         <dialog open>
             {children()}

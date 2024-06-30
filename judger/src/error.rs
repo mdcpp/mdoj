@@ -8,6 +8,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("sandbox error: {0}")]
     Sandbox(#[from] SandboxError),
+    /// the program is running on a 32 bit platform,
+    /// and have a object reached [`u32::MAX`]
     #[error("32 bit problem")]
     Platform,
 }

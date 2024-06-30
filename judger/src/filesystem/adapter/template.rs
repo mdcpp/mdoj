@@ -12,6 +12,9 @@ use crate::filesystem::{
 
 use super::fuse::Filesystem;
 
+/// template for creating a filesystem
+///
+/// it contains necessary information to create a filesystem
 pub struct Template<F>(AdjTable<Entry<F>>)
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static;

@@ -55,7 +55,7 @@ where
     fn clone(&self) -> Self {
         match self {
             Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
-            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
+            Self::HardLink(arg0) => Self::HardLink(*arg0),
             Self::Directory => Self::Directory,
             Self::TarFile(arg0) => Self::TarFile(arg0.clone()),
             Self::MemFile(arg0) => Self::MemFile(arg0.clone()),
@@ -87,7 +87,7 @@ where
     }
     pub(super) fn get_symlink(&self) -> Option<&OsStr> {
         if let Self::SymLink(x) = self {
-            return Some(&*x);
+            return Some(x);
         }
         None
     }
@@ -136,12 +136,7 @@ where
     pub async fn write(&mut self, offset: u64, data: &[u8], resource: &Resource) -> Option<u32> {
         // FIXME: consume logic should move somewhere else
         let required_size = data.len() as u64 + offset;
-        if resource
-            .comsume_other(required_size.saturating_sub(self.get_size()))
-            .is_none()
-        {
-            return None;
-        }
+        resource.comsume_other(required_size.saturating_sub(self.get_size()))?;
 
         match self {
             Self::MemFile(block) => Some(block.write(offset, data).await.unwrap()),

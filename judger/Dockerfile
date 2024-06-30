@@ -22,12 +22,12 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 RUN cargo install --target ${ARCH}-unknown-linux-musl --path judger
 
 FROM scratch
+WORKDIR /plugins
 WORKDIR /config
-WORKDIR /.temp
 WORKDIR /
+
 COPY --from=builder /usr/local/cargo/bin/judger /
 
 COPY judger/nsjail-3.1 /
 
-WORKDIR /
 CMD ["/judger"]

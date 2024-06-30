@@ -53,7 +53,7 @@ impl FuseWriteTrait for MemBlock {
     async fn write(&mut self, offset: u64, data: &[u8]) -> std::io::Result<u32> {
         // FIXME: file hole may cause OOM
         let mut locked = self.data.lock();
-        if self.cursor as usize > locked.len() {
+        if self.cursor > locked.len() {
             return Err(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 "mem block out of bound",

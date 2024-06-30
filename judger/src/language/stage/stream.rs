@@ -7,7 +7,7 @@ use crate::{
 
 use super::StatusCode;
 
-/// Third stage of language processing, stream execution result
+/// Third stage of exec, stream execution result to client
 pub struct Streamer {
     spec: Arc<Spec>,
     corpse: Corpse,

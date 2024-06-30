@@ -8,7 +8,7 @@ const ID_MIN: usize = 1;
 const MAX_ID_CAPACITY: u32 = 1 << 31;
 
 /// convert a path to internal path(prefixes on the tree)
-pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a {
+pub fn to_internal_path(path: &Path) -> impl Iterator<Item = &OsStr> {
     path.components().filter_map(|component| match component {
         Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
         Component::RootDir | Component::CurDir | Component::ParentDir => None,
@@ -86,12 +86,9 @@ impl<V> AdjTable<V> {
         })
     }
     /// get a node by path
-    pub fn get_by_path<'a>(
-        &self,
-        mut path: impl Iterator<Item = &'a OsStr>,
-    ) -> Option<NodeWrapper<V>> {
+    pub fn get_by_path<'a>(&self, path: impl Iterator<Item = &'a OsStr>) -> Option<NodeWrapper<V>> {
         let mut idx = self.get_first().idx;
-        while let Some(name) = path.next() {
+        for name in path {
             if self.by_id[idx].children.contains_key(name) {
                 idx = self.by_id[idx].children[name];
             } else {

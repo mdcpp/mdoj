@@ -1,3 +1,5 @@
+//! collection of function that fill the value of
+//! reply packets back to fuse connection
 use std::{ffi::OsString, time::Duration};
 
 use fuse3::{
@@ -50,7 +52,7 @@ where
 {
     ReplyAttr {
         ttl: TTL,
-        attr: file_attr(req, &entry, inode),
+        attr: file_attr(req, entry, inode),
     }
 }
 
@@ -60,7 +62,7 @@ where
 {
     ReplyEntry {
         ttl: TTL,
-        attr: file_attr(req, &entry, inode),
+        attr: file_attr(req, entry, inode),
         generation: 0,
     }
 }
@@ -81,7 +83,7 @@ where
         nlink: 1,
         uid: req.uid,
         gid: req.gid,
-        rdev: 179 << 16 + 02,
+        rdev: 0,
         blksize: BLOCKSIZE as u32,
     }
 }

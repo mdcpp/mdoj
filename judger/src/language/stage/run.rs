@@ -9,7 +9,7 @@ use crate::{
 
 use super::{judge::Judger, stream::Streamer};
 
-/// Second stage of the language process, run the compiled code
+/// Second stage, run the compiled code
 pub struct Runner {
     filesystem: MountHandle,
     spec: Arc<Spec>,
@@ -41,6 +41,9 @@ impl Runner {
     }
 }
 
+/// Process context for run stage
+///
+/// See [`Context`] for more information
 struct RunCtx {
     spec: Arc<Spec>,
     path: std::path::PathBuf,

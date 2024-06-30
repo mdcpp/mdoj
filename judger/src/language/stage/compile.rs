@@ -9,11 +9,11 @@ use crate::{
 
 use super::Runner;
 
-/// First stage of language processing, compile the source code
+/// First stage, compile the source code
 ///
 /// Note that by compile, we doesn't mean the traditional compile process
 /// it could be any process that prepare the code to be ready for execution,
-/// or do nothing(like python)
+/// or do nothing(iterpreted language)
 pub struct Compiler {
     spec: Arc<Spec>,
     handle: MountHandle,
@@ -41,7 +41,9 @@ impl Compiler {
     }
 }
 
-/// Context for compile stage
+/// Process context for compile stage
+///
+/// See [`Context`] for more information
 struct CompileCtx {
     spec: Arc<Spec>,
     path: PathBuf,

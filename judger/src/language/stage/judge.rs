@@ -7,7 +7,7 @@ use crate::{
 
 use super::{AssertionMode, StatusCode};
 
-/// The third stage of language processing, compare the output
+/// The third stage of judge, compare the output
 pub struct Judger {
     spec: Arc<Spec>,
     corpse: Corpse,
