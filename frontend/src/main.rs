@@ -1,4 +1,7 @@
 #[cfg(feature = "ssr")]
+use anyhow::Result;
+
+#[cfg(feature = "ssr")]
 #[actix_web::main]
 async fn main() -> Result<()> {
     use actix_files::Files;
