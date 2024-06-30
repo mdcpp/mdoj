@@ -7,6 +7,8 @@ use tonic::{IntoRequest, Request};
 use crate::{error::*, grpc};
 
 #[cfg(feature = "ssr")]
+use std::sync::OnceLock;
+#[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]

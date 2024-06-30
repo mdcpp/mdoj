@@ -1,3 +1,7 @@
+help:
+    just --list
+
+
 release-docker:
 
 
