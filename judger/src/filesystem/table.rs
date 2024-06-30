@@ -8,7 +8,7 @@ const ID_MIN: usize = 1;
 const MAX_ID_CAPACITY: u32 = 1 << 31;
 
 /// convert a path to internal path(prefixes on the tree)
-pub fn to_internal_path<'a>(path: &'a Path) -> impl Iterator<Item = &OsStr> + 'a {
+pub fn to_internal_path(path: &Path) -> impl Iterator<Item = &OsStr> {
     path.components().filter_map(|component| match component {
         Component::Prefix(x) => unreachable!("Windows only: {:?}", x),
         Component::RootDir | Component::CurDir | Component::ParentDir => None,

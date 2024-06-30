@@ -113,10 +113,10 @@ where
 impl Plugin<File> {
     pub async fn new(path: impl AsRef<Path> + Clone) -> Result<Self> {
         let template = Arc::new(Template::new(path.clone()).await?);
-        let spec_source = template.read_by_path("spec.toml").await.expect(&format!(
-            "sepc.toml not found in plugin {}",
-            path.as_ref().display()
-        ));
+        let spec_source = template
+            .read_by_path("spec.toml")
+            .await
+            .unwrap_or_else(|| panic!("sepc.toml not found in plugin {}", path.as_ref().display()));
         let spec = Arc::new(Spec::from_str(&spec_source.to_string_lossy()));
 
         Ok(Self { spec, template })
@@ -157,10 +157,10 @@ where
 
         let mem_cpu = (args.mem, args.cpu);
         let mode = args.mode;
-        let mut io = args.input.into_iter().zip(args.output.into_iter());
+        let testcases = args.input.into_iter().zip(args.output.into_iter());
         Box::pin(try_stream! {
-            while let Some((input,output))=io.next(){
-                let judger = runner.judge(mem_cpu.clone(), input).await?;
+            for (input,output) in testcases{
+                let judger = runner.judge(mem_cpu, input).await?;
 
                 yield judger.get_result(&output, mode);
                 if judger.get_code(&output, mode)!=StatusCode::Accepted{

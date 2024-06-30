@@ -126,18 +126,8 @@ impl Spec {
                 output: raw.compile.output_limit.unwrap(),
                 walltime: Duration::from_nanos(raw.compile.walltime.unwrap()),
             },
-            compile_command: raw
-                .compile
-                .command
-                .iter()
-                .map(|x| OsString::from(x))
-                .collect(),
-            judge_command: raw
-                .judge
-                .command
-                .iter()
-                .map(|x| OsString::from(x))
-                .collect(),
+            compile_command: raw.compile.command.iter().map(OsString::from).collect(),
+            judge_command: raw.judge.command.iter().map(OsString::from).collect(),
             file: OsString::from(raw.file),
             judge_cpu_factor: CpuFactor {
                 kernel: raw.judge.kernel_mem.unwrap(),

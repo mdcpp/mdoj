@@ -52,7 +52,7 @@ where
 {
     ReplyAttr {
         ttl: TTL,
-        attr: file_attr(req, &entry, inode),
+        attr: file_attr(req, entry, inode),
     }
 }
 
