@@ -40,6 +40,7 @@ migration = { path = "./migration", optional = true }
 sea-orm-cli = { version = "0.12.12", optional = true }
 governor = "0.6.0"
 http = "^0.2"
+lazy_static = "1.5.0"
 
 [dependencies.postcard]
 version = "^1.0"

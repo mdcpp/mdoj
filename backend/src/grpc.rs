@@ -10,7 +10,7 @@ pub mod backend {
 pub fn into_prost(time: chrono::NaiveDateTime) -> prost_types::Timestamp {
     prost_types::Timestamp {
         seconds: time.and_utc().timestamp(),
-        nanos: time.timestamp_subsec_nanos() as i32,
+        nanos: time.and_utc().timestamp_subsec_nanos() as i32,
     }
 }
 /// convert prost_types's time to chrono's

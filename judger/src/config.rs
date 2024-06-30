@@ -2,26 +2,29 @@ use libc::getuid;
 use serde::{Deserialize, Serialize};
 
 #[cfg(not(test))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{net::SocketAddr, str::FromStr};
 
 #[cfg(not(test))]
-fn try_load_config() -> Result<Config, Box<dyn std::error::Error>> {
-    use std::ops::Deref;
+fn try_load_config(config_path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error::Error>> {
     use std::{fs::File, io::Read};
 
-    let mut file = File::open("config.toml")?;
+    let mut file = File::open(config_path.as_ref())?;
     let mut buf = String::new();
     file.read_to_string(&mut buf)?;
     let config = toml::from_str(buf.as_str())?;
-    log::info!("load config from {}", CONFIG_PATH.deref().to_string_lossy());
+    log::info!("load config from {:?}", config_path.as_ref());
     Ok(config)
 }
 
 #[cfg(not(test))]
 lazy_static::lazy_static! {
-    pub static ref CONFIG_PATH: PathBuf = PathBuf::from("config.toml");
-    pub static ref CONFIG: Config=try_load_config().unwrap_or_default().check();
+    pub static ref CONFIG: Config={
+        let path=PathBuf::from_str(
+            &std::env::var("CONFIG_PATH").unwrap_or("config.toml".to_string()))
+            .expect("Invalid CONFIG_PATH");
+        try_load_config(path).unwrap_or_default().check()
+    };
 }
 
 #[cfg(test)]

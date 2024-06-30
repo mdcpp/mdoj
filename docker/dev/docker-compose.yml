@@ -20,6 +20,8 @@ services:
     volumes:
       - ./backend/config:/config
       - ./backend/database:/database
+    environment:
+      - CONFIG_PATH=/config/config.toml
     ports:
       - "8081:8081"
     networks:
@@ -31,7 +33,10 @@ services:
     image: ghcr.io/mdcpp/mdoj/judger:staging
     profiles: [backend-dev, frontend-dev]
     volumes:
+      - ./judger/config:/config
       - /sys/fs/cgroup:/sys/fs/cgroup
+    environment:
+      - CONFIG_PATH=/config/config.toml
     networks:
       - judger
   jaeger:
@@ -42,6 +47,14 @@ services:
       - "16686:16686"
     networks:
       - jaeger
+  migration:
+    container_name: mdoj-migration
+    image: ghcr.io/mdcpp/mdoj/migration:staging
+    profiles: [migration]
+    environment:
+      - DATABASE_URL=sqlite://database/backend.sqlite?mode=rwc
+    volumes:
+      - ./backend/database:/database
 networks:
   judger:
   backend:
