@@ -10,6 +10,7 @@ pub enum MonitorKind {
 }
 
 lazy_static::lazy_static! {
+    /// type of monitor for cpu
     pub static ref MONITER_KIND: MonitorKind = {
         let kind=match crate::CONFIG.accounting {
             Accounting::Auto =>match hierarchies::auto().v2(){

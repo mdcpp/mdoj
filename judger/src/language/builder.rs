@@ -4,6 +4,8 @@ use grpc::judger::{
 
 use super::stage::{AssertionMode, StatusCode};
 
+// FIXME: use derive_builder to remove boilerplate code
+
 pub struct JudgeArgs {
     pub(super) mem: u64,
     pub(super) cpu: u64,

@@ -1,3 +1,5 @@
+//! collection of function that fill the value of
+//! reply packets back to fuse connection
 use std::{ffi::OsString, time::Duration};
 
 use fuse3::{

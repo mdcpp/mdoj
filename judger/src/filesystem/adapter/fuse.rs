@@ -19,7 +19,7 @@ use fuse3::{
 /// A asynchorized stream from vector
 type VecStream<I> = tokio_stream::Iter<std::vec::IntoIter<I>>;
 
-// filesystem is an adapter, it should not contain any business logic.
+// filesystem
 pub struct Filesystem<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + 'static,

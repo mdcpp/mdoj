@@ -127,9 +127,11 @@ impl<F> Plugin<F>
 where
     F: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
 {
+    /// get info of the plugin
     pub fn get_info(&self) -> &LangInfo {
         &self.spec.info
     }
+    /// get compiler from plugin
     pub async fn as_compiler(&self, source: Vec<u8>) -> Result<Compiler> {
         log::trace!(
             "create compiler from plugin {}",
@@ -139,6 +141,12 @@ where
         filesystem.insert_by_path(self.spec.file.as_os_str(), source);
         Ok(Compiler::new(self.spec.clone(), filesystem.mount().await?))
     }
+    /// judge
+    ///
+    /// The porcess can be described as:
+    /// 1. compile the source code
+    /// 2. run the compiled code
+    /// 3. compare the output
     pub async fn judge(
         &self,
         args: JudgeArgs,
@@ -161,6 +169,12 @@ where
             }
         })
     }
+    /// execute
+    ///
+    /// The process can be described as:
+    /// 1. compile the source code
+    /// 2. run the compiled code
+    /// 3. stream the output to client
     pub async fn execute(&self, args: ExecuteArgs) -> Result<ExecuteResult> {
         let compiler = self.as_compiler(args.source).await?;
         let maybe_runner = compiler.compile().await?;
@@ -177,6 +191,7 @@ where
             }),
         }
     }
+    /// get size of memory that should be reserved for the sandbox to prevent OOM
     pub fn get_memory_reserved(&self, mem: u64) -> u64 {
         self.spec.get_memory_reserved_size(mem)
     }

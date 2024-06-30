@@ -27,16 +27,18 @@ pub enum StatusCode {
 
 /// internal assertion mode, use to decouple the grpc status code
 ///
-/// Assertion mode reperesent the way to compare the output
+/// Assertion mode reperesent how the output is compared
 #[derive(Clone, Copy)]
 pub enum AssertionMode {
     /// Skip single space and newline
     ///
     /// `a b`, and `a\nb\n` are the same
+    ///
+    /// `a\nb` and `a\n\nb` are different
     SkipSpace,
     /// Skip continous space and newline
     ///
-    /// `a b`, `ab          ` and `ab` are the same
+    /// `ab`, `a\nb` and `a\n\nb` are the same
     SkipContinousSpace,
     /// Exact match
     Exact,
