@@ -62,7 +62,7 @@ where
 {
     ReplyEntry {
         ttl: TTL,
-        attr: file_attr(req, &entry, inode),
+        attr: file_attr(req, entry, inode),
         generation: 0,
     }
 }
@@ -83,7 +83,7 @@ where
         nlink: 1,
         uid: req.uid,
         gid: req.gid,
-        rdev: 179 << 16 + 02,
+        rdev: 0,
         blksize: BLOCKSIZE as u32,
     }
 }

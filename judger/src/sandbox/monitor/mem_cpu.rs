@@ -5,7 +5,7 @@ use self::wrapper::CgroupWrapperOwned;
 use super::{stat::*, *};
 use cgroups_rs::{cgroup_builder::CgroupBuilder, Cgroup};
 use std::sync::{atomic::Ordering, Arc};
-use tokio::{select, task::block_in_place, time::*};
+use tokio::{select, time::*};
 
 /// maximum allow time deviation for cpu monitor
 pub const MONITOR_ACCURACY: Duration = Duration::from_millis(80);

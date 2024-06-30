@@ -86,12 +86,9 @@ impl<V> AdjTable<V> {
         })
     }
     /// get a node by path
-    pub fn get_by_path<'a>(
-        &self,
-        mut path: impl Iterator<Item = &'a OsStr>,
-    ) -> Option<NodeWrapper<V>> {
+    pub fn get_by_path<'a>(&self, path: impl Iterator<Item = &'a OsStr>) -> Option<NodeWrapper<V>> {
         let mut idx = self.get_first().idx;
-        while let Some(name) = path.next() {
+        for name in path {
             if self.by_id[idx].children.contains_key(name) {
                 idx = self.by_id[idx].children[name];
             } else {

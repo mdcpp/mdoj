@@ -55,7 +55,7 @@ where
     fn clone(&self) -> Self {
         match self {
             Self::SymLink(arg0) => Self::SymLink(arg0.clone()),
-            Self::HardLink(arg0) => Self::HardLink(arg0.clone()),
+            Self::HardLink(arg0) => Self::HardLink(*arg0),
             Self::Directory => Self::Directory,
             Self::TarFile(arg0) => Self::TarFile(arg0.clone()),
             Self::MemFile(arg0) => Self::MemFile(arg0.clone()),
