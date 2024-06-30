@@ -1,3 +1,6 @@
+#[cfg(feature = "ssr")]
+use std::sync::OnceLock;
+
 use cfg_if::cfg_if;
 use leptos::*;
 use leptos_use::{utils::JsonCodec, *};
@@ -5,9 +8,6 @@ use serde::{Deserialize, Serialize};
 use tonic::{IntoRequest, Request};
 
 use crate::{error::*, grpc};
-
-#[cfg(feature = "ssr")]
-use std::sync::OnceLock;
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
 
@@ -36,14 +36,18 @@ pub async fn init() -> Result<()> {
 
 #[cfg(feature = "ssr")]
 async fn load_server_config() -> Result<GlobalConfig> {
+    use std::env::var;
+
     use tokio::{fs, io::AsyncReadExt};
 
-    const CONFIG_DIR: &str = "./config";
-    const CONFIG_FILE_PATH: &str = "./config/frontend.toml";
+    const DEFAULT_CONFIG_PATH: &str = "config.toml";
+    let config_path = var("CONFIG_PATH")
+        .ok()
+        .unwrap_or(DEFAULT_CONFIG_PATH.into());
 
-    if fs::metadata(CONFIG_FILE_PATH).await.is_ok() {
+    if fs::metadata(&config_path).await.is_ok() {
         let mut buf = String::new();
-        fs::File::open(CONFIG_FILE_PATH)
+        fs::File::open(&config_path)
             .await?
             .read_to_string(&mut buf)
             .await?;
@@ -55,8 +59,7 @@ async fn load_server_config() -> Result<GlobalConfig> {
     };
     let default_toml = toml::to_string_pretty(&default_config)
         .expect("Cannot generate default config");
-    fs::create_dir_all(CONFIG_DIR).await?;
-    fs::write(CONFIG_FILE_PATH, default_toml).await?;
+    fs::write(&config_path, default_toml).await?;
     Ok(default_config)
 }
 

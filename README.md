@@ -54,3 +54,7 @@ If you prefer to use default config, you can skip step 2 and 3.
 Then start reading documents in subfolder of your interest.
 
 > you may need to run ``just prepare`` in ``judger``, ``backend`` subfolder.
+
+## Environment
+
+Set `CONFIG_PATH` to change the path to config file, default value is `config.toml`

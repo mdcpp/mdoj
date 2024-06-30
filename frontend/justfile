@@ -12,7 +12,7 @@ deps:
     cd ../docker/dev && sudo docker compose --profile frontend-dev up
 
 run:
-    cargo leptos serve
+    CONFIG_PATH="$(pwd)/config/config.toml" cargo leptos serve
 
 dev:
-    cargo leptos watch
+    CONFIG_PATH="$(pwd)/config/config.toml" cargo leptos watch
