@@ -22,7 +22,7 @@ async-stream = "0.3.5"
 
 [dependencies.grpc]
 path = "../grpc"
-features = ["wkt", "backend"]
+features = ["backend"]
 default-features = false
 
 [dependencies.log]

@@ -27,8 +27,9 @@ features = ["prost"]
 workspace = true
 
 [features]
-default = ["wkt"]
-wkt = ["serde"]
 backend = []
+judger = []
+client = []
+server = []
 serde = ["dep:serde"]
 transport = ["tonic-build/transport"]
