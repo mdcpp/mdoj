@@ -2,11 +2,11 @@ use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
 
-use crate::config::*;
+use crate::session::use_token;
 
 #[component]
 pub fn Navbar() -> impl IntoView {
-    let (token, ..) = use_token();
+    let token = use_token();
     view! {
         <nav class="bg-background sticky top-0 p-2 flex flex-row justify-between border-b-2 border-primary z-10">
             <div class="flex flex-row flex-nowrap">
