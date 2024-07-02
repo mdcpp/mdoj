@@ -31,17 +31,17 @@ macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
         tracing::$level!(uuid = uuid.to_string(), $pattern);
-        tonic::Status::unknown(msg.to_string())
+        tonic::Status::unknown(msg.report())
     }};
     ($level:ident,$pattern:expr) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
         tracing::$level!(uuid = uuid.to_string(), "{}", $pattern);
-        tonic::Status::unknown(msg.to_string())
+        tonic::Status::unknown(msg.report())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
         tracing::$level!(uuid = uuid.to_string(), "{}", $pattern);
-        tonic::Status::unknown(msg.to_string())
+        tonic::Status::unknown(msg.report())
     }};
 }
 

@@ -16,3 +16,7 @@ run:
 
 dev:
     cargo leptos watch
+
+fmt:
+    cargo fmt
+    leptosfmt ./**/*.rs

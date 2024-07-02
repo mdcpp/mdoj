@@ -135,10 +135,7 @@ impl Tracing {
             log_id,
         }
     }
-}
-
-impl ToString for Tracing {
-    fn to_string(&self) -> String {
+    pub fn report(self)->String{
         format!(
             "trace_id: {}, span_id: {}, log_id: {}",
             self.trace_id, self.span_id, self.log_id
