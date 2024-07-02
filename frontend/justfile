@@ -16,3 +16,7 @@ run:
 
 dev:
     CONFIG_PATH="$(pwd)/config/config.toml" cargo leptos watch
+
+fmt:
+    cargo fmt
+    leptosfmt ./**/*.rs
