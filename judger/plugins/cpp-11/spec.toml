@@ -1,12 +1,12 @@
 file = "/code.cpp"
 fs_limit = 3145728
-info = "gcc 13.2.0 (G++)"
+info = "gcc 13.2.1 (G++)"
 extension = "cpp"
 name = "cpp-11" # must be same as dictionary name
 id = "8a9e1daf-ff89-42c3-b011-bf6fb4bd8b26" # be sure it's unique
 
 [compile]
-command = ["/usr/local/bin/gcc","code.cpp", "-lm", "-o", "execute"]
+command = ["/usr/bin/gcc","code.cpp", "-lm", "-o", "execute"]
 
 [judge]
 command = ["/execute"]

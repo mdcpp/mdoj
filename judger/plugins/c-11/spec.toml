@@ -1,6 +1,6 @@
 file = "/code.c"
 fs_limit = 3145728
-info = "gcc 13.2.0 (G++)"
+info = "gcc 13.2.1 (G++)"
 extension = "c"
 name = "c-11"
 id = "7daff707-26b5-4153-90ae-9858b9fd9619"
