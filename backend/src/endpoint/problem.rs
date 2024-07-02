@@ -200,7 +200,7 @@ impl ProblemSet for ArcServer {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
-        if req.info.memory > 2*1024*1024*1024 || req.info.time > 10*1000*1000 {
+        if req.info.memory > 2 * 1024 * 1024 * 1024 || req.info.time > 10 * 1000 * 1000 {
             return Err(Error::NumberTooLarge.into());
         }
 

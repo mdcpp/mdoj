@@ -157,10 +157,17 @@ impl UserSet for ArcServer {
 
         let new_perm: RoleLv = req.info.role().into();
 
-        if (perm as i32) > self.config.default_role.clone().map(|x|x as i32).unwrap_or_default() {
+        if (perm as i32)
+            > self
+                .config
+                .default_role
+                .clone()
+                .map(|x| x as i32)
+                .unwrap_or_default()
+        {
             if !perm.admin() {
                 return Err(Error::RequirePermission(RoleLv::Admin).into());
-            }else if !perm.root() && new_perm >= perm {
+            } else if !perm.root() && new_perm >= perm {
                 return Err(Error::RequirePermission(new_perm).into());
             }
         }
