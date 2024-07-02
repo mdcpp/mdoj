@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};
 
-    frontend::config::init().await?;
+    frontend::config::init_server_config().await?;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_addr;

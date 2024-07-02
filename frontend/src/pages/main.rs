@@ -2,11 +2,11 @@ use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
 
-use crate::{components::*, config::*, pages::*};
+use crate::{components::*, pages::*, session::use_token};
 
 #[component]
 pub fn Main() -> impl IntoView {
-    let (token, _) = use_token();
+    let token = use_token();
     view! {
         <div class="bg-background w-full min-h-screen flex flex-col text-text">
             <Navbar/>

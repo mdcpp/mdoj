@@ -4,9 +4,9 @@ use leptos_router::use_navigate;
 
 use crate::{
     components::*,
-    config::*,
     error::*,
     grpc::{self, token_set_client},
+    session::{use_token_info, TokenInfo},
 };
 
 #[component]
@@ -20,7 +20,7 @@ pub fn Login() -> impl IntoView {
             let password = password.clone();
 
             let navigate = use_navigate();
-            let (_, set_token) = use_token();
+            let (_, set_token_info) = use_token_info();
             async move {
                 let mut token_set = token_set_client::TokenSetClient::new(
                     grpc::new_client().await?,
@@ -33,7 +33,7 @@ pub fn Login() -> impl IntoView {
                     })
                     .await?;
                 let resp = resp.into_inner();
-                set_token(Some(Token {
+                set_token_info(Some(TokenInfo {
                     token: resp.token.signature,
                     role: Role::try_from(resp.role).map_err(|_| {
                         ErrorKind::ServerError(ServerErrorKind::InvalidValue)

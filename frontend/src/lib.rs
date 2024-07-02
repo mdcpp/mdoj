@@ -4,6 +4,7 @@ pub mod config;
 pub mod error;
 pub mod grpc;
 pub mod pages;
+pub mod session;
 
 use cfg_if::cfg_if;
 

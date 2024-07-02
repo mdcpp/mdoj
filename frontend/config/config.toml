@@ -1,2 +1,5 @@
-backend = "http://0.0.0.0:8081"
+[frontend]
+api_server = "http://0.0.0.0:8081"
 image_providers = ["https://i.imgur.com"]
+
+[backend]
