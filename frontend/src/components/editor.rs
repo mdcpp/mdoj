@@ -58,14 +58,13 @@ pub fn Editor(
          parent=document.getElementById('editor-inject-1083hdkjla');if \
          (typeof monaco!='undefined'&&parent!=null){let \
          child=document.createElement('div');parent.appendChild(child);child.\
-         style='width:100%;height:\
-         65vh';monaco.editor.setTheme('vs-dark');let editor=\
-         monaco.editor.create(child,{value:'',language:\
-         'pro-lang'});console.log(editor.getValue())}else{startup();}},\
-         2);}startup();";
+         style='width:100%;height:65vh';monaco.editor.setTheme('vs-dark');let \
+         editor=monaco.editor.create(child,{value:'',language:'pro-lang'});\
+         console.log(editor.getValue())}else{startup();}},2);}startup();";
     if let Some(ident) = language.get().to_ident() {
         create_effect(move |_| {
-            js_sys::eval(&EDITOR_SCRIPT_SOURCE.replace("pro-lang", ident)).unwrap();
+            js_sys::eval(&EDITOR_SCRIPT_SOURCE.replace("pro-lang", ident))
+                .unwrap();
         });
     }
 

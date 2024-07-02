@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     components::*,
-    config::{use_token, WithToken},
     error::*,
     grpc::{problem_set_client::*, *},
     pages::{error_fallback, problems::toggle::Toggle},
+    session::use_token,
 };
 const PAGESIZE: u64 = 10;
 
@@ -135,7 +135,7 @@ impl Pager {
             true => -(PAGESIZE as i64),
             false => PAGESIZE as i64,
         };
-        let (get_token, _) = use_token();
+        let token = use_token();
         let offset = Some(self.offset);
         let session = self.session.clone().map(|session| Paginator { session });
         let mut res = match &self.deps {
@@ -154,7 +154,7 @@ impl Pager {
                                 ),
                             }),
                         }
-                        .with_token(get_token),
+                        .with_optional_token(token()),
                     )
                     .await?
             }
@@ -180,7 +180,7 @@ impl Pager {
                                 ),
                             }),
                         }
-                        .with_token(get_token),
+                        .with_optional_token(token()),
                     )
                     .await?
             }
@@ -207,7 +207,7 @@ impl Pager {
                                 ),
                             }),
                         }
-                        .with_token(get_token),
+                        .with_optional_token(token()),
                     )
                     .await?
             }
