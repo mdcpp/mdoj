@@ -1,24 +1,13 @@
 use super::tools::*;
 
-use crate::grpc::backend::announcement_set_server::*;
-use crate::grpc::backend::*;
-use crate::grpc::into_prost;
+use crate::util::time::into_prost;
+use grpc::backend::announcement_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::announcement::*;
 use crate::entity::*;
+
 use crate::NonZeroU32;
-
-impl From<i32> for AnnouncementId {
-    fn from(value: i32) -> Self {
-        Self { id: value }
-    }
-}
-
-impl From<AnnouncementId> for i32 {
-    fn from(value: AnnouncementId) -> Self {
-        value.id
-    }
-}
 
 impl From<Model> for AnnouncementFullInfo {
     fn from(value: Model) -> Self {
@@ -56,7 +45,7 @@ impl From<PartialModel> for AnnouncementInfo {
 }
 
 #[async_trait]
-impl AnnouncementSet for Arc<Server> {
+impl AnnouncementSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,

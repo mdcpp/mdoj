@@ -676,6 +676,7 @@ dependencies = [
  "derive_builder",
  "futures",
  "governor",
+ "grpc",
  "hickory-resolver",
  "http 0.2.12",
  "ip_network",
@@ -690,8 +691,7 @@ dependencies = [
  "opentelemetry_sdk",
  "paste",
  "postcard",
- "prost 0.12.6",
- "prost-types",
+ "prost-wkt-types",
  "quick_cache",
  "rand",
  "rand_hc",
@@ -708,7 +708,6 @@ dependencies = [
  "tokio-stream",
  "toml 0.7.8",
  "tonic 0.11.0",
- "tonic-build",
  "tonic-web",
  "tower-http",
  "tracing",
@@ -2308,6 +2307,7 @@ dependencies = [
 name = "grpc"
 version = "0.1.0"
 dependencies = [
+ "paste",
  "prost 0.12.6",
  "prost-wkt",
  "prost-wkt-build",

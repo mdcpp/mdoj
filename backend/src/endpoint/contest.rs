@@ -1,21 +1,9 @@
 use super::tools::*;
 
 use crate::entity::{contest::*, *};
-use crate::grpc::backend::contest_set_server::*;
-use crate::grpc::backend::*;
-use crate::grpc::into_chrono;
-use crate::grpc::into_prost;
 
-impl From<i32> for ContestId {
-    fn from(value: i32) -> Self {
-        Self { id: value }
-    }
-}
-impl From<ContestId> for i32 {
-    fn from(value: ContestId) -> Self {
-        value.id
-    }
-}
+use grpc::backend::contest_set_server::*;
+use grpc::backend::*;
 
 impl From<Model> for ContestFullInfo {
     fn from(value: Model) -> Self {
@@ -61,7 +49,7 @@ impl From<PartialModel> for ContestInfo {
 }
 
 #[async_trait]
-impl ContestSet for Arc<Server> {
+impl ContestSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,

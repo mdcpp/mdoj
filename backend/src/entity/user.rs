@@ -1,7 +1,7 @@
 use sea_orm::{QueryOrder, QuerySelect};
 use tracing::instrument;
 
-use crate::grpc::backend::UserSortBy;
+use grpc::backend::UserSortBy;
 
 use self::util::paginator::Remain;
 

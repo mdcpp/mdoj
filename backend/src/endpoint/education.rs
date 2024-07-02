@@ -1,21 +1,9 @@
 use super::tools::*;
 
-use crate::grpc::backend::education_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::education_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::{education::Paginator, education::*, *};
-
-impl From<i32> for EducationId {
-    fn from(value: i32) -> Self {
-        Self { id: value }
-    }
-}
-
-impl From<EducationId> for i32 {
-    fn from(value: EducationId) -> Self {
-        value.id
-    }
-}
 
 impl From<Model> for EducationFullInfo {
     fn from(value: Model) -> Self {
@@ -39,7 +27,7 @@ impl From<PartialModel> for EducationInfo {
 }
 
 #[async_trait]
-impl EducationSet for Arc<Server> {
+impl EducationSet for ArcServer {
     async fn list(
         &self,
         req: Request<ListEducationRequest>,

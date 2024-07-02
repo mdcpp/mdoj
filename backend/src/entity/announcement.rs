@@ -1,6 +1,6 @@
 use tracing::instrument;
 
-use crate::grpc::backend::AnnouncementSortBy;
+use grpc::backend::AnnouncementSortBy;
 
 use super::*;
 

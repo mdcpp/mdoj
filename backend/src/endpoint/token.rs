@@ -2,19 +2,13 @@ use std::time::Duration;
 
 use super::tools::*;
 
-use crate::grpc::backend::token_set_server::*;
-use crate::grpc::{backend::*, into_chrono, into_prost};
+use grpc::backend::token_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::token::*;
 use crate::entity::*;
 
 const TOKEN_LIMIT: u64 = 16;
-
-impl From<String> for Token {
-    fn from(value: String) -> Self {
-        Token { signature: value }
-    }
-}
 
 impl From<Model> for Token {
     fn from(value: Model) -> Self {
@@ -28,7 +22,7 @@ impl From<Model> for Token {
 }
 
 #[async_trait]
-impl TokenSet for Arc<Server> {
+impl TokenSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
         let (auth, req) = self
@@ -95,7 +89,7 @@ impl TokenSet for Arc<Server> {
     #[instrument(skip_all, level = "debug")]
     async fn refresh(
         &self,
-        req: Request<prost_types::Timestamp>,
+        req: Request<prost_wkt_types::Timestamp>,
     ) -> Result<Response<TokenInfo>, Status> {
         let (meta, _, payload) = req.into_parts();
 

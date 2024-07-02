@@ -1,22 +1,10 @@
 use super::tools::*;
 
-use crate::grpc::backend::user_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::user_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::user;
 use crate::entity::user::*;
-
-impl From<i32> for UserId {
-    fn from(value: i32) -> Self {
-        Self { id: value }
-    }
-}
-
-impl From<UserId> for i32 {
-    fn from(value: UserId) -> Self {
-        value.id
-    }
-}
 
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
@@ -30,7 +18,7 @@ impl From<Model> for UserInfo {
 }
 
 #[async_trait]
-impl UserSet for Arc<Server> {
+impl UserSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,

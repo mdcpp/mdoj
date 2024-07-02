@@ -1,5 +1,20 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
+use crate::{
+    controller::*,
+    init::{
+        config::{self, GlobalConfig},
+        logger::{self, OtelGuard},
+        Error,
+    },
+};
+use grpc::backend::{
+    announcement_set_server::AnnouncementSetServer, chat_set_server::ChatSetServer,
+    contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
+    problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
+    testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
+    user_set_server::UserSetServer,
+};
 use http::header::HeaderName;
 use sea_orm::DatabaseConnection;
 use spin::Mutex;
@@ -7,22 +22,6 @@ use tonic::transport::{self, Identity, ServerTlsConfig};
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{span, Instrument, Level};
-
-use crate::{
-    controller::*,
-    grpc::backend::{
-        announcement_set_server::AnnouncementSetServer, chat_set_server::ChatSetServer,
-        contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
-        problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
-        testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
-        user_set_server::UserSetServer,
-    },
-    init::{
-        config::{self, GlobalConfig},
-        logger::{self, OtelGuard},
-        Error,
-    },
-};
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
@@ -52,6 +51,17 @@ pub struct Server {
     pub db: Arc<DatabaseConnection>,
     pub identity: Mutex<Option<Identity>>,
     _otel_guard: OtelGuard,
+}
+
+#[derive(Clone)]
+pub struct ArcServer(Arc<Server>);
+
+impl Deref for ArcServer {
+    type Target = Server;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Server {
@@ -112,6 +122,7 @@ impl Server {
     }
     /// Start the server
     pub async fn start(self: Arc<Self>) {
+        let self_ = ArcServer(self);
         let cors = CorsLayer::new()
             .allow_headers(
                 DEFAULT_ALLOW_HEADERS
@@ -130,7 +141,7 @@ impl Server {
             .allow_origin(AllowOrigin::mirror_request())
             .allow_methods(Any);
 
-        let server = match self.identity.lock().take() {
+        let server = match self_.0.identity.lock().take() {
             Some(identity) => transport::Server::builder()
                 .tls_config(ServerTlsConfig::new().identity(identity))
                 .unwrap(),
@@ -141,20 +152,23 @@ impl Server {
             .layer(cors)
             .layer(GrpcWebLayer::new())
             .max_frame_size(Some(MAX_FRAME_SIZE))
-            .add_service(ProblemSetServer::new(self.clone()))
-            .add_service(EducationSetServer::new(self.clone()))
-            .add_service(UserSetServer::new(self.clone()))
-            .add_service(TokenSetServer::new(self.clone()))
-            .add_service(ContestSetServer::new(self.clone()))
-            .add_service(TestcaseSetServer::new(self.clone()))
-            .add_service(SubmitSetServer::new(self.clone()))
-            .add_service(ChatSetServer::new(self.clone()))
-            .add_service(AnnouncementSetServer::new(self.clone()))
-            .serve_with_shutdown(self.config.bind_address.clone().parse().unwrap(), async {
-                if tokio::signal::ctrl_c().await.is_err() {
-                    tracing::warn!("graceful_shutdown");
-                }
-            })
+            .add_service(ProblemSetServer::new(self_.clone()))
+            .add_service(EducationSetServer::new(self_.clone()))
+            .add_service(UserSetServer::new(self_.clone()))
+            .add_service(TokenSetServer::new(self_.clone()))
+            .add_service(ContestSetServer::new(self_.clone()))
+            .add_service(TestcaseSetServer::new(self_.clone()))
+            .add_service(SubmitSetServer::new(self_.clone()))
+            .add_service(ChatSetServer::new(self_.clone()))
+            .add_service(AnnouncementSetServer::new(self_.clone()))
+            .serve_with_shutdown(
+                self_.0.config.bind_address.clone().parse().unwrap(),
+                async {
+                    if tokio::signal::ctrl_c().await.is_err() {
+                        tracing::warn!("graceful_shutdown");
+                    }
+                },
+            )
             .await
             .unwrap();
     }

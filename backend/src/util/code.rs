@@ -1,5 +1,5 @@
-use crate::grpc::backend::StateCode as BackendCode;
-use crate::grpc::judger::JudgerCode;
+use grpc::backend::StateCode as BackendCode;
+use grpc::judger::JudgerCode;
 
 /// Stablized JudgeResponse Code, store in database
 #[derive(Clone, Copy, PartialEq, Eq)]

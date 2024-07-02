@@ -1,10 +1,10 @@
 use super::tools::*;
 
-use crate::grpc::backend::imgur_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::imgur_set_server::*;
+use grpc::backend::*;
 
 #[async_trait]
-impl ImgurSet for Arc<Server> {
+impl ImgurSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn upload(
         &self,

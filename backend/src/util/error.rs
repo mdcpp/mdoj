@@ -135,7 +135,7 @@ impl Tracing {
             log_id,
         }
     }
-    pub fn report(self)->String{
+    pub fn report(self) -> String {
         format!(
             "trace_id: {}, span_id: {}, log_id: {}",
             self.trace_id, self.span_id, self.log_id

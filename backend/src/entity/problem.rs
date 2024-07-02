@@ -6,9 +6,9 @@ use std::ops::Deref;
 use sea_orm::Statement;
 use tracing::{instrument, Instrument};
 
-use crate::{grpc::backend::ProblemSortBy, union};
-
 use super::*;
+use crate::union;
+use grpc::backend::ProblemSortBy;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "problem")]
