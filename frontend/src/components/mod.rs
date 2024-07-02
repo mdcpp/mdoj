@@ -1,5 +1,6 @@
 pub mod button;
 pub mod catch;
+pub mod editor;
 pub mod footer;
 pub mod highlight;
 pub mod markdown;
@@ -13,6 +14,7 @@ use std::rc::Rc;
 
 pub use button::Button;
 pub use catch::{provide_catch, use_ball, use_has_ball, CatchBoundary};
+pub use editor::Editor;
 pub use footer::Footer;
 pub use highlight::Highlight;
 use leptos::*;

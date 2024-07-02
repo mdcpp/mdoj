@@ -11,6 +11,16 @@ lazy_static::lazy_static! {
         .expect("Invalid CONFIG_PATH");
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+#[repr(i32)]
+pub enum ConfigRole {
+    User = 1,
+    Super = 2,
+    Admin = 3,
+    Root = 4,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
     #[serde(default = "default_bind_address")]
@@ -27,6 +37,8 @@ pub struct GlobalConfig {
     pub opentelemetry: Option<String>,
     #[serde(default)]
     pub imgur: Imgur,
+    #[serde(default)]
+    pub default_role: Option<ConfigRole>,
 }
 
 fn default_opentelemetry() -> Option<String> {

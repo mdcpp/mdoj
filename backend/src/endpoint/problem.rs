@@ -200,6 +200,10 @@ impl ProblemSet for ArcServer {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
+        if req.info.memory > 2*1024*1024*1024 || req.info.time > 10*1000*1000 {
+            return Err(Error::NumberTooLarge.into());
+        }
+
         let mut model: ActiveModel = Default::default();
         model.user_id = ActiveValue::Set(user_id);
 

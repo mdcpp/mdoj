@@ -19,6 +19,8 @@ pub enum ErrorKind {
     Network,
     #[error("Please use supported browser")]
     Browser,
+    #[error("No content available")]
+    OutOfRange,
     #[error("Something went wrong: '{0}'")]
     ServerError(#[from] ServerErrorKind),
 }
@@ -51,6 +53,7 @@ impl From<Status> for ErrorKind {
             Code::Unauthenticated => ErrorKind::LoginRequire,
             Code::PermissionDenied => ErrorKind::PermissionDenied,
             Code::DeadlineExceeded | Code::Unavailable => ErrorKind::Network,
+            Code::OutOfRange => ErrorKind::OutOfRange,
             _ => ErrorKind::ServerError(ServerErrorKind::Unknown),
         }
     }

@@ -19,4 +19,4 @@ dev:
 
 fmt:
     cargo fmt
-    leptosfmt ./**/*.rs
+    leptosfmt ./**/**/*.rs ./**/*.rs

@@ -11,6 +11,7 @@ pub fn error_fallback(errors: RwSignal<Errors>) -> impl IntoView {
                 ErrorKind::NotFound => view! { <NotFound/> }.into_view(),
                 ErrorKind::RateLimit => todo!(),
                 ErrorKind::LoginRequire => todo!(),
+                ErrorKind::OutOfRange => view! { <NotFound/> }.into_view(),
                 ErrorKind::Network => todo!(),
                 ErrorKind::ServerError(_) => {
                     view! { <InternalServerError/> }.into_view()

@@ -171,10 +171,11 @@ pub fn Problem() -> impl IntoView {
                                 </Select>
                             </li>
                         </ul>
-                        <textarea
-                            class="w-full grow overflow-auto mb-4 bg-background outline-none"
-                            on:input=move |e| code.set(event_target_value(&e))
-                        ></textarea>
+                        // <textarea
+                        // class="w-full grow overflow-auto mb-4 bg-background outline-none"
+                        // on:input=move |e| code.set(event_target_value(&e))
+                        // ></textarea>
+                        <Editor/>
                         <Button class="mt-auto" kind="submit" disabled>
                             Submit
                         </Button>

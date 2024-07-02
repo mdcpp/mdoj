@@ -144,20 +144,25 @@ impl UserSet for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
 
         check_length!(SHORT_ART_SIZE, req.info, username);
 
-        if !perm.admin() {
-            return Err(Error::RequirePermission(RoleLv::Admin).into());
-        }
-
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
+
+        let (user_id, perm) = auth.ok_or_default()?;
+
         if let Some(x) = self.dup.check::<UserId>(user_id, uuid) {
             return Ok(Response::new(x));
         };
-        if !(perm.admin()) {
-            return Err(Error::RequirePermission(RoleLv::Admin).into());
+
+        let new_perm: RoleLv = req.info.role().into();
+
+        if (perm as i32) > self.config.default_role.clone().map(|x|x as i32).unwrap_or_default() {
+            if !perm.admin() {
+                return Err(Error::RequirePermission(RoleLv::Admin).into());
+            }else if !perm.root() && new_perm >= perm {
+                return Err(Error::RequirePermission(new_perm).into());
+            }
         }
 
         let mut model: ActiveModel = Default::default();
@@ -165,11 +170,6 @@ impl UserSet for ArcServer {
         tracing::debug!(username = req.info.username);
 
         let hash = self.crypto.hash(req.info.password.as_str());
-        let new_perm: RoleLv = req.info.role().into();
-        if !perm.root() && new_perm >= perm {
-            return Err(Error::RequirePermission(new_perm).into());
-        }
-
         let txn = self.db.begin().await.map_err(Error::DBErr)?;
 
         let same_name = Entity::find()

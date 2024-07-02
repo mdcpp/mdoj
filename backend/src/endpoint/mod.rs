@@ -19,7 +19,7 @@ mod tools {
     /// longest allowed size for short string
     pub const SHORT_ART_SIZE: usize = 128;
     /// longest allowed size for long string
-    pub const LONG_ART_SIZE: usize = 65536;
+    pub const LONG_ART_SIZE: usize = 262144;
     pub use crate::NonZeroU32;
     pub use sea_orm::*;
     pub use std::ops::Deref;
