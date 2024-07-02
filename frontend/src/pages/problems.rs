@@ -371,79 +371,78 @@ pub fn ProblemList() -> impl IntoView {
                 {move || {
                     r.get()
                         .map(|v| {
-                            v
-                                .map(|v| {
-                                    view! {
-                                        <div class="table w-full table-auto">
-                                            <div class="table-header-group text-left">
-                                                <div class="table-row">
-                                                    <div class="table-cell">Title</div>
-                                                    <div class="hidden md:table-cell">AC Rate</div>
-                                                    <div class="hidden md:table-cell">Attempt</div>
-                                                    <div class="table-cell">Difficulty</div>
-                                                </div>
-                                            </div>
-                                            <div class="table-row-group" style="line-height: 3rem">
-
-                                                {v
-                                                    .list
-                                                    .into_iter()
-                                                    .map(|info| {
-                                                        view! {
-                                                            <div class="table-row odd:bg-gray">
-                                                                <div class="w-2/3 truncate table-cell">
-                                                                    <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
-                                                                </div>
-                                                                <div class="text-center hidden md:table-cell">
-                                                                    {info.ac_rate} %
-                                                                </div>
-                                                                <div class="text-center hidden md:table-cell">
-                                                                    {info.submit_count}
-                                                                </div>
-                                                                <div class="table-cell">
-                                                                    {difficulty_color(info.difficulty)}
-                                                                </div>
-                                                            </div>
-                                                        }
-                                                    })
-                                                    .collect_view()}
-
+                            v.map(|v| {
+                                view! {
+                                    <div class="table w-full table-auto">
+                                        <div class="table-header-group text-left">
+                                            <div class="table-row">
+                                                <div class="table-cell">Title</div>
+                                                <div class="hidden md:table-cell">AC Rate</div>
+                                                <div class="hidden md:table-cell">Attempt</div>
+                                                <div class="table-cell">Difficulty</div>
                                             </div>
                                         </div>
-                                        <ul>
+                                        <div class="table-row-group" style="line-height: 3rem">
 
                                             {v
-                                                .previous_queries
+                                                .list
                                                 .into_iter()
-                                                .enumerate()
-                                                .map(|(n, query)| {
+                                                .map(|info| {
                                                     view! {
-                                                        <li>
-                                                            <A href=format!("/problems{}", query)>back {n + 1} page</A>
-                                                        </li>
+                                                        <div class="table-row odd:bg-gray">
+                                                            <div class="w-2/3 truncate table-cell">
+                                                                <A href=format!("/problem/{}", info.id.id)>{info.title}</A>
+                                                            </div>
+                                                            <div class="text-center hidden md:table-cell">
+                                                                {info.ac_rate} %
+                                                            </div>
+                                                            <div class="text-center hidden md:table-cell">
+                                                                {info.submit_count}
+                                                            </div>
+                                                            <div class="table-cell">
+                                                                {difficulty_color(info.difficulty)}
+                                                            </div>
+                                                        </div>
                                                     }
                                                 })
                                                 .collect_view()}
 
-                                        </ul>
-                                        <ul>
+                                        </div>
+                                    </div>
+                                    <ul>
 
-                                            {v
-                                                .next_queries
-                                                .into_iter()
-                                                .enumerate()
-                                                .map(|(n, query)| {
-                                                    view! {
-                                                        <li>
-                                                            <A href=format!("/problems{}", query)>next {n + 1} page</A>
-                                                        </li>
-                                                    }
-                                                })
-                                                .collect_view()}
+                                        {v
+                                            .previous_queries
+                                            .into_iter()
+                                            .enumerate()
+                                            .map(|(n, query)| {
+                                                view! {
+                                                    <li>
+                                                        <A href=format!("/problems{}", query)>back {n + 1} page</A>
+                                                    </li>
+                                                }
+                                            })
+                                            .collect_view()}
 
-                                        </ul>
-                                    }
-                                })
+                                    </ul>
+                                    <ul>
+
+                                        {v
+                                            .next_queries
+                                            .into_iter()
+                                            .enumerate()
+                                            .map(|(n, query)| {
+                                                view! {
+                                                    <li>
+                                                        <A href=format!("/problems{}", query)>next {n + 1} page</A>
+                                                    </li>
+                                                }
+                                            })
+                                            .collect_view()}
+
+                                    </ul>
+                                }
+                            })
                         })
                 }}
 
