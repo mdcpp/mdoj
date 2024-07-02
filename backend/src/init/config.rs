@@ -119,7 +119,7 @@ impl Default for Imgur {
 }
 
 pub async fn init() -> super::Result<GlobalConfig> {
-    let config_path=CONFIG_PATH.as_path();
+    let config_path = CONFIG_PATH.as_path();
     if fs::metadata(config_path).await.is_ok() {
         let mut buf = Vec::new();
         let mut config = fs::File::open(config_path)
@@ -134,7 +134,10 @@ pub async fn init() -> super::Result<GlobalConfig> {
         let config: GlobalConfig = toml::from_str(config).map_err(Error::ConfigParse)?;
         Ok(config)
     } else {
-        println!("Unable to find {:?}, generating default config", config_path);
+        println!(
+            "Unable to find {:?}, generating default config",
+            config_path
+        );
         let config: GlobalConfig = toml::from_str("").unwrap();
 
         let config_txt = toml::to_string(&config).unwrap();

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use reqwest::{multipart, Client};
-use serde::Serialize;
 use tracing::instrument;
 
 use crate::{init::config, report_internal};
@@ -25,16 +24,17 @@ impl From<Error> for tonic::Status {
     }
 }
 
-/// json serialization for imgur api
-///
-/// Read Imgur API Docs for more
-#[derive(Serialize)]
-struct AccessTokenRequest<'a> {
-    refresh_token: &'a str,
-    client_id: &'a str,
-    client_secret: &'a str,
-    grant_type: &'static str,
-}
+// FIXME: use token to delete image
+// /// json serialization for imgur api
+// ///
+// /// Read Imgur API Docs for more
+// #[derive(Serialize)]
+// struct AccessTokenRequest<'a> {
+//     refresh_token: &'a str,
+//     client_id: &'a str,
+//     client_secret: &'a str,
+//     grant_type: &'static str,
+// }
 
 pub struct ImgurController {
     client: Client,

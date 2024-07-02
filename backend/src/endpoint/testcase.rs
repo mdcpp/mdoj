@@ -1,20 +1,9 @@
 use super::tools::*;
 
-use crate::grpc::backend::testcase_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::testcase_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::{test::*, *};
-
-impl From<i32> for TestcaseId {
-    fn from(value: i32) -> Self {
-        Self { id: value }
-    }
-}
-impl From<TestcaseId> for i32 {
-    fn from(value: TestcaseId) -> Self {
-        value.id
-    }
-}
 
 impl From<Model> for TestcaseFullInfo {
     fn from(value: Model) -> Self {
@@ -37,7 +26,7 @@ impl From<Model> for TestcaseInfo {
 }
 
 #[async_trait]
-impl TestcaseSet for Arc<Server> {
+impl TestcaseSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,

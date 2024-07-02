@@ -1,11 +1,13 @@
 #[cfg(feature = "backend")]
+mod ids;
+
+#[cfg(feature = "backend")]
+#[cfg(feature = "judger")]
+mod bridge;
+
+#[cfg(feature = "backend")]
 #[allow(clippy::all, non_local_definitions)]
-pub mod backend {
-    tonic::include_proto!("oj.backend");
-}
+pub mod backend;
 
 #[cfg(feature = "judger")]
-#[allow(clippy::all, non_local_definitions)]
-pub mod judger {
-    tonic::include_proto!("oj.judger");
-}
+pub mod judger;

@@ -12,10 +12,10 @@ use std::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    grpc::{backend::StateCode as BackendCode, TonicStream},
     init::{config, logger::PACKAGE_NAME},
-    report_internal,
+    report_internal, TonicStream,
 };
+use grpc::backend::StateCode as BackendCode;
 use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
@@ -23,7 +23,7 @@ use tonic::Status;
 use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
-use crate::grpc::{
+use grpc::{
     backend::{submit_status, PlaygroundResult, SubmitStatus},
     judger::*,
 };
@@ -93,14 +93,6 @@ pub struct Submit {
     memory_limit: i64,
     lang: Uuid,
     code: Vec<u8>,
-}
-
-impl From<i32> for SubmitStatus {
-    fn from(value: i32) -> Self {
-        SubmitStatus {
-            task: Some(submit_status::Task::Case(value)),
-        }
-    }
 }
 
 impl From<Code> for SubmitStatus {

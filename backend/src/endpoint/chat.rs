@@ -1,22 +1,9 @@
 use super::tools::*;
 
-use crate::grpc::backend::chat_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::chat_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::chat::*;
-use crate::grpc::into_prost;
-
-impl From<i32> for ChatId {
-    fn from(value: i32) -> Self {
-        ChatId { id: value }
-    }
-}
-
-impl From<ChatId> for i32 {
-    fn from(value: ChatId) -> Self {
-        value.id
-    }
-}
 
 impl From<Model> for ChatInfo {
     fn from(value: Model) -> Self {
@@ -31,7 +18,7 @@ impl From<Model> for ChatInfo {
 }
 
 #[tonic::async_trait]
-impl ChatSet for Arc<Server> {
+impl ChatSet for ArcServer {
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))

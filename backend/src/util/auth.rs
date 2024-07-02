@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::grpc::backend::Role;
+use grpc::backend::Role;
 
 use super::error::Error;
 

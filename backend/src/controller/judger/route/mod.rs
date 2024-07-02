@@ -17,10 +17,8 @@ use tonic::{service::Interceptor, *};
 use tracing::{debug_span, instrument, span, Instrument, Level, Span};
 use uuid::Uuid;
 
-use crate::{
-    grpc::judger::{judger_client::*, *},
-    init::config::{self, Judger as JudgerConfig},
-};
+use crate::init::config::{self, Judger as JudgerConfig};
+use grpc::judger::{judger_client::*, *};
 
 // TODO: add tracing
 

@@ -4,7 +4,8 @@ use chrono::Local;
 use sea_orm::Statement;
 use tracing::{instrument, Instrument};
 
-use crate::{grpc::backend::ContestSortBy, union};
+use crate::union;
+use grpc::backend::ContestSortBy;
 
 use super::*;
 

@@ -1,40 +1,15 @@
 use super::tools::*;
 
 use crate::controller::judger::SubmitBuilder;
-use crate::grpc::backend::submit_set_server::*;
-use crate::grpc::backend::StateCode as BackendCode;
-use crate::grpc::backend::*;
-use crate::grpc::into_prost;
-use crate::grpc::judger::LangInfo;
 use crate::util::code::Code;
+use grpc::backend::submit_set_server::*;
+use grpc::backend::StateCode as BackendCode;
+use grpc::backend::*;
 
 use crate::entity::{submit::*, *};
 use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;
-
-impl From<i32> for SubmitId {
-    fn from(value: i32) -> Self {
-        SubmitId { id: value }
-    }
-}
-
-impl From<SubmitId> for i32 {
-    fn from(value: SubmitId) -> Self {
-        value.id
-    }
-}
-
-impl From<LangInfo> for Language {
-    fn from(value: LangInfo) -> Self {
-        Language {
-            lang_uid: value.lang_uid,
-            lang_name: value.lang_name,
-            info: value.info,
-            lang_ext: value.lang_ext,
-        }
-    }
-}
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
@@ -73,7 +48,7 @@ impl From<PartialModel> for SubmitInfo {
 }
 
 #[async_trait]
-impl SubmitSet for Arc<Server> {
+impl SubmitSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,

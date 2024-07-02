@@ -1,20 +1,8 @@
 use super::tools::*;
-use crate::grpc::backend::problem_set_server::*;
-use crate::grpc::backend::*;
+use grpc::backend::problem_set_server::*;
+use grpc::backend::*;
 
 use crate::entity::{problem::*, *};
-
-impl From<i32> for ProblemId {
-    fn from(value: i32) -> Self {
-        ProblemId { id: value }
-    }
-}
-
-impl From<ProblemId> for i32 {
-    fn from(value: ProblemId) -> Self {
-        value.id
-    }
-}
 
 impl From<PartialModel> for ProblemInfo {
     fn from(value: PartialModel) -> Self {
@@ -50,7 +38,7 @@ impl From<Model> for ProblemFullInfo {
 }
 
 #[async_trait]
-impl ProblemSet for Arc<Server> {
+impl ProblemSet for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
