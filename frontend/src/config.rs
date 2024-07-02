@@ -3,39 +3,49 @@ use std::sync::OnceLock;
 
 use cfg_if::cfg_if;
 use leptos::*;
-use leptos_use::{utils::JsonCodec, *};
 use serde::{Deserialize, Serialize};
-use tonic::{IntoRequest, Request};
 
-use crate::{error::*, grpc};
+use crate::error::*;
 #[cfg(feature = "ssr")]
-static CONFIG: OnceLock<GlobalConfig> = OnceLock::new();
+static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
-pub struct GlobalConfig {
-    #[serde(default = "default_backend")]
-    pub backend: String,
-    #[serde(default = "default_image_providers")]
+pub struct Config {
+    #[serde(default = "default_frontend_config")]
+    pub frontend: FrontendConfig,
+    #[serde(default = "default_backend_config")]
+    pub backend: BackendConfig,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+pub struct FrontendConfig {
+    pub api_server: String,
     pub image_providers: Vec<String>,
 }
 
-fn default_backend() -> String {
-    "http://0.0.0.0:8081".to_owned()
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+pub struct BackendConfig {}
+
+fn default_frontend_config() -> FrontendConfig {
+    FrontendConfig {
+        api_server: "http://0.0.0.0:8081".to_owned(),
+        image_providers: vec!["https://i.imgur.com".to_owned()],
+    }
 }
 
-fn default_image_providers() -> Vec<String> {
-    vec!["https://i.imgur.com".to_owned()]
+fn default_backend_config() -> BackendConfig {
+    BackendConfig {}
 }
 
 #[cfg(feature = "ssr")]
-pub async fn init() -> Result<()> {
+pub async fn init_server_config() -> Result<()> {
     let config = load_server_config().await?;
-    CONFIG.set(config).expect("Already init!");
+    CONFIG.set(config);
     Ok(())
 }
 
 #[cfg(feature = "ssr")]
-async fn load_server_config() -> Result<GlobalConfig> {
+async fn load_server_config() -> Result<Config> {
     use std::env::var;
 
     use tokio::{fs, io::AsyncReadExt};
@@ -53,9 +63,9 @@ async fn load_server_config() -> Result<GlobalConfig> {
             .await?;
         return Ok(toml::from_str(&buf).expect("malformed config file"));
     }
-    let default_config = GlobalConfig {
-        backend: default_backend(),
-        image_providers: default_image_providers(),
+    let default_config = Config {
+        frontend: default_frontend_config(),
+        backend: default_backend_config(),
     };
     let default_toml = toml::to_string_pretty(&default_config)
         .expect("Cannot generate default config");
@@ -64,93 +74,33 @@ async fn load_server_config() -> Result<GlobalConfig> {
 }
 
 #[server]
-async fn get_server_config() -> Result<GlobalConfig, ServerFnError> {
-    return Ok(CONFIG.get().cloned().unwrap());
+async fn get_frontend_config() -> Result<FrontendConfig, ServerFnError> {
+    Ok(CONFIG
+        .get()
+        .map(|c| c.frontend.clone())
+        .expect("server config is not init!"))
 }
 
-pub async fn server_config() -> Result<GlobalConfig> {
+pub async fn frontend_config() -> Result<FrontendConfig> {
     cfg_if! { if #[cfg(feature = "ssr")] {
-        Ok(get_server_config().await?)
+        Ok(get_frontend_config().await?)
     } else {
-        use gloo::storage::{LocalStorage, Storage};
+        use gloo::storage::{SessionStorage, Storage};
         const SERVER_CONFIG_KEY: &str = "server_config";
-        if let Ok(config) = LocalStorage::get(SERVER_CONFIG_KEY) {
+        if let Ok(config) = SessionStorage::get(SERVER_CONFIG_KEY) {
             Ok(config)
         } else {
-            let config= get_server_config()
-                .await
-                .map_err(|_| ErrorKind::ServerError(ServerErrorKind::ServerFn))?;
-            LocalStorage::set(SERVER_CONFIG_KEY, Some(config.clone())).map_err(|_|ErrorKind::Browser)?;
+            let config= get_frontend_config().await?;
+            SessionStorage::set(SERVER_CONFIG_KEY, Some(config.clone())).map_err(|_|ErrorKind::Browser)?;
             Ok(config)
         }
     }}
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Deserialize, Serialize)]
-pub struct Token {
-    pub token: String,
-    pub role: grpc::Role,
-}
-
-pub fn use_token() -> (Signal<Option<Token>>, WriteSignal<Option<Token>>) {
-    use_cookie_with_options::<_, JsonCodec>(
-        "token",
-        UseCookieOptions::default().max_age(60 * 60 * 1000),
-    )
-}
-
-pub trait WithToken: Sized {
-    /// this will try to add token to request.
-    ///
-    /// Will return error if token is not exist
-    fn try_with_token(
-        self,
-        token: impl Into<MaybeSignal<Option<Token>>>,
-    ) -> Result<Request<Self>>;
-
-    /// this will try to add token to request.
-    ///
-    /// If token is not exist, it will just ignore error and return request without token
-    fn with_token(
-        self,
-        token: impl Into<MaybeSignal<Option<Token>>>,
-    ) -> Request<Self>;
-}
-
-impl<T> WithToken for T
-where
-    T: IntoRequest<T>,
-{
-    fn try_with_token(
-        self,
-        token: impl Into<MaybeSignal<Option<Token>>>,
-    ) -> Result<Request<Self>> {
-        let mut req = self.into_request();
-        let token: MaybeSignal<_> = token.into();
-        if let Some(token) = token() {
-            req.metadata_mut().insert(
-                "token",
-                token.token.parse().map_err(|_| {
-                    ErrorKind::ServerError(ServerErrorKind::InvalidValue)
-                })?,
-            );
-        }
-        Ok(req)
-    }
-
-    fn with_token(
-        self,
-        token: impl Into<MaybeSignal<Option<Token>>>,
-    ) -> Request<Self> {
-        let mut req = self.into_request();
-        let token: MaybeSignal<_> = token.into();
-        let Some(token) = token() else {
-            return req;
-        };
-        let Ok(token) = token.token.parse() else {
-            return req;
-        };
-        req.metadata_mut().insert("token", token);
-        req
-    }
+#[cfg(feature = "ssr")]
+pub fn backend_config() -> &'static BackendConfig {
+    CONFIG
+        .get()
+        .map(|c| &c.backend)
+        .expect("server config is not init!")
 }
