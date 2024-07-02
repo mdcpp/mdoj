@@ -13,8 +13,6 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-
-    
     // TODO: Add tracing support
     // let fmt_layer = tracing_subscriber::fmt::layer()
     //     .with_ansi(false) // Only partially supported across browsers

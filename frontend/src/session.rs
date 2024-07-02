@@ -33,4 +33,3 @@ pub fn use_role() -> Signal<Option<Role>> {
     let (user_info, _) = use_token_info();
     (move || user_info().as_ref().map(|s| s.role.clone())).into_signal()
 }
-

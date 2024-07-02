@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
 
-use crate::{components::*, session::use_token, pages::*};
+use crate::{components::*, pages::*, session::use_token};
 
 #[component]
 pub fn Main() -> impl IntoView {
