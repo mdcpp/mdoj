@@ -3,6 +3,7 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use bytes::Bytes;
 use futures_core::Future;
 use spin::Mutex;
+use tokio::fs::metadata;
 use tokio::io::{AsyncRead, AsyncSeek};
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -53,6 +54,11 @@ where
         let mut mount_options = MountOptions::default();
 
         mount_options.uid(uid).gid(gid).force_readdir_plus(true);
+
+        // FIXME: this panic in container
+        //
+        // additionally, libfuse report: `find fusermount3 binary failed`
+        metadata(path.as_ref()).await.expect("calling libc::mkdtemp actually creates the directory on host");
 
         Session::new(mount_options)
             .mount_with_unprivileged(self, path.as_ref())

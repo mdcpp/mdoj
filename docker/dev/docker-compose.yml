@@ -36,8 +36,12 @@ services:
       - ./judger/config:/config
       - ./judger/plugins:/plugins
       - /sys/fs/cgroup:/sys/fs/cgroup
+      - /dev/fuse:/dev/fuse
     environment:
+      - RUST_BACKTRACE=full
       - CONFIG_PATH=/config/config.toml
+    ports:
+      - "8082:8081"
     networks:
       - judger
   jaeger:
