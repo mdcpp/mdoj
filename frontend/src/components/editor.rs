@@ -1,7 +1,4 @@
-use gloo::console::console_dbg;
 use leptos::*;
-use leptos_dom::logging::console_log;
-use leptos_meta::Script;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Language {
@@ -33,21 +30,31 @@ pub fn Editor(
 ) -> impl IntoView {
     /// compacted version of the script
     /// ```javascript
-    /// (async () => {
-    ///     let monaco = await import('https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm');
-    ///     let parent = document.getElementById('editor-inject-1083hdkjla');
+    /// (async() => {
+    ///     let parent = null;
+    ///     while(parent==null || typeof monaco=="undefined"){
+    ///         await new Promise(r=>setTimeout(r, 5));
+    ///         parent = document.getElementById('editor-inject-1083hdkjla');
+    ///     }
+    ///
     ///     let child = document.createElement('div');
     ///     parent.appendChild(child);
-    ///     child.style = 'width: 100%; height: 65vh';
+    ///     child.style = 'width:100%;height:65vh';
+    ///   
     ///     monaco.editor.setTheme('vs-dark');
-    ///     let editor = monaco.editor.create(child, {
+    ///     monaco.editor.create(child, {
     ///         value: '',
     ///         language: 'pro-lang'
     ///     });
-    /// })();
+    /// })()
     /// ```
     static EDITOR_SCRIPT_SOURCE: &str =
-        "(async()=>{let e=await import('https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm'),t=document.getElementById('editor-inject-1083hdkjla'),a=document.createElement('div');t.appendChild(a),a.style='width: 100%; height: 65vh',e.editor.setTheme('vs-dark'),e.editor.create(a,{value:'',language:'pro-lang'})})();";
+        "(async()=>{let parent=null;while(parent==null||typeof \
+         monaco=='undefined'){await new Promise(r=>setTimeout(r, \
+         5));parent=document.getElementById('editor-inject-1083hdkjla');}let \
+         child=document.createElement('div');parent.appendChild(child);child.\
+         style='width:100%;height:65vh';monaco.editor.setTheme('vs-dark');\
+         monaco.editor.create(child,{value:'',language:'pro-lang'});})()";
     if let Some(ident) = language.get().to_ident() {
         create_effect(move |_| {
             js_sys::eval(&EDITOR_SCRIPT_SOURCE.replace("pro-lang", ident))
@@ -55,36 +62,8 @@ pub fn Editor(
         });
     }
 
-    #[cfg(not(feature = "ssr"))]
-    if !js_sys::eval("typeof monaco")
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .starts_with("undefined")
-    {
-        console_log("Monaco is already loaded");
-        return view! {
-            <div>
-                <link
-                    rel="stylesheet"
-                    data-name="vs/editor/editor.main"
-                    href="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css"
-                />
-                <div
-                    id="editor-inject-1083hdkjla"
-                    style="width: 100%; border: 1px solid grey"
-                ></div>
-            </div>
-        };
-    }
-
     view! {
         <div>
-            <link
-                rel="stylesheet"
-                data-name="vs/editor/editor.main"
-                href="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css"
-            />
             <div id="editor-inject-1083hdkjla" style="width: 100%; border: 1px solid grey"></div>
         </div>
     }

@@ -26,6 +26,8 @@ pub fn App() -> impl IntoView {
     // tracing::
 
     view! {
+        <Script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js" defer=""/>
+        <Script src="/assets/moncao.js" defer=""/>
         <Router>
             <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
             <Title text="MDOJ"/>
