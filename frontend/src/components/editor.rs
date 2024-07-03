@@ -33,34 +33,21 @@ pub fn Editor(
 ) -> impl IntoView {
     /// compacted version of the script
     /// ```javascript
-    /// function startup(){
-    ///     setTimeout(()=>{
-    ///         let parent=document.getElementById('editor-inject-1083hdkjla');
-    ///         if (typeof monaco != 'undefined' && parent != null){
-    ///             let child=document.createElement('div');
-    ///             parent.appendChild(child);
-    ///             child.style='width: 100%; height: 65vh';
-    ///             monaco.editor.setTheme('vs-dark');
-    ///             let editor = monaco.editor.create(child, {
-    ///                 value: '',
-    ///                 language: 'pro-lang'
-    ///             });
-    ///             console.log(editor.getValue())
-    ///         }else{
-    ///             startup();
-    ///         }
-    ///     }, 2);
-    /// }
-    /// startup();
+    /// (async () => {
+    ///     let monaco = await import('https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm');
+    ///     let parent = document.getElementById('editor-inject-1083hdkjla');
+    ///     let child = document.createElement('div');
+    ///     parent.appendChild(child);
+    ///     child.style = 'width: 100%; height: 65vh';
+    ///     monaco.editor.setTheme('vs-dark');
+    ///     let editor = monaco.editor.create(child, {
+    ///         value: '',
+    ///         language: 'pro-lang'
+    ///     });
+    /// })();
     /// ```
     static EDITOR_SCRIPT_SOURCE: &str =
-        "function startup(){setTimeout(()=>{let \
-         parent=document.getElementById('editor-inject-1083hdkjla');if \
-         (typeof monaco!='undefined'&&parent!=null){let \
-         child=document.createElement('div');parent.appendChild(child);child.\
-         style='width:100%;height:65vh';monaco.editor.setTheme('vs-dark');let \
-         editor=monaco.editor.create(child,{value:'',language:'pro-lang'});\
-         console.log(editor.getValue())}else{startup();}},2);}startup();";
+        "(async()=>{let e=await import('https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm'),t=document.getElementById('editor-inject-1083hdkjla'),a=document.createElement('div');t.appendChild(a),a.style='width: 100%; height: 65vh',e.editor.setTheme('vs-dark'),e.editor.create(a,{value:'',language:'pro-lang'})})();";
     if let Some(ident) = language.get().to_ident() {
         create_effect(move |_| {
             js_sys::eval(&EDITOR_SCRIPT_SOURCE.replace("pro-lang", ident))
@@ -99,12 +86,6 @@ pub fn Editor(
                 href="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.css"
             />
             <div id="editor-inject-1083hdkjla" style="width: 100%; border: 1px solid grey"></div>
-            <Script>
-                "var require = {paths:{vs:'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs'}}"
-            </Script>
-            <Script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"/>
-            <Script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.nls.js"/>
-            <Script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/editor/editor.main.js"/>
         </div>
     }
 }
