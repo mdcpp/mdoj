@@ -34,6 +34,7 @@ services:
     profiles: [backend-dev, frontend-dev]
     volumes:
       - ./judger/config:/config
+      - ./judger/plugins:/plugins
       - /sys/fs/cgroup:/sys/fs/cgroup
     environment:
       - CONFIG_PATH=/config/config.toml
