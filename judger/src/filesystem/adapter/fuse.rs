@@ -55,11 +55,6 @@ where
 
         mount_options.uid(uid).gid(gid).force_readdir_plus(true);
 
-        // FIXME: this panic in container
-        //
-        // additionally, libfuse report: `find fusermount3 binary failed`
-        metadata(path.as_ref()).await.expect("calling libc::mkdtemp actually creates the directory on host");
-
         Session::new(mount_options)
             .mount_with_unprivileged(self, path.as_ref())
             .await

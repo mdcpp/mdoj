@@ -2862,6 +2862,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror",
+ "tikv-jemallocator",
  "tokio",
  "tokio-stream",
  "toml 0.7.8",

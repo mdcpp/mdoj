@@ -11,6 +11,7 @@ members = [
 ]
 
 [workspace.dependencies]
+tikv-jemallocator = "0.5"
 prost = "0.12.3"
 prost-types = "0.12.3"
 toml = "0.7.4"

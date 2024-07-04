@@ -111,8 +111,6 @@ impl super::Monitor for Monitor {
     /// This method is cancellation safe
     async fn wait_exhaust(&mut self) -> MonitorKind {
         let reason = self.monitor_task.as_mut().unwrap().await.unwrap();
-        // optimistic kill(`SIGKILL`) the process inside
-        self.cgroup.kill().expect("cgroup.kill does not exist");
         reason
     }
     fn poll_exhaust(&mut self) -> Option<MonitorKind> {

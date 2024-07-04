@@ -19,12 +19,14 @@ COPY . .
 RUN --mount=type=cache,target=target
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --target ${ARCH}-unknown-linux-musl --path judger
+RUN cargo install --profile dev --target ${ARCH}-unknown-linux-musl --path judger
 
-FROM scratch
+FROM alpine:3.20
 WORKDIR /plugins
 WORKDIR /config
 WORKDIR /
+
+RUN apk add --no-cache fuse3
 
 COPY --from=builder /usr/local/cargo/bin/judger /
 

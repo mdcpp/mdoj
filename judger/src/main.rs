@@ -10,6 +10,10 @@ pub use config::CONFIG;
 use grpc::judger::judger_server::JudgerServer;
 use server::Server;
 
+#[cfg(not(debug_assertions))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 type Result<T> = std::result::Result<T, error::Error>;
 
 #[tokio::main]
