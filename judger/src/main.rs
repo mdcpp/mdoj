@@ -24,6 +24,7 @@ async fn main() {
         .try_init()
         .ok();
 
+    // FIXME: print traceback on every error
     let default_panic = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         log::error!("something panic, exiting...");
