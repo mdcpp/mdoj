@@ -19,7 +19,7 @@ COPY . .
 RUN --mount=type=cache,target=target
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --profile dev --target ${ARCH}-unknown-linux-musl --path judger
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path judger
 
 FROM alpine:3.20
 WORKDIR /plugins
