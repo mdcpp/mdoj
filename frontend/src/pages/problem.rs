@@ -4,7 +4,7 @@ use leptos_use::*;
 use uuid::Uuid;
 
 use crate::{
-    components::*,
+    components::{editor::get_editor_code, *},
     config::*,
     error::*,
     grpc::{self, problem_set_client, submit_set_client, WithToken},
@@ -56,38 +56,33 @@ pub fn Problem() -> impl IntoView {
             Result::<_>::Ok(resp)
         });
 
-    let submit = create_action(
-        |(lang_uuid, code, id): &(String, String, Result<i32>)| {
-            let lang_uuid = lang_uuid.clone();
-            let code = code.clone();
-            let id = id.clone();
+    let submit = create_action(|(lang_uuid, id): &(String, Result<i32>)| {
+        let lang_uuid = lang_uuid.clone();
+        let code = get_editor_code().unwrap_or_default();
+        let id = id.clone();
 
-            let token = use_token();
-            let navigate = use_navigate();
-            async move {
-                let mut client = submit_set_client::SubmitSetClient::new(
-                    grpc::new_client().await?,
-                );
-                let submit_id = client
-                    .create(
-                        grpc::CreateSubmitRequest {
-                            lang: lang_uuid,
-                            problem_id: grpc::ProblemId { id: id? },
-                            code: code.into_bytes(),
-                            request_id: Uuid::new_v4().simple().to_string(),
-                        }
-                        .with_optional_token(token()),
-                    )
-                    .await?
-                    .into_inner();
-                navigate(
-                    &format!("/submit/{}", submit_id.id),
-                    Default::default(),
-                );
-                Result::<_>::Ok(())
-            }
-        },
-    );
+        let token = use_token();
+        let navigate = use_navigate();
+        async move {
+            let mut client = submit_set_client::SubmitSetClient::new(
+                grpc::new_client().await?,
+            );
+            let submit_id = client
+                .create(
+                    grpc::CreateSubmitRequest {
+                        lang: lang_uuid,
+                        problem_id: grpc::ProblemId { id: id? },
+                        code: code.into_bytes(),
+                        request_id: Uuid::new_v4().simple().to_string(),
+                    }
+                    .with_optional_token(token()),
+                )
+                .await?
+                .into_inner();
+            navigate(&format!("/submit/{}", submit_id.id), Default::default());
+            Result::<_>::Ok(())
+        }
+    });
 
     let select_lang = create_rw_signal("".to_owned());
     let code = create_rw_signal("".to_owned());
@@ -143,7 +138,7 @@ pub fn Problem() -> impl IntoView {
                         class=("hidden", is_none(token))
                         on:submit=move |e| {
                             e.prevent_default();
-                            submit.dispatch((select_lang(), code(), id()));
+                            submit.dispatch((select_lang(), id()));
                         }
                     >
 
@@ -178,7 +173,7 @@ pub fn Problem() -> impl IntoView {
                         // class="w-full grow overflow-auto mb-4 bg-background outline-none"
                         // on:input=move |e| code.set(event_target_value(&e))
                         // ></textarea>
-                        <Editor/>
+                        <Editor language=select_lang/>
                         <Button class="mt-auto" kind="submit" disabled>
                             Submit
                         </Button>

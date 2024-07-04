@@ -1,6 +1,5 @@
 use gloo::console::console;
-use leptos::*;
-
+use leptos::{leptos_dom::logging::console_log, *};
 // #[derive(Debug, Clone, Copy)]
 // pub enum Language {
 //     Unselected,
@@ -28,10 +27,18 @@ pub fn get_editor_code() -> Option<String> {
         .as_string()
 }
 
+fn uuid_to_lang(uuid: &str) -> &'static str {
+    match uuid {
+        "7daff707-26b5-4153-90ae-9858b9fd9619" => "c",
+        "8a9e1daf-ff89-42c3-b011-bf6fb4bd8b26" => "cpp",
+        "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" => "lua",
+        _ => "javascript",
+    }
+}
+
 #[component]
 pub fn Editor(
-    #[prop(into, default = Some("javascript".to_string()).into())]
-    language: MaybeSignal<Option<String>>,
+    #[prop(into, default = "".to_owned().into())] language: MaybeSignal<String>,
     #[prop(into, optional)] on_submit: Option<Callback<String>>,
 ) -> impl IntoView {
     /// compacted version of the script
@@ -65,16 +72,20 @@ pub fn Editor(
          style='width:100%;height:65vh';  \
          monaco.editor.setTheme('vs-dark');editor_inject_1083hdkjla=monaco.\
          editor.create(child, {value:'',language:'pro-lang'});})()";
-    create_effect(move |_| {
-        if let Some(ident) = language.get() {
-            js_sys::eval(&EDITOR_SCRIPT_SOURCE.replace("pro-lang", &ident))
-                .unwrap();
-        }
-    });
 
+    create_effect(move |_| {
+        js_sys::eval(
+            &EDITOR_SCRIPT_SOURCE
+                .replace("pro-lang", uuid_to_lang(&language())),
+        )
+        .unwrap();
+    });
     view! {
         <div>
-            <div id="editor-inject-1083hdkjla" style="width: 100%; border: 1px solid grey"></div>
+            <div
+                id="editor-inject-1083hdkjla"
+                style="width: 100%; border: 1px solid grey"
+            ></div>
         </div>
     }
 }
