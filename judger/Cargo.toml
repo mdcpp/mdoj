@@ -9,6 +9,7 @@ edition = "2021"
 cgroups-rs = "0.3.4"
 env_logger = "0.10.1"
 futures-core = "0.3.30"
+tikv-jemallocator = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 thiserror = "1.0.40"

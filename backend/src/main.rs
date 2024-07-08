@@ -6,6 +6,7 @@ pub mod macro_tool;
 pub mod server;
 pub mod util;
 
+// FIXME: replace relase feature with debug_assertions
 #[cfg(feature = "release")]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;

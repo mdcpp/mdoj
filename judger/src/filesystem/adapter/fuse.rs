@@ -3,6 +3,7 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use bytes::Bytes;
 use futures_core::Future;
 use spin::Mutex;
+use tokio::fs::metadata;
 use tokio::io::{AsyncRead, AsyncSeek};
 use tokio::sync::Mutex as AsyncMutex;
 

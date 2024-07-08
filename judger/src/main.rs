@@ -10,6 +10,10 @@ pub use config::CONFIG;
 use grpc::judger::judger_server::JudgerServer;
 use server::Server;
 
+#[cfg(not(debug_assertions))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 type Result<T> = std::result::Result<T, error::Error>;
 
 #[tokio::main]
@@ -20,6 +24,7 @@ async fn main() {
         .try_init()
         .ok();
 
+    // FIXME: print traceback on every error
     let default_panic = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         log::error!("something panic, exiting...");

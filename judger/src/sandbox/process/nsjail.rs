@@ -37,7 +37,8 @@ pub struct BaseArg;
 impl Argument for BaseArg {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>> {
         let mut args = vec![
-            Cow::Borrowed(OsStr::from_bytes(b"-Me")),
+            // FIXME: MODE_STANDALONE_ONCE would might cause sandbox to continue running after process exit, check if that's true
+            Cow::Borrowed(OsStr::from_bytes(b"-Mo")),
             Cow::Borrowed(OsStr::from_bytes(b"-l")),
             #[cfg(not(debug_assertions))]
             Cow::Borrowed(OsStr::from_bytes(b"/dev/null")),
@@ -73,8 +74,6 @@ impl<'a> Argument for CGroupMountArg<'a> {
                 Cow::Borrowed(OsStr::from_bytes(b"0")),
                 Cow::Borrowed(OsStr::from_bytes(b"--cgroup_cpu_parent")),
                 Cow::Owned(OsString::from(self.cg_name)),
-                // Cow::Borrowed(OsStr::from_bytes(b"--cgroupv2_mount")),
-                // Cow::Owned(OsString::from(self.cg_name)),
             ],
             false => vec![
                 Cow::Borrowed(OsStr::from_bytes(b"--disable_clone_newcgroup")),
