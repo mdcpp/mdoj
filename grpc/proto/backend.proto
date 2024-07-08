@@ -35,7 +35,6 @@ enum MatchRule {
 message Paginator {
   required string session = 1;
 }
-
 message TextSearchRequest {
   oneof request {
     string text = 1;

@@ -8,3 +8,15 @@ impl From<String> for backend::Token {
         Token { signature: value }
     }
 }
+
+impl backend::Paginator {
+    pub fn new(session: String) -> Self {
+        Self { session }
+    }
+}
+
+impl From<backend::Paginator> for String {
+    fn from(value: Paginator) -> Self {
+        value.session
+    }
+}
