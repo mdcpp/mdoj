@@ -10,14 +10,12 @@ use crate::entity::*;
 
 const TOKEN_LIMIT: u64 = 16;
 
-impl From<Model> for TokenInfo {
+impl From<Model> for String {
     fn from(value: Model) -> Self {
-        TokenInfo {
-            signature: base64::Engine::encode(
-                &base64::engine::general_purpose::STANDARD_NO_PAD,
-                value.rand,
-            ),
-        }
+        base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+            value.rand,
+        )
     }
 }
 
@@ -46,7 +44,7 @@ impl Token for ArcServer {
         tracing::trace!(token_count = tokens.len(), "retrieve_token");
 
         Ok(Response::new(Tokens {
-            list: tokens.into_iter().collect(),
+            list: tokens.into_iter().map(Into::into).collect(),
         }))
     }
     #[instrument(skip_all, level = "debug")]

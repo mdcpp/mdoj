@@ -1,5 +1,6 @@
 // use crate::backend::{self, playground_result, PlaygroundResult};
-// use crate::judger::{self, exec_result, ExecResult};
+use crate::backend;
+use crate::judger::{self, exec_result, ExecResult};
 
 // impl From<ExecResult> for PlaygroundResult {
 //     fn from(value: ExecResult) -> Self {
@@ -20,13 +21,13 @@
 //     }
 // }
 
-// impl From<judger::LangInfo> for backend::Language {
-//     fn from(value: judger::LangInfo) -> Self {
-//         backend::Language {
-//             lang_uid: value.lang_uid,
-//             lang_name: value.lang_name,
-//             info: value.info,
-//             lang_ext: value.lang_ext,
-//         }
-//     }
-// }
+impl From<judger::LangInfo> for backend::Language {
+    fn from(value: judger::LangInfo) -> Self {
+        backend::Language {
+            lang_uid: value.lang_uid,
+            lang_name: value.lang_name,
+            info: value.info,
+            lang_ext: value.lang_ext,
+        }
+    }
+}

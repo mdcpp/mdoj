@@ -24,7 +24,7 @@ use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
 use grpc::{
-    backend::{submit_status, PlaygroundResult, SubmitStatus},
+    backend::{submit_status, SubmitStatus},
     judger::*,
 };
 
@@ -280,29 +280,5 @@ impl Judger {
     }
     pub fn list_lang(&self) -> Vec<LangInfo> {
         self.router.langs.iter().map(|x| x.clone()).collect()
-    }
-    // endpoint should check uuid exist
-    pub async fn playground(
-        &self,
-        payload: PlaygroundPayload,
-    ) -> Result<TonicStream<PlaygroundResult>, Error> {
-        let mut conn = self.router.get(&payload.lang).await?;
-
-        let res = conn
-            .exec(ExecRequest {
-                lang_uid: payload.lang.to_string(),
-                code: payload.code,
-                memory: PALYGROUND_MEM,
-                time: PALYGROUND_TIME,
-                input: payload.input,
-            })
-            .await?;
-
-        conn.report_success();
-
-        Ok(Box::pin(
-            res.into_inner()
-                .map(|x| x.map(Into::<PlaygroundResult>::into)),
-        ))
     }
 }

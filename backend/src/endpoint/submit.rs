@@ -184,7 +184,7 @@ impl Submit for ArcServer {
             .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let submit_id = req.id;
+        let submit_id = req.submit_id;
 
         if !(perm.super_user()) {
             return Err(Error::RequirePermission(RoleLv::Super).into());
