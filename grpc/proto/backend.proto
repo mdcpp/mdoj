@@ -126,9 +126,13 @@ message RejudgeRequest {
 }
 
 message Language {
+  // uuid of this language
   required string lang_uid = 1;
+  // extra info about this language
   required string lang_name = 2;
+  // extra info about this language
   required string info = 3;
+  // file extension of this language
   required string lang_ext = 4;
 }
 message Languages{
