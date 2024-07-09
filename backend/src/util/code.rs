@@ -73,31 +73,31 @@ impl From<JudgerCode> for Code {
 impl From<Code> for BackendCode {
     fn from(value: Code) -> Self {
         match value {
-            Code::Accepted => BackendCode::Ac,
-            Code::WrongAnswer => BackendCode::Wa,
-            Code::TimeLimitExceeded => BackendCode::Tle,
-            Code::MemoryLimitExceeded => BackendCode::Mle,
-            Code::RuntimeError => BackendCode::Re,
-            Code::CompileError => BackendCode::Ce,
-            Code::SystemError => BackendCode::Na,
-            Code::RestrictedFunction => BackendCode::Rf,
-            Code::Unknown => BackendCode::Na,
-            Code::OutputLimitExceeded => BackendCode::Ole,
+            Code::Accepted => BackendCode::Accepted,
+            Code::WrongAnswer => BackendCode::WrongAnswer,
+            Code::TimeLimitExceeded => BackendCode::TimeLimitExcess,
+            Code::MemoryLimitExceeded => BackendCode::MemoryLimitExcess,
+            Code::RuntimeError => BackendCode::RuntimeError,
+            Code::CompileError => BackendCode::CompileError,
+            Code::SystemError => BackendCode::Unknown,
+            Code::RestrictedFunction => BackendCode::RestrictedFunction,
+            Code::Unknown => BackendCode::Unknown,
+            Code::OutputLimitExceeded => BackendCode::OutputLimitExcess,
         }
     }
 }
 impl From<BackendCode> for Code {
     fn from(value: BackendCode) -> Self {
         match value {
-            BackendCode::Ac => Code::Accepted,
-            BackendCode::Wa => Code::WrongAnswer,
-            BackendCode::Tle => Code::TimeLimitExceeded,
-            BackendCode::Mle => Code::MemoryLimitExceeded,
-            BackendCode::Re => Code::RuntimeError,
-            BackendCode::Ce => Code::CompileError,
-            BackendCode::Na => Code::SystemError,
-            BackendCode::Rf => Code::RestrictedFunction,
-            BackendCode::Ole => Code::OutputLimitExceeded,
+            BackendCode::Accepted => Code::Accepted,
+            BackendCode::WrongAnswer => Code::WrongAnswer,
+            BackendCode::TimeLimitExcess => Code::TimeLimitExceeded,
+            BackendCode::MemoryLimitExcess => Code::MemoryLimitExceeded,
+            BackendCode::RuntimeError => Code::RuntimeError,
+            BackendCode::CompileError => Code::CompileError,
+            BackendCode::Unknown => Code::SystemError,
+            BackendCode::RestrictedFunction => Code::RestrictedFunction,
+            BackendCode::OutputLimitExcess => Code::OutputLimitExceeded,
         }
     }
 }

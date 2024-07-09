@@ -21,15 +21,15 @@ enum Role {
 }
 
 enum StateCode {
-  STATECODE_AC = 0;
-  STATECODE_NA = 1;
-  STATECODE_WA = 2;
-  STATECODE_CE = 3;
-  STATECODE_RE = 4;
-  STATECODE_RF = 5;
-  STATECODE_TLE = 6;
-  STATECODE_MLE = 7;
-  STATECODE_OLE = 8;
+  STATE_CODE_ACCEPTED= 0;
+  STATE_CODE_UNKNOWN = 1;
+  STATE_CODE_WRONG_ANSWER = 2;
+  STATE_CODE_COMPILE_ERROR = 3;
+  STATE_CODE_RUNTIME_ERROR = 4;
+  STATE_CODE_RESTRICTED_FUNCTION = 5;
+  STATE_CODE_TIME_LIMIT_EXCESS = 6;
+  STATE_CODE_MEMORY_LIMIT_EXCESS = 7;
+  STATE_CODE_OUTPUT_LIMIT_EXCESS = 8;
 }
 
 message JudgeResult {
@@ -283,6 +283,7 @@ message ListAnnouncementRequest {
 service Announcement {
   rpc List(ListAnnouncementRequest) returns (ListAnnouncementResponse);
   rpc FullInfo(Id) returns (AnnouncementFullInfo);
+  rpc FullInfoByContest(AddAnnouncementToContestRequest) returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (Id);
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
@@ -364,7 +365,6 @@ service Education {
       returns (google.protobuf.Empty);
 
   // paginate by id(increasing)
-  rpc ListByProblem(Id) returns (ListEducationResponse);
   rpc FullInfoByProblem(AddEducationToProblemRequest) returns (EducationFullInfo);
 }
 

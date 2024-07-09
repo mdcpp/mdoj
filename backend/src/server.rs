@@ -12,7 +12,7 @@ use grpc::backend::{
     announcement_server::AnnouncementServer, chat_server::ChatServer,
     contest_server::ContestServer, education_server::EducationServer,
     problem_server::ProblemServer, submit_server::SubmitServer, testcase_server::TestcaseServer,
-    token_server::TokenServer, user_service_server::UserServiceServer,
+    token_server::TokenServer, user_server::UserServer,
 };
 use http::header::HeaderName;
 use sea_orm::DatabaseConnection;
@@ -153,7 +153,7 @@ impl Server {
             .max_frame_size(Some(MAX_FRAME_SIZE))
             .add_service(ProblemServer::new(self_.clone()))
             .add_service(EducationServer::new(self_.clone()))
-            .add_service(UserServiceServer::new(self_.clone()))
+            .add_service(UserServer::new(self_.clone()))
             .add_service(TokenServer::new(self_.clone()))
             .add_service(ContestServer::new(self_.clone()))
             .add_service(TestcaseServer::new(self_.clone()))

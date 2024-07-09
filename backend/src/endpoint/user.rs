@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::backend::user_service_server::*;
+use grpc::backend::user_server::*;
 use grpc::backend::*;
 
 use crate::entity::user;
@@ -18,7 +18,7 @@ impl From<Model> for UserInfo {
 }
 
 #[async_trait]
-impl UserService for ArcServer {
+impl User for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
