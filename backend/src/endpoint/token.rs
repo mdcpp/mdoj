@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use super::tools::*;
 
-use grpc::backend::token_set_server::*;
+use grpc::backend::token_server::*;
 use grpc::backend::*;
 
 use crate::entity::token::*;
@@ -10,9 +10,9 @@ use crate::entity::*;
 
 const TOKEN_LIMIT: u64 = 16;
 
-impl From<Model> for Token {
+impl From<Model> for TokenInfo {
     fn from(value: Model) -> Self {
-        Token {
+        TokenInfo {
             signature: base64::Engine::encode(
                 &base64::engine::general_purpose::STANDARD_NO_PAD,
                 value.rand,
@@ -22,9 +22,9 @@ impl From<Model> for Token {
 }
 
 #[async_trait]
-impl TokenSet for ArcServer {
+impl Token for ArcServer {
     #[instrument(skip_all, level = "debug")]
-    async fn list(&self, req: Request<UserId>) -> Result<Response<Tokens>, Status> {
+    async fn list(&self, req: Request<Id>) -> Result<Response<Tokens>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -36,7 +36,7 @@ impl TokenSet for ArcServer {
         }
 
         let tokens = Entity::find()
-            .filter(Column::UserId.eq(user_id))
+            .filter(Column::Id.eq(user_id))
             .limit(TOKEN_LIMIT)
             .all(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -46,7 +46,7 @@ impl TokenSet for ArcServer {
         tracing::trace!(token_count = tokens.len(), "retrieve_token");
 
         Ok(Response::new(Tokens {
-            list: tokens.into_iter().map(Into::into).collect(),
+            list: tokens.into_iter().collect(),
         }))
     }
     #[instrument(skip_all, level = "debug")]

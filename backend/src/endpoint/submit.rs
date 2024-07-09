@@ -2,7 +2,7 @@ use super::tools::*;
 
 use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
-use grpc::backend::submit_set_server::*;
+use grpc::backend::submit_server::*;
 use grpc::backend::StateCode as BackendCode;
 use grpc::backend::*;
 
@@ -48,93 +48,16 @@ impl From<PartialModel> for SubmitInfo {
 }
 
 #[async_trait]
-impl SubmitSet for ArcServer {
+impl Submit for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_submit_request::Request::Create(create) => {
-                ColPaginator::new_fetch(
-                    Default::default(),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_submit_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListSubmitResponse {
-            list,
-            next_session,
-            remain,
-        }))
+        todo!()
     }
-
     #[instrument(skip_all, level = "debug")]
-    async fn list_by_problem(
-        &self,
-        req: Request<ListByRequest>,
-    ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                ParentPaginator::new_fetch(
-                    (create.parent_id, Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListSubmitResponse {
-            list,
-            next_session,
-            remain,
-        }))
-    }
-
-    #[instrument(skip_all, level = "debug")]
-    async fn info(&self, req: Request<SubmitId>) -> Result<Response<SubmitInfo>, Status> {
+    async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -152,10 +75,7 @@ impl SubmitSet for ArcServer {
         Ok(Response::new(model.into()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn create(
-        &self,
-        req: Request<CreateSubmitRequest>,
-    ) -> Result<Response<SubmitId>, Status> {
+    async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.ok_or_default()?;
 
@@ -213,7 +133,7 @@ impl SubmitSet for ArcServer {
     }
 
     #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<SubmitId>) -> std::result::Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<Id>) -> std::result::Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -240,7 +160,7 @@ impl SubmitSet for ArcServer {
 
     #[doc = " are not guarantee to yield status"]
     #[instrument(skip_all, level = "debug")]
-    async fn follow(&self, req: Request<SubmitId>) -> Result<Response<Self::FollowStream>, Status> {
+    async fn follow(&self, req: Request<Id>) -> Result<Response<Self::FollowStream>, Status> {
         let (_, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -264,7 +184,7 @@ impl SubmitSet for ArcServer {
             .await?;
         let (user_id, perm) = auth.ok_or_default()?;
 
-        let submit_id = req.id.id;
+        let submit_id = req.id;
 
         if !(perm.super_user()) {
             return Err(Error::RequirePermission(RoleLv::Super).into());
@@ -311,21 +231,5 @@ impl SubmitSet for ArcServer {
         self.dup.store(user_id, uuid, ());
 
         Ok(Response::new(()))
-    }
-
-    #[instrument(skip_all, level = "debug")]
-    async fn list_langs(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-
-        let list: Vec<_> = self
-            .judger
-            .list_lang()
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-
-        Ok(Response::new(Languages { list }))
     }
 }

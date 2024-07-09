@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::backend::education_set_server::*;
+use grpc::backend::education_server::*;
 use grpc::backend::*;
 
 use crate::entity::{education::Paginator, education::*, *};
@@ -27,45 +27,15 @@ impl From<PartialModel> for EducationInfo {
 }
 
 #[async_trait]
-impl EducationSet for ArcServer {
+impl Education for ArcServer {
     async fn list(
         &self,
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_education_request::Request::StartFromEnd(rev) => {
-                Paginator::new_fetch((), &auth, size, offset, rev, &self.db)
-                    .in_current_span()
-                    .await
-            }
-            list_education_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: Paginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListEducationResponse {
-            list,
-            next_session,
-            remain,
-        }))
+        todo!()
     }
     #[instrument(skip_all, level = "debug")]
-    async fn create(
-        &self,
-        req: Request<CreateEducationRequest>,
-    ) -> Result<Response<EducationId>, Status> {
+    async fn create(&self, req: Request<CreateEducationRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -76,7 +46,7 @@ impl EducationSet for ArcServer {
         check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<EducationId>(user_id, uuid) {
+        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
@@ -95,7 +65,7 @@ impl EducationSet for ArcServer {
             .await
             .map_err(Into::<Error>::into)?;
 
-        let id: EducationId = model.id.clone().unwrap().into();
+        let id: Id = model.id.clone().unwrap().into();
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "education_created");
@@ -119,7 +89,7 @@ impl EducationSet for ArcServer {
             return Ok(Response::new(x));
         };
 
-        tracing::trace!(id = req.id.id);
+        tracing::trace!(id = req.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
@@ -142,7 +112,7 @@ impl EducationSet for ArcServer {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<EducationId>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -175,10 +145,10 @@ impl EducationSet for ArcServer {
         let (user_id, perm) = auth.ok_or_default()?;
 
         let (problem, model) = tokio::try_join!(
-            problem::Entity::read_by_id(req.problem_id.id, &auth)?
+            problem::Entity::read_by_id(req.problem_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_parent").or_current()),
-            Entity::read_by_id(req.education_id.id, &auth)?
+            Entity::read_by_id(req.education_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_child").or_current())
         )
@@ -197,7 +167,7 @@ impl EducationSet for ArcServer {
         }
 
         let mut model = model.into_active_model();
-        model.problem_id = ActiveValue::Set(Some(req.problem_id.id));
+        model.problem_id = ActiveValue::Set(Some(req.problem_id));
         model
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
@@ -216,7 +186,7 @@ impl EducationSet for ArcServer {
             .in_current_span()
             .await?;
 
-        let mut model = Entity::write_by_id(req.problem_id.id, &auth)?
+        let mut model = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ProblemId])
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -236,47 +206,6 @@ impl EducationSet for ArcServer {
         Ok(Response::new(()))
     }
 
-    #[instrument(skip_all, level = "debug")]
-    async fn list_by_problem(
-        &self,
-        req: Request<ListByRequest>,
-    ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                ParentPaginator::new_fetch(
-                    create.parent_id,
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListEducationResponse {
-            list,
-            next_session,
-            remain,
-        }))
-    }
     #[instrument(skip_all, level = "debug")]
     async fn full_info_by_problem(
         &self,

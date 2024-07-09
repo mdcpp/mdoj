@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "frontend",
+#    "frontend",
     "backend",
     "judger",
-    "testsuit",
+#    "testsuit",
     "backend/migration",
     "grpc",
     "judger/plugins/rlua-54",

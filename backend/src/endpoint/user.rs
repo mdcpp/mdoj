@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::backend::user_set_server::*;
+use grpc::backend::user_service_server::*;
 use grpc::backend::*;
 
 use crate::entity::user;
@@ -18,128 +18,20 @@ impl From<Model> for UserInfo {
 }
 
 #[async_trait]
-impl UserSet for ArcServer {
+impl UserService for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_user_request::Request::Create(create) => {
-                ColPaginator::new_fetch(
-                    (create.sort_by(), Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_user_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListUserResponse {
-            list,
-            next_session,
-            remain,
-        }))
+        todo!()
     }
     #[instrument(skip_all, level = "debug")]
-    async fn search_by_text(
-        &self,
-        req: Request<TextSearchRequest>,
-    ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
-                    .in_current_span()
-                    .await
-            }
-            text_search_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListUserResponse {
-            list,
-            next_session,
-            remain,
-        }))
-    }
-    async fn list_by_contest(
-        &self,
-        req: Request<ListByRequest>,
-    ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                ParentPaginator::new_fetch(
-                    (0, create.parent_id),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListUserResponse {
-            list,
-            next_session,
-            remain,
-        }))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn full_info(&self, _req: Request<UserId>) -> Result<Response<UserFullInfo>, Status> {
+    async fn full_info(&self, _req: Request<Id>) -> Result<Response<UserFullInfo>, Status> {
         Err(Status::cancelled("deprecated"))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<UserId>, Status> {
+    async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -151,7 +43,7 @@ impl UserSet for ArcServer {
 
         let (user_id, perm) = auth.ok_or_default()?;
 
-        if let Some(x) = self.dup.check::<UserId>(user_id, uuid) {
+        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
@@ -199,7 +91,7 @@ impl UserSet for ArcServer {
             .await
             .map_err(Into::<Error>::into)?;
 
-        let id: UserId = model.id.clone().unwrap().into();
+        let id: Id = model.id.clone().unwrap().into();
         self.dup.store(user_id, uuid, id.clone());
 
         txn.commit()
@@ -269,7 +161,7 @@ impl UserSet for ArcServer {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<UserId>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()

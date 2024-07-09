@@ -3,12 +3,11 @@
 
 use std::ops::Deref;
 
-use sea_orm::Statement;
-use tracing::{instrument, Instrument};
-
 use super::*;
 use crate::union;
-use grpc::backend::ProblemSortBy;
+use grpc::backend::list_problem_request::Sort;
+use sea_orm::Statement;
+use tracing::{instrument, Instrument};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "problem")]
@@ -315,7 +314,7 @@ pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
 pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
-    type Data = (ProblemSortBy, String);
+    type Data = (Sort, String);
 }
 
 #[async_trait]
@@ -337,13 +336,13 @@ impl Source for ColPagerTrait {
 impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
-            ProblemSortBy::UpdateDate => Column::UpdateAt,
-            ProblemSortBy::CreateDate => Column::CreateAt,
-            ProblemSortBy::AcRate => Column::AcRate,
-            ProblemSortBy::SubmitCount => Column::SubmitCount,
-            ProblemSortBy::Difficulty => Column::Difficulty,
-            ProblemSortBy::Order => Column::Order,
-            ProblemSortBy::Public => Column::Public,
+            Sort::UpdateDate => Column::UpdateAt,
+            Sort::CreateDate => Column::CreateAt,
+            Sort::AcRate => Column::AcRate,
+            Sort::SubmitCount => Column::SubmitCount,
+            Sort::Difficulty => Column::Difficulty,
+            Sort::Order => Column::Order,
+            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -351,13 +350,13 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
         data.1 = match data.0 {
-            ProblemSortBy::UpdateDate => model.update_at.to_string(),
-            ProblemSortBy::CreateDate => model.create_at.to_string(),
-            ProblemSortBy::AcRate => model.ac_rate.to_string(),
-            ProblemSortBy::SubmitCount => model.submit_count.to_string(),
-            ProblemSortBy::Difficulty => model.difficulty.to_string(),
-            ProblemSortBy::Order => model.order.to_string(),
-            ProblemSortBy::Public => model.public.to_string(),
+            Sort::UpdateDate => model.update_at.to_string(),
+            Sort::CreateDate => model.create_at.to_string(),
+            Sort::AcRate => model.ac_rate.to_string(),
+            Sort::SubmitCount => model.submit_count.to_string(),
+            Sort::Difficulty => model.difficulty.to_string(),
+            Sort::Order => model.order.to_string(),
+            Sort::Public => model.public.to_string(),
         }
     }
 }

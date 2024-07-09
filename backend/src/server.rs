@@ -9,11 +9,10 @@ use crate::{
     },
 };
 use grpc::backend::{
-    announcement_set_server::AnnouncementSetServer, chat_set_server::ChatSetServer,
-    contest_set_server::ContestSetServer, education_set_server::EducationSetServer,
-    problem_set_server::ProblemSetServer, submit_set_server::SubmitSetServer,
-    testcase_set_server::TestcaseSetServer, token_set_server::TokenSetServer,
-    user_set_server::UserSetServer,
+    announcement_server::AnnouncementServer, chat_server::ChatServer,
+    contest_server::ContestServer, education_server::EducationServer,
+    problem_server::ProblemServer, submit_server::SubmitServer, testcase_server::TestcaseServer,
+    token_server::TokenServer, user_service_server::UserServiceServer,
 };
 use http::header::HeaderName;
 use sea_orm::DatabaseConnection;
@@ -152,15 +151,15 @@ impl Server {
             .layer(cors)
             .layer(GrpcWebLayer::new())
             .max_frame_size(Some(MAX_FRAME_SIZE))
-            .add_service(ProblemSetServer::new(self_.clone()))
-            .add_service(EducationSetServer::new(self_.clone()))
-            .add_service(UserSetServer::new(self_.clone()))
-            .add_service(TokenSetServer::new(self_.clone()))
-            .add_service(ContestSetServer::new(self_.clone()))
-            .add_service(TestcaseSetServer::new(self_.clone()))
-            .add_service(SubmitSetServer::new(self_.clone()))
-            .add_service(ChatSetServer::new(self_.clone()))
-            .add_service(AnnouncementSetServer::new(self_.clone()))
+            .add_service(ProblemServer::new(self_.clone()))
+            .add_service(EducationServer::new(self_.clone()))
+            .add_service(UserServiceServer::new(self_.clone()))
+            .add_service(TokenServer::new(self_.clone()))
+            .add_service(ContestServer::new(self_.clone()))
+            .add_service(TestcaseServer::new(self_.clone()))
+            .add_service(SubmitServer::new(self_.clone()))
+            .add_service(ChatServer::new(self_.clone()))
+            .add_service(AnnouncementServer::new(self_.clone()))
             .serve_with_shutdown(
                 self_.0.config.bind_address.clone().parse().unwrap(),
                 async {

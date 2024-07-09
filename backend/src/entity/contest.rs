@@ -1,11 +1,10 @@
 use std::ops::Deref;
 
+use crate::union;
 use chrono::Local;
+use grpc::backend::list_contest_request::Sort;
 use sea_orm::Statement;
 use tracing::{instrument, Instrument};
-
-use crate::union;
-use grpc::backend::ContestSortBy;
 
 use super::*;
 
@@ -234,7 +233,7 @@ pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
 pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
-    type Data = (ContestSortBy, String);
+    type Data = (Sort, String);
 }
 
 #[async_trait]
@@ -256,11 +255,11 @@ impl Source for ColPagerTrait {
 impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
-            ContestSortBy::UpdateDate => Column::UpdateAt,
-            ContestSortBy::CreateDate => Column::CreateAt,
-            ContestSortBy::Begin => Column::Begin,
-            ContestSortBy::End => Column::End,
-            ContestSortBy::Public => Column::Public,
+            Sort::UpdateDate => Column::UpdateAt,
+            Sort::CreateDate => Column::CreateAt,
+            Sort::Begin => Column::Begin,
+            Sort::End => Column::End,
+            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -268,11 +267,11 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
         data.1 = match data.0 {
-            ContestSortBy::UpdateDate => model.update_at.to_string(),
-            ContestSortBy::CreateDate => model.create_at.to_string(),
-            ContestSortBy::Begin => model.begin.to_string(),
-            ContestSortBy::End => model.end.to_string(),
-            ContestSortBy::Public => model.public.to_string(),
+            Sort::UpdateDate => model.update_at.to_string(),
+            Sort::CreateDate => model.create_at.to_string(),
+            Sort::Begin => model.begin.to_string(),
+            Sort::End => model.end.to_string(),
+            Sort::Public => model.public.to_string(),
         }
     }
 }

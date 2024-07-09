@@ -142,7 +142,9 @@ message ListProblemResponse{
 
 service Problem{
   rpc List(ListProblemRequest) returns (ListProblemResponse);
+
   rpc FullInfo(Id) returns (ProblemFullInfo);
+  rpc FullInfoByContest(AddProblemToContestRequest) returns (ProblemFullInfo);
 
   rpc Create(CreateProblemRequest) returns (Id);
   rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
@@ -154,7 +156,6 @@ service Problem{
   rpc Publish(Id) returns (google.protobuf.Empty);
   rpc Unpublish(Id) returns (google.protobuf.Empty);
 
-  rpc FullInfoByContest(AddProblemToContestRequest) returns (ProblemFullInfo);
 }
 
 
@@ -284,7 +285,9 @@ message ListAnnouncementRequest {
 
 service Announcement {
   rpc List(ListAnnouncementRequest) returns (ListAnnouncementResponse);
+
   rpc FullInfo(Id) returns (AnnouncementFullInfo);
+  rpc FullInfoByContest(AddAnnouncementToContestRequest) returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (Id);
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
@@ -362,7 +365,6 @@ service Education {
   rpc RemoveFromProblem(AddEducationToProblemRequest) returns (google.protobuf.Empty);
 
   // paginate by id(increasing)
-  rpc ListByProblem(Id) returns (ListEducationResponse);
   rpc FullInfoByProblem(AddEducationToProblemRequest) returns (EducationFullInfo);
 }
 

@@ -1,9 +1,7 @@
+use self::util::paginator::Remain;
+use grpc::backend::list_user_request::Sort;
 use sea_orm::{QueryOrder, QuerySelect};
 use tracing::instrument;
-
-use grpc::backend::UserSortBy;
-
-use self::util::paginator::Remain;
 
 use super::*;
 
@@ -197,7 +195,7 @@ pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, Model>;
 pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
-    type Data = (UserSortBy, String);
+    type Data = (Sort, String);
 }
 
 #[async_trait]
@@ -219,8 +217,8 @@ impl Source for ColPagerTrait {
 impl SortSource<Model> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
-            UserSortBy::Score => Column::Score,
-            UserSortBy::CreateDate => Column::CreateAt,
+            Sort::Score => Column::Score,
+            Sort::CreateDate => Column::CreateAt,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -228,8 +226,8 @@ impl SortSource<Model> for ColPagerTrait {
     }
     fn save_val(data: &mut Self::Data, model: &Model) {
         data.1 = match data.0 {
-            UserSortBy::Score => model.score.to_string(),
-            UserSortBy::CreateDate => model.create_at.to_string(),
+            Sort::Score => model.score.to_string(),
+            Sort::CreateDate => model.create_at.to_string(),
         }
     }
 }

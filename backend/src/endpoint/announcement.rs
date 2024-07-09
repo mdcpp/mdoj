@@ -1,7 +1,7 @@
 use super::tools::*;
 
 use crate::util::time::into_prost;
-use grpc::backend::announcement_set_server::*;
+use grpc::backend::announcement_server::*;
 use grpc::backend::*;
 
 use crate::entity::announcement::*;
@@ -17,7 +17,7 @@ impl From<Model> for AnnouncementFullInfo {
                 title: value.title,
                 update_date: into_prost(value.update_at),
             },
-            author: value.user_id.into(),
+            author_id: value.user_id.into(),
             content: value.content,
             public: value.public,
         }
@@ -45,87 +45,51 @@ impl From<PartialModel> for AnnouncementInfo {
 }
 
 #[async_trait]
-impl AnnouncementSet for ArcServer {
+impl Announcement for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_announcement_request::Request::Create(create) => {
-                ColPaginator::new_fetch(
-                    (create.sort_by(), Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_announcement_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListAnnouncementResponse {
-            list,
-            next_session,
-            remain,
-        }))
+        // let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
+        //
+        // let (pager, models) = match pager {
+        //     list_announcement_request::Request::Create(create) => {
+        //         ColPaginator::new_fetch(
+        //             (create.sort_by(), Default::default()),
+        //             &auth,
+        //             size,
+        //             offset,
+        //             create.start_from_end(),
+        //             &self.db,
+        //         )
+        //         .in_current_span()
+        //         .await
+        //     }
+        //     list_announcement_request::Request::Pager(old) => {
+        //         let span = tracing::info_span!("paginate").or_current();
+        //         let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
+        //         pager
+        //             .fetch(&auth, size, offset, rev, &self.db)
+        //             .instrument(span)
+        //             .await
+        //     }
+        // }?;
+        //
+        // let remain = pager.remain(&auth, &self.db).in_current_span().await?;
+        //
+        // let next_session = self.crypto.encode(pager)?;
+        // let list = models.into_iter().map(|x| x.into()).collect();
+        //
+        // Ok(Response::new(ListAnnouncementResponse {
+        //     list,
+        //     next_session,
+        //     remain,
+        // }))
+        todo!()
     }
     #[instrument(skip_all, level = "debug")]
-    async fn search_by_text(
-        &self,
-        req: Request<TextSearchRequest>,
-    ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            text_search_request::Request::Text(text) => {
-                TextPaginator::new_fetch(text, &auth, size, offset, true, &self.db)
-                    .in_current_span()
-                    .await
-            }
-            text_search_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: TextPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListAnnouncementResponse {
-            list,
-            next_session,
-            remain,
-        }))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn full_info(
-        &self,
-        req: Request<AnnouncementId>,
-    ) -> Result<Response<AnnouncementFullInfo>, Status> {
+    async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -147,7 +111,7 @@ impl AnnouncementSet for ArcServer {
     async fn create(
         &self,
         req: Request<CreateAnnouncementRequest>,
-    ) -> Result<Response<AnnouncementId>, Status> {
+    ) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -158,7 +122,7 @@ impl AnnouncementSet for ArcServer {
         check_length!(LONG_ART_SIZE, req.info, content);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<AnnouncementId>(user_id, uuid) {
+        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
@@ -177,7 +141,7 @@ impl AnnouncementSet for ArcServer {
             .await
             .map_err(Into::<Error>::into)?;
 
-        let id: AnnouncementId = model.id.clone().unwrap().into();
+        let id: Id = model.id.clone().unwrap().into();
 
         self.dup.store(user_id, uuid, id.clone());
         tracing::debug!(id = id.id, "announcement_created");
@@ -203,7 +167,7 @@ impl AnnouncementSet for ArcServer {
             return Ok(Response::new(x));
         };
 
-        tracing::trace!(id = req.id.id);
+        tracing::trace!(id = req.id);
 
         let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
@@ -226,7 +190,7 @@ impl AnnouncementSet for ArcServer {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -262,10 +226,10 @@ impl AnnouncementSet for ArcServer {
         }
 
         let (contest, model) = tokio::try_join!(
-            contest::Entity::read_by_id(req.contest_id.id, &auth)?
+            contest::Entity::read_by_id(req.contest_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_parent").or_current()),
-            Entity::read_by_id(req.announcement_id.id, &auth)?
+            Entity::read_by_id(req.announcement_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_child").or_current())
         )
@@ -284,7 +248,7 @@ impl AnnouncementSet for ArcServer {
         }
 
         let mut model = model.into_active_model();
-        model.contest_id = ActiveValue::Set(Some(req.contest_id.id));
+        model.contest_id = ActiveValue::Set(Some(req.contest_id));
         model
             .update(self.db.deref())
             .instrument(info_span!("update").or_current())
@@ -323,7 +287,7 @@ impl AnnouncementSet for ArcServer {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn publish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
+    async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -356,7 +320,7 @@ impl AnnouncementSet for ArcServer {
         Ok(Response::new(()))
     }
     #[instrument(skip_all, level = "debug")]
-    async fn unpublish(&self, req: Request<AnnouncementId>) -> Result<Response<()>, Status> {
+    async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -413,46 +377,5 @@ impl AnnouncementSet for ArcServer {
             .ok_or(Error::NotInDB)?;
 
         Ok(Response::new(model.into()))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn list_by_contest(
-        &self,
-        req: Request<ListByRequest>,
-    ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                ParentPaginator::new_fetch(
-                    (create.parent_id, Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListAnnouncementResponse {
-            list,
-            next_session,
-            remain,
-        }))
     }
 }

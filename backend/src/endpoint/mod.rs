@@ -21,6 +21,7 @@ mod tools {
     /// longest allowed size for long string
     pub const LONG_ART_SIZE: usize = 262144;
     pub use crate::NonZeroU32;
+    pub use grpc::backend::Id;
     pub use sea_orm::*;
     pub use std::ops::Deref;
     pub use tonic::*;

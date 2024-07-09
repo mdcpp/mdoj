@@ -1,8 +1,6 @@
-use tracing::instrument;
-
-use grpc::backend::AnnouncementSortBy;
-
 use super::*;
+use grpc::backend::list_announcement_request::Sort;
+use tracing::instrument;
 
 pub static NAME: &str = "announcement";
 
@@ -198,7 +196,7 @@ pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
 pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
-    type Data = (AnnouncementSortBy, String);
+    type Data = (Sort, String);
 }
 
 #[async_trait]
@@ -220,9 +218,9 @@ impl Source for ColPagerTrait {
 impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
-            AnnouncementSortBy::UpdateDate => Column::UpdateAt,
-            AnnouncementSortBy::CreateDate => Column::CreateAt,
-            AnnouncementSortBy::Public => Column::Public,
+            Sort::UpdateDate => Column::UpdateAt,
+            Sort::CreateDate => Column::CreateAt,
+            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -230,9 +228,9 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
         data.1 = match data.0 {
-            AnnouncementSortBy::UpdateDate => model.update_at.to_string(),
-            AnnouncementSortBy::CreateDate => model.create_at.to_string(),
-            AnnouncementSortBy::Public => model.public.to_string(),
+            Sort::UpdateDate => model.update_at.to_string(),
+            Sort::CreateDate => model.create_at.to_string(),
+            Sort::Public => model.public.to_string(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::backend::chat_set_server::*;
+use grpc::backend::chat_server::*;
 use grpc::backend::*;
 
 use crate::entity::chat::*;
@@ -18,8 +18,8 @@ impl From<Model> for ChatInfo {
 }
 
 #[tonic::async_trait]
-impl ChatSet for ArcServer {
-    async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<ChatId>, Status> {
+impl Chat for ArcServer {
+    async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -29,7 +29,7 @@ impl ChatSet for ArcServer {
         check_length!(LONG_ART_SIZE, req, message);
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<ChatId>(user_id, uuid) {
+        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
@@ -44,7 +44,7 @@ impl ChatSet for ArcServer {
             .await
             .map_err(Into::<Error>::into)?;
 
-        let id: ChatId = model.id.clone().unwrap().into();
+        let id: Id = model.id.clone().unwrap().into();
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "chat_created");
@@ -53,7 +53,7 @@ impl ChatSet for ArcServer {
         Ok(Response::new(id))
     }
 
-    async fn remove(&self, req: Request<ChatId>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -75,44 +75,10 @@ impl ChatSet for ArcServer {
         Ok(Response::new(()))
     }
 
-    async fn list_by_problem(
+    async fn list(
         &self,
-        req: Request<ListByRequest>,
+        request: Request<ListChatRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-
-        let (pager, models) = match pager {
-            list_by_request::Request::Create(create) => {
-                ParentPaginator::new_fetch(
-                    (create.parent_id, Default::default()),
-                    &auth,
-                    size,
-                    offset,
-                    create.start_from_end(),
-                    &self.db,
-                )
-                .in_current_span()
-                .await
-            }
-            list_by_request::Request::Pager(old) => {
-                let span = tracing::info_span!("paginate").or_current();
-                let pager: ParentPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-                pager
-                    .fetch(&auth, size, offset, rev, &self.db)
-                    .instrument(span)
-                    .await
-            }
-        }?;
-
-        let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-
-        let next_session = self.crypto.encode(pager)?;
-        let list = models.into_iter().map(|x| x.into()).collect();
-
-        Ok(Response::new(ListChatResponse {
-            list,
-            next_session,
-            remain,
-        }))
+        todo!()
     }
 }
