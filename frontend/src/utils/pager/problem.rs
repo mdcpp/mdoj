@@ -1,10 +1,13 @@
 use grpc::backend::{Paginator, ProblemInfo};
-use leptos::Params;
+use leptos::{Params, SignalGetUntracked};
 use leptos_router::{Params, ParamsError, ParamsMap};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{ErrorKind, Result},
+    error::{ErrorKind, Result, *},
+    grpc::{problem_set_client::*, *},
+    pages::error_fallback,
+    session::use_token,
     utils::pager::{Fetcher, ParamWrapper},
 };
 
@@ -20,7 +23,7 @@ pub struct RawSearchSession {
 
 pub enum SearchSession {
     Text(String),
-    Column(i32, bool),
+    Column(ProblemSortBy, bool),
     List(bool),
 }
 
@@ -39,7 +42,7 @@ impl ParamWrapper for SearchSession {
                 ..Default::default()
             },
             SearchSession::Column(s, r) => RawSearchSession {
-                s: Some(s),
+                s: Some(s as i32),
                 r: Some(r),
                 ..Default::default()
             },
@@ -56,7 +59,10 @@ impl ParamWrapper for SearchSession {
         }
         let reverse = raw.r?;
         Some(match raw.s {
-            Some(sort_by) => SearchSession::Column(sort_by, reverse),
+            Some(sort_by) => SearchSession::Column(
+                sort_by.try_into().unwrap_or_default(),
+                reverse,
+            ),
             None => SearchSession::List(reverse),
         })
     }
@@ -72,7 +78,55 @@ impl Fetcher for ProblemFetcher {
     async fn search(
         request: Self::FirstSearch,
     ) -> Result<(Vec<Self::Entry>, Paginator, usize)> {
-        todo!()
+        let token = use_token().get_untracked();
+
+        let res = match request {
+            SearchSession::Text(xtext) => todo!(),
+            // ProblemSetClient::new(new_client().await?)
+            // .search_by_text(
+            //     TextSearchRequest {
+            //         size: Self::get_size(&request) as i64,
+            //         offset: None,
+            //         request: Some(
+            //             text_search_request::Request::Create(
+            //                 list_problem_request::Create {
+            //                     sort_by: column as i32,
+            //                     start_from_end: Some(start_from_end),
+            //                 },
+            //             ),
+            //         ),
+            //     }
+            //         .with_optional_token(token),
+            // )
+            // .await,
+            SearchSession::Column(column, start_from_end) => {
+                ProblemSetClient::new(new_client().await?)
+                    .list(
+                        ListProblemRequest {
+                            size: Self::get_size(&request) as i64,
+                            offset: None,
+                            request: Some(
+                                list_problem_request::Request::Create(
+                                    list_problem_request::Create {
+                                        sort_by: column as i32,
+                                        start_from_end: Some(start_from_end),
+                                    },
+                                ),
+                            ),
+                        }
+                        .with_optional_token(token),
+                    )
+                    .await
+            }
+
+            SearchSession::List(_) => todo!(),
+        }?
+        .into_inner();
+        Ok((
+            res.list,
+            Paginator::new(res.next_session),
+            res.remain as usize,
+        ))
     }
     async fn fetch(
         session: Paginator,
