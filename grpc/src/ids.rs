@@ -1,29 +1,13 @@
-use crate::backend::*;
-use paste::paste;
+use crate::backend::Id;
 
-macro_rules! impl_ids {
-    ($entity:ident) => {
-        paste! {
-            impl From<i32> for [<$entity Id>] {
-                fn from(value: i32) -> Self {
-                    Self { id: value }
-                }
-            }
-
-            impl From<[<$entity Id>]> for i32 {
-                fn from(value: [<$entity Id>]) -> Self {
-                    value.id
-                }
-            }
-        }
-    };
+impl From<i32> for Id {
+    fn from(value: i32) -> Self {
+        Id { id: value }
+    }
 }
 
-impl_ids!(Problem);
-impl_ids!(Announcement);
-impl_ids!(Contest);
-impl_ids!(Chat);
-impl_ids!(Testcase);
-impl_ids!(Education);
-impl_ids!(Submit);
-impl_ids!(User);
+impl From<Id> for i32 {
+    fn from(value: Id) -> Self {
+        value.id
+    }
+}
