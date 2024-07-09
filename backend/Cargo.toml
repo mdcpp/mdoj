@@ -43,7 +43,15 @@ prost-wkt-types = { workspace = true }
 
 [dependencies.grpc]
 path = "../grpc"
-features = ["server", "client", "backend", "judger", "transport", "serde"]
+features = [
+  "server",
+  "client",
+  "backend",
+  "judger",
+  "transport",
+  "serde",
+  "extra_trait",
+]
 
 [dependencies.postcard]
 version = "^1.0"
@@ -52,11 +60,11 @@ features = ["alloc"]
 
 [dependencies.uuid]
 version = "1.5.0"
-features = ["v4","fast-rng"]
+features = ["v4", "fast-rng"]
 
 [dependencies.tower-http]
 version = "^0.4"
-features = ["cors","trace"]
+features = ["cors", "trace"]
 
 [dependencies.sea-query]
 version = "0.30.4"
@@ -98,7 +106,7 @@ features = [
   "macros",
   "mock",
   "sqlx-sqlite",
-  "with-chrono"
+  "with-chrono",
 ]
 
 [dependencies.serde]

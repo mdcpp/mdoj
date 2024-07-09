@@ -19,11 +19,11 @@ fn main() {
         )
         .message_attribute(
             ".",
-            r#"#[cfg_attr(feature = "derive_more", derive(derive_more::From, derive_more::Into))]"#,
+            r#"#[cfg_attr(feature = "extra_trait", derive(derive_more::From, derive_more::Into))]"#,
         )
         .enum_attribute(
             ".",
-            r#"#[cfg_attr(feature = "derive_more", derive(derive_more::IsVariant, derive_more::Unwrap))]"#,
+            r#"#[cfg_attr(feature = "extra_trait", derive(derive_more::IsVariant, derive_more::Unwrap))]"#,
         )
         .extern_path(".google.protobuf.Any", "::prost_wkt_types::Any")
         .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
