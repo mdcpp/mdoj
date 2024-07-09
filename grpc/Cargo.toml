@@ -11,6 +11,10 @@ prost = { workspace = true }
 prost-wkt = { workspace = true }
 prost-wkt-types = { workspace = true }
 
+[dependencies.derive_more]
+version = "0.99.18"
+optional = true
+
 [dependencies.tonic]
 workspace = true
 features = ["codegen", "prost"]
@@ -34,3 +38,4 @@ client = []
 server = []
 serde = ["dep:serde"]
 transport = ["tonic-build/transport"]
+derive_more = ["dep:derive_more"]

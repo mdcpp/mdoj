@@ -6,32 +6,30 @@ package oj.backend;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
-enum Order{
-  Descend = 1;
-  Ascend = 2;
+enum Order {
+  ORDER_DESCEND = 1;
+  ORDER_ASCEND = 2;
 }
 
-message Id{
-  required int32 id =1;
-}
+message Id { required int32 id = 1; }
 
-enum Role{
-  User=1;
-  Super=2;
-  Admin=3;
-  Root=4;
+enum Role {
+  ROLE_USER = 1;
+  ROLE_SUPER = 2;
+  ROLE_ADMIN = 3;
+  ROLE_ROOT = 4;
 }
 
 enum StateCode {
-  AC = 0;
-  NA = 1;
-  WA = 2;
-  CE = 3;
-  RE = 4;
-  RF = 5;
-  TLE = 6;
-  MLE = 7;
-  OLE = 8;
+  STATECODE_AC = 0;
+  STATECODE_NA = 1;
+  STATECODE_WA = 2;
+  STATECODE_CE = 3;
+  STATECODE_RE = 4;
+  STATECODE_RF = 5;
+  STATECODE_TLE = 6;
+  STATECODE_MLE = 7;
+  STATECODE_OLE = 8;
 }
 
 message JudgeResult {
@@ -44,11 +42,11 @@ message JudgeResult {
 // How judge assert input
 enum MatchRule {
   // exactly same
-  ExactSame = 0;
+  MATCHRULE_EXACTLY = 0;
   // assert segment between space or newline, empty segments are also compare
-  IgnoreSNL = 1;
+  MATCHRULE_IGNORE_SNL = 1;
   // assert segment between space or newline, empty segments are ignored
-  SkipSNL = 2;
+  MATCHRULE_SKIP_SNL = 2;
 }
 
 message AddProblemToContestRequest {
@@ -106,8 +104,8 @@ message ProblemFullInfo {
   required int32 author = 9;
 }
 
-message ListProblemRequest{
-  enum Sort{
+message ListProblemRequest {
+  enum Sort {
     SORT_UPDATE_DATE = 0;
     SORT_CREATE_DATE = 1;
     SORT_AC_RATE = 2;
@@ -116,17 +114,17 @@ message ListProblemRequest{
     SORT_ORDER = 5;
     SORT_PUBLIC = 6;
   }
-  message Query{
+  message Query {
     optional uint32 contest_id = 1;
     optional Sort sort_by = 2;
     optional string text = 3;
   }
-  message Create{
+  message Create {
     required Order order = 1;
-    optional Query query =2;
+    optional Query query = 2;
   }
 
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -134,30 +132,29 @@ message ListProblemRequest{
   required uint64 offset = 4;
 }
 
-message ListProblemResponse{
+message ListProblemResponse {
   repeated ProblemInfo list = 1;
   required string paginator = 2;
   required uint64 remain = 3;
 }
 
-service Problem{
+service Problem {
   rpc List(ListProblemRequest) returns (ListProblemResponse);
-
   rpc FullInfo(Id) returns (ProblemFullInfo);
-  rpc FullInfoByContest(AddProblemToContestRequest) returns (ProblemFullInfo);
 
   rpc Create(CreateProblemRequest) returns (Id);
   rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
   rpc Remove(Id) returns (google.protobuf.Empty);
 
   rpc AddToContest(AddProblemToContestRequest) returns (google.protobuf.Empty);
-  rpc RemoveFromContest(AddProblemToContestRequest) returns (google.protobuf.Empty);
+  rpc RemoveFromContest(AddProblemToContestRequest)
+      returns (google.protobuf.Empty);
 
   rpc Publish(Id) returns (google.protobuf.Empty);
   rpc Unpublish(Id) returns (google.protobuf.Empty);
 
+  rpc FullInfoByContest(AddProblemToContestRequest) returns (ProblemFullInfo);
 }
-
 
 message SubmitInfo {
   required int32 id = 1;
@@ -185,13 +182,13 @@ message RejudgeRequest {
   required string request_id = 2;
 }
 
-message ListSubmitRequest{
-  message Create{
+message ListSubmitRequest {
+  message Create {
     // FIXME: add sort
     required Order order = 1;
     optional uint32 contest_id = 2;
   }
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -199,7 +196,7 @@ message ListSubmitRequest{
   required uint64 offset = 4;
 }
 
-message ListSubmitResponse{
+message ListSubmitResponse {
   repeated ProblemInfo list = 1;
   required string paginator = 2;
   required uint64 remain = 3;
@@ -261,21 +258,21 @@ message UpdateAnnouncementRequest {
 }
 
 message ListAnnouncementRequest {
-  enum Sort{
+  enum Sort {
     SORT_UPDATE_DATE = 0;
     SORT_CREATE_DATE = 1;
     SORT_PUBLIC = 2;
   }
-  message Query{
+  message Query {
     optional Sort sort_by = 1;
     optional string text = 2;
   }
-  message Create{
+  message Create {
     required Order order = 1;
-    optional Query query =2;
+    optional Query query = 2;
   }
 
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -285,16 +282,16 @@ message ListAnnouncementRequest {
 
 service Announcement {
   rpc List(ListAnnouncementRequest) returns (ListAnnouncementResponse);
-
   rpc FullInfo(Id) returns (AnnouncementFullInfo);
-  rpc FullInfoByContest(AddAnnouncementToContestRequest) returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (Id);
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
   rpc Remove(Id) returns (google.protobuf.Empty);
 
-  rpc AddToContest(AddAnnouncementToContestRequest) returns (google.protobuf.Empty);
-  rpc RemoveFromContest(AddAnnouncementToContestRequest) returns (google.protobuf.Empty);
+  rpc AddToContest(AddAnnouncementToContestRequest)
+      returns (google.protobuf.Empty);
+  rpc RemoveFromContest(AddAnnouncementToContestRequest)
+      returns (google.protobuf.Empty);
 
   rpc Publish(Id) returns (google.protobuf.Empty);
   rpc Unpublish(Id) returns (google.protobuf.Empty);
@@ -342,11 +339,11 @@ message UpdateEducationRequest {
 }
 
 message ListEducationRequest {
-  message Create{
+  message Create {
     required Order order = 1;
     optional uint32 problem_id = 2;
   }
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -361,13 +358,15 @@ service Education {
   rpc Update(UpdateEducationRequest) returns (google.protobuf.Empty);
   rpc Remove(Id) returns (google.protobuf.Empty);
 
-  rpc AddToProblem(AddEducationToProblemRequest) returns (google.protobuf.Empty);
-  rpc RemoveFromProblem(AddEducationToProblemRequest) returns (google.protobuf.Empty);
+  rpc AddToProblem(AddEducationToProblemRequest)
+      returns (google.protobuf.Empty);
+  rpc RemoveFromProblem(AddEducationToProblemRequest)
+      returns (google.protobuf.Empty);
 
   // paginate by id(increasing)
+  rpc ListByProblem(Id) returns (ListEducationResponse);
   rpc FullInfoByProblem(AddEducationToProblemRequest) returns (EducationFullInfo);
 }
-
 
 message TestcaseInfo {
   required int32 id = 1;
@@ -414,11 +413,11 @@ message UpdateTestcaseRequest {
 }
 
 message ListTestcaseRequest {
-  message Create{
+  message Create {
     required Order order = 1;
     optional uint32 problem_id = 2;
   }
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -435,11 +434,11 @@ service Testcase {
   rpc Remove(Id) returns (google.protobuf.Empty);
 
   rpc AddToProblem(AddTestcaseToProblemRequest) returns (google.protobuf.Empty);
-  rpc RemoveFromProblem(AddTestcaseToProblemRequest) returns (google.protobuf.Empty);
+  rpc RemoveFromProblem(AddTestcaseToProblemRequest)
+      returns (google.protobuf.Empty);
 
   rpc FullInfoByProblem(AddTestcaseToProblemRequest) returns (TestcaseFullInfo);
 }
-
 
 message ContestInfo {
   required int32 id = 1;
@@ -508,23 +507,23 @@ message JoinContestRequest {
 }
 
 message ListContestRequest {
-  enum Sort{
+  enum Sort {
     SORT_CREATE_DATE = 0;
     SORT_UPDATE_DATE = 1;
     SORT_BEGIN = 2;
     SORT_END = 3;
     SORT_PUBLIC = 4;
   }
-  message Query{
+  message Query {
     optional Sort sort_by = 1;
     optional string text = 2;
   }
-  message Create{
+  message Create {
     required Order order = 1;
-    optional Query query =2;
+    optional Query query = 2;
   }
 
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -590,21 +589,21 @@ message UpdatePasswordRequest {
 }
 
 message ListUserRequest {
-  enum Sort{
+  enum Sort {
     SORT_CREATE_DATE = 0;
     SORT_SCORE = 1;
   }
-  message Query{
+  message Query {
     optional Sort sort_by = 1;
     optional string text = 2;
     optional int32 contest_id = 3;
   }
-  message Create{
+  message Create {
     required Order order = 1;
-    optional Query query =2;
+    optional Query query = 2;
   }
 
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -612,7 +611,7 @@ message ListUserRequest {
   required uint64 offset = 4;
 }
 
-service UserService {
+service User {
   rpc List(ListUserRequest) returns (ListUserResponse);
   rpc FullInfo(Id) returns (UserFullInfo);
 
@@ -649,7 +648,7 @@ service Token {
 }
 
 message ChatInfo {
-  required int32 id=5;
+  required int32 id = 5;
   required int32 user_id = 1;
   required int32 problem_id = 2;
   required google.protobuf.Timestamp create_at = 3;
@@ -662,23 +661,23 @@ message ListChatResponse {
   required uint64 remain = 3;
 }
 
-message CreateChatRequest{
-  required int32 problem_id=1;
-  required string message=2;
+message CreateChatRequest {
+  required int32 problem_id = 1;
+  required string message = 2;
   required string request_id = 6;
 }
 
 message ListChatRequest {
-  message Query{
+  message Query {
     // FIXME: add sort
     optional string text = 1;
     optional int32 problem_id = 2;
   }
-  message Create{
+  message Create {
     required Order order = 1;
-    optional Query query =2;
+    optional Query query = 2;
   }
-  oneof request{
+  oneof request {
     Create create = 1;
     string paginator = 2;
   }
@@ -714,10 +713,6 @@ message Language {
   // file extension of this language
   required string lang_ext = 4;
 }
-message Languages{
-  repeated Language list=1;
-}
+message Languages { repeated Language list = 1; }
 
-service Playground{
-  rpc ListLang(google.protobuf.Empty) returns (Languages);
-}
+service Playground { rpc ListLang(google.protobuf.Empty) returns (Languages); }
