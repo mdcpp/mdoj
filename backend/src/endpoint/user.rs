@@ -37,11 +37,11 @@ impl User for ArcServer {
             .in_current_span()
             .await?;
 
-        check_length!(SHORT_ART_SIZE, req.info, username);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
@@ -110,7 +110,9 @@ impl User for ArcServer {
             .in_current_span()
             .await?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
+
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -192,7 +194,7 @@ impl User for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
@@ -226,7 +228,7 @@ impl User for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())

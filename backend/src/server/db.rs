@@ -3,10 +3,10 @@ use sea_orm::{
     DatabaseConnection, EntityTrait, PaginatorTrait, Statement,
 };
 
-use super::Error;
+use super::InitError;
 use tracing::{debug_span, instrument, Instrument, Span};
 
-use super::config::{self};
+use crate::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
 #[instrument(skip_all, name = "construct_db",parent=span)]
@@ -26,7 +26,7 @@ pub async fn init(
     let mut opt = ConnectOptions::new(uri);
     opt.sqlx_logging_level(log::LevelFilter::Trace);
 
-    let db = Database::connect(opt).await.map_err(Error::InitConn)?;
+    let db = Database::connect(opt).await.map_err(InitError::InitConn)?;
 
     db.execute(Statement::from_string(
         DatabaseBackend::Sqlite,
@@ -34,7 +34,7 @@ pub async fn init(
     ))
     .instrument(debug_span!("db_optimize"))
     .await
-    .map_err(Error::OptimizeDB)?;
+    .map_err(InitError::OptimizeDB)?;
 
     #[cfg(feature = "standalone")]
     if config.migrate == Some(true) {
@@ -49,14 +49,14 @@ pub async fn init(
 #[cfg(feature = "standalone")]
 /// Run migration
 async fn migrate(db: &DatabaseConnection) -> super::Result<()> {
-    sea_orm_migration::run_migrate(
+    sea_orm_migration::cli::run_migrate(
         ::migration::Migrator,
         db,
-        Some(MigrateSubcommands::Up { num: None }),
+        Some(sea_orm_cli::cli::MigrateSubcommands::Up { num: None }),
         false,
     )
     .await
-    .map_err(Error::AutoMigrate)?;
+    .map_err(InitError::AutoMigrate)?;
     Ok(())
 }
 
@@ -78,7 +78,7 @@ async fn init_user(db: &DatabaseConnection, crypto: &CryptoController) -> super:
     }
     .insert(db)
     .await
-    .map_err(Error::UserCreation)?;
+    .map_err(InitError::UserCreation)?;
 
     Ok(())
 }

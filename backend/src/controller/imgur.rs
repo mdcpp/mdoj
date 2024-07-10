@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use reqwest::{multipart, Client};
 use tracing::instrument;
 
-use crate::{init::config, report_internal};
+use crate::{config, report_internal};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

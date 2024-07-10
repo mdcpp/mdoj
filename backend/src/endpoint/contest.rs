@@ -80,10 +80,9 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -129,10 +128,9 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -149,7 +147,6 @@ impl Contest for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, password);
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
                 if perm.root() || self.crypto.hash_eq(&src, tar) {
@@ -212,7 +209,7 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())

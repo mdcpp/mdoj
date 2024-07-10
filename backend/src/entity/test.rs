@@ -54,7 +54,7 @@ impl ActiveModelBehavior for ActiveModel {}
 impl super::Filter for Entity {
     #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Ok((user_id, perm)) = auth.ok_or_default() {
+        if let Ok((user_id, perm)) = auth.auth_or_guest() {
             if perm.admin() {
                 return Ok(query);
             }
@@ -64,7 +64,7 @@ impl super::Filter for Entity {
     }
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
         if perm.admin() {
             return Ok(query);
         }

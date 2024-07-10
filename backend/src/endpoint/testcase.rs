@@ -40,9 +40,9 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(LONG_ART_SIZE, req.info, input, output);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -78,9 +78,9 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(LONG_ART_SIZE, req.info, input, output);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -139,7 +139,7 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
@@ -212,7 +212,7 @@ impl Testcase for ArcServer {
 
         tracing::debug!(problem_id = req.problem_id, testcase_id = req.testcase_id);
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());

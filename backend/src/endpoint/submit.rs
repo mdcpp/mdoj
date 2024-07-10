@@ -77,11 +77,9 @@ impl Submit for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
-        if req.code.len() > SUBMIT_CODE_LEN {
-            return Err(Error::BufferTooLarge("info.code").into());
-        }
+        req.check_with_error()?;
 
         let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
@@ -182,7 +180,7 @@ impl Submit for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         let submit_id = req.submit_id;
 

@@ -1,7 +1,7 @@
+pub mod config;
 pub mod controller;
 pub mod endpoint;
 pub mod entity;
-pub mod init;
 pub mod macro_tool;
 pub mod server;
 pub mod util;

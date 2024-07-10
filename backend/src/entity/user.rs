@@ -24,7 +24,7 @@ impl Model {
     ///
     /// Be careful never save it
     pub fn new_with_auth(auth: &Auth) -> Option<Self> {
-        auth.ok_or_default().ok().map(|(id, permission)| Self {
+        auth.auth_or_guest().ok().map(|(id, permission)| Self {
             id,
             permission: permission as i32,
             score: Default::default(),
@@ -146,7 +146,7 @@ impl super::Filter for Entity {
 
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
         if perm.admin() {
             return Ok(query.filter(
                 Column::Permission

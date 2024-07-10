@@ -3,7 +3,7 @@ use rand::{rngs::OsRng, Rng};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::Span;
 
-use crate::init::config::GlobalConfig;
+use crate::config::GlobalConfig;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use blake2::{Blake2b512, Digest};
 

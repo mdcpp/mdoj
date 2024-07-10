@@ -1,5 +1,5 @@
 use super::{ConnectionDetail, Error, Routable, RouteStatus};
-use crate::init::config::Judger;
+use crate::config::Judger;
 use tonic::transport::Uri;
 
 /// Upstream source for static(only emit once)

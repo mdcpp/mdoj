@@ -11,7 +11,7 @@ impl Image for ArcServer {
         req: Request<UploadRequest>,
     ) -> Result<Response<UploadResponse>, Status> {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(5)).await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<UploadResponse>(user_id, uuid) {

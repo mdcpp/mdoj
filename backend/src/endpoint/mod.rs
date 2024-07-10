@@ -16,10 +16,6 @@ mod token;
 mod user;
 
 mod tools {
-    /// longest allowed size for short string
-    pub const SHORT_ART_SIZE: usize = 128;
-    /// longest allowed size for long string
-    pub const LONG_ART_SIZE: usize = 262144;
     pub use crate::NonZeroU32;
     pub use grpc::backend::Id;
     pub use sea_orm::*;
@@ -34,12 +30,13 @@ mod tools {
     };
     pub use crate::util::{
         auth::RoleLv,
+        bound::BoundCheck,
         error::{atomic_fail, Error},
         time::*,
     };
     pub use crate::{
-        check_exist_length, check_length, fill_active_model, fill_exist_active_model,
-        parse_pager_param, server::ArcServer, TonicStream,
+        fill_active_model, fill_exist_active_model, parse_pager_param, server::ArcServer,
+        TonicStream,
     };
 }
 

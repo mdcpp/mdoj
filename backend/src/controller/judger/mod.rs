@@ -12,8 +12,8 @@ use std::{
 use tokio_stream::StreamExt;
 
 use crate::{
-    init::{config, logger::PACKAGE_NAME},
     report_internal, TonicStream,
+    {config, config::PACKAGE_NAME},
 };
 use grpc::backend::StateCode as BackendCode;
 use opentelemetry::{global, metrics::ObservableGauge};

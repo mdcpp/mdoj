@@ -71,17 +71,16 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
-        if !(perm.super_user()) {
+        if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
@@ -116,10 +115,9 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.check_with_error()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -179,7 +177,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
@@ -255,7 +253,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         tracing::debug!(id = req.id);
 
@@ -290,7 +288,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         tracing::debug!(id = req.id);
 

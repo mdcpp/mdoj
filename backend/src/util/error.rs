@@ -7,6 +7,8 @@ use uuid::Uuid;
 
 use super::auth::RoleLv;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 /// Centralized Error for endpoint, usually calling with `Into::into()`
 /// to tramsform it into `Status` immediately
 #[derive(Debug, thiserror::Error)]
@@ -31,8 +33,8 @@ pub enum Error {
     Unreachable(&'static str),
     #[error("Number too large(or small)")]
     NumberTooLarge,
-    #[error("Buffer `{0}` too large")]
-    BufferTooLarge(&'static str),
+    // #[error("Buffer `{0}` too large")]
+    // BufferTooLarge(&'static str),
     #[error("Already exist")]
     AlreadyExist(String),
     #[error("You need to own `{0}` to add thing onto it")]
@@ -79,7 +81,7 @@ impl From<Error> for Status {
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
-            Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
+            // Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
             Error::AlreadyExist(x) => {
                 tracing::trace!(username = x, "entity_exist");
                 Status::already_exists(format!("{} already exist", x))

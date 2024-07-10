@@ -27,7 +27,7 @@ impl Token for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if req.id != user_id && !perm.root() {
             return Err(Error::Unauthenticated.into());
@@ -128,7 +128,7 @@ impl Token for ArcServer {
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
         // FIXME: handle rate limiting logic
         let (auth, _) = self.parse_auth(&req).in_current_span().await?;
-        auth.ok_or_default()?;
+        auth.auth_or_guest()?;
 
         if let Some(x) = req.metadata().get("token") {
             let token = x.to_str().unwrap();
