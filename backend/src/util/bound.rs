@@ -1,5 +1,7 @@
 use super::error::Error;
+use grpc::backend::list_problem_request::Request;
 use grpc::backend::*;
+
 pub trait BoundCheck {
     /// return true if fail
     fn check(&self) -> bool;
@@ -87,6 +89,23 @@ impl BoundCheck for UpdateContestRequest {
                 .map(String::len)
                 .unwrap_or_default()
                 > 256
+    }
+}
+impl BoundCheck for ListProblemRequest {
+    fn check(&self) -> bool {
+        if let Some(x) = &self.request {
+            (match x {
+                Request::Create(x) => x
+                    .query
+                    .as_ref()
+                    .map(|x| x.text.as_ref().map(String::len))
+                    .flatten()
+                    .unwrap_or_default(),
+                Request::Paginator(x) => x.len(),
+            } > 512)
+        } else {
+            false
+        }
     }
 }
 impl BoundCheck for CreateProblemRequest {

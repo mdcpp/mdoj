@@ -17,7 +17,7 @@ mod user;
 
 mod tools {
     pub use crate::NonZeroU32;
-    pub use grpc::backend::Id;
+    pub use grpc::backend::{Id, Order};
     pub use sea_orm::*;
     pub use std::ops::Deref;
     pub use tonic::*;

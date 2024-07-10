@@ -115,7 +115,7 @@ message ListProblemRequest {
     SORT_PUBLIC = 6;
   }
   message Query {
-    optional uint32 contest_id = 1;
+    optional int32 contest_id = 1;
     optional Sort sort_by = 2;
     optional string text = 3;
   }

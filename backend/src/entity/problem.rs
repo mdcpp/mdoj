@@ -4,6 +4,8 @@
 use std::ops::Deref;
 
 use super::*;
+use crate::entity::problem::Paginator::Parent;
+use crate::entity::util::paginator::{Pager, Remain};
 use crate::union;
 use grpc::backend::list_problem_request::Sort;
 use sea_orm::Statement;
@@ -241,9 +243,9 @@ impl Reflect<Entity> for PartialModel {
     }
 }
 
-pub struct PagerTrait;
+struct PagerTrait;
 
-pub struct TextPagerTrait;
+struct TextPagerTrait;
 
 impl PagerData for TextPagerTrait {
     type Data = String;
@@ -270,9 +272,9 @@ impl Source for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
+type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
 
-pub struct ParentPagerTrait;
+struct ParentPagerTrait;
 
 impl PagerData for ParentPagerTrait {
     type Data = (i32, f32);
@@ -309,9 +311,9 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
+type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
 
-pub struct ColPagerTrait;
+struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
     type Data = (Sort, String);
@@ -362,3 +364,126 @@ impl SortSource<PartialModel> for ColPagerTrait {
 }
 
 pub type ColPaginator = ColumnPaginator<ColPagerTrait, PartialModel>;
+
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub enum Paginator {
+    Text(TextPaginator),
+    Parent(ParentPaginator),
+    Col(ColPaginator),
+    #[serde(skip_deserializing, skip_serializing)]
+    UninitText(String, bool),
+    #[serde(skip_deserializing, skip_serializing)]
+    UninitParent(i32, bool),
+    #[serde(skip_deserializing, skip_serializing)]
+    UninitCol(Sort, bool),
+    #[serde(skip_deserializing, skip_serializing)]
+    #[default]
+    Default,
+}
+
+pub struct WithAuth<'a, T>(&'a Auth, T);
+pub struct WithDB<'a, T>(&'a sea_orm::DatabaseConnection, T);
+
+impl Paginator {
+    pub fn new_text(text: String, start_from_end: bool) -> Self {
+        Self::UninitText(text, start_from_end)
+    }
+    pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
+        Self::UninitCol(sort, start_from_end)
+    }
+    pub fn new_parent(parent: i32, start_from_end: bool) -> Self {
+        Self::UninitParent(parent, start_from_end)
+    }
+    pub fn new(start_from_end: bool) -> Self {
+        Self::UninitCol(Sort::SubmitCount, start_from_end)
+    }
+    pub fn with_auth(self, auth: &Auth) -> WithAuth<Self> {
+        WithAuth(auth, self)
+    }
+}
+
+impl<'a> WithAuth<'a, Paginator> {
+    pub fn with_db<'b>(self, db: &'b sea_orm::DatabaseConnection) -> WithDB<'b, WithAuth<Paginator>>
+    where
+        'a: 'b,
+    {
+        WithDB(db, self)
+    }
+}
+
+impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    pub async fn fetch(&mut self, size: i64, offset: u64) -> Result<Vec<PartialModel>, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        macro_rules! write_back_with_list {
+            ($t:ident, $x: expr) => {
+                let (paginator, list) = $x;
+                self.1 .1 = Paginator::$t(paginator);
+                return Ok(list);
+            };
+        }
+
+        let paginator = std::mem::take(&mut self.1 .1);
+        macro_rules! continue_fetch {
+            ($t:ident) => {
+                if let Paginator::$t(x) = paginator {
+                    write_back_with_list!(
+                        $t,
+                        x.fetch(auth, size.abs() as u64, offset, size.is_negative(), db)
+                            .await?
+                    );
+                }
+            };
+        }
+        continue_fetch!(Text);
+        continue_fetch!(Parent);
+        continue_fetch!(Col);
+        if let Paginator::UninitText(x, start_from_end) = paginator {
+            let (paginator, list) =
+                TextPaginator::new_fetch(x, &auth, size.abs() as u64, offset, start_from_end, db)
+                    .await?;
+            self.1 .1 = Paginator::Text(paginator);
+            return Ok(list);
+        }
+        if let Paginator::UninitParent(x, start_from_end) = paginator {
+            let (paginator, list) = ParentPaginator::new_fetch(
+                (x, Default::default()),
+                &auth,
+                size.abs() as u64,
+                offset,
+                start_from_end,
+                db,
+            )
+            .await?;
+            self.1 .1 = Paginator::Parent(paginator);
+            return Ok(list);
+        }
+        if let Paginator::UninitCol(x, start_from_end) = paginator {
+            let (paginator, list) = ColPaginator::new_fetch(
+                (x, Default::default()),
+                &auth,
+                size.abs() as u64,
+                offset,
+                start_from_end,
+                db,
+            )
+            .await?;
+            self.1 .1 = Paginator::Col(paginator);
+            return Ok(list);
+        }
+        unreachable!("default is used during mem::take")
+    }
+    pub async fn remain(&self) -> Result<u64, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &self.1 .1 {
+            Paginator::Text(x) => x.remain(auth, db).await,
+            Paginator::Parent(x) => x.remain(auth, db).await,
+            Paginator::Col(x) => x.remain(auth, db).await,
+            _ => unreachable!("remain is only calculate after fetch"),
+        }
+    }
+    pub fn into_inner(self) -> Paginator {
+        self.1 .1
+    }
+}
