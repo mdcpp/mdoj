@@ -128,8 +128,8 @@ message ListProblemRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 message ListProblemResponse {
@@ -192,8 +192,8 @@ message ListSubmitRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 message ListSubmitResponse {
@@ -276,8 +276,8 @@ message ListAnnouncementRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 service Announcement {
@@ -348,8 +348,8 @@ message ListEducationRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 service Education {
@@ -421,8 +421,8 @@ message ListTestcaseRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 // Testcase
@@ -527,8 +527,8 @@ message ListContestRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 message Users { repeated UserRank list = 1; }
@@ -607,8 +607,8 @@ message ListUserRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 service User {
@@ -681,8 +681,8 @@ message ListChatRequest {
     Create create = 1;
     string paginator = 2;
   }
-  required int64 size = 3;
-  required uint64 offset = 4;
+  required uint64 size = 3;
+  required int64 offset = 4;
 }
 
 service Chat {

@@ -4,7 +4,6 @@
 use std::ops::Deref;
 
 use super::*;
-use crate::entity::problem::Paginator::Parent;
 use crate::entity::util::paginator::{Pager, Remain};
 use crate::union;
 use grpc::backend::list_problem_request::Sort;
@@ -412,7 +411,17 @@ impl<'a> WithAuth<'a, Paginator> {
 }
 
 impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
-    pub async fn fetch(&mut self, size: i64, offset: u64) -> Result<Vec<PartialModel>, Error> {
+    pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<PartialModel>, Error> {
+        let size = size.min((i64::MAX - 1) as u64) as i64;
+        if offset < 0 {
+            self.fetch_inner(-size, (-offset).saturating_sub(size) as u64)
+                .await
+                .map(|x| x.into_iter().rev().collect())
+        } else {
+            self.fetch_inner(size, offset as u64).await
+        }
+    }
+    async fn fetch_inner(&mut self, size: i64, offset: u64) -> Result<Vec<PartialModel>, Error> {
         let db = self.0;
         let auth = self.1 .0;
         macro_rules! write_back_with_list {

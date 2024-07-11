@@ -47,7 +47,7 @@ impl Problem for ArcServer {
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size.saturating_abs() as u64) + req.offset / 5 + 2)
+                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })
