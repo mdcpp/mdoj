@@ -385,10 +385,20 @@ impl<P: PaginateRaw> UninitPaginator<P> {
         if let UninitPaginator::Init(x) = self {
             let size = size.min((i64::MAX - 1) as u64) as i64;
             let (size, offset) = match offset < 0 {
-                true => (-size, (-offset).saturating_sub(size) as u64),
+                true => (
+                    -size,
+                    (-offset)
+                        .checked_sub(size)
+                        .ok_or(Error::BadArgument("size"))? as u64,
+                ),
                 false => (size, offset as u64),
             };
-            x.fetch(auth, size, offset, db).await
+            x.fetch(auth, size, offset, db).await.map(|mut x| {
+                if size.is_negative() {
+                    x.reverse();
+                }
+                x
+            })
         } else if let UninitPaginator::Uninit(x, start_from_end) = std::mem::take(self) {
             let (paginator, list) =
                 P::new_fetch(x, auth, size, offset.max(0) as u64, start_from_end, db).await?;

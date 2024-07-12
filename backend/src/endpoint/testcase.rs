@@ -3,7 +3,7 @@ use super::tools::*;
 use grpc::backend::testcase_server::*;
 use grpc::backend::*;
 
-use crate::entity::{test::*, *};
+use crate::entity::{testcase::*, *};
 
 impl From<Model> for TestcaseFullInfo {
     fn from(value: Model) -> Self {

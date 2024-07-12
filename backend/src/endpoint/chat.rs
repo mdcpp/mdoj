@@ -1,9 +1,8 @@
 use super::tools::*;
 
-use grpc::backend::chat_server::*;
-use grpc::backend::*;
+use grpc::{backend::chat_server::*, backend::*};
 
-use crate::entity::chat::*;
+use crate::entity::chat::{Paginator, *};
 
 impl From<Model> for ChatInfo {
     fn from(value: Model) -> Self {
@@ -77,8 +76,36 @@ impl Chat for ArcServer {
 
     async fn list(
         &self,
-        request: Request<ListChatRequest>,
+        req: Request<ListChatRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_chat_request::Request::Create(create) => {
+                let start_from_end = create.order == Order::Descend as i32;
+                Paginator::new(create.problem_id, start_from_end)
+            }
+            list_chat_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListChatResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
 }

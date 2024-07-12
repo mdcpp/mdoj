@@ -1,10 +1,11 @@
 use super::tools::*;
 
-use grpc::backend::user_server::*;
-use grpc::backend::*;
+use grpc::{backend::user_server::*, backend::*};
 
-use crate::entity::user;
-use crate::entity::user::*;
+use crate::{
+    entity::user,
+    entity::user::{Paginator, *},
+};
 
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
@@ -24,7 +25,44 @@ impl User for ArcServer {
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_user_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else if let Some(parent) = query.contest_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_user_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListUserResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, _req: Request<Id>) -> Result<Response<UserFullInfo>, Status> {

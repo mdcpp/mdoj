@@ -1,5 +1,4 @@
 use super::error::Error;
-use grpc::backend::list_problem_request::Request;
 use grpc::backend::*;
 
 pub trait BoundCheck {
@@ -46,6 +45,54 @@ macro_rules! impl_basic_bound_check {
 impl_basic_bound_check!(Announcement);
 impl_basic_bound_check!(Education);
 
+macro_rules! list_request {
+    ($n:ident) => {
+        paste::paste! {
+            impl BoundCheck for [<List $n Request>] {
+                fn check(&self) -> bool {
+                    if let Some(x) = &self.request {
+                        (match x {
+                            [<list_ $n:lower _request>]::Request::Create(x) => x
+                                .query
+                                .as_ref()
+                                .map(|x| x.text.as_ref().map(String::len))
+                                .flatten()
+                                .unwrap_or_default(),
+                            [<list_ $n:lower _request>]::Request::Paginator(x) => x.len(),
+                        } > 512)
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
+    };
+}
+
+list_request!(Problem);
+list_request!(Announcement);
+list_request!(Contest);
+list_request!(Education);
+list_request!(User);
+
+impl BoundCheck for ListChatRequest {
+    fn check(&self) -> bool {
+        self.offset > 4096 || self.size > 128
+    }
+}
+impl BoundCheck for ListSubmitRequest {
+    fn check(&self) -> bool {
+        if let Some(x) = &self.request {
+            (match x {
+                list_submit_request::Request::Create(x) => 0,
+                list_submit_request::Request::Paginator(x) => x.len(),
+            } > 512)
+        } else {
+            false
+        }
+    }
+}
+
 impl BoundCheck for CreateChatRequest {
     fn check(&self) -> bool {
         self.message.len() > 8 * 1024
@@ -91,23 +138,7 @@ impl BoundCheck for UpdateContestRequest {
                 > 256
     }
 }
-impl BoundCheck for ListProblemRequest {
-    fn check(&self) -> bool {
-        if let Some(x) = &self.request {
-            (match x {
-                Request::Create(x) => x
-                    .query
-                    .as_ref()
-                    .map(|x| x.text.as_ref().map(String::len))
-                    .flatten()
-                    .unwrap_or_default(),
-                Request::Paginator(x) => x.len(),
-            } > 512)
-        } else {
-            false
-        }
-    }
-}
+
 impl BoundCheck for CreateProblemRequest {
     fn check(&self) -> bool {
         self.info.title.len() > 128

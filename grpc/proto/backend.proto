@@ -184,9 +184,8 @@ message RejudgeRequest {
 
 message ListSubmitRequest {
   message Create {
-    // FIXME: add sort
     required Order order = 1;
-    optional uint32 contest_id = 2;
+    optional int32 problem_id = 2;
   }
   oneof request {
     Create create = 1;
@@ -197,7 +196,7 @@ message ListSubmitRequest {
 }
 
 message ListSubmitResponse {
-  repeated ProblemInfo list = 1;
+  repeated SubmitInfo list = 1;
   required string paginator = 2;
   required uint64 remain = 3;
 }
@@ -229,7 +228,7 @@ message AnnouncementFullInfo {
 
 message ListAnnouncementResponse {
   repeated AnnouncementInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -266,6 +265,7 @@ message ListAnnouncementRequest {
   message Query {
     optional Sort sort_by = 1;
     optional string text = 2;
+    optional int32 contest_id = 3;
   }
   message Create {
     required Order order = 1;
@@ -311,7 +311,7 @@ message EducationFullInfo {
 
 message ListEducationResponse {
   repeated EducationInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -342,7 +342,11 @@ message UpdateEducationRequest {
 message ListEducationRequest {
   message Create {
     required Order order = 1;
-    optional uint32 problem_id = 2;
+    optional Query query = 2;
+  }
+  message Query {
+    optional string text = 2;
+    optional int32 problem_id = 3;
   }
   oneof request {
     Create create = 1;
@@ -382,7 +386,7 @@ message TestcaseFullInfo {
 
 message ListTestcaseResponse {
   repeated TestcaseInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -456,7 +460,7 @@ message ContestFullInfo {
 
 message ListContestResponse {
   repeated ContestInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -497,7 +501,7 @@ message UserRank {
 
 message ListRankResponse {
   repeated UserRank list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -557,7 +561,7 @@ message UserFullInfo {
 
 message ListUserResponse {
   repeated UserInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -657,7 +661,7 @@ message ChatInfo {
 
 message ListChatResponse {
   repeated ChatInfo list = 1;
-  required string next_session = 2;
+  required string paginator = 2;
   required uint64 remain = 3;
 }
 
@@ -668,14 +672,9 @@ message CreateChatRequest {
 }
 
 message ListChatRequest {
-  message Query {
-    // FIXME: add sort
-    optional string text = 1;
-    optional int32 problem_id = 2;
-  }
   message Create {
     required Order order = 1;
-    optional Query query = 2;
+    required int32 problem_id = 3;
   }
   oneof request {
     Create create = 1;

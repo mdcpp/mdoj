@@ -212,8 +212,8 @@ impl Judger {
         let db = self.db.clone();
 
         let mut binding = problem::Entity::find_by_id(req.problem)
-            .find_with_related(test::Entity)
-            .order_by_asc(test::Column::Score)
+            .find_with_related(testcase::Entity)
+            .order_by_asc(testcase::Column::Score)
             .all(db.as_ref())
             .await?;
         let (problem, testcases) = binding.pop().ok_or(Error::BadArgument("problem id"))?;

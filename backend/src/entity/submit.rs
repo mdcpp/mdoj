@@ -152,7 +152,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
+type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
@@ -188,7 +188,7 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
+type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Paginator {

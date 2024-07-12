@@ -1,4 +1,4 @@
-// FIXME: improve tracing afte refactor
+// FIXME: improve tracing after refactor
 
 //! collection of entity
 
@@ -8,7 +8,7 @@ pub mod contest;
 pub mod education;
 pub mod problem;
 pub mod submit;
-pub mod test;
+pub mod testcase;
 pub mod token;
 pub mod user;
 pub mod user_contest;

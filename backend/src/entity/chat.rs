@@ -110,7 +110,7 @@ impl SortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, Model>>;
+type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, Model>>;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Paginator(ParentPaginator);

@@ -47,7 +47,7 @@ pub enum Relation {
     Problem,
     #[sea_orm(has_many = "super::submit::Entity")]
     Submit,
-    #[sea_orm(has_many = "super::test::Entity")]
+    #[sea_orm(has_many = "super::testcase::Entity")]
     Test,
     #[sea_orm(has_many = "super::token::Entity")]
     Token,
@@ -93,7 +93,7 @@ impl Related<super::submit::Entity> for Entity {
     }
 }
 
-impl Related<super::test::Entity> for Entity {
+impl Related<super::testcase::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Test.def()
     }
@@ -190,7 +190,7 @@ impl Source for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, Model>;
+type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, Model>;
 
 pub struct ColPagerTrait;
 
@@ -232,7 +232,7 @@ impl SortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
+type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
 
 /// ParentPaginator (offset base)
 #[derive(serde::Serialize, serde::Deserialize)]

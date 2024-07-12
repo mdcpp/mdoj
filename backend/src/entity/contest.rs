@@ -228,7 +228,7 @@ impl Source for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = UninitPaginator<PrimaryKeyPaginator<TextPagerTrait, PartialModel>>;
+type TextPaginator = UninitPaginator<PrimaryKeyPaginator<TextPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
@@ -276,7 +276,7 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
+type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Paginator {
@@ -296,6 +296,9 @@ impl Paginator {
             (sort, Default::default()),
             start_from_end,
         ))
+    }
+    pub fn new(start_from_end: bool) -> Self {
+        Self::new_sort(Sort::CreateDate, start_from_end)
     }
 }
 

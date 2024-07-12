@@ -95,7 +95,7 @@ pub enum Relation {
     Submit,
     #[sea_orm(has_many = "super::chat::Entity")]
     Chat,
-    #[sea_orm(has_many = "super::test::Entity")]
+    #[sea_orm(has_many = "super::testcase::Entity")]
     Test,
     #[sea_orm(
         belongs_to = "super::user::Entity",
@@ -131,7 +131,7 @@ impl Related<super::chat::Entity> for Entity {
     }
 }
 
-impl Related<super::test::Entity> for Entity {
+impl Related<super::testcase::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Test.def()
     }
@@ -358,7 +358,7 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
+type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Paginator {

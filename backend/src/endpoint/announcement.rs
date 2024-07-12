@@ -1,13 +1,13 @@
 use super::tools::*;
 
-use crate::util::time::into_prost;
-use grpc::backend::announcement_server::*;
-use grpc::backend::*;
+use grpc::{backend::announcement_server::*, backend::*};
 
-use crate::entity::announcement::*;
-use crate::entity::*;
-
-use crate::NonZeroU32;
+use crate::{
+    entity::announcement::{Paginator, *},
+    entity::*,
+    util::time::into_prost,
+    NonZeroU32,
+};
 
 impl From<Model> for AnnouncementFullInfo {
     fn from(value: Model) -> Self {
@@ -51,42 +51,44 @@ impl Announcement for ArcServer {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        // let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-        //
-        // let (pager, models) = match pager {
-        //     list_announcement_request::Request::Create(create) => {
-        //         ColPaginator::new_fetch(
-        //             (create.sort_by(), Default::default()),
-        //             &auth,
-        //             size,
-        //             offset,
-        //             create.start_from_end(),
-        //             &self.db,
-        //         )
-        //         .in_current_span()
-        //         .await
-        //     }
-        //     list_announcement_request::Request::Pager(old) => {
-        //         let span = tracing::info_span!("paginate").or_current();
-        //         let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-        //         pager
-        //             .fetch(&auth, size, offset, rev, &self.db)
-        //             .instrument(span)
-        //             .await
-        //     }
-        // }?;
-        //
-        // let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-        //
-        // let next_session = self.crypto.encode(pager)?;
-        // let list = models.into_iter().map(|x| x.into()).collect();
-        //
-        // Ok(Response::new(ListAnnouncementResponse {
-        //     list,
-        //     next_session,
-        //     remain,
-        // }))
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_announcement_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else if let Some(parent) = query.contest_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_announcement_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListAnnouncementResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {

@@ -6,7 +6,10 @@ use grpc::backend::submit_server::*;
 use grpc::backend::StateCode as BackendCode;
 use grpc::backend::*;
 
-use crate::entity::{submit::*, *};
+use crate::entity::{
+    submit::{Paginator, *},
+    *,
+};
 use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;
@@ -54,7 +57,39 @@ impl Submit for ArcServer {
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_submit_request::Request::Create(create) => {
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(problem_id) = create.problem_id {
+                    Paginator::new_parent(problem_id, start_from_end)
+                } else {
+                    Paginator::new_sort(start_from_end)
+                }
+            }
+            list_submit_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListSubmitResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
