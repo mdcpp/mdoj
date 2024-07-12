@@ -9,20 +9,25 @@ use crate::{
     NonZeroU32,
 };
 
-impl From<Model> for AnnouncementFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for AnnouncementFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         AnnouncementFullInfo {
             info: AnnouncementInfo {
-                id: value.id,
-                title: value.title,
-                update_date: into_prost(value.update_at),
+                id: model.id,
+                title: model.title,
+                update_date: into_prost(model.update_at),
             },
-            author_id: value.user_id,
-            content: value.content,
-            public: value.public,
+            author_id: model.user_id,
+            content: model.content,
+            public: model.public,
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
 
 impl From<Model> for AnnouncementInfo {
     fn from(value: Model) -> Self {
@@ -107,7 +112,7 @@ impl Announcement for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(
@@ -376,6 +381,6 @@ impl Announcement for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

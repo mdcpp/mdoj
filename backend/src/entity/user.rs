@@ -156,6 +156,9 @@ impl super::Filter for Entity {
         }
         Ok(query.filter(Column::Id.eq(user_id)))
     }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        auth.user_perm().admin() || Some(model.id) == auth.user_id()
+    }
 }
 
 #[async_trait]

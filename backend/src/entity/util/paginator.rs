@@ -384,6 +384,7 @@ impl<P: PaginateRaw> UninitPaginator<P> {
     ) -> Result<Vec<P::Reflect>, Error> {
         if let UninitPaginator::Init(x) = self {
             let size = size.min((i64::MAX - 1) as u64) as i64;
+            let offset = offset.max(i64::MIN + 1);
             let (size, offset) = match offset < 0 {
                 true => (
                     -size,

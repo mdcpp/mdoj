@@ -17,7 +17,7 @@ mod user;
 
 mod tools {
     pub use crate::NonZeroU32;
-    pub use grpc::backend::*;
+    pub use grpc::backend::{Id, Order, *};
     pub use sea_orm::*;
     pub use std::ops::Deref;
     pub use tonic::*;
@@ -27,7 +27,7 @@ mod tools {
     pub use crate::entity::util::{
         filter::*,
         paginator::{PaginateRaw, Remain},
-        with::{WithAuthTrait, WithDBTrait},
+        with::*,
     };
     pub use crate::util::{
         auth::RoleLv,

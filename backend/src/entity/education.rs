@@ -80,6 +80,9 @@ impl super::Filter for Entity {
         }
         Err(Error::NotInDB)
     }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        auth.user_perm().admin() || Some(model.user_id) == auth.user_id()
+    }
 }
 
 #[async_trait]

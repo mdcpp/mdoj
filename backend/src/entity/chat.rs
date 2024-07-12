@@ -61,6 +61,9 @@ impl super::Filter for Entity {
         }
         Err(Error::RequirePermission(RoleLv::Admin))
     }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        auth.user_perm().admin()
+    }
 }
 
 #[async_trait]

@@ -224,6 +224,7 @@ message AnnouncementFullInfo {
   required int32 author_id = 2;
   required string content = 3;
   required bool public = 4;
+  required bool writable = 5;
 }
 
 message ListAnnouncementResponse {
