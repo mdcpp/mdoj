@@ -4,18 +4,24 @@ use grpc::backend::education_server::*;
 
 use crate::entity::{education::Paginator, education::*, *};
 
-impl From<Model> for EducationFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for EducationFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         EducationFullInfo {
             info: EducationInfo {
-                id: value.id,
-                title: value.title,
+                id: model.id,
+                title: model.title,
             },
-            content: value.content,
-            problem: value.problem_id.map(Into::into),
+            content: model.content,
+            problem: model.problem_id.map(Into::into),
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
+
 impl From<PartialModel> for EducationInfo {
     fn from(value: PartialModel) -> Self {
         EducationInfo {
@@ -262,6 +268,6 @@ impl Education for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

@@ -4,17 +4,22 @@ use grpc::backend::chat_server::*;
 
 use crate::entity::chat::{Paginator, *};
 
-impl From<Model> for ChatInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for ChatInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         ChatInfo {
-            id: value.id,
-            user_id: value.user_id,
-            problem_id: value.problem_id,
-            create_at: into_prost(value.create_at),
-            message: value.message,
+            id: model.id,
+            user_id: model.user_id,
+            problem_id: model.problem_id,
+            create_at: into_prost(model.create_at),
+            message: model.message,
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
 
 #[tonic::async_trait]
 impl Chat for ArcServer {
@@ -103,7 +108,10 @@ impl Chat for ArcServer {
         let paginator = paginator.into_inner();
 
         Ok(Response::new(ListChatResponse {
-            list: list.into_iter().map(Into::into).collect(),
+            list: list
+                .into_iter()
+                .map(|x| x.with_auth(&auth).into())
+                .collect(),
             paginator: self.crypto.encode(paginator)?,
             remain,
         }))

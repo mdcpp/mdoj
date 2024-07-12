@@ -4,16 +4,21 @@ use grpc::backend::testcase_server::*;
 
 use crate::entity::{testcase::*, *};
 
-impl From<Model> for TestcaseFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for TestcaseFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         TestcaseFullInfo {
-            id: value.id,
-            score: value.score,
-            inputs: value.input,
-            outputs: value.output,
+            id: model.id,
+            score: model.score,
+            inputs: model.input,
+            outputs: model.output,
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
 
 impl From<Model> for TestcaseInfo {
     fn from(value: Model) -> Self {
@@ -232,6 +237,6 @@ impl Testcase for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

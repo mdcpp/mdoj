@@ -3,6 +3,32 @@ use grpc::backend::problem_server::*;
 
 use crate::entity::{problem::Paginator, problem::*, *};
 
+impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
+        ProblemFullInfo {
+            content: model.content.clone(),
+            tags: model.tags.clone(),
+            difficulty: model.difficulty,
+            public: model.public,
+            time: model.time as u64,
+            memory: model.memory as u64,
+            info: ProblemInfo {
+                id: model.id,
+                title: model.title,
+                submit_count: model.submit_count,
+                ac_rate: model.ac_rate,
+                difficulty: model.difficulty,
+            },
+            author: model.user_id,
+            writable,
+        }
+    }
+}
+
+impl<'a> WithAuthTrait for Model {}
+
 impl From<PartialModel> for ProblemInfo {
     fn from(value: PartialModel) -> Self {
         ProblemInfo {
@@ -11,27 +37,6 @@ impl From<PartialModel> for ProblemInfo {
             submit_count: value.submit_count,
             ac_rate: value.ac_rate,
             difficulty: value.difficulty,
-        }
-    }
-}
-
-impl From<Model> for ProblemFullInfo {
-    fn from(value: Model) -> Self {
-        ProblemFullInfo {
-            content: value.content.clone(),
-            tags: value.tags.clone(),
-            difficulty: value.difficulty,
-            public: value.public,
-            time: value.time as u64,
-            memory: value.memory as u64,
-            info: ProblemInfo {
-                id: value.id,
-                title: value.title,
-                submit_count: value.submit_count,
-                ac_rate: value.ac_rate,
-                difficulty: value.difficulty,
-            },
-            author: value.user_id,
         }
     }
 }
@@ -99,7 +104,7 @@ impl Problem for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateProblemRequest>) -> Result<Response<Id>, Status> {
@@ -379,6 +384,6 @@ impl Problem for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

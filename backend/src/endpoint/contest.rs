@@ -7,15 +7,20 @@ use crate::entity::{
 
 use grpc::backend::contest_server::*;
 
-impl From<Model> for ContestFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         ContestFullInfo {
-            info: value.clone().into(),
-            content: value.content,
-            host: value.hoster,
+            info: model.clone().into(),
+            content: model.content,
+            host: model.hoster,
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
 
 impl From<user_contest::Model> for UserRank {
     fn from(value: user_contest::Model) -> Self {
@@ -96,7 +101,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ContestFullInfo>, Status> {
-        let (_, req) = self
+        let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
@@ -109,7 +114,7 @@ impl Contest for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateContestRequest>) -> Result<Response<Id>, Status> {

@@ -7,6 +7,20 @@ use crate::{
     entity::user::{Paginator, *},
 };
 
+impl<'a> From<WithAuth<'a, Model>> for UserFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
+        UserFullInfo {
+            hashed_pwd: model.password.clone(),
+            info: model.into(),
+            writable,
+        }
+    }
+}
+
+impl<'a> WithAuthTrait for Model {}
+
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
         UserInfo {
@@ -261,7 +275,7 @@ impl User for ArcServer {
     }
 
     #[instrument(skip_all, level = "debug")]
-    async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
+    async fn my_info(&self, req: Request<()>) -> Result<Response<UserFullInfo>, Status> {
         let (auth, _) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
@@ -277,6 +291,6 @@ impl User for ArcServer {
                 "token should be deleted before user can request its info after user deletion",
             ))?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

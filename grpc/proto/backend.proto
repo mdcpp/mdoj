@@ -102,6 +102,7 @@ message ProblemFullInfo {
   required uint64 time = 6;
   required uint64 memory = 7;
   required int32 author = 9;
+  required bool writable = 10;
 }
 
 message ListProblemRequest {
@@ -308,6 +309,7 @@ message EducationFullInfo {
   required EducationInfo info = 1;
   required string content = 2;
   optional int32 problem = 4;
+  required bool writable = 5;
 }
 
 message ListEducationResponse {
@@ -383,6 +385,7 @@ message TestcaseFullInfo {
   required uint32 score = 2;
   required bytes inputs = 3;
   required bytes outputs = 4;
+  required bool writable = 5;
 }
 
 message ListTestcaseResponse {
@@ -457,6 +460,7 @@ message ContestFullInfo {
   required ContestInfo info = 1;
   required string content = 2;
   required int32 host = 3;
+  required bool writable = 5;
 }
 
 message ListContestResponse {
@@ -558,6 +562,7 @@ message UserInfo {
 message UserFullInfo {
   required UserInfo info = 1;
   required bytes hashed_pwd = 2;
+  required bool writable = 3;
 }
 
 message ListUserResponse {
@@ -626,7 +631,7 @@ service User {
 
   rpc UpdatePassword(UpdatePasswordRequest) returns (google.protobuf.Empty);
 
-  rpc MyInfo(google.protobuf.Empty) returns (UserInfo);
+  rpc MyInfo(google.protobuf.Empty) returns (UserFullInfo);
 }
 
 message TokenInfo {
@@ -658,6 +663,7 @@ message ChatInfo {
   required int32 problem_id = 2;
   required google.protobuf.Timestamp create_at = 3;
   required string message = 4;
+  required bool writable = 6;
 }
 
 message ListChatResponse {
