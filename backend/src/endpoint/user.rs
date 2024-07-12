@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::{backend::user_server::*, backend::*};
+use grpc::backend::user_server::*;
 
 use crate::{
     entity::user,
@@ -13,7 +13,7 @@ impl From<Model> for UserInfo {
             username: value.username,
             // FIXME: capture Error(database corruption?) instead!
             score: value.score.try_into().unwrap_or_default(),
-            id: value.id.into(),
+            id: value.id,
         }
     }
 }
@@ -27,7 +27,7 @@ impl User for ArcServer {
     ) -> Result<Response<ListUserResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

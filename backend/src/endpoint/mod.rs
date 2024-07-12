@@ -17,7 +17,7 @@ mod user;
 
 mod tools {
     pub use crate::NonZeroU32;
-    pub use grpc::backend::{Id, Order};
+    pub use grpc::backend::*;
     pub use sea_orm::*;
     pub use std::ops::Deref;
     pub use tonic::*;
@@ -35,10 +35,7 @@ mod tools {
         error::{atomic_fail, Error},
         time::*,
     };
-    pub use crate::{
-        fill_active_model, fill_exist_active_model, parse_pager_param, server::ArcServer,
-        TonicStream,
-    };
+    pub use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
 }
 
 // FIXME: currently we report transaction error as internal error,

@@ -281,7 +281,7 @@ impl util::paginator::PaginateRaw for ParentPaginator {
                 to_order(self.start_from_end ^ dir),
             )
             .offset(self.offset + offset)
-            .limit(size.abs() as u64)
+            .limit(size.unsigned_abs())
             .all(db)
             .await?;
 
@@ -381,6 +381,9 @@ impl Paginator {
             (Default::default(), parent),
             start_from_end,
         ))
+    }
+    pub fn new(start_from_end: bool) -> Self {
+        Self::new_sort(Sort::Score, start_from_end)
     }
 }
 

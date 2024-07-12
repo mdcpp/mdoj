@@ -1,6 +1,4 @@
-use crate::entity::problem::{Paginator, PartialModel};
 use crate::util::auth::Auth;
-use crate::util::error::Error;
 use sea_orm::DatabaseConnection;
 
 pub struct WithAuth<'a, T>(pub &'a Auth, pub T);

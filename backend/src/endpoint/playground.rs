@@ -1,7 +1,5 @@
 use super::tools::*;
 
-use crate::controller::judger::PlaygroundPayload;
-
 use grpc::backend::playground_server::*;
 use grpc::backend::*;
 

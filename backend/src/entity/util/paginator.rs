@@ -157,7 +157,7 @@ impl<S: Source, R: Reflect<S::Entity>> PaginateRaw for PrimaryKeyPaginator<S, R>
 
         let query = paginator
             .apply(S::filter(auth, &self.data, db).await?)
-            .limit(size.abs() as u64)
+            .limit(size.unsigned_abs())
             .offset(offset);
         let models = R::all(query, db).await?;
 
@@ -295,7 +295,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> PaginateRaw for ColumnPaginator<S,
 
         let query = paginator
             .apply(S::filter(auth, &self.data, db).await?)
-            .limit(size.abs() as u64)
+            .limit(size.unsigned_abs())
             .offset(offset);
         let models = R::all(query, db)
             .instrument(debug_span!("query").or_current())

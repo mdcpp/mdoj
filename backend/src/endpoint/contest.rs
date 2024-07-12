@@ -6,14 +6,13 @@ use crate::entity::{
 };
 
 use grpc::backend::contest_server::*;
-use grpc::backend::*;
 
 impl From<Model> for ContestFullInfo {
     fn from(value: Model) -> Self {
         ContestFullInfo {
             info: value.clone().into(),
             content: value.content,
-            host: value.hoster.into(),
+            host: value.hoster,
         }
     }
 }
@@ -21,7 +20,7 @@ impl From<Model> for ContestFullInfo {
 impl From<user_contest::Model> for UserRank {
     fn from(value: user_contest::Model) -> Self {
         UserRank {
-            user_id: value.user_id.into(),
+            user_id: value.user_id,
             score: value.score,
         }
     }
@@ -30,7 +29,7 @@ impl From<user_contest::Model> for UserRank {
 impl From<Model> for ContestInfo {
     fn from(value: Model) -> Self {
         ContestInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             begin: into_prost(value.begin),
             end: into_prost(value.end),
@@ -42,7 +41,7 @@ impl From<Model> for ContestInfo {
 impl From<PartialModel> for ContestInfo {
     fn from(value: PartialModel) -> Self {
         ContestInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             begin: into_prost(value.begin),
             end: into_prost(value.end),
@@ -60,7 +59,7 @@ impl Contest for ArcServer {
     ) -> Result<Response<ListContestResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

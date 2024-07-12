@@ -1,15 +1,15 @@
 use super::tools::*;
 
-use grpc::{backend::chat_server::*, backend::*};
+use grpc::backend::chat_server::*;
 
 use crate::entity::chat::{Paginator, *};
 
 impl From<Model> for ChatInfo {
     fn from(value: Model) -> Self {
         ChatInfo {
-            id: value.id.into(),
-            user_id: value.user_id.into(),
-            problem_id: value.problem_id.into(),
+            id: value.id,
+            user_id: value.user_id,
+            problem_id: value.problem_id,
             create_at: into_prost(value.create_at),
             message: value.message,
         }
@@ -80,7 +80,7 @@ impl Chat for ArcServer {
     ) -> Result<Response<ListChatResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

@@ -1,14 +1,12 @@
 use super::tools::*;
 use grpc::backend::problem_server::*;
-use grpc::backend::*;
 
 use crate::entity::{problem::Paginator, problem::*, *};
-use list_problem_request::Sort;
 
 impl From<PartialModel> for ProblemInfo {
     fn from(value: PartialModel) -> Self {
         ProblemInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             submit_count: value.submit_count,
             ac_rate: value.ac_rate,
@@ -27,13 +25,13 @@ impl From<Model> for ProblemFullInfo {
             time: value.time as u64,
             memory: value.memory as u64,
             info: ProblemInfo {
-                id: value.id.into(),
+                id: value.id,
                 title: value.title,
                 submit_count: value.submit_count,
                 ac_rate: value.ac_rate,
                 difficulty: value.difficulty,
             },
-            author: value.user_id.into(),
+            author: value.user_id,
         }
     }
 }
@@ -47,7 +45,7 @@ impl Problem for ArcServer {
     ) -> Result<Response<ListProblemResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

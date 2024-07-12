@@ -1,14 +1,13 @@
 use super::tools::*;
 
 use grpc::backend::testcase_server::*;
-use grpc::backend::*;
 
 use crate::entity::{testcase::*, *};
 
 impl From<Model> for TestcaseFullInfo {
     fn from(value: Model) -> Self {
         TestcaseFullInfo {
-            id: value.id.into(),
+            id: value.id,
             score: value.score,
             inputs: value.input,
             outputs: value.output,
@@ -19,7 +18,7 @@ impl From<Model> for TestcaseFullInfo {
 impl From<Model> for TestcaseInfo {
     fn from(value: Model) -> Self {
         TestcaseInfo {
-            id: value.id.into(),
+            id: value.id,
             score: value.score,
         }
     }

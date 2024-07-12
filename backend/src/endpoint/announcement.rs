@@ -1,6 +1,6 @@
 use super::tools::*;
 
-use grpc::{backend::announcement_server::*, backend::*};
+use grpc::backend::announcement_server::*;
 
 use crate::{
     entity::announcement::{Paginator, *},
@@ -13,11 +13,11 @@ impl From<Model> for AnnouncementFullInfo {
     fn from(value: Model) -> Self {
         AnnouncementFullInfo {
             info: AnnouncementInfo {
-                id: value.id.into(),
+                id: value.id,
                 title: value.title,
                 update_date: into_prost(value.update_at),
             },
-            author_id: value.user_id.into(),
+            author_id: value.user_id,
             content: value.content,
             public: value.public,
         }
@@ -27,7 +27,7 @@ impl From<Model> for AnnouncementFullInfo {
 impl From<Model> for AnnouncementInfo {
     fn from(value: Model) -> Self {
         AnnouncementInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
         }
@@ -37,7 +37,7 @@ impl From<Model> for AnnouncementInfo {
 impl From<PartialModel> for AnnouncementInfo {
     fn from(value: PartialModel) -> Self {
         AnnouncementInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
         }
@@ -53,7 +53,7 @@ impl Announcement for ArcServer {
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

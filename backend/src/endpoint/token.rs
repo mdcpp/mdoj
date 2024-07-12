@@ -3,7 +3,6 @@ use std::time::Duration;
 use super::tools::*;
 
 use grpc::backend::token_server::*;
-use grpc::backend::*;
 
 use crate::entity::token::*;
 use crate::entity::*;
@@ -75,7 +74,7 @@ impl Token for ArcServer {
             let (token, expiry) = self.token.add(&model, dur).in_current_span().await?;
 
             Ok(Response::new(TokenInfo {
-                token: token.into(),
+                token,
                 role: model.permission,
                 expiry: into_prost(expiry),
             }))
@@ -116,7 +115,7 @@ impl Token for ArcServer {
 
             let (token, expiry) = self.token.add(&user, dur).in_current_span().await?;
             return Ok(Response::new(TokenInfo {
-                token: token.into(),
+                token,
                 role: perm as i32,
                 expiry: into_prost(expiry),
             }));

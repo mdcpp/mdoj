@@ -1,7 +1,6 @@
 use super::tools::*;
 
 use grpc::backend::education_server::*;
-use grpc::backend::*;
 
 use crate::entity::{education::Paginator, education::*, *};
 
@@ -9,7 +8,7 @@ impl From<Model> for EducationFullInfo {
     fn from(value: Model) -> Self {
         EducationFullInfo {
             info: EducationInfo {
-                id: value.id.into(),
+                id: value.id,
                 title: value.title,
             },
             content: value.content,
@@ -20,7 +19,7 @@ impl From<Model> for EducationFullInfo {
 impl From<PartialModel> for EducationInfo {
     fn from(value: PartialModel) -> Self {
         EducationInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
         }
     }
@@ -34,7 +33,7 @@ impl Education for ArcServer {
     ) -> Result<Response<ListEducationResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })

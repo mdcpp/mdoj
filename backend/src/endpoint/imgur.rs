@@ -1,7 +1,6 @@
 use super::tools::*;
 
 use grpc::backend::image_server::*;
-use grpc::backend::*;
 
 #[async_trait]
 impl Image for ArcServer {

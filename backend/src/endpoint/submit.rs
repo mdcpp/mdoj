@@ -4,7 +4,6 @@ use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
 use grpc::backend::submit_server::*;
 use grpc::backend::StateCode as BackendCode;
-use grpc::backend::*;
 
 use crate::entity::{
     submit::{Paginator, *},
@@ -19,7 +18,7 @@ impl From<Model> for SubmitInfo {
         // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
-            id: value.id.into(),
+            id: value.id,
             upload_time: into_prost(value.upload_at),
             score: value.score,
             state: JudgeResult {
@@ -37,7 +36,7 @@ impl From<PartialModel> for SubmitInfo {
         // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
-            id: value.id.into(),
+            id: value.id,
             upload_time: into_prost(value.upload_at),
             score: value.score,
             state: JudgeResult {
@@ -59,7 +58,7 @@ impl Submit for ArcServer {
     ) -> Result<Response<ListSubmitResponse>, Status> {
         let (auth, req) = self
             .parse_request_fn(req, |req| {
-                ((req.size as u64) + req.offset.saturating_abs() as u64 / 5 + 2)
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
                     .try_into()
                     .unwrap_or(u32::MAX)
             })
