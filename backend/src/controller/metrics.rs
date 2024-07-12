@@ -18,8 +18,7 @@ macro_rules! impl_metrics {
                 }
             }
         }
-    };
-    ($target:expr,$($ext:expr),+) => {
+    };    ($target:expr,$($ext:expr),+) => {
         impl_metrics!($target);
         impl_metrics!($($ext),+);
     };

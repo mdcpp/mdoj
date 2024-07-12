@@ -256,18 +256,18 @@ fn to_order(raw: bool) -> sea_query::Order {
 }
 
 #[async_trait]
-impl util::paginator::Pager for ParentPaginator {
+impl util::paginator::PaginateRaw for ParentPaginator {
     type Source = ParentSource;
     type Reflect = Model;
 
     async fn fetch(
-        mut self,
+        &mut self,
         auth: &Auth,
-        size: u64,
+        size: i64,
         offset: u64,
-        rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error> {
+    ) -> Result<Vec<Self::Reflect>, Error> {
+        let dir = size.is_negative();
         // check user is in contest(or admin)
         contest::Entity::read_by_id(self.ppk, auth)?
             .one(db)
@@ -278,10 +278,10 @@ impl util::paginator::Pager for ParentPaginator {
             .filter(user_contest::Column::ContestId.eq(self.ppk))
             .order_by(
                 user_contest::Column::Score,
-                to_order(self.start_from_end ^ rel_dir),
+                to_order(self.start_from_end ^ dir),
             )
             .offset(self.offset + offset)
-            .limit(size)
+            .limit(size.abs() as u64)
             .all(db)
             .await?;
 
@@ -293,7 +293,7 @@ impl util::paginator::Pager for ParentPaginator {
             .collect();
 
         self.offset += result.len() as u64;
-        Ok((self, result))
+        Ok(result)
     }
     async fn new_fetch(
         data: <Self::Source as PagerData>::Data,
@@ -353,5 +353,54 @@ impl Remain for ParentPaginator {
             .await?;
 
         Ok(result.saturating_sub(self.offset))
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum Paginator {
+    Text(UninitPaginator<TextPaginator>),
+    Parent(UninitPaginator<ParentPaginator>),
+    Col(UninitPaginator<ColPaginator>),
+}
+
+impl WithAuthTrait for Paginator {}
+
+impl Paginator {
+    pub fn new_text(text: String, start_from_end: bool) -> Self {
+        // FIXME: check dup text
+        Self::Text(UninitPaginator::new(text, start_from_end))
+    }
+    pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
+        Self::Col(UninitPaginator::new(
+            (sort, Default::default()),
+            start_from_end,
+        ))
+    }
+    pub fn new_parent(parent: i32, start_from_end: bool) -> Self {
+        Self::Parent(UninitPaginator::new(
+            (Default::default(), parent),
+            start_from_end,
+        ))
+    }
+}
+
+impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<Model>, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &mut self.1 .1 {
+            Paginator::Text(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Parent(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Col(ref mut x) => x.fetch(size, offset, auth, db).await,
+        }
+    }
+    pub async fn remain(&self) -> Result<u64, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &self.1 .1 {
+            Paginator::Text(x) => x.remain(auth, db).await,
+            Paginator::Parent(x) => x.remain(auth, db).await,
+            Paginator::Col(x) => x.remain(auth, db).await,
+        }
     }
 }

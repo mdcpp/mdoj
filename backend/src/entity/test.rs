@@ -2,6 +2,7 @@ use tracing::instrument;
 
 use super::*;
 
+// FIXME: use partial model
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "test")]
 pub struct Model {
@@ -126,7 +127,7 @@ impl SortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, Model>>;
 
 pub struct ColPagerTrait;
 
@@ -162,4 +163,4 @@ impl SortSource<Model> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
+pub type DefaultPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, Model>>;

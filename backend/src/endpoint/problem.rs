@@ -53,7 +53,7 @@ impl Problem for ArcServer {
             })
             .await?;
 
-        req.check_with_error()?;
+        req.bound_check()?;
 
         let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
             list_problem_request::Request::Create(create) => {
@@ -111,7 +111,7 @@ impl Problem for ArcServer {
             .await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
-        req.check_with_error()?;
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -155,7 +155,7 @@ impl Problem for ArcServer {
             .await?;
         let (user_id, _perm) = auth.auth_or_guest()?;
 
-        req.check_with_error()?;
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {

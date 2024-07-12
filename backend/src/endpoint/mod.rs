@@ -26,7 +26,8 @@ mod tools {
 
     pub use crate::entity::util::{
         filter::*,
-        paginator::{Pager, Remain},
+        paginator::{PaginateRaw, Remain},
+        with::{WithAuthTrait, WithDBTrait},
     };
     pub use crate::util::{
         auth::RoleLv,

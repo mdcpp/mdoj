@@ -23,26 +23,25 @@ use crate::util::error::Error;
 const PAGINATE_GUARANTEE: u64 = 96;
 
 #[async_trait]
-pub trait Pager
+pub trait PaginateRaw
 where
     Self: Sized + Serialize + DeserializeOwned,
 {
     type Source: PagerData;
     type Reflect: Send;
     async fn fetch(
-        self,
+        &mut self,
         auth: &Auth,
-        size: u64,
+        size: i64,
         offset: u64,
-        rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<Self::Reflect>), Error>;
+    ) -> Result<Vec<Self::Reflect>, Error>;
     async fn new_fetch(
         data: <Self::Source as PagerData>::Data,
         auth: &Auth,
         size: u64,
         offset: u64,
-        abs_dir: bool,
+        start_from_end: bool,
         db: &DatabaseConnection,
     ) -> Result<(Self, Vec<Self::Reflect>), Error>;
 }
@@ -132,39 +131,39 @@ impl<S: Source + Sync, R: Reflect<S::Entity> + Sync> Remain for PrimaryKeyPagina
 }
 
 #[async_trait]
-impl<S: Source, R: Reflect<S::Entity>> Pager for PrimaryKeyPaginator<S, R> {
+impl<S: Source, R: Reflect<S::Entity>> PaginateRaw for PrimaryKeyPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
     #[instrument(skip(self, db), level = "debug", name = "query_paginator")]
     async fn fetch(
-        mut self,
+        &mut self,
         auth: &Auth,
-        size: u64,
+        size: i64,
         offset: u64,
-        rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<R>), Error> {
+    ) -> Result<Vec<R>, Error> {
+        let dir = size.is_negative();
         // FIXME: should use PassThrough
         let paginator = PaginatePkBuilder::default()
             .pk(<S as Source>::ID)
-            .include(self.last_direction ^ rel_dir)
-            .rev(self.direction ^ rel_dir)
+            .include(self.last_direction ^ dir)
+            .rev(self.direction ^ dir)
             .last_pk(self.last_id)
             .build()
             .unwrap();
 
-        self.last_direction = rel_dir;
+        self.last_direction = dir;
 
         let query = paginator
             .apply(S::filter(auth, &self.data, db).await?)
-            .limit(size)
+            .limit(size.abs() as u64)
             .offset(offset);
         let models = R::all(query, db).await?;
 
         if let Some(model) = models.last() {
             self.last_id = R::get_id(model);
-            return Ok((self, models));
+            return Ok(models);
         }
 
         Err(Error::NotInDBList)
@@ -265,37 +264,38 @@ impl<S: SortSource<R> + Sync, R: Reflect<S::Entity> + Sync> Remain for ColumnPag
 }
 
 #[async_trait]
-impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
+impl<S: SortSource<R>, R: Reflect<S::Entity>> PaginateRaw for ColumnPaginator<S, R> {
     type Source = S;
     type Reflect = R;
 
     #[instrument(skip(self, db), level = "debug", name = "query_paginator")]
     async fn fetch(
-        mut self,
+        &mut self,
         auth: &Auth,
-        size: u64,
+        size: i64,
         offset: u64,
-        rel_dir: bool,
         db: &DatabaseConnection,
-    ) -> Result<(Self, Vec<R>), Error> {
+    ) -> Result<Vec<R>, Error> {
+        let dir = size.is_negative();
+
         let col = S::sort_col(&self.data);
         let val = S::get_val(&self.data);
 
         let paginator = PaginateColBuilder::default()
             .pk(<S as Source>::ID)
-            .include(self.last_direction ^ rel_dir)
-            .rev(self.direction ^ rel_dir)
+            .include(self.last_direction ^ dir)
+            .rev(self.direction ^ dir)
             .col(col)
             .last_value(val)
             .last_pk(self.last_id)
             .build()
             .unwrap();
 
-        self.last_direction = rel_dir;
+        self.last_direction = dir;
 
         let query = paginator
             .apply(S::filter(auth, &self.data, db).await?)
-            .limit(size)
+            .limit(size.abs() as u64)
             .offset(offset);
         let models = R::all(query, db)
             .instrument(debug_span!("query").or_current())
@@ -310,7 +310,7 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
         if let Some(model) = models.last() {
             S::save_val(&mut self.data, model);
             self.last_id = R::get_id(model);
-            return Ok((self, models));
+            return Ok(models);
         }
 
         Err(Error::NotInDBList)
@@ -360,9 +360,52 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> Pager for ColumnPaginator<S, R> {
     }
 }
 
-pub(super) trait Paginate<E: EntityTrait> {
-    /// Apply pagination effect on a Select(sea_orm)
-    ///
-    /// be careful not to run order_by before applying pagination
-    fn apply(self, query: Select<E>) -> Select<E>;
+#[derive(Serialize, Deserialize, Default)]
+pub enum UninitPaginator<P: PaginateRaw> {
+    #[serde(skip_deserializing, skip_serializing)]
+    Uninit(<P::Source as PagerData>::Data, bool),
+    #[serde(bound(deserialize = "P: for<'a> Deserialize<'a>"))]
+    Init(P),
+    #[serde(skip_deserializing, skip_serializing)]
+    #[default]
+    None,
+}
+
+impl<P: PaginateRaw> UninitPaginator<P> {
+    pub fn new(data: <P::Source as PagerData>::Data, start_from_end: bool) -> Self {
+        Self::Uninit(data, start_from_end)
+    }
+    pub async fn fetch(
+        &mut self,
+        size: u64,
+        offset: i64,
+        auth: &Auth,
+        db: &DatabaseConnection,
+    ) -> Result<Vec<P::Reflect>, Error> {
+        if let UninitPaginator::Init(x) = self {
+            let size = size.min((i64::MAX - 1) as u64) as i64;
+            let (size, offset) = match offset < 0 {
+                true => (-size, (-offset).saturating_sub(size) as u64),
+                false => (size, offset as u64),
+            };
+            x.fetch(auth, size, offset, db).await
+        } else if let UninitPaginator::Uninit(x, start_from_end) = std::mem::take(self) {
+            let (paginator, list) =
+                P::new_fetch(x, auth, size, offset.max(0) as u64, start_from_end, db).await?;
+            *self = UninitPaginator::Init(paginator);
+            Ok(list)
+        } else {
+            unreachable!("Cannot in middle state")
+        }
+    }
+    pub async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error>
+    where
+        P: Remain,
+    {
+        match self {
+            UninitPaginator::Uninit(_, _) => todo!("Handle uninited tracing"),
+            UninitPaginator::Init(x) => x.remain(auth, db).await,
+            UninitPaginator::None => unreachable!("Cannot in middle state"),
+        }
+    }
 }

@@ -152,7 +152,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
@@ -188,4 +188,43 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColumnPaginator<ColPagerTrait, PartialModel>;
+pub type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum Paginator {
+    Parent(ParentPaginator),
+    Col(ColPaginator),
+}
+
+impl WithAuthTrait for Paginator {}
+
+impl Paginator {
+    pub fn new_sort(start_from_end: bool) -> Self {
+        Self::Col(ColPaginator::new(Default::default(), start_from_end))
+    }
+    pub fn new_parent(parent: i32, start_from_end: bool) -> Self {
+        Self::Parent(ParentPaginator::new(
+            (parent, Default::default()),
+            start_from_end,
+        ))
+    }
+}
+
+impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<PartialModel>, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &mut self.1 .1 {
+            Paginator::Parent(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Col(ref mut x) => x.fetch(size, offset, auth, db).await,
+        }
+    }
+    pub async fn remain(&self) -> Result<u64, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &self.1 .1 {
+            Paginator::Parent(x) => x.remain(auth, db).await,
+            Paginator::Col(x) => x.remain(auth, db).await,
+        }
+    }
+}

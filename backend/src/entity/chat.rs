@@ -1,6 +1,5 @@
-use tracing::instrument;
-
 use crate::util::auth::RoleLv;
+use tracing::instrument;
 
 use super::*;
 
@@ -111,4 +110,31 @@ impl SortSource<Model> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, Model>>;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Paginator(ParentPaginator);
+
+impl WithAuthTrait for Paginator {}
+
+impl Paginator {
+    pub fn new(parent: i32, start_from_end: bool) -> Self {
+        Self(ParentPaginator::new(
+            (parent, Default::default()),
+            start_from_end,
+        ))
+    }
+}
+
+impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<Model>, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        self.1 .1 .0.fetch(size, offset, auth, db).await
+    }
+    pub async fn remain(&self) -> Result<u64, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        self.1 .1 .0.remain(auth, db).await
+    }
+}

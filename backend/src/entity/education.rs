@@ -119,7 +119,7 @@ impl Source for PagerTrait {
     }
 }
 
-pub type Paginator = PrimaryKeyPaginator<PagerTrait, PartialModel>;
+pub type Paginator = UninitPaginator<PrimaryKeyPaginator<PagerTrait, PartialModel>>;
 
 pub struct TextPagerTrait;
 
@@ -166,4 +166,4 @@ impl Source for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = PrimaryKeyPaginator<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = UninitPaginator<PrimaryKeyPaginator<ParentPagerTrait, PartialModel>>;

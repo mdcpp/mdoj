@@ -5,7 +5,7 @@ use grpc::backend::*;
 pub trait BoundCheck {
     /// return true if fail
     fn check(&self) -> bool;
-    fn check_with_error(&self) -> Result<(), tonic::Status> {
+    fn bound_check(&self) -> Result<(), tonic::Status> {
         if self.check() {
             Err(Error::NumberTooLarge.into())
         } else {

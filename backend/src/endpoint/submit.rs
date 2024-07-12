@@ -79,7 +79,7 @@ impl Submit for ArcServer {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
         let (user_id, _) = auth.auth_or_guest()?;
 
-        req.check_with_error()?;
+        req.bound_check()?;
 
         let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
