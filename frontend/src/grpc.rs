@@ -1,22 +1,26 @@
 pub use grpc::backend::*;
-use tonic::{IntoRequest, Request};
+use leptos::*;
+use tonic::{metadata::MetadataMap, IntoRequest, Request};
 
-use crate::{config::frontend_config, error::*};
+use crate::config::frontend_config;
 
-cfg_if::cfg_if! {if #[cfg(feature = "ssr")] {
-    use tonic::transport::{Endpoint,Channel};
-    pub async fn new_client() -> Result<Channel> {
-        let config = frontend_config().await?;
-        Ok(Endpoint::new(config.api_server)?.connect_lazy())
-    }
-} else {
+#[cfg(not(feature = "ssr"))]
+pub fn new_client() -> tonic_web_wasm_client::Client {
     use tonic_web_wasm_client::Client;
-    pub async fn new_client() -> Result<Client> {
-        let config = frontend_config().await?;
+    let config = frontend_config();
 
-        Ok(Client::new(config.api_server))
-    }
-}}
+    Client::new(config.api_server.clone())
+}
+
+#[cfg(feature = "ssr")]
+pub fn new_client() -> tonic::transport::Channel {
+    use tonic::transport::{Channel, Endpoint};
+
+    let config = frontend_config();
+    Endpoint::new(config.api_server.clone())
+        .expect("cannot parse backend url")
+        .connect_lazy()
+}
 
 pub trait WithToken: Sized {
     /// this will try to add token to request.
@@ -39,7 +43,10 @@ where
         let Ok(token) = token.parse() else {
             return req;
         };
-        req.metadata_mut().insert("token", token);
+        let metadata = req.metadata_mut();
+        metadata.insert("token", token);
+        #[cfg(feature = "ssr")]
+        with_xff(metadata);
         req
     }
 
@@ -48,5 +55,24 @@ where
             return self.into_request();
         };
         self.with_token(token)
+    }
+}
+
+#[cfg(feature = "ssr")]
+fn with_xff(metadata: &mut MetadataMap) {
+    use std::str::FromStr;
+
+    use actix_web::http::header;
+    use leptos_actix::ResponseOptions;
+    use tonic::metadata::MetadataValue;
+
+    let options = expect_context::<ResponseOptions>();
+    let options = options.0.read();
+    let addr = options.headers.get(header::X_FORWARDED_FOR);
+    if let Some(addr) = addr {
+        metadata.insert(
+            "x-forwarded-for",
+            MetadataValue::from_str(addr.to_str().unwrap()).unwrap(),
+        );
     }
 }
