@@ -11,7 +11,7 @@ pub mod problems;
 pub mod submission;
 pub use about::About;
 pub use contests::Contests;
-pub use error_fallback::error_fallback;
+pub use error_fallback::ErrorFallback;
 pub use home::Home;
 pub use internal_server_error::InternalServerError;
 pub use login::Login;
