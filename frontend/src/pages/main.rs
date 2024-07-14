@@ -8,7 +8,7 @@ use crate::{components::*, pages::*, session::use_token};
 pub fn Main() -> impl IntoView {
     let token = use_token();
     view! {
-        <div class="bg-background w-full min-h-screen flex flex-col text-text">
+        <div class="bg-slate-950 w-full min-h-screen flex flex-col text-text">
             <Navbar/>
             <Routes>
                 <Route path="" view=Home/>
