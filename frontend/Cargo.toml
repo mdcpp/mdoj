@@ -29,6 +29,7 @@ pulldown-cmark = "0.10.0"
 thiserror = "1.0.56"
 tonic-web-wasm-client = "0.5.1"
 serde_qs = "0.12.0"
+serde_json = "1.0.120"
 # git = "https://github.com/mdcpp/tonic-web-wasm-client.git"
 
 [dependencies.uuid]
@@ -50,7 +51,7 @@ features = ["serde"]
 
 [dependencies.tonic]
 workspace = true
-features = ["codegen", "prost"]
+features = ["codegen", "prost", "channel"]
 
 [dependencies.serde]
 workspace = true
@@ -62,7 +63,12 @@ features = ["rt-multi-thread", "fs", "sync"]
 
 [dependencies.grpc]
 path = "../grpc"
-features = ["serde", "backend", "client"]
+features = ["backend", "client", "serde", "extra_trait"]
+
+[dependencies.tailwind_fuse]
+version = "0.3.1"
+features = ["variant"]
+
 
 [build-dependencies.tonic-build]
 features = ["prost"]
@@ -76,14 +82,15 @@ ssr = [
   "dep:actix-web",
   "dep:leptos_actix",
   "dep:tokio",
+  "tonic/transport",
+  "grpc/transport",
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
   "leptos-use/ssr",
   "leptos-use/actix",
-  "tonic/transport",
-  "tonic/channel",
 ]
+compress = []
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
