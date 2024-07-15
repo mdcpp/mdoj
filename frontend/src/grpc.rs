@@ -43,10 +43,11 @@ where
         let Ok(token) = token.parse() else {
             return req;
         };
-        let metadata = req.metadata_mut();
+        let mut metadata = MetadataMap::new();
         metadata.insert("token", token);
         #[cfg(feature = "ssr")]
-        with_xff(metadata);
+        let metadata = with_xff(metadata);
+        *req.metadata_mut() = metadata;
         req
     }
 
@@ -59,20 +60,16 @@ where
 }
 
 #[cfg(feature = "ssr")]
-fn with_xff(metadata: &mut MetadataMap) {
-    use std::str::FromStr;
-
-    use actix_web::http::header;
+fn with_xff(metadata: MetadataMap) -> MetadataMap {
+    use actix_web::http::header::{self, HeaderMap};
     use leptos_actix::ResponseOptions;
-    use tonic::metadata::MetadataValue;
 
+    let mut header_map = metadata.into_headers();
     let options = expect_context::<ResponseOptions>();
     let options = options.0.read();
     let addr = options.headers.get(header::X_FORWARDED_FOR);
     if let Some(addr) = addr {
-        metadata.insert(
-            "x-forwarded-for",
-            MetadataValue::from_str(addr.to_str().unwrap()).unwrap(),
-        );
+        header_map.insert(header::X_FORWARDED_FOR, addr.clone());
     }
+    MetadataMap::from_headers(header_map)
 }

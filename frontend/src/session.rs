@@ -1,8 +1,7 @@
+use grpc::backend::Role;
 use leptos::*;
 use leptos_use::{use_cookie_with_options, utils::JsonCodec, UseCookieOptions};
 use serde::{Deserialize, Serialize};
-
-use crate::grpc::Role;
 
 /// Store user information
 ///
