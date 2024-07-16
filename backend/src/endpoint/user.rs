@@ -20,7 +20,7 @@ impl<'a> From<WithAuth<'a, Model>> for UserFullInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {

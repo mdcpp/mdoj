@@ -9,7 +9,7 @@ pub use logger::OtelGuard;
 
 use std::{ops::Deref, sync::Arc};
 
-use crate::{config, controller::*};
+use crate::controller::*;
 
 use crate::config::CONFIG;
 use grpc::backend::{

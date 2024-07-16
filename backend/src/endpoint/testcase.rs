@@ -18,7 +18,7 @@ impl<'a> From<WithAuth<'a, Model>> for TestcaseFullInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 impl From<Model> for TestcaseInfo {
     fn from(value: Model) -> Self {

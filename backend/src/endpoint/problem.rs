@@ -27,7 +27,7 @@ impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 impl From<PartialModel> for ProblemInfo {
     fn from(value: PartialModel) -> Self {

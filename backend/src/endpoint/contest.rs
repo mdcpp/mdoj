@@ -20,7 +20,7 @@ impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 impl From<user_contest::Model> for UserRank {
     fn from(value: user_contest::Model) -> Self {

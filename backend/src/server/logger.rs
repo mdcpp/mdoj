@@ -20,7 +20,7 @@ use tracing::Level;
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::config::{GlobalConfig, CONFIG};
+use crate::config::CONFIG;
 
 static PACKAGE_NAME: &str = "mdoj-backend";
 

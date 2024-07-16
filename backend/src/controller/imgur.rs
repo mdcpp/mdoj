@@ -4,7 +4,7 @@ use reqwest::{multipart, Client};
 use tracing::instrument;
 
 use crate::config::CONFIG;
-use crate::{config, report_internal};
+use crate::report_internal;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,6 +40,12 @@ impl From<Error> for tonic::Status {
 pub struct ImgurController {
     client: Client,
     client_id: String,
+}
+
+impl Default for ImgurController {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ImgurController {

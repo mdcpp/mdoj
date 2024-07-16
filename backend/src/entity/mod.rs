@@ -21,7 +21,6 @@ use sea_orm::{
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;
 
-use crate::util::auth::RoleLv;
 use util::filter::{Filter, ParentalTrait};
 use util::paginator::*;
 use util::with::*;

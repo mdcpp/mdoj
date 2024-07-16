@@ -2,18 +2,11 @@ mod pubsub;
 mod route;
 mod score;
 
-use std::{
-    ops::Deref,
-    sync::{
-        atomic::{AtomicI64, Ordering},
-        Arc,
-    },
-};
+use std::{ops::Deref, sync::Arc};
 use tokio_stream::StreamExt;
 
-use crate::{config, report_internal, TonicStream};
+use crate::{report_internal, TonicStream};
 use grpc::backend::StateCode as BackendCode;
-use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tonic::Status;

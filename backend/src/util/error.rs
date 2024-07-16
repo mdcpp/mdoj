@@ -1,8 +1,6 @@
 use crate::report_internal;
-use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
+use opentelemetry::trace::{SpanId, TraceId};
 use tonic::Status;
-use tracing::Span;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 use uuid::Uuid;
 
 use super::auth::RoleLv;
