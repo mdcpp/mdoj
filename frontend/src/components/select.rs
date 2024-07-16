@@ -1,6 +1,5 @@
 use leptos::*;
-
-use crate::components::Merge;
+use tailwind_fuse::tw_merge;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SelectedValue(ReadSignal<String>);
@@ -11,13 +10,13 @@ pub fn Select(
     #[prop(into)] value: RwSignal<String>,
     #[prop(into, optional)] placeholder: Option<String>,
     #[prop(into, optional)] id: Option<AttributeValue>,
-    #[prop(into, optional)] class: Option<AttributeValue>,
+    #[prop(into, default = "".into())] class: String,
 ) -> impl IntoView {
     let (get, set) = value.split();
     provide_context(SelectedValue(get));
     view! {
         <select
-            class=Merge(class, "text-text bg-background rounded-md p-2")
+            class=tw_merge!(class, "text-text bg-background rounded-md p-2")
             id=id
             on:change=move |e| set(event_target_value(&e))
         >

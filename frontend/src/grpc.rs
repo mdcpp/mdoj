@@ -1,22 +1,26 @@
 pub use grpc::backend::*;
-use tonic::{IntoRequest, Request};
+use leptos::*;
+use tonic::{metadata::MetadataMap, IntoRequest, Request};
 
-use crate::{config::frontend_config, error::*};
+use crate::config::frontend_config;
 
-cfg_if::cfg_if! {if #[cfg(feature = "ssr")] {
-    use tonic::transport::{Endpoint,Channel};
-    pub async fn new_client() -> Result<Channel> {
-        let config = frontend_config().await?;
-        Ok(Endpoint::new(config.api_server)?.connect_lazy())
-    }
-} else {
+#[cfg(not(feature = "ssr"))]
+pub fn new_client() -> tonic_web_wasm_client::Client {
     use tonic_web_wasm_client::Client;
-    pub async fn new_client() -> Result<Client> {
-        let config = frontend_config().await?;
+    let config = frontend_config();
 
-        Ok(Client::new(config.api_server))
-    }
-}}
+    Client::new(config.api_server.clone())
+}
+
+#[cfg(feature = "ssr")]
+pub fn new_client() -> tonic::transport::Channel {
+    use tonic::transport::{Channel, Endpoint};
+
+    let config = frontend_config();
+    Endpoint::new(config.api_server.clone())
+        .expect("cannot parse backend url")
+        .connect_lazy()
+}
 
 pub trait WithToken: Sized {
     /// this will try to add token to request.
@@ -39,7 +43,11 @@ where
         let Ok(token) = token.parse() else {
             return req;
         };
-        req.metadata_mut().insert("token", token);
+        let mut metadata = MetadataMap::new();
+        metadata.insert("token", token);
+        #[cfg(feature = "ssr")]
+        let metadata = with_xff(metadata);
+        *req.metadata_mut() = metadata;
         req
     }
 
@@ -49,4 +57,19 @@ where
         };
         self.with_token(token)
     }
+}
+
+#[cfg(feature = "ssr")]
+fn with_xff(metadata: MetadataMap) -> MetadataMap {
+    use actix_web::http::header::{self, HeaderMap};
+    use leptos_actix::ResponseOptions;
+
+    let mut header_map = metadata.into_headers();
+    let options = expect_context::<ResponseOptions>();
+    let options = options.0.read();
+    let addr = options.headers.get(header::X_FORWARDED_FOR);
+    if let Some(addr) = addr {
+        header_map.insert(header::X_FORWARDED_FOR, addr.clone());
+    }
+    MetadataMap::from_headers(header_map)
 }

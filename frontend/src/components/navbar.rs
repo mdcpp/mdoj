@@ -8,37 +8,17 @@ use crate::session::use_token;
 pub fn Navbar() -> impl IntoView {
     let token = use_token();
     view! {
-        <nav class="bg-background sticky top-0 p-2 flex flex-row justify-between border-b-2 border-primary z-10">
+        <nav class="bg-slate-900 sticky top-0 p-2 flex flex-row justify-between border-b-2 border-secondary z-10">
             <div class="flex flex-row flex-nowrap">
                 <A href="/">
                     <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>
                 </A>
                 <ul class="flex flex-row flex-nowrap justify-between items-center text-base">
-                    <li class="transition-opacity hover:opacity-60">
-                        <A href="/problems" class="px-6">
-                            Problems
-                        </A>
-                    </li>
-                    <li class="transition-opacity duration-300 hover:opacity-60">
-                        <A href="/contests" class="px-6">
-                            Contests
-                        </A>
-                    </li>
-                    <li class="transition-opacity duration-300 hover:opacity-60">
-                        <A href="/submissions" class="px-6">
-                            Submission
-                        </A>
-                    </li>
-                    <li class="transition-opacity duration-300 hover:opacity-60">
-                        <A href="/rank" class="px-6">
-                            Rank
-                        </A>
-                    </li>
-                    <li class="transition-opacity duration-300 hover:opacity-60">
-                        <A href="/about" class="px-6">
-                            About
-                        </A>
-                    </li>
+                    <NavbarLink href="/problems">Problems</NavbarLink>
+                    <NavbarLink href="/contests">Contests</NavbarLink>
+                    <NavbarLink href="/submissions">Submission</NavbarLink>
+                    <NavbarLink href="/rank">Rank</NavbarLink>
+                    <NavbarLink href="/about">About</NavbarLink>
                 </ul>
             </div>
             <div class="flex flex-row flex-nowrap justify-between items-center transition-opacity hover:opacity-60">
@@ -57,5 +37,19 @@ pub fn Navbar() -> impl IntoView {
                 </Show>
             </div>
         </nav>
+    }
+}
+
+#[component]
+fn NavbarLink(
+    href: impl ToHref + 'static,
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <li class="transition-opacity duration-300 hover:opacity-60">
+            <A href class="px-6">
+                {children()}
+            </A>
+        </li>
     }
 }

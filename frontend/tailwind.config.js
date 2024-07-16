@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+const colors = require('tailwindcss/colors')
 module.exports = {
   content: {
     relative: true,
@@ -6,15 +7,14 @@ module.exports = {
   },
   theme: {
     colors: {
-      'text': '#e8f7f0',
-      'background': '#040a07',
-      'lighten': '#161b22',
-      'primary': '#9addbc',
-      'secondary': '#2b5280',
-      'accent': '#606fca',
-      'red': '#ff3333',
-      'gray': '#3d3d3d',
-      'orange': '#fa920a',
+      'text': '#e2e6ed',
+      'primary': '#427fdc',
+      'secondary': '#264e8a',
+      'accent': '#9bb4d9',
+      slate: colors.slate,
+      red: colors.red,
+      yellow: colors.yellow,
+      green: colors.green,
     },
     container: {
       center: true,
