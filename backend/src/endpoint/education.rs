@@ -1,26 +1,31 @@
 use super::tools::*;
 
 use grpc::backend::education_server::*;
-use grpc::backend::*;
 
 use crate::entity::{education::Paginator, education::*, *};
 
-impl From<Model> for EducationFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for EducationFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         EducationFullInfo {
             info: EducationInfo {
-                id: value.id.into(),
-                title: value.title,
+                id: model.id,
+                title: model.title,
             },
-            content: value.content,
-            problem: value.problem_id.map(Into::into),
+            content: model.content,
+            problem: model.problem_id.map(Into::into),
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
+
 impl From<PartialModel> for EducationInfo {
     fn from(value: PartialModel) -> Self {
         EducationInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
         }
     }
@@ -32,7 +37,42 @@ impl Education for ArcServer {
         &self,
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_education_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(parent) = query.problem_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_education_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListEducationResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateEducationRequest>) -> Result<Response<Id>, Status> {
@@ -40,10 +80,9 @@ impl Education for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -79,10 +118,9 @@ impl Education for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -142,7 +180,7 @@ impl Education for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         let (problem, model) = tokio::try_join!(
             problem::Entity::read_by_id(req.problem_id, &auth)?
@@ -230,6 +268,6 @@ impl Education for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

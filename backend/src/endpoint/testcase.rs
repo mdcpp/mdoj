@@ -1,25 +1,29 @@
 use super::tools::*;
 
 use grpc::backend::testcase_server::*;
-use grpc::backend::*;
 
-use crate::entity::{test::*, *};
+use crate::entity::{testcase::*, *};
 
-impl From<Model> for TestcaseFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for TestcaseFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         TestcaseFullInfo {
-            id: value.id.into(),
-            score: value.score,
-            inputs: value.input,
-            outputs: value.output,
+            id: model.id,
+            score: model.score,
+            inputs: model.input,
+            outputs: model.output,
+            writable,
         }
     }
 }
 
+impl<'a> WithAuthTrait for Model {}
+
 impl From<Model> for TestcaseInfo {
     fn from(value: Model) -> Self {
         TestcaseInfo {
-            id: value.id.into(),
+            id: value.id,
             score: value.score,
         }
     }
@@ -40,9 +44,9 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(LONG_ART_SIZE, req.info, input, output);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -78,9 +82,9 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(LONG_ART_SIZE, req.info, input, output);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -139,7 +143,7 @@ impl Testcase for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
@@ -212,7 +216,7 @@ impl Testcase for ArcServer {
 
         tracing::debug!(problem_id = req.problem_id, testcase_id = req.testcase_id);
 
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
@@ -233,6 +237,6 @@ impl Testcase for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

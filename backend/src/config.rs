@@ -1,9 +1,12 @@
 use std::{path::PathBuf, str::FromStr};
 
-use super::Error;
+use crate::server;
+use crate::server::InitError;
 use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io::AsyncReadExt};
+
+pub use crate::server::PACKAGE_NAME;
 
 lazy_static::lazy_static! {
     pub static ref CONFIG_PATH: PathBuf=PathBuf::from_str(
@@ -130,7 +133,7 @@ impl Default for Imgur {
     }
 }
 
-pub async fn init() -> super::Result<GlobalConfig> {
+pub async fn init() -> server::Result<GlobalConfig> {
     let config_path = CONFIG_PATH.as_path();
     if fs::metadata(config_path).await.is_ok() {
         let mut buf = Vec::new();
@@ -140,10 +143,10 @@ pub async fn init() -> super::Result<GlobalConfig> {
         config
             .read_to_end(&mut buf)
             .await
-            .map_err(Error::ConfigRead)?;
+            .map_err(InitError::ConfigRead)?;
         let config =
             std::str::from_utf8(&buf).expect("Config file may container non-utf8 character");
-        let config: GlobalConfig = toml::from_str(config).map_err(Error::ConfigParse)?;
+        let config: GlobalConfig = toml::from_str(config).map_err(InitError::ConfigParse)?;
         Ok(config)
     } else {
         println!(
@@ -155,7 +158,7 @@ pub async fn init() -> super::Result<GlobalConfig> {
         let config_txt = toml::to_string(&config).unwrap();
         fs::write(config_path, config_txt)
             .await
-            .map_err(Error::ConfigWrite)?;
+            .map_err(InitError::ConfigWrite)?;
 
         println!(
             "Config generated, please edit {:?} before restart",

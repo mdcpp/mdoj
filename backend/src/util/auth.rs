@@ -122,11 +122,11 @@ impl Auth {
         }
     }
     /// short hand for `self.into_inner().ok_or(err)`
-    pub fn ok_or(&self, err: Error) -> Result<(i32, RoleLv), Error> {
+    pub fn auth_or_error(&self, err: Error) -> Result<(i32, RoleLv), Error> {
         self.into_inner().ok_or(err)
     }
     /// short hand for `self.into_inner().ok_or(Error::PermissionDeny)`
-    pub fn ok_or_default(&self) -> Result<(i32, RoleLv), Error> {
+    pub fn auth_or_guest(&self) -> Result<(i32, RoleLv), Error> {
         self.into_inner().ok_or(Error::PermissionDeny(
             "Only signed in user is allow in this endpoint",
         ))

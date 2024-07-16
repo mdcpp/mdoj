@@ -45,42 +45,6 @@ macro_rules! report_internal {
     }};
 }
 
-/// Check length of user inputted buffer
-#[macro_export]
-macro_rules! check_length {
-    ($target:expr,$src:expr,$field:ident) => {
-        paste::paste!{
-            if $target<$src.$field.len(){
-                return Err(Error::BufferTooLarge(stringify!($field)).into());
-            }
-        }
-    };
-    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
-        check_length!($target,$src, $field);
-        check_length!($target,$src, $($ext),+);
-    };
-}
-
-/// Check length of user inputted buffer if it buffer is Some
-///
-/// It's useful because user may not input all fields
-#[macro_export]
-macro_rules! check_exist_length {
-    ($target:expr,$src:expr,$field:ident) => {
-        paste::paste!{
-            if let Some(x)=$src.$field.as_ref(){
-                if $target<x.len(){
-                    return Err(Error::BufferTooLarge(stringify!($field)).into());
-                }
-            }
-        }
-    };
-    ($target:expr,$src:expr, $field:ident, $($ext:ident),+) => {
-        check_exist_length!($target,$src, $field);
-        check_exist_length!($target,$src, $($ext),+);
-    };
-}
-
 /// Fill many optional fields of active model at single line
 ///
 /// This is useful when you want to update a model(user might not update all fields)

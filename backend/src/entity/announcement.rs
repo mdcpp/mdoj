@@ -72,7 +72,7 @@ impl ActiveModelBehavior for ActiveModel {}
 impl super::Filter for Entity {
     #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Ok((user_id, perm)) = auth.ok_or_default() {
+        if let Ok((user_id, perm)) = auth.auth_or_guest() {
             if perm.admin() {
                 return Ok(query);
             }
@@ -82,7 +82,7 @@ impl super::Filter for Entity {
     }
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
         if perm.admin() {
             return Ok(query);
         }
@@ -90,6 +90,9 @@ impl super::Filter for Entity {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
         Err(Error::NotInDB)
+    }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        auth.user_perm().admin() || Some(model.user_id) == auth.user_id()
     }
 }
 
@@ -129,7 +132,7 @@ impl Source for PagerTrait {
     }
 }
 
-pub type Paginator = PrimaryKeyPaginator<PagerTrait, PartialModel>;
+pub type DefaultPaginator = UninitPaginator<PrimaryKeyPaginator<PagerTrait, PartialModel>>;
 
 pub struct TextPagerTrait;
 
@@ -152,7 +155,7 @@ impl Source for TextPagerTrait {
     }
 }
 
-pub type TextPaginator = PrimaryKeyPaginator<TextPagerTrait, PartialModel>;
+pub type TextPaginator = UninitPaginator<PrimaryKeyPaginator<TextPagerTrait, PartialModel>>;
 
 pub struct ParentPagerTrait;
 
@@ -191,7 +194,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, PartialModel>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
@@ -235,4 +238,59 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
 }
 
-pub type ColPaginator = ColumnPaginator<ColPagerTrait, PartialModel>;
+pub type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum Paginator {
+    Text(TextPaginator),
+    Parent(ParentPaginator),
+    Col(ColPaginator),
+    Default(DefaultPaginator),
+}
+
+impl WithAuthTrait for Paginator {}
+
+impl Paginator {
+    pub fn new_text(text: String, start_from_end: bool) -> Self {
+        // FIXME: check dup text
+        Self::Text(TextPaginator::new(text, start_from_end))
+    }
+    pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
+        Self::Col(ColPaginator::new(
+            (sort, Default::default()),
+            start_from_end,
+        ))
+    }
+    pub fn new_parent(parent: i32, start_from_end: bool) -> Self {
+        Self::Parent(ParentPaginator::new(
+            (parent, Default::default()),
+            start_from_end,
+        ))
+    }
+    pub fn new(start_from_end: bool) -> Self {
+        Self::Default(DefaultPaginator::new((), start_from_end))
+    }
+}
+
+impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<PartialModel>, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &mut self.1 .1 {
+            Paginator::Text(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Parent(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Col(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Default(ref mut x) => x.fetch(size, offset, auth, db).await,
+        }
+    }
+    pub async fn remain(&self) -> Result<u64, Error> {
+        let db = self.0;
+        let auth = self.1 .0;
+        match &self.1 .1 {
+            Paginator::Text(x) => x.remain(auth, db).await,
+            Paginator::Parent(x) => x.remain(auth, db).await,
+            Paginator::Col(x) => x.remain(auth, db).await,
+            Paginator::Default(x) => x.remain(auth, db).await,
+        }
+    }
+}

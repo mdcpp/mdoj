@@ -7,7 +7,7 @@ use opentelemetry::{
 };
 use opentelemetry_sdk::metrics::MeterProvider as SdkMeterProvider;
 
-use crate::init::logger::PACKAGE_NAME;
+use crate::config::PACKAGE_NAME;
 
 macro_rules! impl_metrics {
     ($n:expr) => {
@@ -18,8 +18,7 @@ macro_rules! impl_metrics {
                 }
             }
         }
-    };
-    ($target:expr,$($ext:expr),+) => {
+    };    ($target:expr,$($ext:expr),+) => {
         impl_metrics!($target);
         impl_metrics!($($ext),+);
     };

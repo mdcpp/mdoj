@@ -1,24 +1,31 @@
 use super::tools::*;
 
-use crate::entity::{contest::*, *};
+use crate::entity::{
+    contest::{Paginator, *},
+    *,
+};
 
 use grpc::backend::contest_server::*;
-use grpc::backend::*;
 
-impl From<Model> for ContestFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         ContestFullInfo {
-            info: value.clone().into(),
-            content: value.content,
-            host: value.hoster.into(),
+            info: model.clone().into(),
+            content: model.content,
+            host: model.hoster,
+            writable,
         }
     }
 }
 
+impl<'a> WithAuthTrait for Model {}
+
 impl From<user_contest::Model> for UserRank {
     fn from(value: user_contest::Model) -> Self {
         UserRank {
-            user_id: value.user_id.into(),
+            user_id: value.user_id,
             score: value.score,
         }
     }
@@ -27,7 +34,7 @@ impl From<user_contest::Model> for UserRank {
 impl From<Model> for ContestInfo {
     fn from(value: Model) -> Self {
         ContestInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             begin: into_prost(value.begin),
             end: into_prost(value.end),
@@ -39,7 +46,7 @@ impl From<Model> for ContestInfo {
 impl From<PartialModel> for ContestInfo {
     fn from(value: PartialModel) -> Self {
         ContestInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             begin: into_prost(value.begin),
             end: into_prost(value.end),
@@ -55,11 +62,46 @@ impl Contest for ArcServer {
         &self,
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_contest_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_contest_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListContestResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ContestFullInfo>, Status> {
-        let (_, req) = self
+        let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
@@ -72,7 +114,7 @@ impl Contest for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateContestRequest>) -> Result<Response<Id>, Status> {
@@ -80,10 +122,9 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -129,10 +170,9 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -149,7 +189,6 @@ impl Contest for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, password);
         if let Some(src) = req.info.password {
             if let Some(tar) = model.password.as_ref() {
                 if perm.root() || self.crypto.hash_eq(&src, tar) {
@@ -212,7 +251,7 @@ impl Contest for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())

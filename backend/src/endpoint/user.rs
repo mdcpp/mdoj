@@ -1,10 +1,25 @@
 use super::tools::*;
 
 use grpc::backend::user_server::*;
-use grpc::backend::*;
 
-use crate::entity::user;
-use crate::entity::user::*;
+use crate::{
+    entity::user,
+    entity::user::{Paginator, *},
+};
+
+impl<'a> From<WithAuth<'a, Model>> for UserFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
+        UserFullInfo {
+            hashed_pwd: model.password.clone(),
+            info: model.into(),
+            writable,
+        }
+    }
+}
+
+impl<'a> WithAuthTrait for Model {}
 
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
@@ -12,7 +27,7 @@ impl From<Model> for UserInfo {
             username: value.username,
             // FIXME: capture Error(database corruption?) instead!
             score: value.score.try_into().unwrap_or_default(),
-            id: value.id.into(),
+            id: value.id,
         }
     }
 }
@@ -24,7 +39,44 @@ impl User for ArcServer {
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_user_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else if let Some(parent) = query.contest_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_user_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListUserResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, _req: Request<Id>) -> Result<Response<UserFullInfo>, Status> {
@@ -37,11 +89,11 @@ impl User for ArcServer {
             .in_current_span()
             .await?;
 
-        check_length!(SHORT_ART_SIZE, req.info, username);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
@@ -110,7 +162,9 @@ impl User for ArcServer {
             .in_current_span()
             .await?;
 
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
+
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -192,7 +246,7 @@ impl User for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
@@ -221,12 +275,12 @@ impl User for ArcServer {
     }
 
     #[instrument(skip_all, level = "debug")]
-    async fn my_info(&self, req: Request<()>) -> Result<Response<UserInfo>, Status> {
+    async fn my_info(&self, req: Request<()>) -> Result<Response<UserFullInfo>, Status> {
         let (auth, _) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())
@@ -237,6 +291,6 @@ impl User for ArcServer {
                 "token should be deleted before user can request its info after user deletion",
             ))?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

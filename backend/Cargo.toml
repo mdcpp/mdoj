@@ -50,7 +50,7 @@ features = [
   "judger",
   "transport",
   "serde",
-  "extra_trait",
+  "extra_trait"
 ]
 
 [dependencies.postcard]

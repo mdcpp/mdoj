@@ -1,38 +1,42 @@
 use super::tools::*;
 use grpc::backend::problem_server::*;
-use grpc::backend::*;
 
-use crate::entity::{problem::*, *};
+use crate::entity::{problem::Paginator, problem::*, *};
 
-impl From<PartialModel> for ProblemInfo {
-    fn from(value: PartialModel) -> Self {
-        ProblemInfo {
-            id: value.id.into(),
-            title: value.title,
-            submit_count: value.submit_count,
-            ac_rate: value.ac_rate,
-            difficulty: value.difficulty,
+impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
+        ProblemFullInfo {
+            content: model.content.clone(),
+            tags: model.tags.clone(),
+            difficulty: model.difficulty,
+            public: model.public,
+            time: model.time as u64,
+            memory: model.memory as u64,
+            info: ProblemInfo {
+                id: model.id,
+                title: model.title,
+                submit_count: model.submit_count,
+                ac_rate: model.ac_rate,
+                difficulty: model.difficulty,
+            },
+            author: model.user_id,
+            writable,
         }
     }
 }
 
-impl From<Model> for ProblemFullInfo {
-    fn from(value: Model) -> Self {
-        ProblemFullInfo {
-            content: value.content.clone(),
-            tags: value.tags.clone(),
+impl<'a> WithAuthTrait for Model {}
+
+impl From<PartialModel> for ProblemInfo {
+    fn from(value: PartialModel) -> Self {
+        ProblemInfo {
+            id: value.id,
+            title: value.title,
+            submit_count: value.submit_count,
+            ac_rate: value.ac_rate,
             difficulty: value.difficulty,
-            public: value.public,
-            time: value.time as u64,
-            memory: value.memory as u64,
-            info: ProblemInfo {
-                id: value.id.into(),
-                title: value.title,
-                submit_count: value.submit_count,
-                ac_rate: value.ac_rate,
-                difficulty: value.difficulty,
-            },
-            author: value.user_id.into(),
         }
     }
 }
@@ -44,7 +48,44 @@ impl Problem for ArcServer {
         &self,
         req: Request<ListProblemRequest>,
     ) -> Result<Response<ListProblemResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_problem_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else if let Some(parent) = query.contest_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_problem_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListProblemResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ProblemFullInfo>, Status> {
@@ -63,7 +104,7 @@ impl Problem for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateProblemRequest>) -> Result<Response<Id>, Status> {
@@ -71,17 +112,16 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
             return Ok(Response::new(x));
         };
 
-        if !(perm.super_user()) {
+        if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
         }
 
@@ -116,10 +156,9 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title, tags);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -179,7 +218,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
@@ -255,7 +294,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         tracing::debug!(id = req.id);
 
@@ -290,7 +329,7 @@ impl Problem for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (_, perm) = auth.ok_or_default()?;
+        let (_, perm) = auth.auth_or_guest()?;
 
         tracing::debug!(id = req.id);
 
@@ -345,6 +384,6 @@ impl Problem for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

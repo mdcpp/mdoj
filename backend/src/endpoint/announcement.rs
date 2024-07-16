@@ -1,33 +1,38 @@
 use super::tools::*;
 
-use crate::util::time::into_prost;
 use grpc::backend::announcement_server::*;
-use grpc::backend::*;
 
-use crate::entity::announcement::*;
-use crate::entity::*;
+use crate::{
+    entity::announcement::{Paginator, *},
+    entity::*,
+    util::time::into_prost,
+    NonZeroU32,
+};
 
-use crate::NonZeroU32;
-
-impl From<Model> for AnnouncementFullInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for AnnouncementFullInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         AnnouncementFullInfo {
             info: AnnouncementInfo {
-                id: value.id.into(),
-                title: value.title,
-                update_date: into_prost(value.update_at),
+                id: model.id,
+                title: model.title,
+                update_date: into_prost(model.update_at),
             },
-            author_id: value.user_id.into(),
-            content: value.content,
-            public: value.public,
+            author_id: model.user_id,
+            content: model.content,
+            public: model.public,
+            writable,
         }
     }
 }
 
+impl<'a> WithAuthTrait for Model {}
+
 impl From<Model> for AnnouncementInfo {
     fn from(value: Model) -> Self {
         AnnouncementInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
         }
@@ -37,7 +42,7 @@ impl From<Model> for AnnouncementInfo {
 impl From<PartialModel> for AnnouncementInfo {
     fn from(value: PartialModel) -> Self {
         AnnouncementInfo {
-            id: value.id.into(),
+            id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
         }
@@ -51,42 +56,44 @@ impl Announcement for ArcServer {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        // let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-        //
-        // let (pager, models) = match pager {
-        //     list_announcement_request::Request::Create(create) => {
-        //         ColPaginator::new_fetch(
-        //             (create.sort_by(), Default::default()),
-        //             &auth,
-        //             size,
-        //             offset,
-        //             create.start_from_end(),
-        //             &self.db,
-        //         )
-        //         .in_current_span()
-        //         .await
-        //     }
-        //     list_announcement_request::Request::Pager(old) => {
-        //         let span = tracing::info_span!("paginate").or_current();
-        //         let pager: ColPaginator = span.in_scope(|| self.crypto.decode(old.session))?;
-        //         pager
-        //             .fetch(&auth, size, offset, rev, &self.db)
-        //             .instrument(span)
-        //             .await
-        //     }
-        // }?;
-        //
-        // let remain = pager.remain(&auth, &self.db).in_current_span().await?;
-        //
-        // let next_session = self.crypto.encode(pager)?;
-        // let list = models.into_iter().map(|x| x.into()).collect();
-        //
-        // Ok(Response::new(ListAnnouncementResponse {
-        //     list,
-        //     next_session,
-        //     remain,
-        // }))
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_announcement_request::Request::Create(create) => {
+                let query = create.query.unwrap_or_default();
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(text) = query.text {
+                    Paginator::new_text(text, start_from_end)
+                } else if let Some(sort) = query.sort_by {
+                    Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
+                } else if let Some(parent) = query.contest_id {
+                    Paginator::new_parent(parent, start_from_end)
+                } else {
+                    Paginator::new(start_from_end)
+                }
+            }
+            list_announcement_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListAnnouncementResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
@@ -105,7 +112,7 @@ impl Announcement for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(
@@ -116,10 +123,9 @@ impl Announcement for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
-        check_length!(SHORT_ART_SIZE, req.info, title);
-        check_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -157,10 +163,9 @@ impl Announcement for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _perm) = auth.ok_or_default()?;
+        let (user_id, _perm) = auth.auth_or_guest()?;
 
-        check_exist_length!(SHORT_ART_SIZE, req.info, title);
-        check_exist_length!(LONG_ART_SIZE, req.info, content);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<()>(user_id, uuid) {
@@ -219,7 +224,7 @@ impl Announcement for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.super_user() {
             return Err(Error::RequirePermission(RoleLv::Super).into());
@@ -376,6 +381,6 @@ impl Announcement for ArcServer {
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        Ok(Response::new(model.into()))
+        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }

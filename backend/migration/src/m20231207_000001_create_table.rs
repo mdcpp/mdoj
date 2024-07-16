@@ -107,7 +107,7 @@ enum Submit {
     Score,
 }
 #[derive(Iden)]
-enum Test {
+enum Testcase {
     Table,
     Id,
     UserId,
@@ -457,32 +457,37 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Test::Table)
+                    .table(Testcase::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Test::Id)
+                        ColumnDef::new(Testcase::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Test::UserId).integer().not_null())
+                    .col(ColumnDef::new(Testcase::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-test-user")
-                            .from(Test::Table, Test::UserId)
+                            .from(Testcase::Table, Testcase::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(Test::ProblemId).integer().null())
+                    .col(ColumnDef::new(Testcase::ProblemId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-test-user")
-                            .from(Test::Table, Test::ProblemId)
+                            .from(Testcase::Table, Testcase::ProblemId)
                             .to(Problem::Table, Problem::Id),
                     )
-                    .col(ColumnDef::new(Test::Input).binary().not_null())
-                    .col(ColumnDef::new(Test::Output).binary().not_null())
-                    .col(ColumnDef::new(Test::Score).unsigned().not_null().default(0))
+                    .col(ColumnDef::new(Testcase::Input).binary().not_null())
+                    .col(ColumnDef::new(Testcase::Output).binary().not_null())
+                    .col(
+                        ColumnDef::new(Testcase::Score)
+                            .unsigned()
+                            .not_null()
+                            .default(0),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -703,7 +708,7 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Submit::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(Test::Table).to_owned())
+            .drop_table(Table::drop().table(Testcase::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Token::Table).to_owned())

@@ -4,9 +4,11 @@ use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
 use grpc::backend::submit_server::*;
 use grpc::backend::StateCode as BackendCode;
-use grpc::backend::*;
 
-use crate::entity::{submit::*, *};
+use crate::entity::{
+    submit::{Paginator, *},
+    *,
+};
 use tokio_stream::wrappers::ReceiverStream;
 
 const SUBMIT_CODE_LEN: usize = 32 * 1024;
@@ -16,7 +18,7 @@ impl From<Model> for SubmitInfo {
         // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
-            id: value.id.into(),
+            id: value.id,
             upload_time: into_prost(value.upload_at),
             score: value.score,
             state: JudgeResult {
@@ -34,7 +36,7 @@ impl From<PartialModel> for SubmitInfo {
         // TODO: solve devation and uncommitted submit!
         let db_code: Code = value.status.unwrap().try_into().unwrap();
         SubmitInfo {
-            id: value.id.into(),
+            id: value.id,
             upload_time: into_prost(value.upload_at),
             score: value.score,
             state: JudgeResult {
@@ -54,7 +56,39 @@ impl Submit for ArcServer {
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_submit_request::Request::Create(create) => {
+                let start_from_end = create.order == Order::Descend as i32;
+                if let Some(problem_id) = create.problem_id {
+                    Paginator::new_parent(problem_id, start_from_end)
+                } else {
+                    Paginator::new_sort(start_from_end)
+                }
+            }
+            list_submit_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListSubmitResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
@@ -77,11 +111,9 @@ impl Submit for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
-        if req.code.len() > SUBMIT_CODE_LEN {
-            return Err(Error::BufferTooLarge("info.code").into());
-        }
+        req.bound_check()?;
 
         let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
@@ -182,7 +214,7 @@ impl Submit for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
 
         let submit_id = req.submit_id;
 

@@ -42,4 +42,7 @@ where
     {
         Self::write_filter(Self::find_by_id(id), auth)
     }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        false
+    }
 }

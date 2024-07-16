@@ -2,8 +2,9 @@ use tracing::instrument;
 
 use super::*;
 
+// FIXME: use partial model
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "test")]
+#[sea_orm(table_name = "testcase")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
@@ -14,6 +15,17 @@ pub struct Model {
     pub input: Vec<u8>,
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub output: Vec<u8>,
+    pub score: u32,
+}
+
+#[derive(DerivePartialModel, FromQueryResult)]
+#[sea_orm(entity = "Entity")]
+pub struct PartialModel {
+    #[sea_orm(primary_key)]
+    pub id: i32,
+    pub user_id: i32,
+    #[sea_orm(nullable)]
+    pub problem_id: Option<i32>,
     pub score: u32,
 }
 
@@ -54,7 +66,7 @@ impl ActiveModelBehavior for ActiveModel {}
 impl super::Filter for Entity {
     #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Ok((user_id, perm)) = auth.ok_or_default() {
+        if let Ok((user_id, perm)) = auth.auth_or_guest() {
             if perm.admin() {
                 return Ok(query);
             }
@@ -64,7 +76,7 @@ impl super::Filter for Entity {
     }
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.ok_or_default()?;
+        let (user_id, perm) = auth.auth_or_guest()?;
         if perm.admin() {
             return Ok(query);
         }
@@ -73,10 +85,13 @@ impl super::Filter for Entity {
         }
         Err(Error::NotInDB)
     }
+    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+        auth.user_perm().admin() || Some(model.user_id) == auth.user_id()
+    }
 }
 
 #[async_trait]
-impl Reflect<Entity> for Model {
+impl Reflect<Entity> for PartialModel {
     fn get_id(&self) -> i32 {
         self.id
     }
@@ -114,19 +129,19 @@ impl Source for ParentPagerTrait {
 }
 
 #[async_trait]
-impl SortSource<Model> for ParentPagerTrait {
+impl SortSource<PartialModel> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
         data.1
     }
-    fn save_val(data: &mut Self::Data, model: &Model) {
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
         data.1 = model.score
     }
 }
 
-pub type ParentPaginator = ColumnPaginator<ParentPagerTrait, Model>;
+type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
@@ -150,16 +165,16 @@ impl Source for ColPagerTrait {
 }
 
 #[async_trait]
-impl SortSource<Model> for ColPagerTrait {
+impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
         *data
     }
-    fn save_val(data: &mut Self::Data, model: &Model) {
+    fn save_val(data: &mut Self::Data, model: &PartialModel) {
         *data = model.score
     }
 }
 
-pub type ColPaginator = ColumnPaginator<ColPagerTrait, Model>;
+type DefaultPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;

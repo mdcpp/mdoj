@@ -1,13 +1,16 @@
+pub mod db;
+pub mod error;
+pub mod logger;
+
+pub use error::InitError;
+pub use logger::PACKAGE_NAME;
+pub type Result<T> = std::result::Result<T, InitError>;
+
 use std::{ops::Deref, sync::Arc};
 
-use crate::{
-    controller::*,
-    init::{
-        config::{self, GlobalConfig},
-        logger::{self, OtelGuard},
-        Error,
-    },
-};
+use crate::{config, controller::*};
+
+use crate::config::GlobalConfig;
 use grpc::backend::{
     announcement_server::AnnouncementServer, chat_server::ChatServer,
     contest_server::ContestServer, education_server::EducationServer,
@@ -15,6 +18,7 @@ use grpc::backend::{
     token_server::TokenServer, user_server::UserServer,
 };
 use http::header::HeaderName;
+use logger::OtelGuard;
 use sea_orm::DatabaseConnection;
 use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
@@ -73,14 +77,14 @@ impl Server {
     /// 4. Other Controller
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
-    pub async fn new() -> Result<Arc<Self>, Error> {
+    pub async fn new() -> Result<Arc<Self>> {
         let config = config::init().await?;
 
         let otel_guard = logger::init(&config)?;
         let span = span!(Level::INFO, "server_construct");
         let crypto = crypto::CryptoController::new(&config, &span);
         let db = Arc::new(
-            crate::init::db::init(&config.database, &crypto, &span)
+            db::init(&config.database, &crypto, &span)
                 .in_current_span()
                 .await?,
         );
@@ -94,8 +98,8 @@ impl Server {
                 .as_ref()
                 .expect("public pem should set if private pem is set");
 
-            let cert = std::fs::read_to_string(public_pem).map_err(Error::ReadPem)?;
-            let key = std::fs::read_to_string(private_pem).map_err(Error::ReadPem)?;
+            let cert = std::fs::read_to_string(public_pem).map_err(InitError::ReadPem)?;
+            let key = std::fs::read_to_string(private_pem).map_err(InitError::ReadPem)?;
 
             identity = Some(Identity::from_pem(cert, key));
         }

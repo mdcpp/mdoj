@@ -3011,6 +3011,264 @@ dependencies = [
 ]
 
 [[package]]
+name = "leptos_integration_utils"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ea6256cc3c42b516ee6a7f5885c6e4dcfc66ec84d1ae725dea17e3d22a3803d"
+dependencies = [
+ "futures",
+ "leptos",
+ "leptos_config",
+ "leptos_hot_reload",
+ "leptos_meta",
+ "tracing",
+]
+
+[[package]]
+name = "leptos_macro"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "019016cc0193831660a7794aa046e4c01617d97ccb2f403a5c10b21744391a71"
+dependencies = [
+ "attribute-derive",
+ "cfg-if",
+ "convert_case 0.6.0",
+ "html-escape",
+ "itertools 0.12.1",
+ "leptos_hot_reload",
+ "prettyplease",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "rstml",
+ "server_fn_macro",
+ "syn 2.0.70",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "leptos_meta"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "873ec368535d9971df4848ca21e91aa96fa00a6884258ab8f926db69ea97f547"
+dependencies = [
+ "cfg-if",
+ "indexmap 2.2.6",
+ "leptos",
+ "tracing",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_reactive"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "076064e3c84e3aa12d4bad283e82ba5968675f5f9714d04a5c38f169cd4f26b5"
+dependencies = [
+ "base64 0.22.1",
+ "cfg-if",
+ "futures",
+ "indexmap 2.2.6",
+ "js-sys",
+ "oco_ref",
+ "paste",
+ "pin-project",
+ "rustc-hash",
+ "self_cell",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "slotmap",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_router"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d66db10225f0caf60b0183935b288791ac3494ca6e1306d415ea97287b6c2db5"
+dependencies = [
+ "cached",
+ "cfg-if",
+ "gloo-net",
+ "itertools 0.12.1",
+ "js-sys",
+ "lazy_static",
+ "leptos",
+ "leptos_integration_utils",
+ "leptos_meta",
+ "linear-map",
+ "lru",
+ "once_cell",
+ "percent-encoding",
+ "regex",
+ "send_wrapper",
+ "serde",
+ "serde_json",
+ "serde_qs 0.13.0",
+ "thiserror",
+ "tracing",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_server"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603064a2d7ac46dba4b3ed5397a475076f9738918dd605670869dfe877d5966c"
+dependencies = [
+ "inventory",
+ "lazy_static",
+ "leptos_macro",
+ "leptos_reactive",
+ "serde",
+ "server_fn",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "leptos"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5fae88b21265cbb847c891d7cf660e284a1282da15459691992be9358e906fb"
+dependencies = [
+ "cfg-if",
+ "leptos_config",
+ "leptos_dom",
+ "leptos_macro",
+ "leptos_reactive",
+ "leptos_server",
+ "server_fn",
+ "tracing",
+ "typed-builder",
+ "typed-builder-macro",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos-use"
+version = "0.10.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3272d90b77cdbb99e9060f90eb6f5738e56128b2f912db57a50efb006a26e262"
+dependencies = [
+ "actix-web",
+ "async-trait",
+ "cfg-if",
+ "cookie 0.18.1",
+ "default-struct-builder",
+ "futures-util",
+ "gloo-timers 0.3.0",
+ "gloo-utils",
+ "http 0.2.12",
+ "js-sys",
+ "lazy_static",
+ "leptos",
+ "leptos_actix",
+ "paste",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_actix"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e1c8b5dd701f0354f61997d9efb05c08e7d81077f3b4021a8f2d08ef8738d95"
+dependencies = [
+ "actix-http",
+ "actix-web",
+ "futures",
+ "leptos",
+ "leptos_integration_utils",
+ "leptos_macro",
+ "leptos_meta",
+ "leptos_router",
+ "parking_lot",
+ "regex",
+ "serde_json",
+ "server_fn",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "leptos_config"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec33b6f994829469ba7c62bfd5fb572a639071d0de715a41c2aa0df86301a4fa"
+dependencies = [
+ "config",
+ "regex",
+ "serde",
+ "thiserror",
+ "typed-builder",
+]
+
+[[package]]
+name = "leptos_dom"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "867d2afc153cc0f1d6f775872d5dfc409385f4d8544831ee45f720d88f363e6b"
+dependencies = [
+ "async-recursion",
+ "cfg-if",
+ "drain_filter_polyfill",
+ "futures",
+ "getrandom",
+ "html-escape",
+ "indexmap 2.2.6",
+ "itertools 0.12.1",
+ "js-sys",
+ "leptos_reactive",
+ "once_cell",
+ "pad-adapter",
+ "paste",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "server_fn",
+ "smallvec",
+ "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos_hot_reload"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec5ce56051f2eff2c4736b7a2056177e67be19597b767ff72fbab20917a7422d"
+dependencies = [
+ "anyhow",
+ "camino",
+ "indexmap 2.2.6",
+ "parking_lot",
+ "proc-macro2",
+ "quote",
+ "rstml",
+ "serde",
+ "syn 2.0.70",
+ "walkdir",
+]
+
+[[package]]
 name = "leptos_icons"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

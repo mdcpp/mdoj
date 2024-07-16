@@ -8,9 +8,14 @@ use tracing::instrument;
 
 use crate::util::error::Error;
 
-use super::paginator::Paginate;
-
 const MAX_TAG: usize = 16;
+
+pub(super) trait Paginate<E: EntityTrait> {
+    /// Apply pagination effect on a Select(sea_orm)
+    ///
+    /// be careful not to run order_by before applying pagination
+    fn apply(self, query: Select<E>) -> Select<E>;
+}
 
 /// aggregate conditions for tags(separated by whitespace) with or
 ///

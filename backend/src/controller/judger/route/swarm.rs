@@ -1,7 +1,7 @@
 use std::{collections::HashSet, net::IpAddr, time::Duration};
 
 use super::{ConnectionDetail, Error};
-use crate::init::config;
+use crate::config;
 use hickory_resolver::TokioAsyncResolver;
 
 use super::{Routable, RouteStatus};

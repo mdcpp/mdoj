@@ -1,21 +1,25 @@
 use super::tools::*;
 
 use grpc::backend::chat_server::*;
-use grpc::backend::*;
 
-use crate::entity::chat::*;
+use crate::entity::chat::{Paginator, *};
 
-impl From<Model> for ChatInfo {
-    fn from(value: Model) -> Self {
+impl<'a> From<WithAuth<'a, Model>> for ChatInfo {
+    fn from(value: WithAuth<'a, Model>) -> Self {
+        let model = value.1;
+        let writable = Entity::writable(&model, value.0);
         ChatInfo {
-            id: value.id.into(),
-            user_id: value.user_id.into(),
-            problem_id: value.problem_id.into(),
-            create_at: into_prost(value.create_at),
-            message: value.message,
+            id: model.id,
+            user_id: model.user_id,
+            problem_id: model.problem_id,
+            create_at: into_prost(model.create_at),
+            message: model.message,
+            writable,
         }
     }
 }
+
+impl<'a> WithAuthTrait for Model {}
 
 #[tonic::async_trait]
 impl Chat for ArcServer {
@@ -24,9 +28,9 @@ impl Chat for ArcServer {
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.ok_or_default()?;
+        let (user_id, _) = auth.auth_or_guest()?;
 
-        check_length!(LONG_ART_SIZE, req, message);
+        req.bound_check()?;
 
         let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
         if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
@@ -77,8 +81,39 @@ impl Chat for ArcServer {
 
     async fn list(
         &self,
-        request: Request<ListChatRequest>,
+        req: Request<ListChatRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        todo!()
+        let (auth, req) = self
+            .parse_request_fn(req, |req| {
+                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
+                    .try_into()
+                    .unwrap_or(u32::MAX)
+            })
+            .await?;
+
+        req.bound_check()?;
+
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_chat_request::Request::Create(create) => {
+                let start_from_end = create.order == Order::Descend as i32;
+                Paginator::new(create.problem_id, start_from_end)
+            }
+            list_chat_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
+
+        let list = paginator.fetch(req.size, req.offset).await?;
+        let remain = paginator.remain().await?;
+
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListChatResponse {
+            list: list
+                .into_iter()
+                .map(|x| x.with_auth(&auth).into())
+                .collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
+        }))
     }
 }
