@@ -5,25 +5,29 @@ use anyhow::Result;
 #[actix_web::main]
 async fn main() -> Result<()> {
     use actix_files::Files;
-    use actix_web::*;
+    use actix_web::{dev::Service, http::header, *};
     // use frontend::{app::*, config};
-    use frontend::app::*;
+    use frontend::{
+        app::*,
+        config::{backend_config, init_config},
+    };
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};
 
-    frontend::config::init_server_config().await?;
+    init_config().await?;
 
-    let conf = get_configuration(None).await.unwrap();
+    let conf = get_configuration(None).await?;
     let addr = conf.leptos_options.site_addr;
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
     println!("listening on http://{}", &addr);
+    init_config().await?;
 
     HttpServer::new(move || {
         let leptos_options: &LeptosOptions = &conf.leptos_options;
         let site_root = &leptos_options.site_root;
 
-        App::new()
+        let app = App::new()
             .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
             // serve JS/WASM/CSS from `pkg`
             .service(Files::new("/pkg", format!("{site_root}/pkg")))
@@ -33,7 +37,25 @@ async fn main() -> Result<()> {
             .service(favicon)
             .leptos_routes(leptos_options.to_owned(), routes.to_owned(), App)
             .app_data(web::Data::new(leptos_options.to_owned()))
-        //.wrap(middleware::Compress::default())
+            .wrap_fn(|mut req, srv| {
+                if !backend_config().trust_xff {
+                    if let Some(addr) = req.peer_addr() {
+                        let headers = req.headers_mut();
+                        headers.insert(
+                            header::X_FORWARDED_FOR,
+                            addr.to_string()
+                                .try_into()
+                                .expect("should never panic"),
+                        );
+                    }
+                }
+                srv.call(req)
+            });
+
+        #[cfg(feature = "compress")]
+        let app = app.wrap(middleware::Compress::default());
+
+        app
     })
     .bind(&addr)?
     .run()
@@ -68,7 +90,6 @@ pub fn main() {
     // to run: `trunk serve --open --features csr`
     use leptos::*;
     use mdoj::app::*;
-    use wasm_bindgen::prelude::wasm_bindgen;
 
     console_error_panic_hook::set_once();
 

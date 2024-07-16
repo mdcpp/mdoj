@@ -1,6 +1,5 @@
 use leptos::*;
-
-use super::Merge;
+use tailwind_fuse::tw_merge;
 
 #[component]
 pub fn TextInput(
@@ -8,14 +7,14 @@ pub fn TextInput(
     #[prop(into)] value: RwSignal<String>,
     #[prop(into, optional)] placeholder: Option<AttributeValue>,
     #[prop(into, optional)] id: Option<AttributeValue>,
-    #[prop(into, optional)] class: Option<AttributeValue>,
+    #[prop(into, default = "".into())] class: String,
 ) -> impl IntoView {
     let (get, set) = value.split();
     view! {
         <input
-            class=Merge(
+            class=tw_merge!(
                 class,
-                "text-text outline-none p-2 bg-background border-2 rounded-md border-background focus:border-primary transition-colors duration-300",
+                "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
             )
 
             id=id

@@ -1,6 +1,5 @@
 use leptos::*;
-
-use super::Merge;
+use tailwind_fuse::tw_merge;
 
 #[component]
 pub fn Toggle(
@@ -9,11 +8,11 @@ pub fn Toggle(
     >,
     #[prop(into)] value: RwSignal<bool>,
     #[prop(into, optional)] id: Option<AttributeValue>,
-    #[prop(into, optional)] class: Option<AttributeValue>,
+    #[prop(into, default = "".into())] class: String,
 ) -> impl IntoView {
     let (get, set) = value.split();
     view! {
-        <label class=Merge(class, "inline-flex items-center cursor-pointer")>
+        <label class=tw_merge!(class, "inline-flex items-center cursor-pointer")>
             <input
                 type=kind
                 id=id

@@ -2,7 +2,12 @@ use leptos::*;
 
 use crate::{error::ErrorKind, pages::*};
 
-pub fn error_fallback(errors: RwSignal<Errors>) -> impl IntoView {
+#[component]
+pub fn ErrorFallback(children: Children) -> impl IntoView {
+    view! { <ErrorBoundary fallback=fallback>{children()}</ErrorBoundary> }
+}
+
+fn fallback(errors: RwSignal<Errors>) -> impl IntoView {
     let fallback = move || {
         errors()
             .into_iter()

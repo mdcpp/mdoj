@@ -5,7 +5,7 @@ use leptos_router::use_navigate;
 use crate::{
     components::*,
     error::*,
-    grpc::{self, token_set_client},
+    grpc,
     session::{use_token_info, TokenInfo},
 };
 
@@ -22,9 +22,8 @@ pub fn Login() -> impl IntoView {
             let navigate = use_navigate();
             let (_, set_token_info) = use_token_info();
             async move {
-                let mut token_set = token_set_client::TokenSetClient::new(
-                    grpc::new_client().await?,
-                );
+                let mut token_set =
+                    grpc::token_client::TokenClient::new(grpc::new_client());
                 let resp = token_set
                     .create(grpc::LoginRequest {
                         username,
@@ -34,7 +33,7 @@ pub fn Login() -> impl IntoView {
                     .await?;
                 let resp = resp.into_inner();
                 set_token_info(Some(TokenInfo {
-                    token: resp.token.signature,
+                    token: resp.token,
                     role: Role::try_from(resp.role).map_err(|_| {
                         ErrorKind::ServerError(ServerErrorKind::InvalidValue)
                     })?,
@@ -60,7 +59,7 @@ pub fn Login() -> impl IntoView {
     view! {
         <main class="grow flex items-center justify-center">
             <form
-                class="flex flex-col flex-nowrap justify-center items-center rounded-xl bg-lighten shadow-2xl shadow-secondary"
+                class="flex flex-col flex-nowrap justify-center items-center bg-slate-900"
                 on:submit=move |e| {
                     e.prevent_default();
                     submit.dispatch((username(), password()));
@@ -84,7 +83,7 @@ pub fn Login() -> impl IntoView {
                 </div>
                 <p class="w-full text-red text-center">{error_msg}</p>
                 <div class="p-4 w-full">
-                    <Button kind="submit" class="w-full" disabled>
+                    <Button type_="submit" class="w-full" disabled>
                         Login
                     </Button>
                 </div>
