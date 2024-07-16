@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use reqwest::{multipart, Client};
 use tracing::instrument;
 
+use crate::config::CONFIG;
 use crate::{config, report_internal};
 
 #[derive(Debug, thiserror::Error)]
@@ -38,16 +39,14 @@ impl From<Error> for tonic::Status {
 
 pub struct ImgurController {
     client: Client,
-    config: config::Imgur,
+    client_id: String,
 }
 
 impl ImgurController {
-    pub fn new(config: &config::Imgur) -> Self {
-        let client = Client::new();
-
+    pub fn new() -> Self {
         Self {
-            client,
-            config: config.clone(),
+            client: Client::new(),
+            client_id: CONFIG.imgur.client_id.to_string(),
         }
     }
     /// upload image
@@ -65,10 +64,7 @@ impl ImgurController {
             .client
             .post("https://api.imgur.com/3/image")
             .multipart(form)
-            .header(
-                "Authorization",
-                ["Client-ID", &self.config.client_id].concat(),
-            )
+            .header("Authorization", ["Client-ID", &self.client_id].concat())
             .send()
             .await?;
 

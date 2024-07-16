@@ -11,8 +11,6 @@ use tracing::{instrument, Instrument, Span};
 
 use crate::report_internal;
 
-use super::metrics::RateMetrics;
-
 /// cache size for main pool(vaildated list)
 const CACHE_SIZE: usize = 419000; // about 16MiB
 /// interval for database clean up
@@ -67,7 +65,6 @@ impl From<token::Model> for CachedToken {
 pub struct TokenController {
     cache: Cache<Rand, CachedToken>,
     rng: Mutex<Hc128Rng>,
-    cache_meter: RateMetrics<30>,
     db: Arc<DatabaseConnection>,
 }
 
@@ -79,7 +76,6 @@ impl TokenController {
         let self_ = Arc::new(Self {
             cache,
             rng: Mutex::new(Hc128Rng::from_entropy()),
-            cache_meter: RateMetrics::new("hitrate_token"),
             db: db.clone(),
         });
         tokio::spawn(async move {
@@ -150,7 +146,6 @@ impl TokenController {
         let token = match cache_result {
             Some(token) => {
                 tracing::trace!(user_id = token.user_id, "cache_hit");
-                self.cache_meter.set();
                 token
             }
             None => {
@@ -163,7 +158,6 @@ impl TokenController {
                 .into();
 
                 tracing::trace!(user_id = token.user_id, "cache_missed");
-                self.cache_meter.unset();
 
                 self.cache.insert(rand, token.clone());
 

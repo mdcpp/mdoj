@@ -125,17 +125,18 @@ impl Tracing {
         (Self::new(log_id), log_id)
     }
     pub fn new(log_id: Uuid) -> Self {
-        let ctx = Span::current().context();
-        let ctx_span = ctx.span();
-        let span_ctx = ctx_span.span_context();
-        let trace_id = span_ctx.trace_id();
-        let span_id = span_ctx.span_id();
-
-        Self {
-            trace_id,
-            span_id,
-            log_id,
-        }
+        // let ctx = Span::current().context();
+        // let ctx_span = ctx.span();
+        // let span_ctx = ctx_span.span_context();
+        // let trace_id = span_ctx.trace_id();
+        // let span_id = span_ctx.span_id();
+        //
+        // Self {
+        //     trace_id,
+        //     span_id,
+        //     log_id,
+        // }
+        todo!()
     }
     pub fn report(self) -> String {
         format!(

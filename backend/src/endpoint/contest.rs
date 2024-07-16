@@ -160,7 +160,6 @@ impl Contest for ArcServer {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "contest_created");
-        self.metrics.contest(1);
 
         Ok(Response::new(id))
     }
@@ -240,7 +239,6 @@ impl Contest for ArcServer {
             return Err(Error::NotInDB.into());
         }
 
-        self.metrics.contest(-1);
         tracing::debug!(id = req.id, "contest_remove");
 
         Ok(Response::new(()))

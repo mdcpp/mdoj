@@ -2,6 +2,7 @@ use super::tools::*;
 
 use grpc::backend::user_server::*;
 
+use crate::config::CONFIG;
 use crate::{
     entity::user,
     entity::user::{Paginator, *},
@@ -102,8 +103,7 @@ impl User for ArcServer {
         let new_perm: RoleLv = req.info.role().into();
 
         if (perm as i32)
-            > self
-                .config
+            > CONFIG
                 .default_role
                 .clone()
                 .map(|x| x as i32)
@@ -151,7 +151,6 @@ impl User for ArcServer {
             .map_err(|_| Error::AlreadyExist(model.username.as_ref().to_string()))?;
 
         tracing::debug!(id = id.id, "user_created");
-        self.metrics.user(1);
 
         Ok(Response::new(id))
     }
@@ -230,8 +229,6 @@ impl User for ArcServer {
         if result.rows_affected == 0 {
             return Err(Error::NotInDB.into());
         }
-
-        self.metrics.user(-1);
 
         self.token.remove_by_user_id(req.id).await?;
 

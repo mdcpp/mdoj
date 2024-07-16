@@ -23,7 +23,6 @@ impl Image for ArcServer {
         let url = UploadResponse { url };
 
         self.dup.store(user_id, uuid, url.clone());
-        self.metrics.image(1);
 
         Ok(Response::new(url))
     }

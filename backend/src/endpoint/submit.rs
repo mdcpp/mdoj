@@ -159,7 +159,6 @@ impl Submit for ArcServer {
             .await?;
 
         tracing::debug!(id = id, "submit_created");
-        self.metrics.submit(1);
 
         Ok(Response::new(id.into()))
     }
@@ -182,7 +181,6 @@ impl Submit for ArcServer {
         }
 
         tracing::debug!(id = req.id);
-        self.metrics.submit(-1);
 
         Ok(Response::new(()))
     }

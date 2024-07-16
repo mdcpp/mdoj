@@ -6,7 +6,7 @@ use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::{
     metrics::{
         reader::{DefaultAggregationSelector, DefaultTemporalitySelector},
-        MeterProvider, PeriodicReader,
+        PeriodicReader, SdkMeterProvider,
     },
     runtime,
     trace::{BatchConfig, RandomIdGenerator, Sampler, Tracer},
@@ -15,13 +15,14 @@ use opentelemetry_semantic_conventions::{
     resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
     SCHEMA_URL,
 };
+use std::future::Future;
 use tracing::Level;
 use tracing_opentelemetry::{MetricsLayer, OpenTelemetryLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::config::GlobalConfig;
+use crate::config::{GlobalConfig, CONFIG};
 
-pub static PACKAGE_NAME: &str = "mdoj-backend";
+static PACKAGE_NAME: &str = "mdoj-backend";
 
 fn resource() -> Resource {
     Resource::from_schema_url(
@@ -38,8 +39,8 @@ fn resource() -> Resource {
 }
 
 // Construct MeterProvider for MetricsLayer
-fn init_meter_provider(reader: impl MetricReader) -> MeterProvider {
-    let meter_provider = MeterProvider::builder()
+fn init_meter_provider(reader: impl MetricReader) -> SdkMeterProvider {
+    let meter_provider = SdkMeterProvider::builder()
         .with_resource(resource())
         .with_reader(reader)
         .build();
@@ -113,7 +114,28 @@ fn init_tracing_subscriber(level: Level, opentelemetry: Option<&str>) -> super::
 }
 
 pub struct OtelGuard {
-    pub meter_provider: MeterProvider,
+    pub meter_provider: SdkMeterProvider,
+}
+
+impl OtelGuard {
+    pub fn new() -> super::Result<Self> {
+        init_panic_hook();
+
+        let level = match CONFIG.log_level {
+            0 => Level::TRACE,
+            1 => Level::DEBUG,
+            2 => Level::INFO,
+            3 => Level::WARN,
+            4 => Level::ERROR,
+            _ => Level::INFO,
+        };
+
+        init_tracing_subscriber(level, CONFIG.opentelemetry.as_deref())
+    }
+    pub async fn with(self, f: impl Future<Output = ()>) {
+        f.await;
+        drop(self);
+    }
 }
 
 impl Drop for OtelGuard {
@@ -138,19 +160,4 @@ fn init_panic_hook() {
             tracing::error!(message = %panic);
         }
     }));
-}
-
-pub fn init(config: &GlobalConfig) -> super::Result<OtelGuard> {
-    init_panic_hook();
-
-    let level = match config.log_level {
-        0 => Level::TRACE,
-        1 => Level::DEBUG,
-        2 => Level::INFO,
-        3 => Level::WARN,
-        4 => Level::ERROR,
-        _ => Level::INFO,
-    };
-
-    init_tracing_subscriber(level, config.opentelemetry.as_deref())
 }

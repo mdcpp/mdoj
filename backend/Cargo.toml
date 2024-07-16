@@ -23,17 +23,18 @@ quick_cache = "0.4.0"
 hickory-resolver = "0.24.0"
 crossbeam-queue = "0.3.8"
 dashmap = "5.5.3"
-tracing-opentelemetry = "0.22.0"
 rand = "0.8.5"
 rand_hc = "0.3.2"
 blake2 = "0.10.6"
 ip_network = { version = "0.4.1", features = ["serde"] }
 # a lot of opentelemetry dependencies
-opentelemetry = { version = "0.21.0", features = ["metrics"] }
-opentelemetry_sdk = { version = "0.21.1", features = ["rt-tokio", "metrics"] }
-opentelemetry-stdout = { version = "0.2.0", features = ["metrics"] }
-opentelemetry-semantic-conventions = "0.13.0"
-opentelemetry-otlp = { version = "0.14.0", features = ["metrics"] }
+opentelemetry = { version = "0.23.0", features = ["metrics"] }
+opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio", "metrics"] }
+opentelemetry-stdout = { version = "0.4.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.16.0", features = ["metrics"] }
+opentelemetry-semantic-conventions = "0.16.0"
+tracing-opentelemetry = { version = "0.24.0", features = ["metrics"] }
+tracing-core = "0.1.32"
 migration = { path = "./migration", optional = true }
 sea-orm-cli = { version = "0.12.12", optional = true }
 governor = "0.6.0"

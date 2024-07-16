@@ -11,10 +11,7 @@ use std::{
 };
 use tokio_stream::StreamExt;
 
-use crate::{
-    report_internal, TonicStream,
-    {config, config::PACKAGE_NAME},
-};
+use crate::{config, report_internal, TonicStream};
 use grpc::backend::StateCode as BackendCode;
 use opentelemetry::{global, metrics::ObservableGauge};
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
@@ -23,14 +20,14 @@ use tonic::Status;
 use tracing::{instrument, Instrument, Span};
 use uuid::Uuid;
 
+use self::{pubsub::PubSub, route::*};
+use crate::config::CONFIG;
+use crate::entity::*;
+use crate::util::code::Code;
 use grpc::{
     backend::{submit_status, SubmitStatus},
     judger::*,
 };
-
-use self::{pubsub::PubSub, route::*};
-use crate::entity::*;
-use crate::util::code::Code;
 
 const PALYGROUND_TIME: u64 = 500 * 1000;
 const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
@@ -105,47 +102,28 @@ impl From<Code> for SubmitStatus {
     }
 }
 
-struct MeterGuard<'a>(&'a Judger);
-
-impl<'a> Drop for MeterGuard<'a> {
-    fn drop(&mut self) {
-        let (num, meter) = &self.0.running_meter;
-        meter.observe(num.fetch_sub(1, Ordering::Acquire) - 1, &[]);
-    }
-}
-
 pub struct PlaygroundPayload {
     pub input: Vec<u8>,
     pub code: Vec<u8>,
     pub lang: Uuid,
 }
 
-/// It manage state of upstream judger, provide ability to route request to potentially free upstream,
+/// It manages state of upstream judger, provide ability to route request to potentially free upstream,
 /// and provide enough publish-subscribe model
 pub struct Judger {
     router: Arc<Router>,
     pubsub: Arc<PubSub<Result<SubmitStatus, Status>, i32>>,
-    running_meter: (AtomicI64, ObservableGauge<i64>),
     db: Arc<DatabaseConnection>,
 }
 
 impl Judger {
     #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
-    pub async fn new(
-        config: Vec<config::Judger>,
-        db: Arc<DatabaseConnection>,
-        span: &Span,
-    ) -> Result<Self, Error> {
-        let router = Router::new(config, span)?;
+    pub async fn new(span: &Span, db: Arc<DatabaseConnection>) -> Result<Self, Error> {
+        let judgers = CONFIG.judger.clone();
+        let router = Router::new(judgers, span)?;
         Ok(Judger {
             router,
             pubsub: Arc::new(PubSub::default()),
-            running_meter: (
-                AtomicI64::new(0),
-                global::meter(PACKAGE_NAME)
-                    .i64_observable_gauge("running_judge")
-                    .init(),
-            ),
             db,
         })
     }

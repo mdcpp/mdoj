@@ -16,6 +16,11 @@ pub type TonicStream<T> =
 
 #[tokio::main]
 async fn main() {
-    let server = server::Server::new().await.unwrap();
-    server.start().await;
+    server::OtelGuard::new()
+        .unwrap()
+        .with(async {
+            let server = server::Server::new().await.unwrap();
+            server.start().await;
+        })
+        .await;
 }

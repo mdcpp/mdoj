@@ -3,14 +3,15 @@ pub mod error;
 pub mod logger;
 
 pub use error::InitError;
-pub use logger::PACKAGE_NAME;
 pub type Result<T> = std::result::Result<T, InitError>;
+
+pub use logger::OtelGuard;
 
 use std::{ops::Deref, sync::Arc};
 
 use crate::{config, controller::*};
 
-use crate::config::GlobalConfig;
+use crate::config::CONFIG;
 use grpc::backend::{
     announcement_server::AnnouncementServer, chat_server::ChatServer,
     contest_server::ContestServer, education_server::EducationServer,
@@ -18,7 +19,6 @@ use grpc::backend::{
     token_server::TokenServer, user_server::UserServer,
 };
 use http::header::HeaderName;
-use logger::OtelGuard;
 use sea_orm::DatabaseConnection;
 use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
@@ -47,13 +47,10 @@ pub struct Server {
     pub judger: Arc<judger::Judger>,
     pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
-    pub metrics: metrics::MetricsController,
     pub imgur: imgur::ImgurController,
     pub rate_limit: rate_limit::RateLimitController,
-    pub config: GlobalConfig,
     pub db: Arc<DatabaseConnection>,
     pub identity: Mutex<Option<Identity>>,
-    _otel_guard: OtelGuard,
 }
 
 #[derive(Clone)]
@@ -78,21 +75,18 @@ impl Server {
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
     pub async fn new() -> Result<Arc<Self>> {
-        let config = config::init().await?;
-
-        let otel_guard = logger::init(&config)?;
         let span = span!(Level::INFO, "server_construct");
-        let crypto = crypto::CryptoController::new(&config, &span);
+        let crypto = crypto::CryptoController::new(&span);
         let db = Arc::new(
-            db::init(&config.database, &crypto, &span)
+            db::init(&CONFIG.database, &crypto, &span)
                 .in_current_span()
                 .await?,
         );
 
         let mut identity = None;
-        if config.grpc.private_pem.is_some() {
-            let private_pem = config.grpc.private_pem.as_ref().unwrap();
-            let public_pem = config
+        if CONFIG.grpc.private_pem.is_some() {
+            let private_pem = CONFIG.grpc.private_pem.as_ref().unwrap();
+            let public_pem = CONFIG
                 .grpc
                 .public_pem
                 .as_ref()
@@ -107,20 +101,17 @@ impl Server {
         Ok(Arc::new(Server {
             token: token::TokenController::new(&span, db.clone()),
             judger: Arc::new(
-                judger::Judger::new(config.judger.clone(), db.clone(), &span)
+                judger::Judger::new(&span, db.clone())
                     .in_current_span()
                     .await
                     .unwrap(),
             ),
             dup: duplicate::DupController::new(&span),
             crypto,
-            metrics: metrics::MetricsController::new(&otel_guard.meter_provider),
-            imgur: imgur::ImgurController::new(&config.imgur),
-            rate_limit: rate_limit::RateLimitController::new(&config.grpc.trust_host),
-            config,
+            imgur: imgur::ImgurController::new(),
+            rate_limit: rate_limit::RateLimitController::new(&CONFIG.grpc.trust_host),
             identity: Mutex::new(identity),
             db,
-            _otel_guard: otel_guard,
         }))
     }
     /// Start the server
@@ -164,14 +155,11 @@ impl Server {
             .add_service(SubmitServer::new(self_.clone()))
             .add_service(ChatServer::new(self_.clone()))
             .add_service(AnnouncementServer::new(self_.clone()))
-            .serve_with_shutdown(
-                self_.0.config.bind_address.clone().parse().unwrap(),
-                async {
-                    if tokio::signal::ctrl_c().await.is_err() {
-                        tracing::warn!("graceful_shutdown");
-                    }
-                },
-            )
+            .serve_with_shutdown(CONFIG.bind_address.clone().parse().unwrap(), async {
+                if tokio::signal::ctrl_c().await.is_err() {
+                    tracing::warn!("graceful_shutdown");
+                }
+            })
             .await
             .unwrap();
     }

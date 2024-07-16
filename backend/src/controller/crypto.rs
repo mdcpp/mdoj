@@ -3,7 +3,7 @@ use rand::{rngs::OsRng, Rng};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::Span;
 
-use crate::config::GlobalConfig;
+use crate::config::{GlobalConfig, CONFIG};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use blake2::{Blake2b512, Digest};
 
@@ -28,22 +28,15 @@ impl From<Error> for tonic::Status {
 
 pub struct CryptoController {
     salt: Vec<u8>,
-    // signing_key: SigningKey,
-    // verifying_key: VerifyingKey,
     xor_key: u8,
 }
 
 impl CryptoController {
     #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
-    pub fn new(config: &GlobalConfig, span: &Span) -> Self {
-        let salt = config.database.salt.as_bytes().to_vec();
-        // let signing_key = SigningKey::random(&mut OsRng);
-        // let verifying_key = *signing_key.verifying_key();
-
+    pub fn new(span: &Span) -> Self {
+        let salt = CONFIG.database.salt.as_bytes().to_vec();
         Self {
             salt,
-            // signing_key,
-            // verifying_key,
             xor_key: OsRng.gen(),
         }
     }

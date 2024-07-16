@@ -1,17 +1,16 @@
-use std::{path::PathBuf, str::FromStr};
-
 use crate::server;
 use crate::server::InitError;
+use futures::executor::block_on;
 use ip_network::IpNetwork;
 use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, str::FromStr};
 use tokio::{fs, io::AsyncReadExt};
-
-pub use crate::server::PACKAGE_NAME;
 
 lazy_static::lazy_static! {
     pub static ref CONFIG_PATH: PathBuf=PathBuf::from_str(
         &std::env::var("CONFIG_PATH").unwrap_or("config.toml".to_string()))
         .expect("Invalid CONFIG_PATH");
+    pub static ref CONFIG: GlobalConfig = block_on(init()).unwrap();
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -133,7 +132,7 @@ impl Default for Imgur {
     }
 }
 
-pub async fn init() -> server::Result<GlobalConfig> {
+async fn init() -> server::Result<GlobalConfig> {
     let config_path = CONFIG_PATH.as_path();
     if fs::metadata(config_path).await.is_ok() {
         let mut buf = Vec::new();

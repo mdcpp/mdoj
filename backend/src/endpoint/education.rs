@@ -108,7 +108,6 @@ impl Education for ArcServer {
         self.dup.store(user_id, uuid, id.clone());
 
         tracing::debug!(id = id.id, "education_created");
-        self.metrics.education(1);
 
         Ok(Response::new(id))
     }
@@ -167,7 +166,6 @@ impl Education for ArcServer {
         }
 
         tracing::debug!(id = req.id);
-        self.metrics.education(-1);
 
         Ok(Response::new(()))
     }
