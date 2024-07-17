@@ -37,13 +37,7 @@ impl Education for ArcServer {
         &self,
         req: Request<ListEducationRequest>,
     ) -> Result<Response<ListEducationResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -76,10 +70,7 @@ impl Education for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateEducationRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -113,10 +104,7 @@ impl Education for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -150,10 +138,7 @@ impl Education for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -174,10 +159,7 @@ impl Education for ArcServer {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         let (problem, model) = tokio::try_join!(
@@ -217,10 +199,7 @@ impl Education for ArcServer {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let mut model = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -247,10 +226,7 @@ impl Education for ArcServer {
         &self,
         req: Request<AddEducationToProblemRequest>,
     ) -> Result<Response<EducationFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let parent: problem::IdModel =
             problem::Entity::related_read_by_id(&auth, Into::<i32>::into(req.problem_id), &self.db)

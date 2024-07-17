@@ -31,7 +31,7 @@ ip_network = { version = "0.4.1", features = ["serde"] }
 opentelemetry = { version = "0.23.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio", "metrics"] }
 opentelemetry-stdout = { version = "0.4.0", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.16.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.16.0", features = ["metrics", "tls-roots"] }
 opentelemetry-semantic-conventions = "0.16.0"
 tracing-opentelemetry = { version = "0.24.0", features = ["metrics"] }
 tracing-core = "0.1.32"

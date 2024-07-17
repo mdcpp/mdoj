@@ -62,13 +62,7 @@ impl Contest for ArcServer {
         &self,
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -101,10 +95,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ContestFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
         let model = query
@@ -118,10 +109,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateContestRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -165,10 +153,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -224,10 +209,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -245,10 +227,7 @@ impl Contest for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?

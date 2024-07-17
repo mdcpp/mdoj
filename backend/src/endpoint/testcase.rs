@@ -40,10 +40,7 @@ impl Testcase for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateTestcaseRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -78,10 +75,7 @@ impl Testcase for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -115,10 +109,7 @@ impl Testcase for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -139,10 +130,7 @@ impl Testcase for ArcServer {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.super_user() {
@@ -181,10 +169,7 @@ impl Testcase for ArcServer {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let mut test = Entity::write_by_id(req.problem_id, &auth)?
             .columns([Column::Id, Column::ProblemId])
@@ -209,10 +194,7 @@ impl Testcase for ArcServer {
         &self,
         req: Request<AddTestcaseToProblemRequest>,
     ) -> Result<Response<TestcaseFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         tracing::debug!(problem_id = req.problem_id, testcase_id = req.testcase_id);
 

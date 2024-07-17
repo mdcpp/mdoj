@@ -56,13 +56,7 @@ impl Submit for ArcServer {
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -92,10 +86,7 @@ impl Submit for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         tracing::debug!(id = req.id);
 
@@ -110,7 +101,7 @@ impl Submit for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -165,10 +156,7 @@ impl Submit for ArcServer {
 
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> std::result::Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
             .exec(self.db.deref())
@@ -208,10 +196,7 @@ impl Submit for ArcServer {
 
     #[instrument(skip_all, level = "debug")]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         let submit_id = req.submit_id;

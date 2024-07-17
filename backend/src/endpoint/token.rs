@@ -22,10 +22,7 @@ impl From<Model> for String {
 impl Token for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn list(&self, req: Request<Id>) -> Result<Response<Tokens>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         if req.id != user_id && !perm.root() {
@@ -49,10 +46,7 @@ impl Token for ArcServer {
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
         // FIXME: limit token count
-        let (_, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (_, req) = self.rate_limit(req).in_current_span().await?;
 
         tracing::debug!(username = req.username);
 

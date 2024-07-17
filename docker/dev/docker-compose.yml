@@ -51,6 +51,8 @@ services:
     profiles: [backend-dev, frontend-dev]
     ports:
       - "16686:16686"
+      - "4317:4317/tcp"
+      - "4317:4317/udp"
     networks:
       - jaeger
   migration:

@@ -149,6 +149,7 @@ impl TokenController {
                 token
             }
             None => {
+                // FIXME: this is cold branch!
                 let token: CachedToken = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
                     .one(self.db.deref())

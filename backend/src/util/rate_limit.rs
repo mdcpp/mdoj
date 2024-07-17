@@ -1,0 +1,197 @@
+use std::num::NonZeroU32;
+
+use crate::{
+    controller::rate_limit::{Bucket, TrafficType},
+    server::Server,
+};
+use grpc::backend::{Id, *};
+use tracing::*;
+
+use super::auth::Auth;
+
+impl Server {
+    /// parse authentication without rate limiting
+    ///
+    /// It's useful for endpoints that require resolving identity
+    /// before rate limiting, such as logout
+    pub async fn parse_auth<T>(
+        &self,
+        req: &tonic::Request<T>,
+    ) -> Result<(Auth, Bucket), tonic::Status> {
+        let mut auth = Auth::Guest;
+
+        let bucket = self
+            .rate_limit
+            .check(req, |req| async {
+                if let Some(x) = req.metadata().get("token") {
+                    let token = x.to_str().unwrap();
+
+                    match self.token.verify(token).in_current_span().await {
+                        Ok(user) => {
+                            tracing::debug!(user_id = user.0);
+                            auth = Auth::User(user);
+                            TrafficType::Login(user.0)
+                        }
+                        Err(err) => {
+                            tracing::debug!(msg = err.to_string());
+                            TrafficType::Blacklist(err)
+                        }
+                    }
+                } else {
+                    tracing::debug!("token_missing");
+                    TrafficType::Guest
+                }
+            })
+            .await?;
+        Ok((auth, bucket))
+    }
+    /// parse request for payload and immediately rate
+    /// limiting base on a const cost
+    #[inline]
+    #[instrument(skip_all, level = "info", name = "parse")]
+    pub async fn parse_request_n<T>(
+        &self,
+        req: tonic::Request<T>,
+        permit: NonZeroU32,
+    ) -> Result<(Auth, T), tonic::Status> {
+        let (auth, bucket) = self.parse_auth(&req).await?;
+
+        bucket.cost(permit)?;
+
+        Ok((auth, req.into_inner()))
+    }
+    /// parse request for payload and immediately rate
+    /// limiting base on a dynamic cost(calculated by a function)
+    #[inline]
+    pub async fn parse_request_fn<T, F>(
+        &self,
+        req: tonic::Request<T>,
+        f: F,
+    ) -> Result<(Auth, T), tonic::Status>
+    where
+        F: FnOnce(&T) -> u32,
+    {
+        let (auth, bucket) = self.parse_auth(&req).await?;
+        let req = req.into_inner();
+
+        if let Some(cost) = NonZeroU32::new(f(&req)) {
+            bucket.cost(cost)?;
+        }
+
+        Ok((auth, req))
+    }
+    pub async fn rate_limit<T: RateLimit>(
+        &self,
+        req: tonic::Request<T>,
+    ) -> Result<(Auth, T), tonic::Status> {
+        let (auth, bucket) = self.parse_auth(&req).in_current_span().await?;
+        bucket.cost(NonZeroU32::new(3).unwrap())?;
+        let req = req.into_inner();
+
+        if let Some(cost) = NonZeroU32::new(req.get_cost()) {
+            bucket.cost(cost)?;
+        }
+
+        Ok((auth, req))
+    }
+}
+
+pub trait RateLimit {
+    fn get_cost(&self) -> u32 {
+        10
+    }
+}
+
+macro_rules! impl_list_rate_limit {
+    ($t:ident) => {
+        paste::paste!{
+            impl RateLimit for [<List $t Request>]{
+                fn get_cost(&self) -> u32 {
+                    self.size.saturating_add(self.offset.unsigned_abs() / 7).saturating_add(5).min(u32::MAX as u64) as u32
+                }
+            }
+        }
+    };
+}
+impl_list_rate_limit!(Problem);
+impl_list_rate_limit!(Contest);
+impl_list_rate_limit!(Submit);
+impl_list_rate_limit!(Education);
+impl_list_rate_limit!(Testcase);
+impl_list_rate_limit!(Announcement);
+
+impl RateLimit for ListUserRequest {
+    fn get_cost(&self) -> u32 {
+        self.size
+            .saturating_add(self.offset.abs() as u64 / 6)
+            .saturating_add(12)
+            .min(u32::MAX as u64) as u32
+    }
+}
+
+impl RateLimit for ListChatRequest {
+    fn get_cost(&self) -> u32 {
+        self.size
+            .saturating_add(self.offset.abs() as u64 / 8)
+            .saturating_add(3)
+            .min(u32::MAX as u64) as u32
+    }
+}
+
+impl RateLimit for Id {}
+
+macro_rules! impl_basic_rate_limit {
+    ($t:ident) => {
+        paste::paste! {
+            impl RateLimit for [<Create $t Request>]{
+                fn get_cost(&self) -> u32 {
+                    17
+                }
+            }
+            impl RateLimit for [<Update $t Request>]{
+                fn get_cost(&self) -> u32 {
+                    15
+                }
+            }
+        }
+    };
+}
+impl_basic_rate_limit!(Problem);
+impl_basic_rate_limit!(Contest);
+impl_basic_rate_limit!(Education);
+impl_basic_rate_limit!(Testcase);
+impl_basic_rate_limit!(Announcement);
+impl_basic_rate_limit!(User);
+
+impl RateLimit for UpdatePasswordRequest {
+    fn get_cost(&self) -> u32 {
+        230
+    }
+}
+impl RateLimit for CreateSubmitRequest {
+    fn get_cost(&self) -> u32 {
+        430
+    }
+}
+impl RateLimit for CreateChatRequest {
+    fn get_cost(&self) -> u32 {
+        10
+    }
+}
+
+impl RateLimit for AddAnnouncementToContestRequest {}
+
+impl RateLimit for AddEducationToProblemRequest {}
+
+impl RateLimit for AddTestcaseToProblemRequest {}
+impl RateLimit for AddProblemToContestRequest {}
+impl RateLimit for JoinContestRequest {}
+
+impl RateLimit for RejudgeRequest {}
+
+impl RateLimit for LoginRequest {
+    fn get_cost(&self) -> u32 {
+        200
+    }
+}
+impl RateLimit for () {}

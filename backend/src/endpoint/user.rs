@@ -40,13 +40,7 @@ impl User for ArcServer {
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -85,10 +79,7 @@ impl User for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -156,10 +147,7 @@ impl User for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let (user_id, perm) = auth.auth_or_guest()?;
 
@@ -215,10 +203,7 @@ impl User for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -239,10 +224,7 @@ impl User for ArcServer {
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _) = auth.auth_or_guest()?;
 
         let model = user::Entity::find()
@@ -273,10 +255,7 @@ impl User for ArcServer {
 
     #[instrument(skip_all, level = "debug")]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserFullInfo>, Status> {
-        let (auth, _) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _) = auth.auth_or_guest()?;
 
         let model = Entity::find_by_id(user_id)

@@ -56,13 +56,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<ListAnnouncementRequest>,
     ) -> Result<Response<ListAnnouncementResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -84,8 +78,11 @@ impl Announcement for ArcServer {
         };
         let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
 
-        let list = paginator.fetch(req.size, req.offset).await?;
-        let remain = paginator.remain().await?;
+        let list = paginator
+            .fetch(req.size, req.offset)
+            .in_current_span()
+            .await?;
+        let remain = paginator.remain().in_current_span().await?;
 
         let paginator = paginator.into_inner();
 
@@ -97,10 +94,7 @@ impl Announcement for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         tracing::debug!(announcement_id = req.id);
 
@@ -119,10 +113,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -159,10 +150,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
@@ -196,10 +184,7 @@ impl Announcement for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
             .exec(self.db.deref())
@@ -220,10 +205,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
         if !perm.super_user() {
@@ -267,11 +249,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
@@ -293,10 +271,7 @@ impl Announcement for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -326,10 +301,7 @@ impl Announcement for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
 
         tracing::debug!(id = req.id);
@@ -362,10 +334,7 @@ impl Announcement for ArcServer {
         &self,
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let parent: contest::IdModel =
             contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
