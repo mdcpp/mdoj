@@ -17,6 +17,7 @@ pub mod util;
 use sea_orm::{
     entity::prelude::*, EntityTrait, FromQueryResult, PrimaryKeyTrait, QueryFilter, Select,
 };
+use tracing::{instrument, Level};
 
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;

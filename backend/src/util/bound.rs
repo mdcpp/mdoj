@@ -1,11 +1,14 @@
 use super::error::Error;
 use grpc::backend::*;
+use tracing::instrument;
 
 pub trait BoundCheck {
     /// return true if fail
     fn check(&self) -> bool;
+    #[instrument(skip_all, level = "info")]
     fn bound_check(&self) -> Result<(), tonic::Status> {
         if self.check() {
+            tracing::warn!(msg = "bound check fail");
             Err(Error::NumberTooLarge.into())
         } else {
             Ok(())

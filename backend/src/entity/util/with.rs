@@ -1,7 +1,9 @@
 use crate::util::auth::Auth;
 use sea_orm::DatabaseConnection;
 
+#[derive(Debug)]
 pub struct WithAuth<'a, T>(pub &'a Auth, pub T);
+#[derive(Debug)]
 pub struct WithDB<'a, T>(pub &'a DatabaseConnection, pub T);
 
 pub trait WithAuthTrait

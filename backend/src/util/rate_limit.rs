@@ -80,6 +80,7 @@ impl Server {
 
         Ok((auth, req))
     }
+    #[instrument(skip_all, level = "info")]
     pub async fn rate_limit<T: RateLimit>(
         &self,
         req: tonic::Request<T>,

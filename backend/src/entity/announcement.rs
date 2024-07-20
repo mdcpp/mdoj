@@ -1,6 +1,5 @@
 use super::*;
 use grpc::backend::list_announcement_request::Sort;
-use tracing::instrument;
 
 pub static NAME: &str = "announcement";
 
@@ -252,7 +251,6 @@ impl WithAuthTrait for Paginator {}
 
 impl Paginator {
     pub fn new_text(text: String, start_from_end: bool) -> Self {
-        // FIXME: check dup text
         Self::Text(TextPaginator::new(text, start_from_end))
     }
     pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
@@ -273,6 +271,7 @@ impl Paginator {
 }
 
 impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    #[instrument(skip_all, err(level = "debug", Display))]
     pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<PartialModel>, Error> {
         let db = self.0;
         let auth = self.1 .0;
@@ -283,6 +282,7 @@ impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
             Paginator::Default(ref mut x) => x.fetch(size, offset, auth, db).await,
         }
     }
+    #[instrument(skip_all, err(level = "debug", Display))]
     pub async fn remain(&self) -> Result<u64, Error> {
         let db = self.0;
         let auth = self.1 .0;

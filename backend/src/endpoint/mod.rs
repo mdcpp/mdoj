@@ -36,6 +36,7 @@ mod tools {
         time::*,
     };
     pub use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
+    pub use tracing::{Instrument, Level};
 }
 
 // FIXME: currently we report transaction error as internal error,

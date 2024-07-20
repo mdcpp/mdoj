@@ -1,4 +1,5 @@
 use super::tools::*;
+use opentelemetry::trace::FutureExt;
 
 use grpc::backend::announcement_server::*;
 
@@ -51,7 +52,12 @@ impl From<PartialModel> for AnnouncementInfo {
 
 #[async_trait]
 impl Announcement for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListAnnouncementRequest>,
@@ -92,7 +98,12 @@ impl Announcement for ArcServer {
             remain,
         }))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.full_info",
+        err(level = "debug", Display)
+    )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
@@ -108,7 +119,40 @@ impl Announcement for ArcServer {
 
         Ok(Response::new(model.with_auth(&auth).into()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.full_info_by_contest",
+        err(level = "debug", Display)
+    )]
+    async fn full_info_by_contest(
+        &self,
+        req: Request<AddAnnouncementToContestRequest>,
+    ) -> Result<Response<AnnouncementFullInfo>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+
+        let parent: contest::IdModel =
+            contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
+                .in_current_span()
+                .await?;
+        let model = parent
+            .upgrade()
+            .find_related(Entity)
+            .filter(Column::Id.eq(Into::<i32>::into(req.announcement_id)))
+            .one(self.db.deref())
+            .instrument(info_span!("fetch").or_current())
+            .await
+            .map_err(Into::<Error>::into)?
+            .ok_or(Error::NotInDB)?;
+
+        Ok(Response::new(model.with_auth(&auth).into()))
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.create",
+        err(level = "debug", Display)
+    )]
     async fn create(
         &self,
         req: Request<CreateAnnouncementRequest>,
@@ -143,9 +187,16 @@ impl Announcement for ArcServer {
         self.dup.store(user_id, uuid, id.clone());
         tracing::debug!(id = id.id, "announcement_created");
 
+        tracing::info!(count.announcement = 1);
+
         Ok(Response::new(id))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.update",
+        err(level = "debug", Display)
+    )]
     async fn update(
         &self,
         req: Request<UpdateAnnouncementRequest>,
@@ -182,7 +233,12 @@ impl Announcement for ArcServer {
 
         Ok(Response::new(()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.remove",
+        err(level = "debug", Display)
+    )]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
@@ -198,9 +254,16 @@ impl Announcement for ArcServer {
 
         tracing::debug!(id = req.id);
 
+        tracing::info!(counter.announcement = -1);
+
         Ok(Response::new(()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.add_to_contest",
+        err(level = "debug", Display)
+    )]
     async fn add_to_contest(
         &self,
         req: Request<AddAnnouncementToContestRequest>,
@@ -244,7 +307,12 @@ impl Announcement for ArcServer {
 
         Ok(Response::new(()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.remove_from_contest",
+        err(level = "debug", Display)
+    )]
     async fn remove_from_contest(
         &self,
         req: Request<AddAnnouncementToContestRequest>,
@@ -269,7 +337,12 @@ impl Announcement for ArcServer {
 
         Ok(Response::new(()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.publish",
+        err(level = "debug", Display)
+    )]
     async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
@@ -299,7 +372,12 @@ impl Announcement for ArcServer {
 
         Ok(Response::new(()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "Announcement.unpublish",
+        err(level = "debug", Display)
+    )]
     async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
@@ -328,28 +406,5 @@ impl Announcement for ArcServer {
             .map_err(atomic_fail)?;
 
         Ok(Response::new(()))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn full_info_by_contest(
-        &self,
-        req: Request<AddAnnouncementToContestRequest>,
-    ) -> Result<Response<AnnouncementFullInfo>, Status> {
-        let (auth, req) = self.rate_limit(req).in_current_span().await?;
-
-        let parent: contest::IdModel =
-            contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
-                .in_current_span()
-                .await?;
-        let model = parent
-            .upgrade()
-            .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.announcement_id)))
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
-
-        Ok(Response::new(model.with_auth(&auth).into()))
     }
 }
