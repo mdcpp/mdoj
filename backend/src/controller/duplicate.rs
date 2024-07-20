@@ -1,10 +1,10 @@
+use quick_cache::sync::Cache;
+use std::future::Future;
+use std::sync::Arc;
 use std::{
     any::{Any, TypeId},
     ops::Deref,
 };
-
-use quick_cache::sync::Cache;
-use std::sync::Arc;
 use tracing::Span;
 use uuid::Uuid;
 
@@ -33,7 +33,7 @@ impl DupController {
         }
     }
     /// store request_id and result
-    #[tracing::instrument(name = "store_request_id", level = "info", skip_all)]
+    #[tracing::instrument(name = "controller.duplicate.store", level = "debug", skip_all)]
     pub fn store<T>(&self, user_id: i32, request_id: Uuid, result: T)
     where
         T: 'static + Send + Sync + Clone,
@@ -46,7 +46,7 @@ impl DupController {
         self.store.insert(key, Arc::new(result));
     }
     /// check request_id and result
-    #[tracing::instrument(name = "check_request_id", level = "info", skip_all)]
+    #[tracing::instrument(name = "controller.duplicate.get", level = "debug", skip_all)]
     pub fn check<T>(&self, user_id: i32, request_id: Uuid) -> Option<T>
     where
         T: 'static + Send + Sync + Clone,

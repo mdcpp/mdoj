@@ -69,8 +69,8 @@ pub struct TokenController {
 }
 
 impl TokenController {
-    #[tracing::instrument(parent = span,name="token_construct_controller",level = "info",skip_all)]
-    pub fn new(span: &Span, db: Arc<DatabaseConnection>) -> Arc<Self> {
+    #[tracing::instrument(name = "token_construct_controller", level = "info", skip_all)]
+    pub fn new(db: Arc<DatabaseConnection>) -> Arc<Self> {
         log::debug!("Setup TokenController");
         let cache = Cache::new(CACHE_SIZE);
         let self_ = Arc::new(Self {

@@ -32,7 +32,7 @@ pub struct CryptoController {
 }
 
 impl CryptoController {
-    pub fn new(span: &Span) -> Self {
+    pub fn new() -> Self {
         let salt = CONFIG.database.salt.as_bytes().to_vec();
         Self {
             salt,

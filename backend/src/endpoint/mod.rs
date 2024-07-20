@@ -32,6 +32,7 @@ mod tools {
     pub use crate::util::{
         auth::RoleLv,
         bound::BoundCheck,
+        duplicate::Cacheable,
         error::{atomic_fail, Error},
         time::*,
     };

@@ -55,7 +55,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.list",
+        name = "endpoint.Announcement.list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -101,7 +101,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.full_info",
+        name = "endpoint.Announcement.full_info",
         err(level = "debug", Display)
     )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
@@ -122,7 +122,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.full_info_by_contest",
+        name = "endpoint.Announcement.full_info_by_contest",
         err(level = "debug", Display)
     )]
     async fn full_info_by_contest(
@@ -150,7 +150,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.create",
+        name = "endpoint.Announcement.create",
         err(level = "debug", Display)
     )]
     async fn create(
@@ -162,39 +162,35 @@ impl Announcement for ArcServer {
 
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        req.process(|req| async {
+            if perm.super_user() {
+                return Err(Error::RequirePermission(RoleLv::Super).into());
+            }
 
-        if perm.super_user() {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
+            let mut model: ActiveModel = Default::default();
+            model.user_id = ActiveValue::Set(user_id);
 
-        let mut model: ActiveModel = Default::default();
-        model.user_id = ActiveValue::Set(user_id);
+            fill_active_model!(model, req.info, title, content);
 
-        fill_active_model!(model, req.info, title, content);
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let model = model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            let id: Id = model.id.clone().unwrap().into();
 
-        let id: Id = model.id.clone().unwrap().into();
+            tracing::debug!(id = id.id, "announcement_created");
 
-        self.dup.store(user_id, uuid, id.clone());
-        tracing::debug!(id = id.id, "announcement_created");
-
-        tracing::info!(count.announcement = 1);
-
-        Ok(Response::new(id))
+            tracing::info!(count.announcement = 1);
+            Ok(id)
+        })
+        .await
     }
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.update",
+        name = "endpoint.Announcement.update",
         err(level = "debug", Display)
     )]
     async fn update(
@@ -236,7 +232,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.remove",
+        name = "endpoint.Announcement.remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
@@ -261,7 +257,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.add_to_contest",
+        name = "endpoint.Announcement.add_to_contest",
         err(level = "debug", Display)
     )]
     async fn add_to_contest(
@@ -310,7 +306,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.remove_from_contest",
+        name = "endpoint.Announcement.remove_from_contest",
         err(level = "debug", Display)
     )]
     async fn remove_from_contest(
@@ -340,7 +336,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.publish",
+        name = "endpoint.Announcement.publish",
         err(level = "debug", Display)
     )]
     async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
@@ -375,7 +371,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "Announcement.unpublish",
+        name = "endpoint.Announcement.unpublish",
         err(level = "debug", Display)
     )]
     async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
