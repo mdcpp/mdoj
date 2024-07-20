@@ -19,6 +19,7 @@ use sea_orm::{
 };
 use tracing::{instrument, Level};
 
+use crate::util::auth::RoleLv;
 use crate::util::{auth::Auth, error::Error};
 use tonic::async_trait;
 

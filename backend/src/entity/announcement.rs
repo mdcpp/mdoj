@@ -88,7 +88,7 @@ impl super::Filter for Entity {
         if perm.super_user() {
             return Ok(query.filter(Column::UserId.eq(user_id)));
         }
-        Err(Error::NotInDB)
+        Err(Error::RequirePermission(RoleLv::Super))
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
         auth.user_perm().admin() || Some(model.user_id) == auth.user_id()

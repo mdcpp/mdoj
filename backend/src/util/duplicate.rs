@@ -2,7 +2,32 @@ use super::error::Result;
 use grpc::backend::*;
 use quick_cache::sync::Cache;
 use std::future::Future;
+use tonic::Response;
 use uuid::Uuid;
+
+/// A newtype wrapper for crate::Result to tonic::Result;
+pub struct WithGrpc<T>(Result<T>);
+
+impl<T> From<WithGrpc<T>> for tonic::Result<Response<T>> {
+    fn from(value: WithGrpc<T>) -> Self {
+        match value.0 {
+            Ok(x) => Ok(Response::new(x)),
+            Err(err) => Err(err.into()),
+        }
+    }
+}
+
+pub trait WithGrpcTrait {
+    type Item;
+    fn with_grpc(self) -> WithGrpc<Self::Item>;
+}
+
+impl<T> WithGrpcTrait for Result<T> {
+    type Item = T;
+    fn with_grpc(self) -> WithGrpc<Self::Item> {
+        WithGrpc(self)
+    }
+}
 
 /// caching singleton trait
 ///
@@ -98,3 +123,7 @@ macro_rules! create_cache {
 }
 
 create_cache!(CreateAnnouncementRequest, Id);
+create_cache!(UpdateAnnouncementRequest, ());
+create_cache!(CreateChatRequest, Id);
+create_cache!(CreateContestRequest, Id);
+create_cache!(UpdateContestRequest, ());

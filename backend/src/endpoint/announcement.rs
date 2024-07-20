@@ -162,7 +162,7 @@ impl Announcement for ArcServer {
 
         req.bound_check()?;
 
-        req.process(|req| async {
+        req.get_or_insert(|req| async {
             if perm.super_user() {
                 return Err(Error::RequirePermission(RoleLv::Super).into());
             }
@@ -186,6 +186,8 @@ impl Announcement for ArcServer {
             Ok(id)
         })
         .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -202,32 +204,29 @@ impl Announcement for ArcServer {
 
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        req.get_or_insert(|req| async {
+            tracing::trace!(id = req.id);
 
-        tracing::trace!(id = req.id);
+            let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
+            fill_exist_active_model!(model, req.info, title, content);
 
-        fill_exist_active_model!(model, req.info, title, content);
-
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        self.dup.store(user_id, uuid, ());
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await
+                .map_err(atomic_fail)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -267,33 +266,19 @@ impl Announcement for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, perm) = auth.auth_or_guest()?;
 
-        if !perm.super_user() {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
-
         let (contest, model) = tokio::try_join!(
-            contest::Entity::read_by_id(req.contest_id, &auth)?
+            contest::Entity::write_by_id(req.contest_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_parent").or_current()),
-            Entity::read_by_id(req.announcement_id, &auth)?
+            Entity::write_by_id(req.announcement_id, &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch_child").or_current())
         )
         .map_err(Into::<Error>::into)?;
 
-        let contest = contest.ok_or(Error::NotInDB)?;
-        let model = model.ok_or(Error::NotInDB)?;
+        contest.ok_or(Error::NotInDB)?;
+        let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
 
-        if !perm.admin() {
-            if contest.hoster != user_id {
-                return Err(Error::NotInDB.into());
-            }
-            if model.user_id != user_id {
-                return Err(Error::NotInDB.into());
-            }
-        }
-
-        let mut model = model.into_active_model();
         model.contest_id = ActiveValue::Set(Some(req.contest_id));
         model
             .update(self.db.deref())
