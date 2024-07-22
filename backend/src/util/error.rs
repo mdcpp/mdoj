@@ -107,6 +107,13 @@ pub fn atomic_fail(err: sea_orm::DbErr) -> Status {
     }
 }
 
+pub fn atomic_fail_tran(err: sea_orm::DbErr) -> crate::util::error::Error {
+    match err {
+        sea_orm::DbErr::RecordNotUpdated => Error::NotInDB,
+        _ => Error::DBErr(err),
+    }
+}
+
 /// Tracing information for error
 ///
 /// useful to log the tracing information to client

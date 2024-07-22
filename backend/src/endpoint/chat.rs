@@ -23,6 +23,12 @@ impl<'a> WithAuthTrait for Model {}
 
 #[tonic::async_trait]
 impl Chat for ArcServer {
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Chat.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
@@ -32,28 +38,26 @@ impl Chat for ArcServer {
 
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        req.get_or_insert(|req| async move {
+            let mut model: ActiveModel = Default::default();
+            model.user_id = ActiveValue::Set(user_id);
 
-        let mut model: ActiveModel = Default::default();
-        model.user_id = ActiveValue::Set(user_id);
+            fill_active_model!(model, req, message);
 
-        fill_active_model!(model, req, message);
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let model = model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            let id = *model.id.as_ref();
+            tracing::debug!(id = id, "chat_created");
 
-        let id: Id = model.id.clone().unwrap().into();
-        self.dup.store(user_id, uuid, id.clone());
-
-        tracing::debug!(id = id.id, "chat_created");
-
-        Ok(Response::new(id))
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 
     async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {

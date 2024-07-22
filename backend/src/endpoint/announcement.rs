@@ -107,8 +107,6 @@ impl Announcement for ArcServer {
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        tracing::debug!(announcement_id = req.id);
-
         let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
         let model = query
             .one(self.db.deref())
@@ -127,7 +125,7 @@ impl Announcement for ArcServer {
     )]
     async fn full_info_by_contest(
         &self,
-        req: Request<AddAnnouncementToContestRequest>,
+        req: Request<ListAnnouncementByContestRequest>,
     ) -> Result<Response<AnnouncementFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
@@ -178,12 +176,11 @@ impl Announcement for ArcServer {
                 .await
                 .map_err(Into::<Error>::into)?;
 
-            let id: Id = model.id.clone().unwrap().into();
+            let id = *model.id.as_ref();
 
-            tracing::debug!(id = id.id, "announcement_created");
+            tracing::info!(count.announcement = 1, id = id);
 
-            tracing::info!(count.announcement = 1);
-            Ok(id)
+            Ok(id.into())
         })
         .await
         .with_grpc()
@@ -204,7 +201,7 @@ impl Announcement for ArcServer {
 
         req.bound_check()?;
 
-        req.get_or_insert(|req| async {
+        req.get_or_insert(|req| async move {
             tracing::trace!(id = req.id);
 
             let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
@@ -221,7 +218,7 @@ impl Announcement for ArcServer {
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
                 .await
-                .map_err(atomic_fail)?;
+                .map_err(atomic_fail_tran)?;
             Ok(())
         })
         .await
@@ -234,7 +231,7 @@ impl Announcement for ArcServer {
         name = "endpoint.Announcement.remove",
         err(level = "debug", Display)
     )]
-    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
@@ -247,9 +244,7 @@ impl Announcement for ArcServer {
             return Err(Error::NotInDB.into());
         }
 
-        tracing::debug!(id = req.id);
-
-        tracing::info!(counter.announcement = -1);
+        tracing::info!(counter.announcement = -1, id = req.id);
 
         Ok(Response::new(()))
     }
@@ -264,7 +259,7 @@ impl Announcement for ArcServer {
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
+        auth.auth_or_guest()?;
 
         let (contest, model) = tokio::try_join!(
             contest::Entity::write_by_id(req.contest_id, &auth)?
@@ -302,7 +297,7 @@ impl Announcement for ArcServer {
         let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
             .columns([Column::Id, Column::ContestId])
             .one(self.db.deref())
-            .instrument(info_span!("fetcg").or_current())
+            .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?
@@ -324,34 +319,36 @@ impl Announcement for ArcServer {
         name = "endpoint.Announcement.publish",
         err(level = "debug", Display)
     )]
-    async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
-
-        tracing::debug!(id = req.id);
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
 
-        let mut model = Entity::find_by_id(Into::<i32>::into(req))
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .columns([Column::Id, Column::ContestId])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        model.public = ActiveValue::Set(true);
+            model.public = ActiveValue::Set(true);
 
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await
+                .map_err(atomic_fail_tran)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -359,33 +356,34 @@ impl Announcement for ArcServer {
         name = "endpoint.Announcement.unpublish",
         err(level = "debug", Display)
     )]
-    async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let perm = auth.user_perm();
-
-        tracing::debug!(id = req.id);
 
         if !perm.admin() {
             return Err(Error::RequirePermission(RoleLv::Root).into());
         }
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .columns([Column::Id, Column::ContestId])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        let mut model = Entity::find_by_id(Into::<i32>::into(req))
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
+            model.public = ActiveValue::Set(false);
 
-        model.public = ActiveValue::Set(false);
-
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await
+                .map_err(atomic_fail_tran)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 }

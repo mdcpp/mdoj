@@ -43,6 +43,7 @@ impl Server {
                 }
             })
             .await?;
+        tracing::info!(auth = %auth);
         Ok((auth, bucket))
     }
     /// parse request for payload and immediately rate
@@ -196,3 +197,8 @@ impl RateLimit for LoginRequest {
     }
 }
 impl RateLimit for () {}
+
+impl RateLimit for RemoveRequest {}
+impl RateLimit for PublishRequest {}
+
+impl RateLimit for ListAnnouncementByContestRequest {}

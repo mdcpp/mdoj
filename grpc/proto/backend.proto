@@ -49,6 +49,16 @@ enum MatchRule {
   MATCHRULE_SKIP_SNL = 2;
 }
 
+message RemoveRequest{
+  required int32 id = 1;
+  optional string request_id = 2;
+}
+
+message PublishRequest{
+  required int32 id = 1;
+  optional string request_id = 2;
+}
+
 message AddProblemToContestRequest {
   required int32 contest_id = 1;
   required int32 problem_id = 2;
@@ -237,6 +247,12 @@ message ListAnnouncementResponse {
 message AddAnnouncementToContestRequest {
   required int32 announcement_id = 1;
   required int32 contest_id = 2;
+  optional string request_id = 3;
+}
+
+message ListAnnouncementByContestRequest {
+  required int32 announcement_id = 1;
+  required int32 contest_id = 2;
 }
 
 message CreateAnnouncementRequest {
@@ -245,7 +261,7 @@ message CreateAnnouncementRequest {
     required string content = 2;
   }
   required Info info = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UpdateAnnouncementRequest {
@@ -255,7 +271,7 @@ message UpdateAnnouncementRequest {
   }
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message ListAnnouncementRequest {
@@ -285,19 +301,19 @@ message ListAnnouncementRequest {
 service Announcement {
   rpc List(ListAnnouncementRequest) returns (ListAnnouncementResponse);
   rpc FullInfo(Id) returns (AnnouncementFullInfo);
-  rpc FullInfoByContest(AddAnnouncementToContestRequest) returns (AnnouncementFullInfo);
+  rpc FullInfoByContest(ListAnnouncementByContestRequest) returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (Id);
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc AddToContest(AddAnnouncementToContestRequest)
       returns (google.protobuf.Empty);
   rpc RemoveFromContest(AddAnnouncementToContestRequest)
       returns (google.protobuf.Empty);
 
-  rpc Publish(Id) returns (google.protobuf.Empty);
-  rpc Unpublish(Id) returns (google.protobuf.Empty);
+  rpc Publish(PublishRequest) returns (google.protobuf.Empty);
+  rpc Unpublish(PublishRequest) returns (google.protobuf.Empty);
 }
 
 message EducationInfo {
@@ -490,7 +506,7 @@ message UpdateContestRequest {
     optional string content = 4;
     optional string tags = 6;
     // if there is password: enter original password to disable password, null
-    // to keep password if there isn't: enter new password to set password, null
+    // to keep password. if there isn't: enter new password to set password, null
     // to keep it password disable
     optional string password = 5;
   }
@@ -675,7 +691,7 @@ message ListChatResponse {
 message CreateChatRequest {
   required int32 problem_id = 1;
   required string message = 2;
-  required string request_id = 6;
+  optional string request_id = 6;
 }
 
 message ListChatRequest {

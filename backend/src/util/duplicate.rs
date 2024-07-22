@@ -5,30 +5,6 @@ use std::future::Future;
 use tonic::Response;
 use uuid::Uuid;
 
-/// A newtype wrapper for crate::Result to tonic::Result;
-pub struct WithGrpc<T>(Result<T>);
-
-impl<T> From<WithGrpc<T>> for tonic::Result<Response<T>> {
-    fn from(value: WithGrpc<T>) -> Self {
-        match value.0 {
-            Ok(x) => Ok(Response::new(x)),
-            Err(err) => Err(err.into()),
-        }
-    }
-}
-
-pub trait WithGrpcTrait {
-    type Item;
-    fn with_grpc(self) -> WithGrpc<Self::Item>;
-}
-
-impl<T> WithGrpcTrait for Result<T> {
-    type Item = T;
-    fn with_grpc(self) -> WithGrpc<Self::Item> {
-        WithGrpc(self)
-    }
-}
-
 /// caching singleton trait
 ///
 /// In addition to caching, it also includes error_handling and async support.
@@ -41,21 +17,6 @@ where
     where
         F: FnOnce(Self) -> Fut,
         Fut: Future<Output = Result<Self::Item>>;
-    fn process<F, Fut>(
-        self,
-        f: F,
-    ) -> impl Future<Output = tonic::Result<tonic::Response<Self::Item>>>
-    where
-        F: FnOnce(Self) -> Fut,
-        Fut: Future<Output = Result<Self::Item>>,
-    {
-        async move {
-            match self.get_or_insert(f).await {
-                Ok(x) => Ok(tonic::Response::new(x)),
-                Err(err) => Err(err.into()),
-            }
-        }
-    }
 }
 
 /// implement [`Cacheable`] for a type
@@ -104,6 +65,9 @@ macro_rules! create_cache {
                     self.cache.insert(uuid, res.clone());
                     Ok(res)
                 }
+                pub fn put(&self, uuid: Uuid, res: $ret){
+                    self.cache.insert(uuid, res);
+                }
             }
             impl Cacheable for $t {
                 type Item = $ret;
@@ -112,18 +76,23 @@ macro_rules! create_cache {
                     F: FnOnce(Self) -> Fut,
                     Fut: Future<Output = Result<Self::Item>>,
                 {
-                    let uuid = Uuid::parse_str(&self.request_id)?;
-                    [<$t CacheInstance>]
-                        .get(uuid, || f(self))
-                        .await
+                    match &self.request_id{
+                        Some(x) => [<$t CacheInstance>]
+                            .get(Uuid::parse_str(&x)?, || f(self))
+                            .await,
+                        None=> f(self).await
+                    }
                 }
             }
         }
     };
 }
 
+create_cache!(PublishRequest, ());
+
 create_cache!(CreateAnnouncementRequest, Id);
 create_cache!(UpdateAnnouncementRequest, ());
+create_cache!(AddAnnouncementToContestRequest, ());
 create_cache!(CreateChatRequest, Id);
-create_cache!(CreateContestRequest, Id);
-create_cache!(UpdateContestRequest, ());
+// create_cache!(CreateContestRequest, Id);
+// create_cache!(UpdateContestRequest, ());

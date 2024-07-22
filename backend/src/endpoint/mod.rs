@@ -27,13 +27,13 @@ mod tools {
     pub use crate::entity::util::{
         filter::*,
         paginator::{PaginateRaw, Remain},
-        with::*,
     };
+    pub use crate::util::with::*;
     pub use crate::util::{
         auth::RoleLv,
         bound::BoundCheck,
         duplicate::*,
-        error::{atomic_fail, Error},
+        error::{atomic_fail, atomic_fail_tran, Error},
         time::*,
     };
     pub use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
