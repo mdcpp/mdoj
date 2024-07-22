@@ -24,7 +24,7 @@ impl Model {
     ///
     /// Be careful never save it
     pub fn new_with_auth(auth: &Auth) -> Option<Self> {
-        auth.auth_or_guest().ok().map(|(id, permission)| Self {
+        auth.assume_login().ok().map(|(id, permission)| Self {
             id,
             permission: permission as i32,
             score: Default::default(),
@@ -146,18 +146,19 @@ impl super::Filter for Entity {
 
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.auth_or_guest()?;
-        if perm.admin() {
-            return Ok(query.filter(
+        let (user_id, perm) = auth.assume_login()?;
+        perm.admin()?;
+        Ok(match perm == RoleLv::Root {
+            true => query,
+            false => query.filter(
                 Column::Permission
-                    .lt(perm as i32)
+                    .lt(RoleLv::Admin as i32)
                     .or(Column::Id.eq(user_id)),
-            ));
-        }
-        Ok(query.filter(Column::Id.eq(user_id)))
+            ),
+        })
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        auth.user_perm().admin() || Some(model.id) == auth.user_id()
+        Some(model.id) == auth.user_id() || model.permission > auth.perm() as i32
     }
 }
 

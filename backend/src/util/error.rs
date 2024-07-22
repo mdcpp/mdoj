@@ -1,6 +1,9 @@
+use crate::controller::{imgur as image, judger, token};
 use crate::report_internal;
-use opentelemetry::trace::{SpanId, TraceId};
+use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
 use tonic::Status;
+use tracing::span::Id;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use uuid::Uuid;
 
 use super::auth::RoleLv;
@@ -14,7 +17,7 @@ pub enum Error {
     #[error("Permission deny: `{0}`")]
     PermissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
-    DBErr(#[from] sea_orm::DbErr),
+    DBErr(sea_orm::DbErr),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("Not in payload: `{0}`")]
@@ -35,14 +38,25 @@ pub enum Error {
     // BufferTooLarge(&'static str),
     #[error("Already exist")]
     AlreadyExist(String),
-    #[error("You need to own `{0}` to add thing onto it")]
-    UnownedAdd(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
     #[error("rate limit reached")]
     RateLimit(&'static str),
-    #[error("`{0}`")]
-    PassThrough(Status),
+    #[error("image error: `{0}`")]
+    Image(#[from] image::Error),
+    #[error("judger error: `{0}`")]
+    Judger(#[from] judger::Error),
+    #[error("token error: `{0}`")]
+    Token(#[from] token::Error),
+}
+
+impl From<sea_orm::DbErr> for Error {
+    fn from(value: sea_orm::DbErr) -> Self {
+        match value {
+            sea_orm::DbErr::RecordNotUpdated => Error::NotInDB,
+            _ => Error::DBErr(value),
+        }
+    }
 }
 
 impl From<Error> for Status {
@@ -84,10 +98,6 @@ impl From<Error> for Status {
                 tracing::trace!(username = x, "entity_exist");
                 Status::already_exists(format!("{} already exist", x))
             }
-            Error::UnownedAdd(x) => {
-                tracing::trace!(hint = x, "add_fail");
-                Status::failed_precondition(format!("You need to own {} to add thing onto it", x))
-            }
             Error::RequirePermission(x) => {
                 Status::permission_denied(format!("require permission {}", x))
             }
@@ -95,22 +105,10 @@ impl From<Error> for Status {
                 tracing::warn!(traffic = x, "rate_limit");
                 Status::resource_exhausted("rate limit reached!")
             }
-            Error::PassThrough(x) => x,
+            Error::Image(x) => report_internal!(error, "{}", x),
+            Error::Judger(x) => x.into(),
+            Error::Token(x) => x.into(),
         }
-    }
-}
-
-pub fn atomic_fail(err: sea_orm::DbErr) -> Status {
-    match err {
-        sea_orm::DbErr::RecordNotUpdated => Error::NotInDB.into(),
-        _ => Error::DBErr(err).into(),
-    }
-}
-
-pub fn atomic_fail_tran(err: sea_orm::DbErr) -> crate::util::error::Error {
-    match err {
-        sea_orm::DbErr::RecordNotUpdated => Error::NotInDB,
-        _ => Error::DBErr(err),
     }
 }
 
@@ -130,18 +128,18 @@ impl Tracing {
         (Self::new(log_id), log_id)
     }
     pub fn new(log_id: Uuid) -> Self {
-        // let ctx = Span::current().context();
-        // let ctx_span = ctx.span();
-        // let span_ctx = ctx_span.span_context();
-        // let trace_id = span_ctx.trace_id();
-        // let span_id = span_ctx.span_id();
-        //
-        // Self {
-        //     trace_id,
-        //     span_id,
-        //     log_id,
-        // }
-        todo!()
+        let span = tracing::error_span!("report");
+        let ctx = span.context();
+        let span_ref = ctx.span();
+        let span_ctx = span_ref.span_context();
+        let trace_id = span_ctx.trace_id();
+        let span_id = span_ctx.span_id();
+
+        Self {
+            trace_id,
+            span_id,
+            log_id,
+        }
     }
     pub fn report(self) -> String {
         format!(

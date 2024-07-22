@@ -4,26 +4,26 @@ use grpc::backend::image_server::*;
 
 #[async_trait]
 impl Image for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Image.upload",
+        err(level = "debug", Display)
+    )]
     async fn upload(
         &self,
         req: Request<UploadRequest>,
     ) -> Result<Response<UploadResponse>, Status> {
-        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(5)).await?;
-        let (user_id, _) = auth.auth_or_guest()?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        auth.assume_login()?;
+        req.get_or_insert(|req| async move {
+            let url = self.imgur.upload(req.data).await?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<UploadResponse>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
-
-        let url = self.imgur.upload(req.data).await?;
-
-        tracing::debug!(request_id = uuid.to_string(), uri = url, "image_uploaded");
-        let url = UploadResponse { url };
-
-        self.dup.store(user_id, uuid, url.clone());
-
-        Ok(Response::new(url))
+            tracing::debug!(counter.image = 1, uri = url);
+            Ok(UploadResponse { url })
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 }

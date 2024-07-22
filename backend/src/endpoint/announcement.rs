@@ -1,5 +1,4 @@
 use super::tools::*;
-use opentelemetry::trace::FutureExt;
 
 use grpc::backend::announcement_server::*;
 
@@ -7,7 +6,6 @@ use crate::{
     entity::announcement::{Paginator, *},
     entity::*,
     util::time::into_prost,
-    NonZeroU32,
 };
 
 impl<'a> From<WithAuth<'a, Model>> for AnnouncementFullInfo {
@@ -107,7 +105,9 @@ impl Announcement for ArcServer {
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
+        let query = Entity::find_by_id::<i32>(req.into())
+            .with_auth(&auth)
+            .read()?;
         let model = query
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -130,13 +130,13 @@ impl Announcement for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let parent: contest::IdModel =
-            contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
+            contest::Entity::related_read_by_id(&auth, req.contest_id, &self.db)
                 .in_current_span()
                 .await?;
         let model = parent
             .upgrade()
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.announcement_id)))
+            .filter(Column::Id.eq(req.announcement_id))
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
             .await
@@ -156,15 +156,12 @@ impl Announcement for ArcServer {
         req: Request<CreateAnnouncementRequest>,
     ) -> Result<Response<Id>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
-
         req.bound_check()?;
 
-        req.get_or_insert(|req| async {
-            if perm.super_user() {
-                return Err(Error::RequirePermission(RoleLv::Super).into());
-            }
+        let (user_id, perm) = auth.assume_login()?;
+        perm.super_user()?;
 
+        req.get_or_insert(|req| async {
             let mut model: ActiveModel = Default::default();
             model.user_id = ActiveValue::Set(user_id);
 
@@ -197,14 +194,14 @@ impl Announcement for ArcServer {
         req: Request<UpdateAnnouncementRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, _perm) = auth.auth_or_guest()?;
-
         req.bound_check()?;
 
         req.get_or_insert(|req| async move {
             tracing::trace!(id = req.id);
 
-            let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch").or_current())
                 .await
@@ -217,8 +214,7 @@ impl Announcement for ArcServer {
             model
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
-                .await
-                .map_err(atomic_fail_tran)?;
+                .await?;
             Ok(())
         })
         .await
@@ -234,19 +230,25 @@ impl Announcement for ArcServer {
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+        req.get_or_insert(|req| async move {
+            let result = Entity::delete_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .exec(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        tracing::info!(counter.announcement = -1, id = req.id);
-
-        Ok(Response::new(()))
+            if result.rows_affected == 0 {
+                Err(Error::NotInDB)
+            } else {
+                tracing::info!(counter.announcement = -1, id = req.id);
+                Ok(())
+            }
+        })
+        .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -259,29 +261,32 @@ impl Announcement for ArcServer {
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        auth.auth_or_guest()?;
+        auth.perm().super_user()?;
 
-        let (contest, model) = tokio::try_join!(
-            contest::Entity::write_by_id(req.contest_id, &auth)?
-                .one(self.db.deref())
-                .instrument(info_span!("fetch_parent").or_current()),
-            Entity::write_by_id(req.announcement_id, &auth)?
-                .one(self.db.deref())
-                .instrument(info_span!("fetch_child").or_current())
-        )
-        .map_err(Into::<Error>::into)?;
+        req.get_or_insert(|req| async move {
+            let (contest, model) = tokio::try_join!(
+                contest::Entity::write_by_id(req.contest_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(info_span!("fetch_parent").or_current()),
+                Entity::write_by_id(req.announcement_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(info_span!("fetch_child").or_current())
+            )
+            .map_err(Into::<Error>::into)?;
 
-        contest.ok_or(Error::NotInDB)?;
-        let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            contest.ok_or(Error::NotInDB)?;
+            let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
 
-        model.contest_id = ActiveValue::Set(Some(req.contest_id));
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            model.contest_id = ActiveValue::Set(Some(req.contest_id));
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -294,24 +299,30 @@ impl Announcement for ArcServer {
         req: Request<AddAnnouncementToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
+        auth.perm().super_user()?;
 
-        announcement.contest_id = ActiveValue::Set(None);
+        req.get_or_insert(|req| async move {
+            let mut announcement = Entity::write_by_id(req.announcement_id, &auth)?
+                .columns([Column::Id, Column::ContestId])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        announcement
-            .save(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            announcement.contest_id = ActiveValue::Set(None);
 
-        Ok(Response::new(()))
+            announcement
+                .save(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
     #[instrument(
         skip_all,
@@ -321,14 +332,12 @@ impl Announcement for ArcServer {
     )]
     async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let perm = auth.user_perm();
-
-        if !perm.admin() {
-            return Err(Error::RequirePermission(RoleLv::Root).into());
-        }
+        auth.perm().admin()?;
 
         req.get_or_insert(|req| async move {
             let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
                 .columns([Column::Id, Column::ContestId])
                 .one(self.db.deref())
                 .instrument(info_span!("fetch").or_current())
@@ -342,8 +351,7 @@ impl Announcement for ArcServer {
             model
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
-                .await
-                .map_err(atomic_fail_tran)?;
+                .await?;
             Ok(())
         })
         .await
@@ -358,13 +366,12 @@ impl Announcement for ArcServer {
     )]
     async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let perm = auth.user_perm();
+        auth.perm().admin()?;
 
-        if !perm.admin() {
-            return Err(Error::RequirePermission(RoleLv::Root).into());
-        }
         req.get_or_insert(|req| async move {
             let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
                 .columns([Column::Id, Column::ContestId])
                 .one(self.db.deref())
                 .instrument(info_span!("fetch").or_current())
@@ -378,8 +385,7 @@ impl Announcement for ArcServer {
             model
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
-                .await
-                .map_err(atomic_fail_tran)?;
+                .await?;
             Ok(())
         })
         .await

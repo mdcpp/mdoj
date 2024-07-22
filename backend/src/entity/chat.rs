@@ -56,13 +56,13 @@ impl super::Filter for Entity {
     }
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if auth.user_perm().admin() {
-            return Ok(query);
+        match auth.perm() >= RoleLv::Admin {
+            true => Ok(query),
+            false => Err(Error::RequirePermission(RoleLv::Admin)),
         }
-        Err(Error::RequirePermission(RoleLv::Admin))
     }
-    fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        auth.user_perm().admin()
+    fn writable(_: &Self::Model, auth: &Auth) -> bool {
+        auth.perm() >= RoleLv::Admin
     }
 }
 

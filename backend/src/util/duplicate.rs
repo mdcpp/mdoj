@@ -37,7 +37,7 @@ where
 /// ```
 macro_rules! create_cache {
     ($t:ident, $ret:ty) => {
-        create_cache!($t, $ret, 32);
+        create_cache!($t, $ret, 16);
     };
     ($t:ident, $ret:ty, $cap:expr) => {
         paste::paste! {
@@ -65,9 +65,6 @@ macro_rules! create_cache {
                     self.cache.insert(uuid, res.clone());
                     Ok(res)
                 }
-                pub fn put(&self, uuid: Uuid, res: $ret){
-                    self.cache.insert(uuid, res);
-                }
             }
             impl Cacheable for $t {
                 type Item = $ret;
@@ -89,10 +86,32 @@ macro_rules! create_cache {
 }
 
 create_cache!(PublishRequest, ());
+create_cache!(JoinContestRequest, ());
+create_cache!(RemoveRequest, ());
+create_cache!(RejudgeRequest, ());
+
+create_cache!(RefreshRequest, TokenInfo, 8);
+create_cache!(LoginRequest, TokenInfo, 8);
 
 create_cache!(CreateAnnouncementRequest, Id);
-create_cache!(UpdateAnnouncementRequest, ());
-create_cache!(AddAnnouncementToContestRequest, ());
 create_cache!(CreateChatRequest, Id);
-// create_cache!(CreateContestRequest, Id);
-// create_cache!(UpdateContestRequest, ());
+create_cache!(CreateContestRequest, Id);
+create_cache!(CreateEducationRequest, Id);
+create_cache!(CreateProblemRequest, Id);
+create_cache!(CreateSubmitRequest, Id);
+create_cache!(CreateTestcaseRequest, Id);
+create_cache!(CreateUserRequest, Id);
+
+create_cache!(UpdateAnnouncementRequest, ());
+create_cache!(UpdateContestRequest, ());
+create_cache!(UpdateEducationRequest, ());
+create_cache!(UpdateProblemRequest, ());
+create_cache!(UpdateTestcaseRequest, ());
+create_cache!(UpdateUserRequest, ());
+create_cache!(UpdatePasswordRequest, ());
+
+create_cache!(AddAnnouncementToContestRequest, ());
+create_cache!(AddEducationToProblemRequest, ());
+create_cache!(UploadRequest, UploadResponse);
+create_cache!(AddTestcaseToProblemRequest, ());
+create_cache!(AddProblemToContestRequest, ());

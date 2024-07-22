@@ -1,7 +1,6 @@
 // use k256::ecdsa::{SigningKey, VerifyingKey};
 use rand::{rngs::OsRng, Rng};
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::Span;
 
 use crate::config::CONFIG;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};

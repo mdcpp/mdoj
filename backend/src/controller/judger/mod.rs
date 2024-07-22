@@ -110,10 +110,10 @@ pub struct Judger {
 }
 
 impl Judger {
-    #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
-    pub async fn new(span: &Span, db: Arc<DatabaseConnection>) -> Result<Self, Error> {
+    #[tracing::instrument(name = "judger_construct", level = "info", skip_all)]
+    pub async fn new(db: Arc<DatabaseConnection>) -> Result<Self, Error> {
         let judgers = CONFIG.judger.clone();
-        let router = Router::new(judgers, span)?;
+        let router = Router::new(judgers)?;
         Ok(Judger {
             router,
             pubsub: Arc::new(PubSub::default()),

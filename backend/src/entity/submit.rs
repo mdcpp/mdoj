@@ -94,10 +94,10 @@ impl super::Filter for Entity {
 
     #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if auth.user_perm().admin() {
-            return Ok(query);
+        match auth.perm() == RoleLv::Root {
+            true => Ok(query),
+            false => Err(Error::RequirePermission(RoleLv::Root)),
         }
-        Err(Error::Unauthenticated)
     }
 }
 

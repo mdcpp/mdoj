@@ -46,7 +46,6 @@ const DEFAULT_ALLOW_HEADERS: [&str; 5] = [
 pub struct Server {
     pub token: Arc<token::TokenController>,
     pub judger: Arc<judger::Judger>,
-    pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub imgur: imgur::ImgurController,
     pub rate_limit: rate_limit::RateLimitController,
@@ -76,7 +75,6 @@ impl Server {
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
     pub async fn new() -> Result<Arc<Self>> {
-        let span = span!(Level::INFO, "server_construct");
         let crypto = crypto::CryptoController::new();
         let db = Arc::new(
             db::init(&CONFIG.database, &crypto)
@@ -102,12 +100,11 @@ impl Server {
         Ok(Arc::new(Server {
             token: token::TokenController::new(db.clone()),
             judger: Arc::new(
-                judger::Judger::new(&span, db.clone())
+                judger::Judger::new(db.clone())
                     .in_current_span()
                     .await
                     .unwrap(),
             ),
-            dup: duplicate::DupController::new(&span),
             crypto,
             imgur: imgur::ImgurController::new(),
             rate_limit: rate_limit::RateLimitController::new(&CONFIG.grpc.trust_host),

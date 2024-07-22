@@ -43,7 +43,12 @@ impl From<PartialModel> for ProblemInfo {
 
 #[async_trait]
 impl Problem for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListProblemRequest>,
@@ -70,8 +75,11 @@ impl Problem for ArcServer {
         };
         let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
 
-        let list = paginator.fetch(req.size, req.offset).await?;
-        let remain = paginator.remain().await?;
+        let list = paginator
+            .fetch(req.size, req.offset)
+            .in_current_span()
+            .await?;
+        let remain = paginator.remain().in_current_span().await?;
 
         let paginator = paginator.into_inner();
 
@@ -81,13 +89,18 @@ impl Problem for ArcServer {
             remain,
         }))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.full_info",
+        err(level = "debug", Display)
+    )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ProblemFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        debug!(problem_id = req.id);
-
-        let query = Entity::read_filter(Entity::find_by_id::<i32>(req.into()), &auth)?;
+        let query = Entity::find_by_id::<i32>(req.into())
+            .with_auth(&auth)
+            .read()?;
         let model = query
             .one(self.db.deref())
             .instrument(info_span!("fetch"))
@@ -97,253 +110,274 @@ impl Problem for ArcServer {
 
         Ok(Response::new(model.with_auth(&auth).into()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateProblemRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
-
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        let (user_id, perm) = auth.assume_login()?;
+        perm.super_user()?;
 
-        if !perm.super_user() {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
+        req.get_or_insert(|req| async move {
+            let mut model: ActiveModel = Default::default();
+            model.user_id = ActiveValue::Set(user_id);
 
-        if req.info.memory > 2 * 1024 * 1024 * 1024 || req.info.time > 10 * 1000 * 1000 {
-            return Err(Error::NumberTooLarge.into());
-        }
+            fill_active_model!(
+                model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
+            );
 
-        let mut model: ActiveModel = Default::default();
-        model.user_id = ActiveValue::Set(user_id);
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        fill_active_model!(
-            model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
-        );
+            let id = *model.id.as_ref();
 
-        let model = model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            tracing::info!(count.problem = 1, id = id);
 
-        let id: Id = model.id.clone().unwrap().into();
-
-        self.dup.store(user_id, uuid, id.clone());
-
-        tracing::debug!(id = id.id);
-
-        Ok(Response::new(id))
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.update",
+        err(level = "debug", Display)
+    )]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, _perm) = auth.auth_or_guest()?;
 
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .one(self.db.deref())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        tracing::trace!(id = req.id);
+            fill_exist_active_model!(
+                model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
+            );
 
-        let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(self.db.deref())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
-
-        fill_exist_active_model!(
-            model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
-        );
-
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        self.dup.store(user_id, uuid, ());
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.remove",
+        err(level = "debug", Display)
+    )]
+    async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        req.get_or_insert(|req| async move {
+            let result = Entity::delete_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .exec(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        tracing::debug!(id = req.id);
-
-        Ok(Response::new(()))
+            if result.rows_affected == 0 {
+                return Err(Error::NotInDB.into());
+            }
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.add_to_contest",
+        err(level = "debug", Display)
+    )]
     async fn add_to_contest(
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
 
-        if !perm.admin() {
-            return Err(Error::RequirePermission(RoleLv::Root).into());
-        }
-
-        let (contest, model) = tokio::try_join!(
-            contest::Entity::read_by_id(req.contest_id, &auth)?
-                .one(self.db.deref())
-                .instrument(debug_span!("find_parent").or_current()),
-            Entity::read_by_id(req.problem_id, &auth)?
-                .one(self.db.deref())
-                .instrument(debug_span!("find_child").or_current())
-        )
-        .map_err(Into::<Error>::into)?;
-
-        let contest = contest.ok_or(Error::NotInDB)?;
-        let model = model.ok_or(Error::NotInDB)?;
-
-        if !perm.admin() {
-            if contest.hoster != user_id {
-                return Err(Error::NotInDB.into());
-            }
-            if model.user_id != user_id {
-                return Err(Error::NotInDB.into());
-            }
-        }
-
-        let mut model = model.into_active_model();
-        if let Some(x) = model.contest_id.into_value() {
-            tracing::debug!(old_id = x.to_string());
-        }
-        model.contest_id = ActiveValue::Set(Some(req.problem_id));
-        model
-            .save(self.db.deref())
-            .instrument(info_span!("update_child").or_current())
-            .await
+        req.get_or_insert(|req| async move {
+            let (contest, model) = tokio::try_join!(
+                contest::Entity::write_by_id(req.contest_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(debug_span!("find_parent").or_current()),
+                Entity::write_by_id(req.problem_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(debug_span!("find_child").or_current())
+            )
             .map_err(Into::<Error>::into)?;
 
-        Ok(Response::new(()))
+            contest.ok_or(Error::NotInDB)?;
+
+            let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            if let Some(x) = model.contest_id.into_value() {
+                tracing::debug!(old_id = x.to_string());
+            }
+            model.contest_id = ActiveValue::Set(Some(req.problem_id));
+            model
+                .save(self.db.deref())
+                .instrument(info_span!("update_child").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.remove_from_contest",
+        err(level = "debug", Display)
+    )]
     async fn remove_from_contest(
         &self,
         req: Request<AddProblemToContestRequest>,
     ) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        auth.perm().super_user()?;
 
-        let mut problem = Entity::write_by_id(req.problem_id, &auth)?
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
+        req.get_or_insert(|req| async move {
+            let (contest, model) = tokio::try_join!(
+                contest::Entity::write_by_id(req.contest_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(debug_span!("find_parent").or_current()),
+                Entity::write_by_id(req.problem_id, &auth)?
+                    .one(self.db.deref())
+                    .instrument(debug_span!("find_child").or_current())
+            )
+            .map_err(Into::<Error>::into)?;
 
-        problem.contest_id = ActiveValue::Set(None);
+            contest.ok_or(Error::NotInDB)?;
 
-        problem
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            if let Some(x) = model.contest_id.into_value() {
+                tracing::debug!(old_id = x.to_string());
+            }
+            model.contest_id = ActiveValue::Set(None);
+            model
+                .save(self.db.deref())
+                .instrument(info_span!("update_child").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
-    async fn publish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.publish",
+        err(level = "debug", Display)
+    )]
+    async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (_, perm) = auth.auth_or_guest()?;
 
-        tracing::debug!(id = req.id);
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .columns([Column::Id, Column::ContestId])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        let mut query = Entity::find_by_id(Into::<i32>::into(req));
+            model.public = ActiveValue::Set(true);
 
-        if !perm.admin() {
-            query = Entity::write_filter(query, &auth)?;
-        }
-
-        let mut problem = query
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
-
-        problem.public = ActiveValue::Set(true);
-
-        problem
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
-    async fn unpublish(&self, req: Request<Id>) -> Result<Response<()>, Status> {
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.unpublish",
+        err(level = "debug", Display)
+    )]
+    async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (_, perm) = auth.auth_or_guest()?;
 
-        tracing::debug!(id = req.id);
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .columns([Column::Id, Column::ContestId])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
 
-        let mut query = Entity::find_by_id(Into::<i32>::into(req));
+            model.public = ActiveValue::Set(false);
 
-        if !perm.super_user() {
-            query = Entity::write_filter(query, &auth)?;
-        }
-
-        let mut problem = query
-            .columns([Column::Id, Column::ContestId])
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
-
-        problem.public = ActiveValue::Set(false);
-
-        problem
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        Ok(Response::new(()))
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Problem.full_info_by_contest",
+        err(level = "debug", Display)
+    )]
     async fn full_info_by_contest(
         &self,
-        req: Request<AddProblemToContestRequest>,
+        req: Request<ListProblemByContestRequest>,
     ) -> Result<Response<ProblemFullInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         let parent: contest::IdModel =
-            contest::Entity::related_read_by_id(&auth, Into::<i32>::into(req.contest_id), &self.db)
+            contest::Entity::related_read_by_id(&auth, req.contest_id, &self.db)
                 .in_current_span()
                 .await?;
 
         let model = parent
             .upgrade()
             .find_related(Entity)
-            .filter(Column::Id.eq(Into::<i32>::into(req.problem_id)))
+            .filter(Column::Id.eq(req.problem_id))
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
             .in_current_span()

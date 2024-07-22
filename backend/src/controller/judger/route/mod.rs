@@ -14,7 +14,7 @@ use std::{
 use crossbeam_queue::SegQueue;
 use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
-use tracing::{debug_span, instrument, span, Instrument, Level, Span};
+use tracing::{debug_span, instrument, span, Instrument, Level};
 use uuid::Uuid;
 
 use crate::config::{self, Judger as JudgerConfig};
@@ -182,8 +182,8 @@ pub struct Router {
 
 impl Router {
     // skip because config contain basic auth secret
-    #[instrument(name="router_construct",level = "info",skip_all, follows_from = [span])]
-    pub fn new(config: Vec<JudgerConfig>, span: &Span) -> Result<Arc<Self>, Error> {
+    #[instrument(name = "router_construct", level = "info", skip_all)]
+    pub fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: DashMap::default(),
             langs: DashSet::default(),

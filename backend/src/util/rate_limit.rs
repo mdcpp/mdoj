@@ -182,23 +182,30 @@ impl RateLimit for CreateChatRequest {
 }
 
 impl RateLimit for AddAnnouncementToContestRequest {}
-
 impl RateLimit for AddEducationToProblemRequest {}
-
 impl RateLimit for AddTestcaseToProblemRequest {}
 impl RateLimit for AddProblemToContestRequest {}
 impl RateLimit for JoinContestRequest {}
-
 impl RateLimit for RejudgeRequest {}
-
 impl RateLimit for LoginRequest {
     fn get_cost(&self) -> u32 {
-        200
+        50
     }
 }
 impl RateLimit for () {}
-
 impl RateLimit for RemoveRequest {}
 impl RateLimit for PublishRequest {}
-
 impl RateLimit for ListAnnouncementByContestRequest {}
+impl RateLimit for ListEducationByProblemRequest {}
+impl RateLimit for UploadRequest {
+    fn get_cost(&self) -> u32 {
+        100
+    }
+}
+impl RateLimit for ListTestcaseByProblemRequest {}
+impl RateLimit for ListProblemByContestRequest {}
+impl RateLimit for RefreshRequest {
+    fn get_cost(&self) -> u32 {
+        50
+    }
+}

@@ -62,6 +62,12 @@ message PublishRequest{
 message AddProblemToContestRequest {
   required int32 contest_id = 1;
   required int32 problem_id = 2;
+  optional string request_id = 3;
+}
+
+message ListProblemByContestRequest {
+  required int32 contest_id = 1;
+  required int32 problem_id = 2;
 }
 
 message CreateProblemRequest {
@@ -76,7 +82,7 @@ message CreateProblemRequest {
     required float order = 10;
   };
   required Info info = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UpdateProblemRequest {
@@ -92,7 +98,7 @@ message UpdateProblemRequest {
   };
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message ProblemInfo {
@@ -155,16 +161,16 @@ service Problem {
 
   rpc Create(CreateProblemRequest) returns (Id);
   rpc Update(UpdateProblemRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc AddToContest(AddProblemToContestRequest) returns (google.protobuf.Empty);
   rpc RemoveFromContest(AddProblemToContestRequest)
       returns (google.protobuf.Empty);
 
-  rpc Publish(Id) returns (google.protobuf.Empty);
-  rpc Unpublish(Id) returns (google.protobuf.Empty);
+  rpc Publish(PublishRequest) returns (google.protobuf.Empty);
+  rpc Unpublish(PublishRequest) returns (google.protobuf.Empty);
 
-  rpc FullInfoByContest(AddProblemToContestRequest) returns (ProblemFullInfo);
+  rpc FullInfoByContest(ListProblemByContestRequest) returns (ProblemFullInfo);
 }
 
 message SubmitInfo {
@@ -185,12 +191,12 @@ message CreateSubmitRequest {
   required string lang = 3;
   required int32 problem_id = 2;
   required bytes code = 1;
-  required string request_id = 4;
+  optional string request_id = 4;
 }
 
 message RejudgeRequest {
   required int32 submit_id = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message ListSubmitRequest {
@@ -217,7 +223,7 @@ service Submit {
   rpc Info(Id) returns (SubmitInfo);
 
   rpc Create(CreateSubmitRequest) returns (Id);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   // are not guarantee to yield status(not consistent across request)
   rpc Follow(Id) returns (stream SubmitStatus);
@@ -337,6 +343,12 @@ message ListEducationResponse {
 message AddEducationToProblemRequest {
   required int32 education_id = 1;
   required int32 problem_id = 2;
+  optional string request_ID = 3;
+}
+
+message ListEducationByProblemRequest {
+  required int32 education_id = 1;
+  required int32 problem_id = 2;
 }
 
 message CreateEducationRequest {
@@ -345,7 +357,7 @@ message CreateEducationRequest {
     required string content = 2;
   }
   required Info info = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UpdateEducationRequest {
@@ -355,7 +367,7 @@ message UpdateEducationRequest {
   }
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message ListEducationRequest {
@@ -380,15 +392,14 @@ service Education {
 
   rpc Create(CreateEducationRequest) returns (Id);
   rpc Update(UpdateEducationRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc AddToProblem(AddEducationToProblemRequest)
       returns (google.protobuf.Empty);
   rpc RemoveFromProblem(AddEducationToProblemRequest)
       returns (google.protobuf.Empty);
 
-  // paginate by id(increasing)
-  rpc FullInfoByProblem(AddEducationToProblemRequest) returns (EducationFullInfo);
+  rpc FullInfoByProblem(ListEducationByProblemRequest) returns (EducationFullInfo);
 }
 
 message TestcaseInfo {
@@ -413,6 +424,12 @@ message ListTestcaseResponse {
 message AddTestcaseToProblemRequest {
   required int32 testcase_id = 1;
   required int32 problem_id = 2;
+  optional string request_id = 3;
+}
+
+message ListTestcaseByProblemRequest {
+  required int32 testcase_id = 1;
+  required int32 problem_id = 2;
 }
 
 message CreateTestcaseRequest {
@@ -422,7 +439,7 @@ message CreateTestcaseRequest {
     required bytes output = 4;
   };
   required Info info = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UpdateTestcaseRequest {
@@ -433,13 +450,13 @@ message UpdateTestcaseRequest {
   };
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message ListTestcaseRequest {
   message Create {
     required Order order = 1;
-    optional uint32 problem_id = 2;
+    optional int32 problem_id = 2;
   }
   oneof request {
     Create create = 1;
@@ -455,13 +472,13 @@ service Testcase {
   rpc List(ListTestcaseRequest) returns (ListTestcaseResponse);
   rpc Create(CreateTestcaseRequest) returns (Id);
   rpc Update(UpdateTestcaseRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc AddToProblem(AddTestcaseToProblemRequest) returns (google.protobuf.Empty);
   rpc RemoveFromProblem(AddTestcaseToProblemRequest)
       returns (google.protobuf.Empty);
 
-  rpc FullInfoByProblem(AddTestcaseToProblemRequest) returns (TestcaseFullInfo);
+  rpc FullInfoByProblem(ListTestcaseByProblemRequest) returns (TestcaseFullInfo);
 }
 
 message ContestInfo {
@@ -495,7 +512,7 @@ message CreateContestRequest {
     optional string password = 5;
   }
   required Info info = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UpdateContestRequest {
@@ -512,7 +529,7 @@ message UpdateContestRequest {
   }
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message UserRank {
@@ -529,6 +546,7 @@ message ListRankResponse {
 message JoinContestRequest {
   required int32 id = 1;
   optional string password = 2;
+  optional string request_id = 3;
 }
 
 message ListContestRequest {
@@ -564,7 +582,10 @@ service Contest {
 
   rpc Create(CreateContestRequest) returns (Id);
   rpc Update(UpdateContestRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
+
+  rpc Publish(PublishRequest) returns (google.protobuf.Empty);
+  rpc Unpublish(PublishRequest) returns (google.protobuf.Empty);
 
   rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
 }
@@ -594,7 +615,7 @@ message CreateUserRequest {
     required Role role = 4;
   }
   required Info info = 1;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message UpdateUserRequest {
@@ -605,13 +626,14 @@ message UpdateUserRequest {
   }
   required Info info = 1;
   required int32 id = 2;
-  required string request_id = 3;
+  optional string request_id = 3;
 }
 
 message UpdatePasswordRequest {
   required string username = 1;
   required string password = 2;
   required string new_password = 3;
+  optional string request_id = 4;
 }
 
 message ListUserRequest {
@@ -643,7 +665,7 @@ service User {
 
   rpc Create(CreateUserRequest) returns (Id);
   rpc Update(UpdateUserRequest) returns (google.protobuf.Empty);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc UpdatePassword(UpdatePasswordRequest) returns (google.protobuf.Empty);
 
@@ -662,13 +684,19 @@ message LoginRequest {
   required string username = 1;
   required string password = 2;
   optional uint64 expiry = 3;
+  optional string request_id = 4;
+}
+
+message RefreshRequest{
+  optional string request_id = 1;
+  optional uint64 expiry = 2;
 }
 
 service Token {
   rpc List(Id) returns (Tokens);
 
   rpc Create(LoginRequest) returns (TokenInfo);
-  rpc Refresh(google.protobuf.Timestamp) returns (TokenInfo);
+  rpc Refresh(RefreshRequest) returns (TokenInfo);
 
   rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
@@ -711,14 +739,14 @@ service Chat {
   // unlike other entity, there is no such role as manage_chat
   // everyone(except guest) can create chat
   rpc Create(CreateChatRequest) returns (Id);
-  rpc Remove(Id) returns (google.protobuf.Empty);
+  rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
   rpc List(ListChatRequest) returns (ListChatResponse);
 }
 
 message UploadRequest {
   required bytes data = 1;
-  required string request_id = 2;
+  optional string request_id = 2;
 }
 
 message UploadResponse { required string url = 1; }

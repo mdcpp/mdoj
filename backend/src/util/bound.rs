@@ -95,6 +95,15 @@ impl BoundCheck for ListSubmitRequest {
         }
     }
 }
+impl BoundCheck for ListTestcaseRequest {
+    fn check(&self) -> bool {
+        if let Some(list_testcase_request::Request::Paginator(x)) = &self.request {
+            x.len() > 512
+        } else {
+            false
+        }
+    }
+}
 
 impl BoundCheck for CreateChatRequest {
     fn check(&self) -> bool {
@@ -147,6 +156,8 @@ impl BoundCheck for CreateProblemRequest {
         self.info.title.len() > 128
             || self.info.tags.len() > 1024
             || self.info.content.len() > 128 * 1024
+            || self.info.memory > 4 * 1024 * 1024 * 1024
+            || self.info.time > 60 * 1000 * 1000
     }
 }
 impl BoundCheck for UpdateProblemRequest {

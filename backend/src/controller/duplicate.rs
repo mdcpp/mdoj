@@ -1,5 +1,4 @@
 use quick_cache::sync::Cache;
-use std::future::Future;
 use std::sync::Arc;
 use std::{
     any::{Any, TypeId},

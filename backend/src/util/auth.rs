@@ -62,17 +62,23 @@ impl TryFrom<i32> for RoleLv {
 }
 
 impl RoleLv {
-    pub fn user(&self) -> bool {
-        *self as i32 >= 1
+    fn at_least_lv(&self, lv: RoleLv) -> Result<(), Error> {
+        match self >= &lv {
+            true => Ok(()),
+            false => Err(Error::RequirePermission(lv)),
+        }
     }
-    pub fn super_user(&self) -> bool {
-        *self as i32 >= 2
+    pub fn user(&self) -> Result<(), Error> {
+        self.at_least_lv(RoleLv::User)
     }
-    pub fn admin(&self) -> bool {
-        *self as i32 >= 3
+    pub fn super_user(&self) -> Result<(), Error> {
+        self.at_least_lv(RoleLv::Super)
     }
-    pub fn root(&self) -> bool {
-        *self as i32 >= 4
+    pub fn admin(&self) -> Result<(), Error> {
+        self.at_least_lv(RoleLv::Admin)
+    }
+    pub fn root(&self) -> Result<(), Error> {
+        self.at_least_lv(RoleLv::Root)
     }
 }
 
@@ -101,7 +107,7 @@ impl Auth {
         matches!(self, Auth::Guest)
     }
     /// get the user's permission level
-    pub fn user_perm(&self) -> RoleLv {
+    pub fn perm(&self) -> RoleLv {
         match self {
             Auth::User((_, x)) => *x,
             _ => RoleLv::Guest,
@@ -121,12 +127,8 @@ impl Auth {
             _ => None,
         }
     }
-    /// short hand for `self.into_inner().ok_or(err)`
-    pub fn auth_or_error(&self, err: Error) -> Result<(i32, RoleLv), Error> {
-        self.into_inner().ok_or(err)
-    }
     /// short hand for `self.into_inner().ok_or(Error::PermissionDeny)`
-    pub fn auth_or_guest(&self) -> Result<(i32, RoleLv), Error> {
+    pub fn assume_login(&self) -> Result<(i32, RoleLv), Error> {
         self.into_inner().ok_or(Error::PermissionDeny(
             "Only signed in user is allow in this endpoint",
         ))

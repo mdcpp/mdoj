@@ -3,8 +3,6 @@ use super::tools::*;
 use grpc::backend::playground_server::*;
 use grpc::backend::*;
 
-const PLAYGROUND_CODE_LEN: usize = 32 * 1024;
-
 #[async_trait]
 impl Playground for ArcServer {
     #[instrument(skip_all, level = "debug")]
