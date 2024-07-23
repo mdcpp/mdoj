@@ -125,7 +125,7 @@ impl_list_rate_limit!(Announcement);
 impl RateLimit for ListUserRequest {
     fn get_cost(&self) -> u32 {
         self.size
-            .saturating_add(self.offset.abs() as u64 / 6)
+            .saturating_add(self.offset.unsigned_abs() / 6)
             .saturating_add(12)
             .min(u32::MAX as u64) as u32
     }
@@ -134,7 +134,7 @@ impl RateLimit for ListUserRequest {
 impl RateLimit for ListChatRequest {
     fn get_cost(&self) -> u32 {
         self.size
-            .saturating_add(self.offset.abs() as u64 / 8)
+            .saturating_add(self.offset.unsigned_abs() / 8)
             .saturating_add(3)
             .min(u32::MAX as u64) as u32
     }

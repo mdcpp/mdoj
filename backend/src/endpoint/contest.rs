@@ -202,8 +202,7 @@ impl Contest for ArcServer {
                     } else {
                         return Err(Error::PermissionDeny(
                             "mismatch password(root can update password without entering original password)",
-                        )
-                        .into());
+                        ));
                     }
                 }
             }
@@ -284,8 +283,8 @@ impl Contest for ArcServer {
                     .password
                     .as_ref()
                     .ok_or(Error::NotInPayload("password"))?;
-                if !self.crypto.hash_eq(&password, &tar) {
-                    return Err(Error::PermissionDeny("mismatched password").into());
+                if !self.crypto.hash_eq(password, &tar) {
+                    return Err(Error::PermissionDeny("mismatched password"));
                 }
             }
 

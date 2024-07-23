@@ -112,7 +112,7 @@ impl User for ArcServer {
             {
                 perm.admin()?;
                 if new_perm > perm {
-                    return Err(Error::RequirePermission(new_perm).into());
+                    return Err(Error::RequirePermission(new_perm));
                 }
             }
 
@@ -174,11 +174,11 @@ impl User for ArcServer {
                 let new_perm: Role = new_perm.try_into().unwrap_or_default();
                 let new_perm: RoleLv = new_perm.into();
                 if perm < new_perm {
-                    return Err(Error::RequirePermission(new_perm).into());
+                    return Err(Error::RequirePermission(new_perm));
                 }
                 model.permission = ActiveValue::set(new_perm as i32);
                 if new_perm > perm {
-                    return Err(Error::RequirePermission(new_perm).into());
+                    return Err(Error::RequirePermission(new_perm));
                 }
             }
 
@@ -244,7 +244,7 @@ impl User for ArcServer {
                 .ok_or(Error::NotInDB)?;
 
             if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
-                return Err(Error::PermissionDeny("wrong original password").into());
+                return Err(Error::PermissionDeny("wrong original password"));
             }
 
             let mut model = model.into_active_model();

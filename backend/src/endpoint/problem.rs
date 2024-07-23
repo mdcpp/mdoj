@@ -200,7 +200,7 @@ impl Problem for ArcServer {
                 .map_err(Into::<Error>::into)?;
 
             if result.rows_affected == 0 {
-                return Err(Error::NotInDB.into());
+                return Err(Error::NotInDB);
             }
             Ok(())
         })
