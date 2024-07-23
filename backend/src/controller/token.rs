@@ -129,18 +129,16 @@ impl TokenController {
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, token)?;
         let rand: Rand = rand.try_into().map_err(|_| Error::InvalidTokenLength)?;
 
-        let cache_result = {
-            match self.cache.get(&rand) {
-                Some(cc) => {
-                    if cc.expiry < now {
-                        self.cache.remove(&rand);
-                        None
-                    } else {
-                        Some(cc.clone())
-                    }
+        let cache_result = match self.cache.get(&rand) {
+            Some(cc) => {
+                if cc.expiry < now {
+                    self.cache.remove(&rand);
+                    None
+                } else {
+                    Some(cc.clone())
                 }
-                None => None,
             }
+            None => None,
         };
 
         let token = match cache_result {
@@ -149,7 +147,6 @@ impl TokenController {
                 token
             }
             None => {
-                // FIXME: this is cold branch!
                 let token: CachedToken = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
                     .one(self.db.deref())

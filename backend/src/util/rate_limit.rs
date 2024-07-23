@@ -1,19 +1,20 @@
 use std::num::NonZeroU32;
 
+use super::auth::Auth;
 use crate::{
     controller::rate_limit::{Bucket, TrafficType},
     server::Server,
 };
 use grpc::backend::{Id, *};
 use tracing::*;
-
-use super::auth::Auth;
+use tracing_futures::Instrument;
 
 impl Server {
     /// parse authentication without rate limiting
     ///
     /// It's useful for endpoints that require resolving identity
     /// before rate limiting, such as logout
+    #[instrument(skip_all, level = "info")]
     pub async fn parse_auth<T>(
         &self,
         req: &tonic::Request<T>,
@@ -25,6 +26,7 @@ impl Server {
             .check(req, |req| async {
                 if let Some(x) = req.metadata().get("token") {
                     let token = x.to_str().unwrap();
+                    tracing::debug!(token = token);
 
                     match self.token.verify(token).in_current_span().await {
                         Ok(user) => {
@@ -42,6 +44,7 @@ impl Server {
                     TrafficType::Guest
                 }
             })
+            .in_current_span()
             .await?;
         tracing::info!(auth = %auth);
         Ok((auth, bucket))
@@ -89,6 +92,7 @@ impl Server {
         let (auth, bucket) = self.parse_auth(&req).in_current_span().await?;
         bucket.cost(NonZeroU32::new(3).unwrap())?;
         let req = req.into_inner();
+        tracing::debug!(bucket = %bucket);
 
         if let Some(cost) = NonZeroU32::new(req.get_cost()) {
             bucket.cost(cost)?;

@@ -5,6 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::config::CONFIG;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use blake2::{Blake2b512, Digest};
+use tracing::instrument;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -60,6 +61,7 @@ impl CryptoController {
     /// Serialize and calculate checksum and return
     ///
     /// Note that it shouldn't be an security measurement
+    #[instrument(skip_all, level = "debug", ret(level = "debug"))]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<String> {
         let mut raw = postcard::to_allocvec(&obj)?;
 
@@ -75,6 +77,7 @@ impl CryptoController {
     /// check signature and return the object
     ///
     /// Error if signature invaild
+    #[instrument(skip_all, level = "debug", err(level = "debug"))]
     pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
         let mut raw = URL_SAFE_NO_PAD.decode(raw)?;
 
