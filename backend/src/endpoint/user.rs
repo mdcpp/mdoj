@@ -1,4 +1,4 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::user_server::*;
 
@@ -97,7 +97,7 @@ impl User for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let (user_id, perm) = auth.assume_login()?;
+        let perm = auth.perm();
         perm.super_user()?;
 
         req.get_or_insert(|req| async move {
@@ -151,7 +151,7 @@ impl User for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let (user_id, perm) = auth.assume_login()?;
+        let perm = auth.perm();
         perm.admin()?;
 
         req.get_or_insert(|req| async move {

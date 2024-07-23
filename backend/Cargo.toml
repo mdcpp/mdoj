@@ -130,6 +130,6 @@ optional = true
 features = ["runtime-tokio-rustls", "sqlx-sqlite", "with-chrono"]
 
 [features]
-default = ["debug"]
+default = ["insecure-print"]
 standalone = ["dep:migration", "dep:sea-orm-migration", "dep:sea-orm-cli"]
-debug = ["sea-orm/debug-print"]
+insecure-print = ["sea-orm/debug-print"]

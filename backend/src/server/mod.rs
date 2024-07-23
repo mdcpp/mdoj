@@ -25,7 +25,7 @@ use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
-use tracing::{span, Instrument, Level};
+use tracing::Instrument;
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 

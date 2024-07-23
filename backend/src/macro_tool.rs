@@ -6,7 +6,7 @@
 ///
 /// It may contain sensitive information, so it's guarded by feature flag
 #[macro_export]
-#[cfg(feature = "debug")]
+#[cfg(feature = "insecure-print")]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         tracing::$level!($pattern);
@@ -26,7 +26,7 @@ macro_rules! report_internal {
 ///
 /// It doesn't contain sensitive information either on infrastructure or frontend
 #[macro_export]
-#[cfg(not(feature = "debug"))]
+#[cfg(not(feature = "insecure-print"))]
 macro_rules! report_internal {
     ($level:ident,$pattern:literal) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
@@ -143,61 +143,4 @@ macro_rules! NonZeroU32 {
             None => panic!("expect non-zero u32"),
         }
     };
-}
-
-/// parse request
-///
-/// the req must have field `size`, `offset`, `request`
-///
-/// It does the following things:
-///
-/// 1. parse request into payload
-/// 2. check if size is too large(>[`i32::MAX`])
-/// 3. rate limiter with linear function
-/// 4. extract sign from size
-///
-/// Be awared don't mess up the order of returned tuple
-///
-/// ```ignore
-/// let (auth, rev, size, offset, pager) = parse_pager_param!(self, req);
-/// ```
-///
-/// We use marco to parse request instead of a bunch of `From`
-/// to decouple them from a macro
-///
-/// ```proto
-/// message ListProblemRequest {
-///   message Create {
-///     required ProblemSortBy sort_by = 1;
-///     optional bool start_from_end =2;
-///     }
-///   oneof request {
-///     Create create = 1;
-///     Paginator pager = 2;
-///   }
-///   required int64 size = 3;
-///   optional uint64 offset = 4;
-/// }
-/// ````
-#[macro_export]
-macro_rules! parse_pager_param {
-    ($self:expr,$req:expr) => {{
-        let span = tracing::info_span!("parse").or_current();
-
-        let (auth, req) = $self
-            .parse_request_fn($req, |req| {
-                ((req.size.saturating_abs() as u64) + req.offset() / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .instrument(span)
-            .await?;
-        (
-            auth,
-            req.size < 0,
-            req.size.saturating_abs() as u64,
-            req.offset(),
-            req.request.ok_or(Error::NotInPayload("request"))?,
-        )
-    }};
 }

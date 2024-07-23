@@ -1,10 +1,10 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::testcase_server::*;
 
 use crate::entity::{
+    problem,
     testcase::{Paginator, *},
-    *,
 };
 
 impl<'a> From<WithAuth<'a, Model>> for TestcaseFullInfo {
@@ -118,7 +118,6 @@ impl Testcase for ArcServer {
     )]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (_, perm) = auth.assume_login()?;
         req.bound_check()?;
 
         req.get_or_insert(|req| async move {

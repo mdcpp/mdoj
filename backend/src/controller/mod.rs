@@ -4,7 +4,6 @@
 //! include intergated test
 
 pub mod crypto;
-pub mod duplicate;
 pub mod imgur;
 pub mod judger;
 pub mod rate_limit;

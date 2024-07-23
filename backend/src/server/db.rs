@@ -4,7 +4,7 @@ use sea_orm::{
 };
 
 use super::InitError;
-use tracing::{debug_span, instrument, Instrument, Span};
+use tracing::{debug_span, instrument, Instrument};
 
 use crate::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};

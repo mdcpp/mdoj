@@ -1,7 +1,7 @@
-use super::tools::*;
+use super::*;
 use grpc::backend::problem_server::*;
 
-use crate::entity::{problem::Paginator, problem::*, *};
+use crate::entity::{contest, problem::Paginator, problem::*};
 
 impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {

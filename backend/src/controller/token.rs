@@ -7,7 +7,7 @@ use sea_orm::*;
 use spin::Mutex;
 use std::{ops::Deref, sync::Arc};
 use tokio::time;
-use tracing::{instrument, Instrument, Span};
+use tracing::{instrument, Instrument};
 
 use crate::report_internal;
 

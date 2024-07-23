@@ -1,13 +1,13 @@
-use super::tools::*;
+use super::*;
 
 use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
-use grpc::backend::submit_server::*;
-use grpc::backend::StateCode as BackendCode;
+use grpc::backend::{submit_server::*, StateCode as BackendCode};
 
 use crate::entity::{
+    contest, problem, submit,
     submit::{Paginator, *},
-    *,
+    user,
 };
 use tokio_stream::wrappers::ReceiverStream;
 

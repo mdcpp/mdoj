@@ -48,7 +48,7 @@ macro_rules! impl_basic_bound_check {
 impl_basic_bound_check!(Announcement);
 impl_basic_bound_check!(Education);
 
-macro_rules! list_request {
+macro_rules! list_paginator_request {
     ($n:ident) => {
         paste::paste! {
             impl BoundCheck for [<List $n Request>] {
@@ -72,11 +72,11 @@ macro_rules! list_request {
     };
 }
 
-list_request!(Problem);
-list_request!(Announcement);
-list_request!(Contest);
-list_request!(Education);
-list_request!(User);
+list_paginator_request!(Problem);
+list_paginator_request!(Announcement);
+list_paginator_request!(Contest);
+list_paginator_request!(Education);
+list_paginator_request!(User);
 
 impl BoundCheck for ListChatRequest {
     fn check(&self) -> bool {
@@ -85,11 +85,8 @@ impl BoundCheck for ListChatRequest {
 }
 impl BoundCheck for ListSubmitRequest {
     fn check(&self) -> bool {
-        if let Some(x) = &self.request {
-            (match x {
-                list_submit_request::Request::Create(x) => 0,
-                list_submit_request::Request::Paginator(x) => x.len(),
-            } > 512)
+        if let Some(list_submit_request::Request::Paginator(x)) = &self.request {
+            x.len() > 512
         } else {
             false
         }

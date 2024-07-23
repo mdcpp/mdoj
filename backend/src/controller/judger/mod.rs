@@ -10,7 +10,7 @@ use grpc::backend::StateCode as BackendCode;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tonic::Status;
-use tracing::{instrument, Instrument, Span};
+use tracing::{instrument, Instrument};
 use uuid::Uuid;
 
 use self::{pubsub::PubSub, route::*};
@@ -21,9 +21,6 @@ use grpc::{
     backend::{submit_status, SubmitStatus},
     judger::*,
 };
-
-const PALYGROUND_TIME: u64 = 500 * 1000;
-const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
 
 #[derive(Debug, Error)]
 pub enum Error {

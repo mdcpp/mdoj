@@ -2,7 +2,6 @@ use super::error::Result;
 use grpc::backend::*;
 use quick_cache::sync::Cache;
 use std::future::Future;
-use tonic::Response;
 use uuid::Uuid;
 
 /// caching singleton trait

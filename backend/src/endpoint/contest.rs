@@ -1,4 +1,4 @@
-use super::tools::*;
+use super::*;
 
 use crate::entity::{
     contest::{Paginator, *},

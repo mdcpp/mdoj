@@ -1,8 +1,8 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::education_server::*;
 
-use crate::entity::{education::Paginator, education::*, *};
+use crate::entity::{education::Paginator, education::*, problem};
 
 impl<'a> From<WithAuth<'a, Model>> for EducationFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {

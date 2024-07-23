@@ -2,7 +2,6 @@ use crate::controller::{imgur as image, judger, token};
 use crate::report_internal;
 use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
 use tonic::Status;
-use tracing::span::Id;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use uuid::Uuid;
 

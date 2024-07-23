@@ -1,10 +1,10 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::announcement_server::*;
 
 use crate::{
     entity::announcement::{Paginator, *},
-    entity::*,
+    entity::contest,
     util::time::into_prost,
 };
 

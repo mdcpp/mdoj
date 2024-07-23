@@ -1,8 +1,6 @@
 use super::*;
 use grpc::backend::list_announcement_request::Sort;
 
-pub static NAME: &str = "announcement";
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
 pub struct Model {

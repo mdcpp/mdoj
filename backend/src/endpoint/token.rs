@@ -1,13 +1,12 @@
 use std::num::NonZeroU32;
 use std::time::Duration;
 
-use super::tools::*;
+use super::*;
 
 use grpc::backend::token_server::*;
 
 use crate::entity::token::*;
-use crate::entity::*;
-use crate::util::rate_limit::RateLimit;
+use crate::{entity::user, util::rate_limit::RateLimit};
 
 const TOKEN_LIMIT: u64 = 16;
 
@@ -73,7 +72,7 @@ impl Token for ArcServer {
         if self.crypto.hash_eq(req.password.as_str(), &model.password) {
             let dur =
                 chrono::Duration::from_std(Duration::from_secs(req.expiry.unwrap_or(60 * 60 * 12)))
-                    .map_err(|err| Error::BadArgument("expiry"))?;
+                    .map_err(|_| Error::BadArgument("expiry"))?;
             let (token, expiry) = self.token.add(&model, dur).in_current_span().await?;
 
             Ok(Response::new(TokenInfo {
@@ -93,7 +92,7 @@ impl Token for ArcServer {
         err(level = "debug", Display)
     )]
     async fn refresh(&self, req: Request<RefreshRequest>) -> Result<Response<TokenInfo>, Status> {
-        let (auth, bucket) = self.parse_auth(&req).in_current_span().await?;
+        let (_, bucket) = self.parse_auth(&req).in_current_span().await?;
         let (meta, _, req) = req.into_parts();
         bucket.cost(NonZeroU32::new(req.get_cost()).unwrap())?;
 
@@ -112,7 +111,7 @@ impl Token for ArcServer {
                 let dur = chrono::Duration::from_std(Duration::from_secs(
                     req.expiry.unwrap_or(60 * 60 * 12),
                 ))
-                .map_err(|err| Error::BadArgument("expiry"))?;
+                .map_err(|_| Error::BadArgument("expiry"))?;
 
                 self.token.remove(token.to_string()).await?;
                 let (token, expiry) = self.token.add(&user, dur).in_current_span().await?;
