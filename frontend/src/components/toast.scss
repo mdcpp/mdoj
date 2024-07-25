@@ -1,0 +1,27 @@
+.show_up {
+    animation: show_up_animation 0.4s forwards;
+}
+
+@keyframes show_up_animation {
+    0% {
+        transform: translateX(100%);
+    }
+
+    100% {
+        transform: translateX(0%);
+    }
+}
+
+.countdown::before {
+    animation: countdown_animation 4s linear forwards;
+}
+
+@keyframes countdown_animation {
+    0% {
+        width: 100%;
+    }
+
+    100% {
+        width: 0%;
+    }
+}
