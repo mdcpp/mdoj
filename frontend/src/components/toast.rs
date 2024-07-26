@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use leptos::*;
+use leptos_animated_for::AnimatedFor;
 use leptos_icons::*;
 use leptos_use::*;
 use tailwind_fuse::tw_join;
@@ -14,11 +15,16 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     let (toasts, _) = slice!(toaster.toasts);
     view! {
         {children()}
-        <div class="fixed bottom-0 right-0 h-screen w-60 flex flex-col-reverse">
-            <For
+        <div class="fixed bottom-0 right-0 h-screen w-60 flex flex-col justify-end">
+            <AnimatedFor
                 each=toasts
                 key=|toast| toast.0
                 children=|(id, v)| view! { <Toast id>{v}</Toast> }
+                enter_from_class="translate-x-full"
+                enter_class="translate-x-0 transition-transform duration-300"
+                move_class="transition-all duration-300"
+                leave_class="[&>div:last-child]:hidden translate-x-full transition-transform duration-300"
+                appear=true
             />
         </div>
     }
@@ -56,15 +62,7 @@ impl Toaster {
 #[component]
 fn Toast(id: usize, children: Children) -> impl IntoView {
     let list: RwSignal<Toaster> = expect_context();
-    let is_open = create_rw_signal(true);
-    let close = move || {
-        is_open.set(false);
-        set_timeout(
-            move || list.update(move |list| list.remove(id)),
-            Duration::from_secs_f64(0.4),
-        );
-    };
-
+    let close = move || list.update(move |list: &mut Toaster| list.remove(id));
     let UseTimeoutFnReturn {
         start,
         stop,
@@ -87,33 +85,22 @@ fn Toast(id: usize, children: Children) -> impl IntoView {
             stop();
         }
     });
-
-    let class = move || {
-        tw_join!(
-            "pr-2 pb-2",
-            is_open()
-                .then_some(ClassName::SHOW)
-                .unwrap_or(ClassName::CLOSE),
-        )
-    };
     let countdown_class = move || {
         tw_join!(
-            "w-full h-0 relative before:contents before:absolute \
-             before:bottom-0 before:right-0 before:h-1 before:w-full \
-             before:bg-primary",
-            (!is_open()).then_some("before:hidden"),
+            "w-full h-0 relative before:absolute before:bottom-0 \
+             before:right-0 before:h-1 before:w-full before:bg-primary",
             is_pending().then_some(ClassName::COUNTDOWN),
         )
     };
     view! {
-        <style>{STYLE_SHEET}</style>
-        <div node_ref=node_ref class=class>
+        <div node_ref=node_ref class="pr-2 pb-2">
             <div class="z-10 flex flex-row justify-between p-2 text-text bg-slate-800 border-2 border-secondary ">
                 <div class="text-sm">{children()}</div>
                 <button class="w-6 h-6 pl-2" on:click=move |_| close()>
                     <Icon icon=icondata::AiCloseOutlined/>
                 </button>
             </div>
+            <style>{STYLE_SHEET}</style>
             <div class=countdown_class></div>
         </div>
     }
