@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use leptos::*;
 use leptos_icons::*;
 use leptos_use::*;
@@ -12,7 +14,7 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     let (toasts, _) = slice!(toaster.toasts);
     view! {
         {children()}
-        <div class="fixed bottom-0 right-0 h-screen w-1/5 flex flex-col-reverse">
+        <div class="fixed bottom-0 right-0 h-screen w-60 flex flex-col-reverse">
             <For
                 each=toasts
                 key=|toast| toast.0
@@ -53,10 +55,15 @@ impl Toaster {
 
 #[component]
 fn Toast(id: usize, children: Children) -> impl IntoView {
-    let node_ref = create_node_ref::<html::Div>();
     let list: RwSignal<Toaster> = expect_context();
-    let close = move || list.update(move |list| list.remove(id));
-    let hover = use_element_hover(node_ref);
+    let is_open = create_rw_signal(true);
+    let close = move || {
+        is_open.set(false);
+        set_timeout(
+            move || list.update(move |list| list.remove(id)),
+            Duration::from_secs_f64(0.4),
+        );
+    };
 
     let UseTimeoutFnReturn {
         start,
@@ -68,6 +75,8 @@ fn Toast(id: usize, children: Children) -> impl IntoView {
         use_timeout_fn(move |_| close(), 4.0 * 1000.0)
     };
 
+    let node_ref = create_node_ref::<html::Div>();
+    let hover = use_element_hover(node_ref);
     create_effect(move |_| {
         if !hover() {
             start(());
@@ -79,24 +88,33 @@ fn Toast(id: usize, children: Children) -> impl IntoView {
         }
     });
 
+    let class = move || {
+        tw_join!(
+            "pr-2 pb-2",
+            is_open()
+                .then_some(ClassName::SHOW)
+                .unwrap_or(ClassName::CLOSE),
+        )
+    };
+    let countdown_class = move || {
+        tw_join!(
+            "w-full h-0 relative before:contents before:absolute \
+             before:bottom-0 before:right-0 before:h-1 before:w-full \
+             before:bg-primary",
+            (!is_open()).then_some("before:hidden"),
+            is_pending().then_some(ClassName::COUNTDOWN),
+        )
+    };
     view! {
         <style>{STYLE_SHEET}</style>
-        <div
-            node_ref=node_ref
-            class=move || {
-                tw_join!(
-                    ClassName::SHOW_UP,
-                    "z-10 flex flex-row justify-between p-2 text-text bg-slate-800 border-2 border-secondary mr-2 mb-2",
-                    "before:bg-primary before:contents before:absolute before:bottom-0 before:right-0 before:h-1 before:w-full",
-                    is_pending().then_some(ClassName::COUNTDOWN)
-                )
-            }
-        >
-
-            <div class="text-sm">{children()}</div>
-            <button class="w-6 h-6 pl-2" on:click=move |_| close()>
-                <Icon icon=icondata::AiCloseOutlined/>
-            </button>
+        <div node_ref=node_ref class=class>
+            <div class="z-10 flex flex-row justify-between p-2 text-text bg-slate-800 border-2 border-secondary ">
+                <div class="text-sm">{children()}</div>
+                <button class="w-6 h-6 pl-2" on:click=move |_| close()>
+                    <Icon icon=icondata::AiCloseOutlined/>
+                </button>
+            </div>
+            <div class=countdown_class></div>
         </div>
     }
 }

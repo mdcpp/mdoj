@@ -1,8 +1,8 @@
-.show_up {
-    animation: show_up_animation 0.4s forwards;
+.show {
+    animation: show_animation 0.4s forwards;
 }
 
-@keyframes show_up_animation {
+@keyframes show_animation {
     0% {
         transform: translateX(100%);
     }
@@ -12,9 +12,26 @@
     }
 }
 
+.close {
+    animation: close_animation 0.4s forwards;
+}
+
+
+@keyframes close_animation {
+    0% {
+        transform: translateX(0%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+
 .countdown::before {
     animation: countdown_animation 4s linear forwards;
 }
+
 
 @keyframes countdown_animation {
     0% {

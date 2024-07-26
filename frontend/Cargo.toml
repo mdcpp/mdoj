@@ -161,7 +161,3 @@ lib-default-features = false
 #
 # Optional. Defaults to "release".
 lib-profile-release = "wasm-release"
-
-
-[package.metadata.turf.class_names]
-template = "c_<original_name>_<id>"
