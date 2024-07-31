@@ -23,14 +23,12 @@ pub fn new_client() -> tonic::transport::Channel {
 }
 
 pub trait WithToken: Sized {
-    /// this will try to add token to request.
+    /// this will add a optional token to request.
     ///
-    /// Will return error if token is not exist
+    /// Will do nothing if token is `None`
     fn with_optional_token(self, token: Option<String>) -> Request<Self>;
 
-    /// this will try to add token to request.
-    ///
-    /// If token is not exist, it will just ignore error and return request without token
+    /// this will add token to request.
     fn with_token(self, token: String) -> Request<Self>;
 }
 
