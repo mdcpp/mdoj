@@ -14,7 +14,7 @@ pub fn new_client() -> tonic_web_wasm_client::Client {
 
 #[cfg(feature = "ssr")]
 pub fn new_client() -> tonic::transport::Channel {
-    use tonic::transport::{Channel, Endpoint};
+    use tonic::transport::Endpoint;
 
     let config = frontend_config();
     Endpoint::new(config.api_server.clone())
@@ -61,7 +61,7 @@ where
 
 #[cfg(feature = "ssr")]
 fn with_xff(metadata: MetadataMap) -> MetadataMap {
-    use actix_web::http::header::{self, HeaderMap};
+    use actix_web::http::header;
     use leptos_actix::ResponseOptions;
 
     let mut header_map = metadata.into_headers();

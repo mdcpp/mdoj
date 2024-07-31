@@ -1,9 +1,6 @@
 #[cfg(feature = "ssr")]
-use anyhow::Result;
-
-#[cfg(feature = "ssr")]
 #[actix_web::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     use actix_files::Files;
     use actix_web::{dev::Service, http::header, *};
     // use frontend::{app::*, config};
