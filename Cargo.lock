@@ -1903,7 +1903,6 @@ version = "0.1.0"
 dependencies = [
  "actix-files",
  "actix-web",
- "anyhow",
  "cfg-if",
  "console_error_panic_hook",
  "gloo",
@@ -1925,7 +1924,6 @@ dependencies = [
  "serde_qs 0.12.0",
  "syntect",
  "tailwind_fuse",
- "thiserror",
  "tokio",
  "toml 0.7.8",
  "tonic",
