@@ -8,7 +8,6 @@ mod chat;
 mod contest;
 mod education;
 mod imgur;
-mod playground;
 mod problem;
 mod submit;
 mod testcase;

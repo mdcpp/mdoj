@@ -188,7 +188,7 @@ message SubmitStatus {
 }
 
 message CreateSubmitRequest {
-  required string lang = 3;
+  required string lang_uid = 3;
   required int32 problem_id = 2;
   required bytes code = 1;
   optional string request_id = 4;
@@ -228,6 +228,8 @@ service Submit {
   // are not guarantee to yield status(not consistent across request)
   rpc Follow(Id) returns (stream SubmitStatus);
   rpc Rejudge(RejudgeRequest) returns (google.protobuf.Empty);
+
+  rpc ListLang(google.protobuf.Empty) returns (Languages);
 }
 
 message AnnouncementInfo {
@@ -764,5 +766,3 @@ message Language {
   required string lang_ext = 4;
 }
 message Languages { repeated Language list = 1; }
-
-service Playground { rpc ListLang(google.protobuf.Empty) returns (Languages); }
