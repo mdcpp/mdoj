@@ -4,12 +4,12 @@ use sea_orm::{
 };
 
 use super::InitError;
-use tracing::{debug_span, instrument, Instrument, Span};
+use tracing::{debug_span, instrument, Instrument};
 
 use crate::config::{self};
 use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 
-#[instrument(skip_all, name = "construct_db",parent=span)]
+#[instrument(skip_all, name = "construct_db")]
 /// initialize the database and connection
 ///
 /// 1. Connect to database.
@@ -19,7 +19,6 @@ use crate::{controller::crypto::CryptoController, util::auth::RoleLv};
 pub async fn init(
     config: &config::Database,
     crypto: &CryptoController,
-    span: &Span,
 ) -> super::Result<DatabaseConnection> {
     let uri = format!("sqlite://{}?mode=rwc&cache=private", config.path.clone());
 

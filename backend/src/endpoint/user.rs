@@ -1,4 +1,4 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::user_server::*;
 
@@ -35,18 +35,17 @@ impl From<Model> for UserInfo {
 
 #[async_trait]
 impl User for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListUserRequest>,
     ) -> Result<Response<ListUserResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -79,205 +78,201 @@ impl User for ArcServer {
             remain,
         }))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.full_info",
+        err(level = "debug", Display)
+    )]
     async fn full_info(&self, _req: Request<Id>) -> Result<Response<UserFullInfo>, Status> {
         Err(Status::cancelled("deprecated"))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
+        let perm = auth.perm();
+        perm.super_user()?;
 
-        let (user_id, perm) = auth.auth_or_guest()?;
+        req.get_or_insert(|req| async move {
+            let new_perm: RoleLv = req.info.role().into();
 
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
-
-        let new_perm: RoleLv = req.info.role().into();
-
-        if (perm as i32)
-            > CONFIG
-                .default_role
-                .clone()
-                .map(|x| x as i32)
-                .unwrap_or_default()
-        {
-            if !perm.admin() {
-                return Err(Error::RequirePermission(RoleLv::Admin).into());
-            } else if !perm.root() && new_perm >= perm {
-                return Err(Error::RequirePermission(new_perm).into());
+            if (perm as i32)
+                > CONFIG
+                    .default_role
+                    .clone()
+                    .map(|x| x as i32)
+                    .unwrap_or_default()
+            {
+                perm.admin()?;
+                if new_perm > perm {
+                    return Err(Error::RequirePermission(new_perm));
+                }
             }
-        }
 
-        let mut model: ActiveModel = Default::default();
+            let mut model: ActiveModel = Default::default();
 
-        tracing::debug!(username = req.info.username);
+            tracing::debug!(username = req.info.username);
 
-        let hash = self.crypto.hash(req.info.password.as_str());
-        let txn = self.db.begin().await.map_err(Error::DBErr)?;
+            let hash = self.crypto.hash(req.info.password.as_str());
 
-        let same_name = Entity::find()
-            .filter(Column::Username.eq(req.info.username.as_str()))
-            .count(&txn)
-            .instrument(info_span!("check_exist").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
-        if same_name != 0 {
-            return Err(Error::AlreadyExist(req.info.username).into());
-        }
-
-        model.password = ActiveValue::set(hash);
-        model.permission = ActiveValue::set(new_perm as i32);
-        fill_active_model!(model, req.info, username);
-
-        let model = model
-            .save(&txn)
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        let id: Id = model.id.clone().unwrap().into();
-        self.dup.store(user_id, uuid, id.clone());
-
-        txn.commit()
-            .await
-            .map_err(|_| Error::AlreadyExist(model.username.as_ref().to_string()))?;
-
-        tracing::debug!(id = id.id, "user_created");
-
-        Ok(Response::new(id))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-
-        let (user_id, perm) = auth.auth_or_guest()?;
-
-        req.bound_check()?;
-
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
-        if !(perm.admin()) {
-            return Err(Error::RequirePermission(RoleLv::Admin).into());
-        }
-
-        let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?
-            .into_active_model();
-
-        if let Some(username) = req.info.username {
-            model.username = ActiveValue::set(username);
-        }
-        if let Some(password) = req.info.password {
-            let hash = self.crypto.hash(password.as_str());
             model.password = ActiveValue::set(hash);
-        }
-        if let Some(new_perm) = req.info.role {
-            let new_perm: Role = new_perm.try_into().unwrap_or_default();
-            let new_perm: RoleLv = new_perm.into();
-            if !perm.admin() {
-                return Err(Error::RequirePermission(RoleLv::Admin).into());
-            }
-            if !perm.root() && new_perm > perm {
-                return Err(Error::RequirePermission(RoleLv::Root).into());
-            }
             model.permission = ActiveValue::set(new_perm as i32);
-            if new_perm > perm {
-                return Err(Error::RequirePermission(new_perm).into());
+            fill_active_model!(model, req.info, username);
+
+            let model = model
+                .save(self.db.as_ref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+
+            let id = *model.id.as_ref();
+            tracing::info!(counter.user = 1, id = id);
+
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.update",
+        err(level = "debug", Display)
+    )]
+    async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        req.bound_check()?;
+
+        let perm = auth.perm();
+        perm.admin()?;
+
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
+
+            if let Some(username) = req.info.username {
+                model.username = ActiveValue::set(username);
             }
-        }
+            if let Some(password) = req.info.password {
+                let hash = self.crypto.hash(password.as_str());
+                model.password = ActiveValue::set(hash);
+            }
+            if let Some(new_perm) = req.info.role {
+                let new_perm: Role = new_perm.try_into().unwrap_or_default();
+                let new_perm: RoleLv = new_perm.into();
+                if perm < new_perm {
+                    return Err(Error::RequirePermission(new_perm));
+                }
+                model.permission = ActiveValue::set(new_perm as i32);
+                if new_perm > perm {
+                    return Err(Error::RequirePermission(new_perm));
+                }
+            }
 
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
 
-        self.dup.store(user_id, uuid, ());
-
-        Ok(Response::new(()))
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.remove",
+        err(level = "debug", Display)
+    )]
+    async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+        req.get_or_insert(|req| async move {
+            let result =
+                Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
+                    .exec(self.db.deref())
+                    .instrument(info_span!("remove").or_current())
+                    .await
+                    .map_err(Into::<Error>::into)?;
 
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        self.token.remove_by_user_id(req.id).await?;
-
-        Ok(Response::new(()))
+            if result.rows_affected == 0 {
+                Err(Error::NotInDB)
+            } else {
+                tracing::info!(counter.announcement = -1, id = req.id);
+                Ok(())
+            }
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.update_password",
+        err(level = "debug", Display)
+    )]
     async fn update_password(
         &self,
         req: Request<UpdatePasswordRequest>,
     ) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, _) = auth.auth_or_guest()?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        let (user_id, _) = auth.assume_login()?;
 
-        let model = user::Entity::find()
-            .filter(user::Column::Username.eq(req.username))
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
+        req.get_or_insert(|req| async move {
+            let model = user::Entity::find()
+                .filter(user::Column::Username.eq(req.username))
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
 
-        if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
-            return Err(Error::PermissionDeny("wrong original password").into());
-        }
+            if !self.crypto.hash_eq(req.password.as_str(), &model.password) {
+                return Err(Error::PermissionDeny("wrong original password"));
+            }
 
-        let mut model = model.into_active_model();
-        model.password = ActiveValue::Set(self.crypto.hash(&req.new_password));
+            let mut model = model.into_active_model();
+            model.password = ActiveValue::Set(self.crypto.hash(&req.new_password));
 
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
 
-        self.token.remove_by_user_id(user_id).await?;
+            self.token.remove_by_user_id(user_id).await?;
 
-        return Ok(Response::new(()));
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.User.my_info",
+        err(level = "debug", Display)
+    )]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserFullInfo>, Status> {
-        let (auth, _) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, _) = auth.auth_or_guest()?;
+        let (auth, _) = self.rate_limit(req).in_current_span().await?;
+        let (user_id, _) = auth.assume_login()?;
 
         let model = Entity::find_by_id(user_id)
             .one(self.db.deref())

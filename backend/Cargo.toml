@@ -9,7 +9,7 @@ edition = "2021"
 codegen-backend = "cranelift"
 
 [dependencies]
-tikv-jemallocator = { workspace = true, optional = true }
+tikv-jemallocator = { workspace = true }
 log = "0.4.18"
 paste = "1.0.12"
 toml = { workspace = true }
@@ -31,7 +31,7 @@ ip_network = { version = "0.4.1", features = ["serde"] }
 opentelemetry = { version = "0.23.0", features = ["metrics"] }
 opentelemetry_sdk = { version = "0.23.0", features = ["rt-tokio", "metrics"] }
 opentelemetry-stdout = { version = "0.4.0", features = ["metrics"] }
-opentelemetry-otlp = { version = "0.16.0", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.16.0", features = ["metrics", "tls-roots"] }
 opentelemetry-semantic-conventions = "0.16.0"
 tracing-opentelemetry = { version = "0.24.0", features = ["metrics"] }
 tracing-core = "0.1.32"
@@ -41,6 +41,7 @@ governor = "0.6.0"
 http = "^0.2"
 lazy_static = "1.5.0"
 prost-wkt-types = { workspace = true }
+tracing-futures = "0.2.5"
 
 [dependencies.grpc]
 path = "../grpc"
@@ -129,7 +130,6 @@ optional = true
 features = ["runtime-tokio-rustls", "sqlx-sqlite", "with-chrono"]
 
 [features]
-default = ["debug"]
+default = ["insecure-print"]
 standalone = ["dep:migration", "dep:sea-orm-migration", "dep:sea-orm-cli"]
-release = ["dep:tikv-jemallocator"]
-debug = ["sea-orm/debug-print"]
+insecure-print = ["sea-orm/debug-print"]

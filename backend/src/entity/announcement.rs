@@ -1,8 +1,5 @@
 use super::*;
 use grpc::backend::list_announcement_request::Sort;
-use tracing::instrument;
-
-pub static NAME: &str = "announcement";
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "announcement")]
@@ -70,29 +67,28 @@ impl Related<super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl super::Filter for Entity {
-    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Ok((user_id, perm)) = auth.auth_or_guest() {
-            if perm.admin() {
-                return Ok(query);
-            }
-            return Ok(query.filter(Column::Public.eq(true).or(Column::UserId.eq(user_id))));
-        }
-        Ok(query.filter(Column::Public.eq(true)))
+        Ok(match auth.perm() {
+            RoleLv::Guest => query.filter(Column::Public.eq(true)),
+            RoleLv::User | RoleLv::Super => query.filter(
+                Column::Public
+                    .eq(true)
+                    .or(Column::UserId.eq(auth.user_id().unwrap())),
+            ),
+            RoleLv::Admin | RoleLv::Root => query,
+        })
     }
-    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.auth_or_guest()?;
-        if perm.admin() {
-            return Ok(query);
+        let (user_id, perm) = auth.assume_login()?;
+        match perm {
+            RoleLv::Admin | RoleLv::Root => Ok(query),
+            RoleLv::Super => Ok(query.filter(Column::UserId.eq(user_id))),
+            _ => Err(Error::RequirePermission(RoleLv::Super)),
         }
-        if perm.super_user() {
-            return Ok(query.filter(Column::UserId.eq(user_id)));
-        }
-        Err(Error::NotInDB)
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        auth.user_perm().admin() || Some(model.user_id) == auth.user_id()
+        auth.perm() >= RoleLv::Admin
+            || (Some(model.user_id) == auth.user_id() && auth.perm() != RoleLv::User)
     }
 }
 
@@ -252,7 +248,6 @@ impl WithAuthTrait for Paginator {}
 
 impl Paginator {
     pub fn new_text(text: String, start_from_end: bool) -> Self {
-        // FIXME: check dup text
         Self::Text(TextPaginator::new(text, start_from_end))
     }
     pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
@@ -273,6 +268,7 @@ impl Paginator {
 }
 
 impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
+    #[instrument(skip_all, err(level = "debug", Display))]
     pub async fn fetch(&mut self, size: u64, offset: i64) -> Result<Vec<PartialModel>, Error> {
         let db = self.0;
         let auth = self.1 .0;
@@ -283,6 +279,7 @@ impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
             Paginator::Default(ref mut x) => x.fetch(size, offset, auth, db).await,
         }
     }
+    #[instrument(skip_all, err(level = "debug", Display))]
     pub async fn remain(&self) -> Result<u64, Error> {
         let db = self.0;
         let auth = self.1 .0;

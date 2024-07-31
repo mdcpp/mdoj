@@ -12,7 +12,7 @@
 use super::helper::*;
 use crate::util::auth::Auth;
 use sea_orm::*;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 use tonic::async_trait;
 use tracing::*;
 
@@ -360,15 +360,31 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> PaginateRaw for ColumnPaginator<S,
     }
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Default)]
 pub enum UninitPaginator<P: PaginateRaw> {
-    #[serde(skip_deserializing, skip_serializing)]
+    #[serde(skip)]
     Uninit(<P::Source as PagerData>::Data, bool),
     #[serde(bound(deserialize = "P: for<'a> Deserialize<'a>"))]
     Init(P),
-    #[serde(skip_deserializing, skip_serializing)]
+    #[serde(skip)]
     #[default]
     None,
+}
+
+impl<'de, P: PaginateRaw> Deserialize<'de> for UninitPaginator<P> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let p: Option<P> = Deserialize::deserialize(deserializer)?;
+
+        match p {
+            Some(p) => Ok(UninitPaginator::Init(p)),
+            None => Err(serde::de::Error::custom(
+                "Unexpected data format for UninitPaginator",
+            )),
+        }
+    }
 }
 
 impl<P: PaginateRaw> UninitPaginator<P> {

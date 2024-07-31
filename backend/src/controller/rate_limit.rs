@@ -1,10 +1,10 @@
-use std::{hash::Hash, net::IpAddr, num::NonZeroU32, str::FromStr, sync::Arc};
-
 use crate::NonZeroU32;
 use futures::Future;
 use governor::{DefaultDirectRateLimiter, DefaultKeyedRateLimiter, Quota, RateLimiter};
 use ip_network::IpNetwork;
 use quick_cache::sync::Cache;
+use std::fmt::{Display, Formatter};
+use std::{hash::Hash, net::IpAddr, num::NonZeroU32, str::FromStr, sync::Arc};
 
 use tracing::*;
 
@@ -23,6 +23,20 @@ pub enum Bucket {
     Guest((Arc<DefaultKeyedRateLimiter<IpAddr>>, IpAddr)),
     Login((Arc<DefaultKeyedRateLimiter<i32>>, i32)),
     Blacklist(Arc<DefaultDirectRateLimiter>),
+}
+
+impl Display for Bucket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Blacklist(_) => "Blacklist",
+                Self::Guest(_) => "Guest",
+                Self::Login(_) => "Login",
+            }
+        )
+    }
 }
 
 impl Bucket {
@@ -61,7 +75,6 @@ impl Bucket {
 
 /// Policy of resource acquisition
 trait AcquisitionPolicy {
-    const BUCKET_WIDTH: usize = BUCKET_WIDTH;
     /// How many burst request is allowed
     const BURST: NonZeroU32;
     /// How many fill per minute
@@ -131,7 +144,7 @@ impl RateLimitController {
         Self {
             ip_blacklist: Cache::new(BUCKET_WIDTH),
             user_limiter: Arc::new(LoginPolicy::key()),
-            ip_limiter: Arc::new(LoginPolicy::key()),
+            ip_limiter: Arc::new(GuestPolicy::key()),
             blacklist_limiter: Arc::new(BlacklistPolicy::direct()),
             trusts: trusts.to_vec(),
         }

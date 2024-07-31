@@ -1,4 +1,4 @@
-use super::tools::*;
+use super::*;
 
 use crate::entity::{
     contest::{Paginator, *},
@@ -57,19 +57,17 @@ impl From<PartialModel> for ContestInfo {
 
 #[async_trait]
 impl Contest for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListContestRequest>,
     ) -> Result<Response<ListContestResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
         let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
@@ -88,8 +86,11 @@ impl Contest for ArcServer {
         };
         let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
 
-        let list = paginator.fetch(req.size, req.offset).await?;
-        let remain = paginator.remain().await?;
+        let list = paginator
+            .fetch(req.size, req.offset)
+            .in_current_span()
+            .await?;
+        let remain = paginator.remain().in_current_span().await?;
 
         let paginator = paginator.into_inner();
 
@@ -99,14 +100,18 @@ impl Contest for ArcServer {
             remain,
         }))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.full_info",
+        err(level = "debug", Display)
+    )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ContestFullInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        let query = Entity::find_by_id::<i32>(req.into()).filter(Column::Public.eq(true));
+        let query = Entity::find_by_id::<i32>(req.into())
+            .with_auth(&auth)
+            .read()?;
         let model = query
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
@@ -116,174 +121,256 @@ impl Contest for ArcServer {
 
         Ok(Response::new(model.with_auth(&auth).into()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateContestRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        let (user_id, perm) = auth.assume_login()?;
+        perm.super_user()?;
 
-        if !perm.super_user() {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
+        req.get_or_insert(|req| async {
+            let mut model: ActiveModel = Default::default();
+            model.hoster = ActiveValue::Set(user_id);
 
-        let mut model: ActiveModel = Default::default();
-        model.hoster = ActiveValue::Set(user_id);
+            fill_active_model!(model, req.info, title, content, tags);
 
-        fill_active_model!(model, req.info, title, content, tags);
+            let password: Vec<u8> = req
+                .info
+                .password
+                .map(|a| self.crypto.hash(&a))
+                .ok_or(Error::NotInPayload("password"))?;
+            model.password = ActiveValue::Set(Some(password));
 
-        let password: Vec<u8> = req
-            .info
-            .password
-            .map(|a| self.crypto.hash(&a))
-            .ok_or(Error::NotInPayload("password"))?;
-        model.password = ActiveValue::Set(Some(password));
+            model.begin = ActiveValue::Set(into_chrono(req.info.begin));
+            model.end = ActiveValue::Set(into_chrono(req.info.end));
 
-        model.begin = ActiveValue::Set(into_chrono(req.info.begin));
-        model.end = ActiveValue::Set(into_chrono(req.info.end));
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let model = model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let id: Id = model.id.clone().unwrap().into();
-        self.dup.store(user_id, uuid, id.clone());
+            let id = *model.id.as_ref();
 
-        tracing::debug!(id = id.id, "contest_created");
+            tracing::info!(count.contest = 1, id = id);
 
-        Ok(Response::new(id))
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.update",
+        err(level = "debug", Display)
+    )]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
-        if !perm.super_user() {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
+        let (_, perm) = auth.assume_login()?;
 
-        let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
+        req.get_or_insert(|req| async move {
+            tracing::trace!(id = req.id);
+
+            let mut model = Entity::find_by_id(req.id).with_auth(&auth).write()?
             .one(self.db.deref())
             .instrument(info_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
 
-        if let Some(src) = req.info.password {
-            if let Some(tar) = model.password.as_ref() {
-                if perm.root() || self.crypto.hash_eq(&src, tar) {
-                    let hash = self.crypto.hash(&src);
-                    model.password = Some(hash);
-                } else {
-                    return Err(Error::PermissionDeny(
-                        "mismatch password(root can update password without entering original password)",
-                    )
-                    .into());
+            if let Some(src) = req.info.password {
+                if let Some(tar) = model.password.as_ref() {
+                    if perm.root().is_ok() || self.crypto.hash_eq(&src, tar) {
+                        let hash = self.crypto.hash(&src);
+                        model.password = Some(hash);
+                    } else {
+                        return Err(Error::PermissionDeny(
+                            "mismatch password(root can update password without entering original password)",
+                        ));
+                    }
                 }
             }
-        }
 
-        let mut model = model.into_active_model();
+            let mut model = model.into_active_model();
 
-        fill_exist_active_model!(model, req.info, title, content, tags);
-        if let Some(x) = req.info.begin {
-            model.begin = ActiveValue::Set(into_chrono(x));
-        }
-        if let Some(x) = req.info.end {
-            model.end = ActiveValue::Set(into_chrono(x));
-        }
-
-        model
-            .update(self.db.deref())
-            .instrument(info_span!("update").or_current())
-            .await
-            .map_err(atomic_fail)?;
-
-        self.dup.store(user_id, uuid, ());
-
-        Ok(Response::new(()))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-
-        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        tracing::debug!(id = req.id, "contest_remove");
-
-        Ok(Response::new(()))
-    }
-    #[instrument(skip_all, level = "debug")]
-    async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
-
-        let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
-
-        let empty_password = "".to_string();
-        if let Some(tar) = model.password {
-            if (!perm.root())
-                && (!self
-                    .crypto
-                    .hash_eq(req.password.as_ref().unwrap_or(&empty_password), &tar))
-                && model.public
-            {
-                return Err(Error::PermissionDeny("mismatched password").into());
+            fill_exist_active_model!(model, req.info, title, content, tags);
+            if let Some(x) = req.info.begin {
+                model.begin = ActiveValue::Set(into_chrono(x));
             }
-        }
+            if let Some(x) = req.info.end {
+                model.end = ActiveValue::Set(into_chrono(x));
+            }
 
-        let pivot = user_contest::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            contest_id: ActiveValue::Set(model.id),
-            ..Default::default()
-        };
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await
+                ?;
+                Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.remove",
+        err(level = "debug", Display)
+    )]
+    async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        pivot
-            .save(self.db.deref())
-            .instrument(info_span!("insert_pviot").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+        req.get_or_insert(|req| async move {
+            let result = Entity::delete_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .exec(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        tracing::debug!(user_id = user_id, contest_id = req.id);
+            if result.rows_affected == 0 {
+                Err(Error::NotInDB)
+            } else {
+                tracing::info!(counter.contest = -1, id = req.id);
+                Ok(())
+            }
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.join",
+        err(level = "debug", Display)
+    )]
+    async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        let (user_id, _) = auth.assume_login()?;
 
-        Ok(Response::new(()))
+        req.get_or_insert(|req| async move {
+            let model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .read()?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
+            // FIXME: abstract away password checking logic
+
+            if let Some(tar) = model.password {
+                let password = req
+                    .password
+                    .as_ref()
+                    .ok_or(Error::NotInPayload("password"))?;
+                if !self.crypto.hash_eq(password, &tar) {
+                    return Err(Error::PermissionDeny("mismatched password"));
+                }
+            }
+
+            let pivot = user_contest::ActiveModel {
+                user_id: ActiveValue::Set(user_id),
+                contest_id: ActiveValue::Set(model.id),
+                ..Default::default()
+            };
+
+            pivot
+                .save(self.db.deref())
+                .instrument(info_span!("insert_pviot").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+
+            tracing::debug!(user_id = user_id, contest_id = req.id);
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.publish",
+        err(level = "debug", Display)
+    )]
+    async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .columns([Column::Id])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
+
+            model.public = ActiveValue::Set(true);
+
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Contest.unpublish",
+        err(level = "debug", Display)
+    )]
+    async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+
+        req.get_or_insert(|req| async move {
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .columns([Column::Id])
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?
+                .into_active_model();
+
+            model.public = ActiveValue::Set(false);
+
+            model
+                .update(self.db.deref())
+                .instrument(info_span!("update").or_current())
+                .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 }

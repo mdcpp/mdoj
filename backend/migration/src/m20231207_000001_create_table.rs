@@ -545,7 +545,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(User::Username).text().not_null())
+                    .col(
+                        ColumnDef::new(User::Username)
+                            .text()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(User::Password).binary().not_null())
                     .col(
                         ColumnDef::new(User::CreateAt)

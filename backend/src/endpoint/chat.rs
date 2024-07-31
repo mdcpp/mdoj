@@ -1,4 +1,4 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::chat_server::*;
 
@@ -23,60 +23,77 @@ impl<'a> WithAuthTrait for Model {}
 
 #[tonic::async_trait]
 impl Chat for ArcServer {
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Chat.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<Id>, Status> {
         let (auth, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-        let (user_id, _) = auth.auth_or_guest()?;
+        let (user_id, _) = auth.assume_login()?;
 
         req.bound_check()?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<Id>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+        req.get_or_insert(|req| async move {
+            let mut model: ActiveModel = Default::default();
+            model.user_id = ActiveValue::Set(user_id);
 
-        let mut model: ActiveModel = Default::default();
-        model.user_id = ActiveValue::Set(user_id);
+            fill_active_model!(model, req, message);
 
-        fill_active_model!(model, req, message);
+            let model = model
+                .save(self.db.deref())
+                .instrument(info_span!("save").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let model = model
-            .save(self.db.deref())
-            .instrument(info_span!("save").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+            let id = *model.id.as_ref();
+            tracing::debug!(id = id, "chat_created");
 
-        let id: Id = model.id.clone().unwrap().into();
-        self.dup.store(user_id, uuid, id.clone());
-
-        tracing::debug!(id = id.id, "chat_created");
-
-        Ok(Response::new(id))
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Chat.remove",
+        err(level = "debug", Display)
+    )]
+    async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-    async fn remove(&self, req: Request<Id>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        req.get_or_insert(|req| async move {
+            let result = Entity::delete_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .exec(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        let result = Entity::write_filter(Entity::delete_by_id(Into::<i32>::into(req.id)), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
-
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        tracing::debug!(id = req.id, "chat_remove");
-
-        Ok(Response::new(()))
+            if result.rows_affected == 0 {
+                Err(Error::NotInDB)
+            } else {
+                tracing::info!(counter.chat = -1, id = req.id);
+                Ok(())
+            }
+        })
+        .await
+        .with_grpc()
+        .into()
     }
-
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Chat.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListChatRequest>,
@@ -100,8 +117,11 @@ impl Chat for ArcServer {
         };
         let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
 
-        let list = paginator.fetch(req.size, req.offset).await?;
-        let remain = paginator.remain().await?;
+        let list = paginator
+            .fetch(req.size, req.offset)
+            .in_current_span()
+            .await?;
+        let remain = paginator.remain().in_current_span().await?;
 
         let paginator = paginator.into_inner();
 

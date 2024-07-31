@@ -10,7 +10,7 @@ use grpc::backend::StateCode as BackendCode;
 use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait, QueryOrder};
 use thiserror::Error;
 use tonic::Status;
-use tracing::{instrument, Instrument, Span};
+use tracing::{instrument, Instrument};
 use uuid::Uuid;
 
 use self::{pubsub::PubSub, route::*};
@@ -21,9 +21,6 @@ use grpc::{
     backend::{submit_status, SubmitStatus},
     judger::*,
 };
-
-const PALYGROUND_TIME: u64 = 500 * 1000;
-const PALYGROUND_MEM: u64 = 256 * 1024 * 1024;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -110,10 +107,10 @@ pub struct Judger {
 }
 
 impl Judger {
-    #[tracing::instrument(parent=span, name="judger_construct",level = "info",skip_all)]
-    pub async fn new(span: &Span, db: Arc<DatabaseConnection>) -> Result<Self, Error> {
+    #[tracing::instrument(name = "judger_construct", level = "info", skip_all)]
+    pub async fn new(db: Arc<DatabaseConnection>) -> Result<Self, Error> {
         let judgers = CONFIG.judger.clone();
-        let router = Router::new(judgers, span)?;
+        let router = Router::new(judgers)?;
         Ok(Judger {
             router,
             pubsub: Arc::new(PubSub::default()),

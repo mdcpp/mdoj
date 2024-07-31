@@ -1,6 +1,9 @@
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, DeleteMany};
 
-use crate::util::{auth::Auth, error::Error};
+use crate::{
+    entity::{WithAuth, WithAuthTrait},
+    util::{auth::Auth, error::Error},
+};
 use tonic::async_trait;
 
 /// Parental filter are useful when list by parent, mainly because we don't want to list all entity
@@ -46,3 +49,31 @@ where
         false
     }
 }
+
+impl<E: EntityTrait> WithAuthTrait for Select<E> {}
+impl<E: EntityTrait> WithAuthTrait for DeleteMany<E> {}
+
+macro_rules! impl_filter_with_auth {
+    ($t:ty) => {
+        paste::paste! {
+            pub trait [<FilterAuth $t Trait>]{
+                type Entity: EntityTrait;
+                fn read(&self)->Result<$t<Self::Entity>, Error>;
+                fn write(&self)->Result<$t<Self::Entity>,Error>;
+            }
+
+            impl<E:EntityTrait+Filter> [<FilterAuth $t Trait>] for WithAuth<'_,$t<E>>{
+                type Entity = E;
+                fn read(&self)->Result<$t<Self::Entity>,Error>{
+                    <E as Filter>::read_filter(self.1.clone(),self.0)
+                }
+                fn write(&self)->Result<$t<Self::Entity>,Error>{
+                    <E as Filter>::write_filter(self.1.clone(),self.0)
+                }
+            }
+        }
+    };
+}
+
+impl_filter_with_auth!(Select);
+impl_filter_with_auth!(DeleteMany);

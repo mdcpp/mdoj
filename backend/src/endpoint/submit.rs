@@ -1,17 +1,15 @@
-use super::tools::*;
+use super::*;
 
 use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
-use grpc::backend::submit_server::*;
-use grpc::backend::StateCode as BackendCode;
+use grpc::backend::{submit_server::*, StateCode as BackendCode};
 
 use crate::entity::{
+    contest, problem, submit,
     submit::{Paginator, *},
-    *,
+    user,
 };
 use tokio_stream::wrappers::ReceiverStream;
-
-const SUBMIT_CODE_LEN: usize = 32 * 1024;
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
@@ -51,18 +49,17 @@ impl From<PartialModel> for SubmitInfo {
 
 #[async_trait]
 impl Submit for ArcServer {
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Submit.list",
+        err(level = "debug", Display)
+    )]
     async fn list(
         &self,
         req: Request<ListSubmitRequest>,
     ) -> Result<Response<ListSubmitResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 
@@ -92,10 +89,7 @@ impl Submit for ArcServer {
     }
     #[instrument(skip_all, level = "debug")]
     async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         tracing::debug!(id = req.id);
 
@@ -108,95 +102,115 @@ impl Submit for ArcServer {
 
         Ok(Response::new(model.into()))
     }
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Submit.create",
+        err(level = "debug", Display)
+    )]
     async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self.parse_request_n(req, crate::NonZeroU32!(15)).await?;
-        let (user_id, _) = auth.auth_or_guest()?;
-
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
+        let (user_id, _) = auth.assume_login()?;
 
-        let problem = problem::Entity::find_by_id(req.problem_id)
-            .one(self.db.deref())
-            .instrument(info_span!("fetch_problem").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
+        req.get_or_insert(|req| async move {
+            let lang = Uuid::parse_str(req.lang.as_str()).map_err(Into::<Error>::into)?;
 
-        if (problem.user_id != user_id) && (!problem.public) {
-            problem
-                .find_related(contest::Entity)
+            let problem = problem::Entity::find_by_id(req.problem_id)
                 .one(self.db.deref())
-                .instrument(info_span!("fetch_contest").or_current())
-                .await
-                .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB)?
-                .find_related(user::Entity)
-                .one(self.db.deref())
-                .instrument(info_span!("fetch_user").or_current())
+                .instrument(info_span!("fetch_problem").or_current())
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB)?;
-        }
 
-        let submit = SubmitBuilder::default()
-            .code(req.code)
-            .lang(lang)
-            .time_limit(problem.time)
-            .memory_limit(problem.memory)
-            .user(user_id)
-            .problem(problem.id)
-            .build()
-            .unwrap();
+            if (problem.user_id != user_id) && (!problem.public) {
+                problem
+                    .find_related(contest::Entity)
+                    .one(self.db.deref())
+                    .instrument(info_span!("fetch_contest").or_current())
+                    .await
+                    .map_err(Into::<Error>::into)?
+                    .ok_or(Error::NotInDB)?
+                    .find_related(user::Entity)
+                    .one(self.db.deref())
+                    .instrument(info_span!("fetch_user").or_current())
+                    .await
+                    .map_err(Into::<Error>::into)?
+                    .ok_or(Error::NotInDB)?;
+            }
 
-        info!(msg = "submit has been created, not judged nor committed yet.");
+            let submit = SubmitBuilder::default()
+                .code(req.code)
+                .lang(lang)
+                .time_limit(problem.time)
+                .memory_limit(problem.memory)
+                .user(user_id)
+                .problem(problem.id)
+                .build()
+                .unwrap();
 
-        let id = self
-            .judger
-            .submit(submit)
-            .instrument(info_span!("construct_submit").or_current())
-            .await?;
+            let id = self
+                .judger
+                .submit(submit)
+                .instrument(info_span!("construct_submit").or_current())
+                .await?;
 
-        tracing::debug!(id = id, "submit_created");
+            tracing::info!(counter.submit = 1, id = id);
 
-        Ok(Response::new(id.into()))
+            Ok(id.into())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 
-    #[instrument(skip_all, level = "debug")]
-    async fn remove(&self, req: Request<Id>) -> std::result::Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Submit.remove",
+        err(level = "debug", Display)
+    )]
+    async fn remove(
+        &self,
+        req: Request<RemoveRequest>,
+    ) -> std::result::Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        let result = Entity::write_filter(Entity::delete_by_id(req.id), &auth)?
-            .exec(self.db.deref())
-            .instrument(info_span!("remove").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+        req.get_or_insert(|req| async move {
+            let result = Entity::delete_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .exec(self.db.deref())
+                .instrument(info_span!("remove").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
 
-        if result.rows_affected == 0 {
-            return Err(Error::NotInDB.into());
-        }
-
-        tracing::debug!(id = req.id);
-
-        Ok(Response::new(()))
+            if result.rows_affected == 0 {
+                Err(Error::NotInDB)
+            } else {
+                tracing::info!(counter.submit = -1, id = req.id);
+                Ok(())
+            }
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 
-    #[doc = " Server streaming response type for the Follow method."]
     type FollowStream = TonicStream<SubmitStatus>;
 
-    #[doc = " are not guarantee to yield status"]
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Submit.follow",
+        err(level = "debug", Display)
+    )]
     async fn follow(&self, req: Request<Id>) -> Result<Response<Self::FollowStream>, Status> {
         let (_, req) = self
             .parse_request_n(req, NonZeroU32!(5))
             .in_current_span()
             .await?;
-
-        tracing::trace!(id = req.id);
 
         Ok(Response::new(self.judger.follow(req.id).unwrap_or_else(
             || {
@@ -206,60 +220,53 @@ impl Submit for ArcServer {
         )))
     }
 
-    #[instrument(skip_all, level = "debug")]
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "endpoint.Submit.rejudge",
+        err(level = "debug", Display)
+    )]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
-        let (user_id, perm) = auth.auth_or_guest()?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        let (user_id, perm) = auth.assume_login()?;
+        perm.admin()?;
 
-        let submit_id = req.submit_id;
+        req.get_or_insert(|req| async move {
+            let submit = submit::Entity::find_by_id(req.submit_id)
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_submit").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
 
-        if !(perm.super_user()) {
-            return Err(Error::RequirePermission(RoleLv::Super).into());
-        }
+            let problem = submit
+                .find_related(problem::Entity)
+                .one(self.db.deref())
+                .instrument(info_span!("fetch_problem").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
 
-        let uuid = Uuid::parse_str(&req.request_id).map_err(Error::InvaildUUID)?;
-        if let Some(x) = self.dup.check::<()>(user_id, uuid) {
-            return Ok(Response::new(x));
-        };
+            let rejudge = SubmitBuilder::default()
+                .problem(user_id)
+                .problem(problem.id)
+                .memory_limit(problem.memory)
+                .time_limit(problem.time)
+                .code(submit.code)
+                .user(user_id)
+                .lang(Uuid::parse_str(&submit.lang).map_err(Error::InvaildUUID)?)
+                .build()
+                .unwrap();
 
-        tracing::debug!(req.id = submit_id);
+            self.judger
+                .submit(rejudge)
+                .instrument(info_span!("construct_submit").or_current())
+                .await?;
 
-        let submit = submit::Entity::find_by_id(submit_id)
-            .one(self.db.deref())
-            .instrument(info_span!("fetch_submit").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
-
-        let problem = submit
-            .find_related(problem::Entity)
-            .one(self.db.deref())
-            .instrument(info_span!("fetch_problem").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
-
-        let rejudge = SubmitBuilder::default()
-            .problem(user_id)
-            .problem(problem.id)
-            .memory_limit(problem.memory)
-            .time_limit(problem.time)
-            .code(submit.code)
-            .user(user_id)
-            .lang(Uuid::parse_str(&submit.lang).map_err(Error::InvaildUUID)?)
-            .build()
-            .unwrap();
-
-        self.judger
-            .submit(rejudge)
-            .instrument(info_span!("construct_submit").or_current())
-            .await?;
-
-        self.dup.store(user_id, uuid, ());
-
-        Ok(Response::new(()))
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
     }
 }

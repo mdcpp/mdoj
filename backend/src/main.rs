@@ -1,13 +1,12 @@
-pub mod config;
-pub mod controller;
-pub mod endpoint;
-pub mod entity;
-pub mod macro_tool;
-pub mod server;
-pub mod util;
+mod config;
+mod controller;
+mod endpoint;
+mod entity;
+mod macro_tool;
+mod server;
+mod util;
 
 // FIXME: replace relase feature with debug_assertions
-#[cfg(feature = "release")]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 

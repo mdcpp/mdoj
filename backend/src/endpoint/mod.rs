@@ -15,28 +15,16 @@ mod testcase;
 mod token;
 mod user;
 
-mod tools {
-    pub use crate::NonZeroU32;
-    pub use grpc::backend::{Id, Order, *};
-    pub use sea_orm::*;
-    pub use std::ops::Deref;
-    pub use tonic::*;
-    pub use tracing::*;
-    pub use uuid::Uuid;
+use crate::NonZeroU32;
+use grpc::backend::{Id, Order, *};
+use sea_orm::*;
+use std::ops::Deref;
+use tonic::*;
+use tracing::*;
+use uuid::Uuid;
 
-    pub use crate::entity::util::{
-        filter::*,
-        paginator::{PaginateRaw, Remain},
-        with::*,
-    };
-    pub use crate::util::{
-        auth::RoleLv,
-        bound::BoundCheck,
-        error::{atomic_fail, Error},
-        time::*,
-    };
-    pub use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
-}
-
-// FIXME: currently we report transaction error as internal error,
-// but we should report it as bad request, or even a give it an retry logic
+use crate::entity::util::filter::*;
+use crate::util::with::*;
+use crate::util::{auth::RoleLv, bound::BoundCheck, duplicate::*, error::Error, time::*};
+use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
+use tracing::{Instrument, Level};

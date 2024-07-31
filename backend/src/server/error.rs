@@ -11,8 +11,6 @@ pub enum InitError {
     AutoMigrate(Box<dyn std::error::Error>),
     #[error("Fail to create initial user: `{0}`")]
     UserCreation(sea_orm::DbErr),
-    #[error("Fail to create config dictionary: `{0}`")]
-    ConfigDir(std::io::Error),
     #[error("Fail to parse config: `{0}`")]
     ConfigParse(toml::de::Error),
     #[error("Fail to read config: `{0}`")]

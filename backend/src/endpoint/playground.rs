@@ -1,9 +1,7 @@
-use super::tools::*;
+use super::*;
 
 use grpc::backend::playground_server::*;
 use grpc::backend::*;
-
-const PLAYGROUND_CODE_LEN: usize = 32 * 1024;
 
 #[async_trait]
 impl Playground for ArcServer {

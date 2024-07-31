@@ -23,7 +23,7 @@ RUN sed -i '/codegen-backend/d' backend/Cargo.toml
 ARG ARCH
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --no-default-features --features release --target ${ARCH}-unknown-linux-musl --path backend
+RUN cargo install --no-default-features --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
 # WORKDIR are used instead of mkdir

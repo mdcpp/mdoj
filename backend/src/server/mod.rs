@@ -19,12 +19,13 @@ use grpc::backend::{
     token_server::TokenServer, user_server::UserServer,
 };
 use http::header::HeaderName;
+use opentelemetry::trace::FutureExt;
 use sea_orm::DatabaseConnection;
 use spin::Mutex;
 use tonic::transport::{self, Identity, ServerTlsConfig};
 use tonic_web::GrpcWebLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
-use tracing::{span, Instrument, Level};
+use tracing::Instrument;
 
 const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
 
@@ -45,7 +46,6 @@ const DEFAULT_ALLOW_HEADERS: [&str; 5] = [
 pub struct Server {
     pub token: Arc<token::TokenController>,
     pub judger: Arc<judger::Judger>,
-    pub dup: duplicate::DupController,
     pub crypto: crypto::CryptoController,
     pub imgur: imgur::ImgurController,
     pub rate_limit: rate_limit::RateLimitController,
@@ -75,11 +75,10 @@ impl Server {
     ///
     /// Also of note, private/public `*.pem` is loaded during [`Server::start`] instead of this function
     pub async fn new() -> Result<Arc<Self>> {
-        let span = span!(Level::INFO, "server_construct");
-        let crypto = crypto::CryptoController::new(&span);
+        let crypto = crypto::CryptoController::new();
         let db = Arc::new(
-            db::init(&CONFIG.database, &crypto, &span)
-                .in_current_span()
+            db::init(&CONFIG.database, &crypto)
+                .with_current_context()
                 .await?,
         );
 
@@ -99,14 +98,13 @@ impl Server {
         }
 
         Ok(Arc::new(Server {
-            token: token::TokenController::new(&span, db.clone()),
+            token: token::TokenController::new(db.clone()),
             judger: Arc::new(
-                judger::Judger::new(&span, db.clone())
+                judger::Judger::new(db.clone())
                     .in_current_span()
                     .await
                     .unwrap(),
             ),
-            dup: duplicate::DupController::new(&span),
             crypto,
             imgur: imgur::ImgurController::new(),
             rate_limit: rate_limit::RateLimitController::new(&CONFIG.grpc.trust_host),

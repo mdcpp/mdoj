@@ -1,11 +1,14 @@
 use super::error::Error;
 use grpc::backend::*;
+use tracing::instrument;
 
 pub trait BoundCheck {
     /// return true if fail
     fn check(&self) -> bool;
+    #[instrument(skip_all, level = "info")]
     fn bound_check(&self) -> Result<(), tonic::Status> {
         if self.check() {
+            tracing::warn!(msg = "bound check fail");
             Err(Error::NumberTooLarge.into())
         } else {
             Ok(())
@@ -45,7 +48,7 @@ macro_rules! impl_basic_bound_check {
 impl_basic_bound_check!(Announcement);
 impl_basic_bound_check!(Education);
 
-macro_rules! list_request {
+macro_rules! list_paginator_request {
     ($n:ident) => {
         paste::paste! {
             impl BoundCheck for [<List $n Request>] {
@@ -69,11 +72,11 @@ macro_rules! list_request {
     };
 }
 
-list_request!(Problem);
-list_request!(Announcement);
-list_request!(Contest);
-list_request!(Education);
-list_request!(User);
+list_paginator_request!(Problem);
+list_paginator_request!(Announcement);
+list_paginator_request!(Contest);
+list_paginator_request!(Education);
+list_paginator_request!(User);
 
 impl BoundCheck for ListChatRequest {
     fn check(&self) -> bool {
@@ -82,11 +85,17 @@ impl BoundCheck for ListChatRequest {
 }
 impl BoundCheck for ListSubmitRequest {
     fn check(&self) -> bool {
-        if let Some(x) = &self.request {
-            (match x {
-                list_submit_request::Request::Create(x) => 0,
-                list_submit_request::Request::Paginator(x) => x.len(),
-            } > 512)
+        if let Some(list_submit_request::Request::Paginator(x)) = &self.request {
+            x.len() > 512
+        } else {
+            false
+        }
+    }
+}
+impl BoundCheck for ListTestcaseRequest {
+    fn check(&self) -> bool {
+        if let Some(list_testcase_request::Request::Paginator(x)) = &self.request {
+            x.len() > 512
         } else {
             false
         }
@@ -144,6 +153,8 @@ impl BoundCheck for CreateProblemRequest {
         self.info.title.len() > 128
             || self.info.tags.len() > 1024
             || self.info.content.len() > 128 * 1024
+            || self.info.memory > 4 * 1024 * 1024 * 1024
+            || self.info.time > 60 * 1000 * 1000
     }
 }
 impl BoundCheck for UpdateProblemRequest {

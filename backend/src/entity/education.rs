@@ -1,5 +1,4 @@
 use super::*;
-use tracing::instrument;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "education")]
@@ -59,29 +58,24 @@ impl Related<super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 impl super::Filter for Entity {
-    #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        if let Ok((user_id, perm)) = auth.auth_or_guest() {
-            if perm.admin() {
-                return Ok(query);
-            }
-            return Ok(query.filter(Column::UserId.eq(user_id)));
-        }
-        Err(Error::NotInDB)
+        let (user_id, perm) = auth.assume_login()?;
+        Ok(match perm {
+            RoleLv::Admin | RoleLv::Root => query,
+            _ => query.filter(Column::UserId.eq(user_id)),
+        })
     }
-    #[instrument(skip_all, level = "debug")]
     fn write_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
-        let (user_id, perm) = auth.auth_or_guest()?;
-        if perm.admin() {
-            return Ok(query);
+        let (user_id, perm) = auth.assume_login()?;
+        match perm {
+            RoleLv::Admin | RoleLv::Root => Ok(query),
+            RoleLv::Super => Ok(query.filter(Column::UserId.eq(user_id))),
+            _ => Err(Error::RequirePermission(RoleLv::Super)),
         }
-        if perm.super_user() {
-            return Ok(query.filter(Column::UserId.eq(user_id)));
-        }
-        Err(Error::NotInDB)
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        auth.user_perm().admin() || Some(model.user_id) == auth.user_id()
+        auth.perm() >= RoleLv::Admin
+            || (Some(model.user_id) == auth.user_id() && auth.perm() != RoleLv::User)
     }
 }
 

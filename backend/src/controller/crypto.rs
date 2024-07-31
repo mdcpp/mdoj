@@ -1,11 +1,11 @@
 // use k256::ecdsa::{SigningKey, VerifyingKey};
 use rand::{rngs::OsRng, Rng};
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::Span;
 
 use crate::config::CONFIG;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use blake2::{Blake2b512, Digest};
+use tracing::instrument;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -32,8 +32,7 @@ pub struct CryptoController {
 }
 
 impl CryptoController {
-    #[tracing::instrument(parent=span,name="crypto_construct",level = "info",skip_all)]
-    pub fn new(span: &Span) -> Self {
+    pub fn new() -> Self {
         let salt = CONFIG.database.salt.as_bytes().to_vec();
         Self {
             salt,
@@ -41,7 +40,6 @@ impl CryptoController {
         }
     }
     /// hash `src` and compare hash value with `hashed`
-    #[tracing::instrument(name = "crypto_hasheq_controller", level = "debug", skip_all)]
     pub fn hash_eq(&self, src: &str, hashed: &[u8]) -> bool {
         let src_hashed: Vec<u8> = self.hash(src);
         let mut result = true;
@@ -53,7 +51,6 @@ impl CryptoController {
         result
     }
     /// get BLAKE2b-512 hashed bytes with salt
-    #[tracing::instrument(name = "crypto_hash_controller", level = "debug", skip_all)]
     pub fn hash(&self, src: &str) -> Vec<u8> {
         let mut hasher = Blake2b512::new();
         hasher.update([src.as_bytes(), self.salt.as_slice()].concat());
@@ -64,7 +61,7 @@ impl CryptoController {
     /// Serialize and calculate checksum and return
     ///
     /// Note that it shouldn't be an security measurement
-    #[tracing::instrument(level = "debug", skip_all, name = "encode")]
+    #[instrument(skip_all, level = "debug", ret(level = "debug"))]
     pub fn encode<M: Serialize>(&self, obj: M) -> Result<String> {
         let mut raw = postcard::to_allocvec(&obj)?;
 
@@ -80,7 +77,7 @@ impl CryptoController {
     /// check signature and return the object
     ///
     /// Error if signature invaild
-    #[tracing::instrument(level = "debug", skip_all, name = "decode")]
+    #[instrument(skip_all, level = "debug", err(level = "debug"))]
     pub fn decode<M: DeserializeOwned>(&self, raw: String) -> Result<M> {
         let mut raw = URL_SAFE_NO_PAD.decode(raw)?;
 
