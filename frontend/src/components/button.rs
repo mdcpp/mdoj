@@ -1,34 +1,37 @@
-use leptos::{ev::MouseEvent, *};
+use leptos::*;
+use tailwind_fuse::*;
 
-use super::Merge;
+#[derive(TwVariant)]
+pub enum ButtonVariant {
+    #[tw(default, class = "text-background bg-primary")]
+    Primary,
+    #[tw(class = "text-background bg-secondary")]
+    Secondary,
+    #[tw(class = "text-slate-950 bg-accent")]
+    Accent,
+}
 
 #[component]
 pub fn Button(
-    #[prop(into, default = "button".to_owned().into())] kind: MaybeSignal<
+    #[prop(into, default = "button".to_owned().into())] type_: MaybeSignal<
         String,
     >,
-    #[prop(into, default = false.into())] disabled: MaybeSignal<bool>,
-    #[prop(into, optional)] on_click: Option<Callback<MouseEvent>>,
+    #[prop(into, optional)] variant: ButtonVariant,
+    #[prop(into, optional)] disabled: MaybeSignal<bool>,
     #[prop(into, optional)] id: Option<AttributeValue>,
-    #[prop(into, optional)] class: Option<AttributeValue>,
+    #[prop(into, default = "".into())] class: String,
     children: Children,
 ) -> impl IntoView {
     view! {
         <button
-            class=Merge(
-                class,
-                "text-background bg-primary p-2 rounded-md disabled:cursor-not-allowed disabled:brightness-50",
+            class=tw_join!(
+                class, variant,
+                "p-2 hover:brightness-110 disabled:cursor-not-allowed disabled:brightness-50 transition-all",
             )
 
-            type=kind
+            type=type_
             disabled=disabled
             id=id
-            on:click=move |e| {
-                if let Some(f) = on_click {
-                    e.stop_propagation();
-                    f(e);
-                }
-            }
         >
 
             {children()}

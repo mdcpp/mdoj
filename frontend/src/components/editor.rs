@@ -1,91 +1,97 @@
+use std::{collections::HashMap, path};
+
 use gloo::console::console;
+use js_sys::{Object, Reflect};
 use leptos::{leptos_dom::logging::console_log, *};
-// #[derive(Debug, Clone, Copy)]
-// pub enum Language {
-//     Unselected,
-//     Rust,
-//     Python,
-//     JavaScript,
-//     C,
-// }
+use wasm_bindgen::prelude::*;
+use web_sys::Event;
 
-// impl Language {
-//     fn to_ident(self) -> Option<&'static str> {
-//         match self {
-//             Self::Unselected => None,
-//             Self::Rust => Some("rust"),
-//             Self::Python => Some("python"),
-//             Self::JavaScript => Some("javascript"),
-//             Self::C => Some("c"),
-//         }
-//     }
-// }
+#[wasm_bindgen]
+extern "C" {
+    fn require(modules: Vec<String>, on_load: &Closure<dyn FnMut()>);
 
-pub fn get_editor_code() -> Option<String> {
-    js_sys::eval("editor_inject_1083hdkjla.getValue()")
-        .ok()?
-        .as_string()
+    #[wasm_bindgen(js_namespace = require, js_name="config")]
+    fn loader_config(config: Object);
 }
 
-fn uuid_to_lang(uuid: &str) -> &'static str {
-    match uuid {
-        "7daff707-26b5-4153-90ae-9858b9fd9619" => "c",
-        "8a9e1daf-ff89-42c3-b011-bf6fb4bd8b26" => "cpp",
-        "1c41598f-e253-4f81-9ef5-d50bf1e4e74f" => "lua",
-        _ => "javascript",
-    }
+#[wasm_bindgen]
+extern "C" {
+    type Monaco;
+
+    #[wasm_bindgen(js_name = "monaco")]
+    static MONACO: Monaco;
+
+    type MonacoEditor;
+
+    #[wasm_bindgen(method, getter)]
+    fn editor(this: &Monaco) -> MonacoEditor;
+
+    /// Create a new editor under `domElement`.
+    /// `domElement` should be empty (not contain other dom nodes).
+    /// The editor will read the size of `domElement`.
+    #[wasm_bindgen(method, js_name = "create")]
+    fn create_editor(
+        this: &MonacoEditor,
+        el: web_sys::HtmlElement,
+        config: Option<Object>,
+    );
 }
 
 #[component]
 pub fn Editor(
     #[prop(into, default = "".to_owned().into())] language: MaybeSignal<String>,
-    #[prop(into, optional)] on_submit: Option<Callback<String>>,
+    #[prop(into, default = "".to_owned())] class: String,
 ) -> impl IntoView {
-    /// compacted version of the script
-    /// ```javascript
-    /// (async() => {
-    ///     let parent = null;
-    ///     while(parent==null || typeof monaco=='undefined'){
-    ///         await new Promise(r=>setTimeout(r, 5));
-    ///         parent = document.getElementById('editor-inject-1083hdkjla');
-    ///     }
-    ///
-    ///     while(parent.firstChild) parent.removeChild(parent.firstChild);
-    ///
-    ///     let child = document.createElement('div');
-    ///     parent.appendChild(child);
-    ///     child.style = 'width:100%;height:65vh';
-    ///   
-    ///     monaco.editor.setTheme('vs-dark');
-    ///     editor_inject_1083hdkjla = monaco.editor.create(child, {
-    ///         value: '',
-    ///         language: 'pro-lang'
-    ///     });
-    /// })()
-    /// ```
-    static EDITOR_SCRIPT_SOURCE: &str =
-        "(async() => {let parent=null;while(parent==null || typeof \
-         monaco=='undefined'){await new Promise(r=>setTimeout(r, \
-         5));parent=document.getElementById('editor-inject-1083hdkjla');\
-         }while(parent.firstChild) parent.removeChild(parent.firstChild);let \
-         child=document.createElement('div');parent.appendChild(child);child.\
-         style='width:100%;height:65vh';  \
-         monaco.editor.setTheme('vs-dark');editor_inject_1083hdkjla=monaco.\
-         editor.create(child, {value:'',language:'pro-lang'});})()";
+    let node_ref = create_node_ref::<html::Div>();
+    let on_load = move |_| {
+        let c = Object::new();
+        let paths = Object::new();
+        Reflect::set(
+            &*paths,
+            &"vs".into(),
+            &"https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs".into(),
+        ).unwrap();
+        Reflect::set(&*c, &"paths".into(), &*paths).unwrap();
+        loader_config(c);
 
-    create_effect(move |_| {
-        js_sys::eval(
-            &EDITOR_SCRIPT_SOURCE
-                .replace("pro-lang", uuid_to_lang(&language())),
-        )
-        .unwrap();
-    });
+        let config = Object::new();
+        Reflect::set(&*config, &"theme".into(), &"vs-dark".into()).unwrap();
+        Reflect::set(&*config, &"language".into(), &"rust".into()).unwrap();
+
+        let init_monaco = Closure::once(move || {
+            MONACO.editor().create_editor(
+                (**(node_ref.get_untracked().unwrap())).clone(),
+                Some(config),
+            );
+        });
+
+        require(vec!["vs/editor/editor.main".into()], &init_monaco);
+        init_monaco.forget();
+    };
     view! {
-        <div>
-            <div
-                id="editor-inject-1083hdkjla"
-                style="width: 100%; border: 1px solid grey"
-            ></div>
-        </div>
+        <div node_ref=node_ref class=class></div>
+        <DynamicLoad
+            src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.js"
+            on_load
+        />
     }
+}
+
+#[component]
+fn DynamicLoad(
+    #[prop(into)] src: String,
+    on_load: impl FnMut(Event) + 'static,
+) -> impl IntoView {
+    let (load_src, set_load_src) = create_signal(None);
+    let node_ref = create_node_ref::<html::Script>();
+    node_ref.on_load(move |_| {
+        set_load_src(Some(src));
+    });
+    view! { <script on:load=on_load src=load_src node_ref=node_ref></script> }
+}
+
+pub fn get_editor_code() -> Option<String> {
+    js_sys::eval("editor_inject_1083hdkjla.getValue()")
+        .ok()?
+        .as_string()
 }

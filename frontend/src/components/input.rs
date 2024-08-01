@@ -1,27 +1,60 @@
 use leptos::*;
 use tailwind_fuse::tw_merge;
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum InputVariant {
+    #[default]
+    Text,
+    Password,
+    Textarea,
+}
+
 #[component]
-pub fn TextInput(
-    #[prop(into, default = "text".to_owned().into())] kind: MaybeProp<String>,
+pub fn Input(
     #[prop(into)] value: RwSignal<String>,
-    #[prop(into, optional)] placeholder: Option<AttributeValue>,
-    #[prop(into, optional)] id: Option<AttributeValue>,
+    #[prop(into, optional)] variant: InputVariant,
     #[prop(into, default = "".into())] class: String,
+    #[prop(attrs)] attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
     let (get, set) = value.split();
-    view! {
-        <input
-            class=tw_merge!(
-                class,
-                "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
-            )
+    match variant {
+        InputVariant::Text => view! {
+            <input
+                class=tw_merge!(
+                    class,
+                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                )
 
-            id=id
-            type=kind
-            prop:value=get
-            placeholder=placeholder
-            on:input=move |e| set(event_target_value(&e))
-        />
+                type="text"
+                prop:value=get
+                on:input=move |e| set(event_target_value(&e))
+                {..attrs}
+            />
+        }.into_view(),
+        InputVariant::Password => view! {
+            <input
+                class=tw_merge!(
+                    class,
+                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                )
+
+                type="password"
+                prop:value=get
+                on:input=move |e| set(event_target_value(&e))
+                {..attrs}
+            />
+        }.into_view(),
+        InputVariant::Textarea => view! {
+            <textarea
+                class=tw_merge!(
+                    class,
+                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                )
+
+                prop:value=get
+                on:input=move |e| set(event_target_value(&e))
+                {..attrs}
+            ></textarea>
+        }.into_view(),
     }
 }

@@ -15,7 +15,7 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     let (toasts, _) = slice!(toaster.toasts);
     view! {
         {children()}
-        <div class="fixed bottom-0 right-0 h-screen w-60 flex flex-col justify-end">
+        <div class="fixed bottom-0 right-0 h-screen min-w-64 w-1/5 flex flex-col justify-end">
             <AnimatedFor
                 each=toasts
                 key=|toast| toast.0

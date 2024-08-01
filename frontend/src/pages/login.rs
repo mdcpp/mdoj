@@ -1,10 +1,9 @@
-use ::grpc::backend::Role;
 use leptos::*;
 use leptos_router::use_navigate;
 
 use crate::{
     components::*,
-    error::*,
+    errors::*,
     grpc,
     session::{use_token_info, TokenInfo},
 };
@@ -29,13 +28,19 @@ pub fn Login() -> impl IntoView {
                         username,
                         password,
                         expiry: None,
+                        request_id: None,
                     })
                     .await?;
                 let resp = resp.into_inner();
                 set_token_info(Some(TokenInfo {
                     token: resp.token,
-                    role: Role::try_from(resp.role).map_err(|_| {
-                        ErrorKind::ServerError(ServerErrorKind::InvalidValue)
+                    role: grpc::Role::try_from(resp.role).map_err(|err| {
+                        Error {
+                            kind: ErrorKind::Internal,
+                            context: "API error, please check API version."
+                                .to_owned(),
+                        }
+                        .context(err.to_string().as_str())
                     })?,
                 }));
                 navigate("/", Default::default());
@@ -48,18 +53,27 @@ pub fn Login() -> impl IntoView {
     });
 
     let error_msg = move || {
-        submit.value()().and_then(|r| r.err()).map(|e| match e {
+        let Some(Err(err)) = submit.value()() else {
+            return "".to_owned();
+        };
+        match err.kind {
             ErrorKind::NotFound => {
-                "Username or password is incorrect".to_owned()
+                "Username or password is incorrect.".to_owned()
             }
-            e => e.to_string(),
-        })
+            ErrorKind::RateLimit => {
+                "You try too many times, please wait and try again".to_owned()
+            }
+            _ => {
+                toast(view! { <p>{err.to_string()}</p> });
+                "".to_owned()
+            }
+        }
     };
 
     view! {
         <main class="grow flex items-center justify-center">
             <form
-                class="flex flex-col flex-nowrap justify-center items-center bg-slate-900"
+                class="flex flex-col flex-nowrap justify-center min-w-80 w-1/4 p-4 bg-slate-900"
                 on:submit=move |e| {
                     e.prevent_default();
                     submit.dispatch((username(), password()));
@@ -67,22 +81,24 @@ pub fn Login() -> impl IntoView {
                 }
             >
 
-                <img src="https://placehold.co/200" alt="Logo" class="mt-8 mb-4"/>
+                <div class="flex justify-center">
+                    <img src="https://placehold.co/200" alt="Logo" class="max-w-64"/>
+                </div>
 
-                <div class="p-4 flex flex-col">
+                <div class="pt-4 flex flex-col">
                     <label for="username" class="text-text pb-2">
                         Username
                     </label>
-                    <TextInput id="username" value=username/>
+                    <Input attr:id="username" value=username/>
                 </div>
-                <div class="p-4 flex flex-col">
+                <div class="pt-4 flex flex-col">
                     <label for="password" class="text-text pb-2">
                         Password
                     </label>
-                    <TextInput kind="password" id="password" value=password/>
+                    <Input variant=InputVariant::Password attr:id="password" value=password/>
                 </div>
                 <p class="w-full text-red text-center">{error_msg}</p>
-                <div class="p-4 w-full">
+                <div class="pt-4 w-full">
                     <Button type_="submit" class="w-full" disabled>
                         Login
                     </Button>

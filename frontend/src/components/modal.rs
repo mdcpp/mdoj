@@ -1,10 +1,15 @@
 use leptos::{ev::MouseEvent, *};
+use tailwind_fuse::*;
 
 use super::Button;
 
+#[derive(Debug, TwVariant)]
 pub enum ModalLevel {
+    #[tw(default, class = "")]
     Info,
+    #[tw(class = "")]
     Warn,
+    #[tw(class = "")]
     Error,
 }
 
@@ -20,15 +25,16 @@ pub fn Modal(
         <dialog open>
             {children()}
             <form method="dialog">
+
                 {match on_close {
                     Some(f) => {
                         view! {
-                            <Button kind="submit" on_click=f>
+                            <Button type_="submit" on:click=f>
                                 OK
                             </Button>
                         }
                     }
-                    None => view! { <Button kind="submit">OK</Button> },
+                    None => view! { <Button type_="submit">OK</Button> },
                 }}
 
             </form>

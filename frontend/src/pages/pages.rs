@@ -2,32 +2,32 @@ use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
 
-use crate::{components::*, pages::*, session::use_token};
+use crate::{components::*, errors::NotFound, pages::*, session::use_token};
 
 #[component]
-pub fn Main() -> impl IntoView {
+pub fn Pages() -> impl IntoView {
     let token = use_token();
+
     view! {
-        <div class="bg-slate-950 w-full min-h-screen flex flex-col text-text">
-            <Navbar/>
-            <Routes>
-                <Route path="" view=Home/>
-                <Route path="/problems" view=Problems/>
-                <Route path="/submissions" view=Submission/>
-                <Route path="/problem/:id" view=Problem/>
-                <Route path="/contests" view=Contests/>
-                <Route path="/about" view=About/>
+        <Routes>
+            <Route path="" view=Home/>
+            <Route path="/problems" view=Problems/>
+            <Route path="/submissions" view=Submission/>
+            <Route path="/problem/:id" view=Problem/>
+            <Route path="/contests" view=Contests/>
+            <Route path="/about" view=About/>
+            <Route path="/rank" view=Rank/>
 
-                <ProtectedRoute
-                    path="/login"
-                    redirect_path="/"
-                    condition=is_none(token)
-                    view=Login
-                />
+            <ProtectedRoute path="/login" redirect_path="/" condition=is_none(token) view=Login/>
+            <ProtectedRoute
+                path="/create/problem"
+                redirect_path="/login"
+                condition=is_some(token)
+                view=create::Problem
+            />
 
-                <Route path="/*any" view=NotFound/>
-            </Routes>
-            <Footer/>
-        </div>
+            // Fallback
+            <Route path="/*any" view=NotFound/>
+        </Routes>
     }
 }
