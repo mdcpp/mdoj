@@ -1,3 +1,9 @@
 {
-  "recommendations": ["rust-lang.rust-analyzer"]
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "bradlc.vscode-tailwindcss",
+    "gruntfuggly.todo-tree",
+    "tamasfe.even-better-toml",
+    "vivaxy.vscode-conventional-commits"
+  ]
 }
