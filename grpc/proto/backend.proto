@@ -21,7 +21,7 @@ enum Role {
 }
 
 enum StateCode {
-  STATE_CODE_ACCEPTED= 0;
+  STATE_CODE_ACCEPTED = 0;
   STATE_CODE_UNKNOWN = 1;
   STATE_CODE_WRONG_ANSWER = 2;
   STATE_CODE_COMPILE_ERROR = 3;
@@ -49,19 +49,28 @@ enum MatchRule {
   MATCHRULE_SKIP_SNL = 2;
 }
 
-message RemoveRequest{
+message RemoveRequest {
   required int32 id = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
-message PublishRequest{
+message PublishRequest {
   required int32 id = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
 message AddProblemToContestRequest {
   required int32 contest_id = 1;
   required int32 problem_id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -73,24 +82,49 @@ message ListProblemByContestRequest {
 message CreateProblemRequest {
   message Info {
     required string title = 1;
+    // 0    -  500 easy
+    // 500  - 1000 easy+
+    // 1000 - 1500 medium
+    // 1500 - 2000 medium+
+    // 2000 - 2500 hard
+    // 2500 - 3000 hard+
+    // 3000 - inf  geek
     required uint32 difficulty = 2;
+    // in nanosecond
     required uint64 time = 4;
+    // in byte (8 bits)
     required uint64 memory = 5;
+    // tags split by unicode whitespace
+    // https://doc.rust-lang.org/std/primitive.str.html#method.split_whitespace
     required string tags = 6;
     required string content = 7;
     required MatchRule match_rule = 9;
     required float order = 10;
   };
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
 message UpdateProblemRequest {
   message Info {
     optional string title = 1;
+    // 0    -  500 easy
+    // 500  - 1000 easy+
+    // 1000 - 1500 medium
+    // 1500 - 2000 medium+
+    // 2000 - 2500 hard
+    // 2500 - 3000 hard+
+    // 3000 - inf  geek
     optional uint32 difficulty = 2;
+    // in nanosecond
     optional uint64 time = 4;
+    // in byte (8 bits)
     optional uint64 memory = 5;
+    // tags split by unicode whitespace
+    // https://doc.rust-lang.org/std/primitive.str.html#method.split_whitespace
     optional string tags = 6;
     optional string content = 7;
     optional MatchRule match_rule = 10;
@@ -98,6 +132,9 @@ message UpdateProblemRequest {
   };
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -105,6 +142,13 @@ message ProblemInfo {
   required int32 id = 1;
   required string title = 2;
   required uint32 submit_count = 3;
+  // 0    -  500 easy
+  // 500  - 1000 easy+
+  // 1000 - 1500 medium
+  // 1500 - 2000 medium+
+  // 2000 - 2500 hard
+  // 2500 - 3000 hard+
+  // 3000 - inf  geek
   required uint32 difficulty = 5;
   required float ac_rate = 4;
 }
@@ -112,7 +156,15 @@ message ProblemInfo {
 message ProblemFullInfo {
   required ProblemInfo info = 1;
   required string content = 2;
+  // tags are split by ascii whitespace
   required string tags = 8;
+  // 0    -  500 easy
+  // 500  - 1000 easy+
+  // 1000 - 1500 medium
+  // 1500 - 2000 medium+
+  // 2000 - 2500 hard
+  // 2500 - 3000 hard+
+  // 3000 - inf  geek
   required uint32 difficulty = 4;
   required bool public = 5;
   required uint64 time = 6;
@@ -191,11 +243,17 @@ message CreateSubmitRequest {
   required string lang_uid = 3;
   required int32 problem_id = 2;
   required bytes code = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 4;
 }
 
 message RejudgeRequest {
   required int32 submit_id = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
@@ -255,6 +313,9 @@ message ListAnnouncementResponse {
 message AddAnnouncementToContestRequest {
   required int32 announcement_id = 1;
   required int32 contest_id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -269,6 +330,9 @@ message CreateAnnouncementRequest {
     required string content = 2;
   }
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
@@ -279,6 +343,9 @@ message UpdateAnnouncementRequest {
   }
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -309,7 +376,8 @@ message ListAnnouncementRequest {
 service Announcement {
   rpc List(ListAnnouncementRequest) returns (ListAnnouncementResponse);
   rpc FullInfo(Id) returns (AnnouncementFullInfo);
-  rpc FullInfoByContest(ListAnnouncementByContestRequest) returns (AnnouncementFullInfo);
+  rpc FullInfoByContest(ListAnnouncementByContestRequest)
+      returns (AnnouncementFullInfo);
 
   rpc Create(CreateAnnouncementRequest) returns (Id);
   rpc Update(UpdateAnnouncementRequest) returns (google.protobuf.Empty);
@@ -345,6 +413,9 @@ message ListEducationResponse {
 message AddEducationToProblemRequest {
   required int32 education_id = 1;
   required int32 problem_id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_ID = 3;
 }
 
@@ -359,6 +430,9 @@ message CreateEducationRequest {
     required string content = 2;
   }
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
@@ -369,6 +443,9 @@ message UpdateEducationRequest {
   }
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -401,7 +478,8 @@ service Education {
   rpc RemoveFromProblem(AddEducationToProblemRequest)
       returns (google.protobuf.Empty);
 
-  rpc FullInfoByProblem(ListEducationByProblemRequest) returns (EducationFullInfo);
+  rpc FullInfoByProblem(ListEducationByProblemRequest)
+      returns (EducationFullInfo);
 }
 
 message TestcaseInfo {
@@ -426,6 +504,9 @@ message ListTestcaseResponse {
 message AddTestcaseToProblemRequest {
   required int32 testcase_id = 1;
   required int32 problem_id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -441,6 +522,9 @@ message CreateTestcaseRequest {
     required bytes output = 4;
   };
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
@@ -452,6 +536,9 @@ message UpdateTestcaseRequest {
   };
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -480,7 +567,8 @@ service Testcase {
   rpc RemoveFromProblem(AddTestcaseToProblemRequest)
       returns (google.protobuf.Empty);
 
-  rpc FullInfoByProblem(ListTestcaseByProblemRequest) returns (TestcaseFullInfo);
+  rpc FullInfoByProblem(ListTestcaseByProblemRequest)
+      returns (TestcaseFullInfo);
 }
 
 message ContestInfo {
@@ -514,6 +602,9 @@ message CreateContestRequest {
     optional string password = 5;
   }
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
@@ -525,12 +616,15 @@ message UpdateContestRequest {
     optional string content = 4;
     optional string tags = 6;
     // if there is password: enter original password to disable password, null
-    // to keep password. if there isn't: enter new password to set password, null
-    // to keep it password disable
+    // to keep password. if there isn't: enter new password to set password,
+    // null to keep it password disable
     optional string password = 5;
   }
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -548,6 +642,9 @@ message ListRankResponse {
 message JoinContestRequest {
   required int32 id = 1;
   optional string password = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -617,6 +714,9 @@ message CreateUserRequest {
     required Role role = 4;
   }
   required Info info = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -628,6 +728,9 @@ message UpdateUserRequest {
   }
   required Info info = 1;
   required int32 id = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 3;
 }
 
@@ -635,6 +738,9 @@ message UpdatePasswordRequest {
   required string username = 1;
   required string password = 2;
   required string new_password = 3;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 4;
 }
 
@@ -686,10 +792,16 @@ message LoginRequest {
   required string username = 1;
   required string password = 2;
   optional uint64 expiry = 3;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 4;
 }
 
-message RefreshRequest{
+message RefreshRequest {
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 1;
   optional uint64 expiry = 2;
 }
@@ -721,6 +833,9 @@ message ListChatResponse {
 message CreateChatRequest {
   required int32 problem_id = 1;
   required string message = 2;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 6;
 }
 
@@ -748,6 +863,9 @@ service Chat {
 
 message UploadRequest {
   required bytes data = 1;
+  // can prevent duplicate request.
+  // It will return cache result if server the request with the same
+  // `request_id` has be processed.
   optional string request_id = 2;
 }
 
