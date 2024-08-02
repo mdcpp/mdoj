@@ -50,7 +50,8 @@ pub fn Editor(
             &*paths,
             &"vs".into(),
             &"https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs".into(),
-        ).unwrap();
+        )
+        .unwrap();
         Reflect::set(&*c, &"paths".into(), &*paths).unwrap();
         loader_config(c);
 

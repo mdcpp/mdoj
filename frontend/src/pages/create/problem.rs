@@ -2,7 +2,8 @@ use leptos::*;
 
 use crate::{
     components::*,
-    grpc::{self, WithToken}, session::*,
+    grpc::{self, WithToken},
+    session::*,
 };
 
 #[component]
@@ -11,7 +12,7 @@ pub fn Problem() -> impl IntoView {
     let difficulty = create_rw_signal("".to_owned());
     let time = create_rw_signal("".to_owned());
     let memory = create_rw_signal("".to_owned());
-    let token=use_token();
+    let token = use_token();
     // let mut client = grpc::problem_client::ProblemClient::new(grpc::new_client());
     // client.create(
     //     grpc::CreateProblemRequest {

@@ -1,3 +1,4 @@
+pub mod badge;
 pub mod button;
 pub mod editor;
 pub mod footer;
@@ -10,8 +11,8 @@ pub mod redirect_if;
 pub mod select;
 pub mod toast;
 pub mod toggle;
-pub mod badge;
 
+pub use badge::Badge;
 pub use button::{Button, ButtonVariant};
 pub use editor::Editor;
 pub use footer::Footer;
@@ -23,4 +24,3 @@ pub use navbar::Navbar;
 pub use redirect_if::RedirectIf;
 pub use select::{Select, SelectOption};
 pub use toast::{toast, ProvideToast};
-pub use badge::Badge;
