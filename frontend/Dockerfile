@@ -17,7 +17,8 @@ COPY . .
 RUN --mount=type=cache,target=target
 
 RUN mkdir -p .cargo \
-&& echo -e "[unstable]\nbuild-std = [\"std\", \"panic_abort\", \"core\", \"alloc\"]\nbuild-std-features = [\"panic_immediate_abort\"]" >> .cargo/config.toml
+    && echo "[unstable]\nbuild-std = [\"std\", \"panic_abort\", \"core\", \"alloc\"]\nbuild-std-features = [\"panic_immediate_abort\"]" >> .cargo/config.toml \
+    && rustup component add rust-src
 
 ARG ARCH=x86_64
 
