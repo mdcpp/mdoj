@@ -1,16 +1,18 @@
-bind_address = "0.0.0.0:8081"
-log_level = 0
+address = "0.0.0.0:8080"
+log = 0
 opentelemetry = "grpc://jaeger:4317"
+default_role = "user"
 
 [database]
 path = "database/backend.sqlite"
 salt = "be sure to change it"
 
 [[judger]]
-name = "http://judger:8081"
+name = "http://judger:8080"
 type = "static"
 
 [grpc]
+trust_host = ["192.168.216.0/24"]
 
 [imgur]
 client_id = "fffffffffffffff"

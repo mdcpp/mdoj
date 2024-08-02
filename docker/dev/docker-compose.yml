@@ -1,19 +1,19 @@
 version: "3.9"
 services:
-  # frontend:
-  #   container_name: mdoj-frontend
-  #   image: ghcr.io/mdcpp/mdoj/frontend:staging
-  #   profiles: []
-  #   depends_on:
-  #     - backend
-  #   ports:
-  #     - "80:80"
-  #   networks:
-  #     - backend
+  frontend:
+    container_name: mdoj-frontend
+    image: ghcr.io/mdcpp/mdoj/frontend:staging
+    profiles: [""]
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
   backend:
     container_name: mdoj-backend
     image: ghcr.io/mdcpp/mdoj/backend:staging
-    profiles: [frontend-dev]
+    profiles: [frontend-dev, ""]
     depends_on:
       - judger
       - jaeger
@@ -23,7 +23,7 @@ services:
     environment:
       - CONFIG_PATH=/config/config.toml
     ports:
-      - "8081:8081"
+      - "8081:8080"
     networks:
       - judger
       - jaeger
@@ -31,7 +31,7 @@ services:
     container_name: mdoj-judger
     privileged: true
     image: ghcr.io/mdcpp/mdoj/judger:staging
-    profiles: [backend-dev, frontend-dev]
+    profiles: [backend-dev, frontend-dev, ""]
     cgroup: host
     devices:
       - /dev/fuse:/dev/fuse 
@@ -42,13 +42,13 @@ services:
       - RUST_BACKTRACE=full
       - CONFIG_PATH=/config/config.toml
     ports:
-      - "8082:8081"
+      - "8082:8080"
     networks:
       - judger
   jaeger:
     container_name: mdoj-jaeger
     image: jaegertracing/all-in-one
-    profiles: [backend-dev, frontend-dev]
+    profiles: [backend-dev, frontend-dev, ""]
     ports:
       - "16686:16686"
       - "4317:4317/tcp"

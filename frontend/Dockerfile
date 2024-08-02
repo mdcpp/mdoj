@@ -16,6 +16,9 @@ WORKDIR /compiler
 COPY . .
 RUN --mount=type=cache,target=target
 
+RUN mkdir -p .cargo \
+&& echo -e "[unstable]\nbuild-std = [\"std\", \"panic_abort\", \"core\", \"alloc\"]\nbuild-std-features = [\"panic_immediate_abort\"]" >> .cargo/config.toml
+
 ARG ARCH=x86_64
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
@@ -23,7 +26,7 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 ENV LEPTOS_OUTPUT_NAME="mdoj"
 ENV LEPTOS_BIN_TARGET_TRIPLE=${ARCH}-unknown-linux-musl
 
-RUN cargo leptos build -p frontend --release -vv
+RUN cargo leptos build -p frontend --release --precompress -vv
 
 FROM scratch
 WORKDIR /config

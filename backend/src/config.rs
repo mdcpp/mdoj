@@ -26,11 +26,11 @@ pub enum ConfigRole {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalConfig {
     #[serde(default = "default_bind_address")]
-    pub bind_address: String,
+    pub address: String,
     #[serde(default)]
     pub database: Database,
     #[serde(default)]
-    pub log_level: usize,
+    pub log: usize,
     #[serde(default = "default_judger")]
     pub judger: Vec<Judger>,
     #[serde(default)]

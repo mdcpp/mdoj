@@ -1,18 +1,18 @@
-bind_address = "0.0.0.0:8081"
-log_level = 2
+address = "0.0.0.0:8080"
+log = 3
+default_role = "user"
 
 [database]
 path = "database/backend.sqlite"
 salt = "be sure to change it"
+migration = false
 
 [[judger]]
-name = "http://mdoj-judger:8080"
+name = "http://judger:8080"
 type = "static"
 
 [grpc]
-trust_x_forwarded_for = true
-public_pem = "../cert/cert.pem"
-private_pem = "../cert/key.pem"
+trust_host = ["192.168.216.0/24"]
 
 [imgur]
 client_id = "fffffffffffffff"

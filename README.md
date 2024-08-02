@@ -6,6 +6,7 @@
 
 Performance-oriented contest management system for IOI like contest
 
+> [!IMPORTANT]
 > :construction: work in progress, please wait until first release
 
 ## Highlights
@@ -18,43 +19,53 @@ Performance-oriented contest management system for IOI like contest
 
 ## Features
 
+> [!TIP]
+> Because we use grpc-web(server-side stream), HTTP2 is recommended, otherwise users won't be able to see realtime submit update(it's still very usable)
+
 - :whale:Scalable: When deployed in cluster, you can scale the system to satisfy reasonable request.
 - :file_cabinet:Extensible: You can add any programing language by placing a `*.lang` file in `plugins` folder
 - :telescope: Powerful `metrics`/`tracing` using ``Open-Telemetry``
 
-## Quick Start
+<details>
+  <summary><h2>Quick Start</h2></summary>
 
-Copy ``docker/quickstart`` file to your server and run `docker compose up -d`, then open `https://localhost` in your browser.
+   Copy `docker/quickstart` file to your server and run `docker compose up -d`, then open [https://localhost](https://localhost) in your browser.
 
-> Because we use grpc-web(server-side stream), HTTP2 is required, you can ignore it or place cert and key in `./cert` folder.
+   login as `admin@admin` and start play arounds.
+  
+</details>
 
-login as `admin@admin` and start play arounds.
+<details>
+  <summary><h2>Full Setup(Docker)</h2></summary>
 
-See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
+   1. Copy `docker/production` from source code to your folder
+   2. run migration by running `docker compose up migration`
+   3. generate config for judger by starting the judger once, and edit config
+   4. generate config for backend by starting the backend once
+   5. download and extract plugin(language support) of your choice to `./plugins`
 
-## Full Setup(Docker)
+   If you prefer to use default config, you can skip step 3 and 4.
 
-> Please download source code from release
+   See [wiki](https://github.com/mdcpp/mdoj/wiki) for more details.
+  
+</details>
 
-1. Copy ``docker/production`` from source code to your folder
-2. generate config for judger by starting the judger once, and edit config
-3. generate config for backend by starting the backend once
-4. download and extract plugin(language support) of your choice to `./plugins`
+<details>
+  <summary><h2>Setup for development</h2></summary>
 
-If you prefer to use default config, you can skip step 2 and 3.
+   1. install following package:
 
-## Setup for development
+   - From system package manager: `protobuf-devel`, `gcc`
+   - From rustup: `rustup`, `cargo`, `just`
+   - From their website: `docker`, `docker-compose`
 
-1. install following package:
+   Then start reading documents in subfolder of your interest.
 
-- From system package manager: `protobuf-devel`, `gcc`
-- From rustup: `rustup`, `cargo`, `just`
-- From their website: `docker`, `docker-compose`
+   > you may need to run ``just prepare`` in ``judger``, ``backend`` subfolder.
+  
+</details>
 
-Then start reading documents in subfolder of your interest.
+## Configuration
 
-> you may need to run ``just prepare`` in ``judger``, ``backend`` subfolder.
-
-## Environment
-
-Set `CONFIG_PATH` to change the path to config file, default value is `config.toml`
+> [!TIP]
+> Set `CONFIG_PATH` to change the path to config file, default value is `config.toml`

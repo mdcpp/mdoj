@@ -38,18 +38,6 @@ services:
       - CONFIG_PATH=/judger.toml
     networks:
       - judger
-  jaeger:
-    container_name: mdoj-jaeger
-    image: jaegertracing/all-in-one
-    networks:
-      - jaeger
-  migration:
-    container_name: mdoj-migration
-    image: ghcr.io/mdcpp/mdoj/migration:staging
-    environment:
-      - DATABASE_URL=sqlite://database/backend.sqlite?mode=rwc
-    volumes:
-      - ./database:/database
 networks:
   judger:
   backend:

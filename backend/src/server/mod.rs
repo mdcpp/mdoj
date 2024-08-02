@@ -153,7 +153,7 @@ impl Server {
             .add_service(SubmitServer::new(self_.clone()))
             .add_service(ChatServer::new(self_.clone()))
             .add_service(AnnouncementServer::new(self_.clone()))
-            .serve_with_shutdown(CONFIG.bind_address.clone().parse().unwrap(), async {
+            .serve_with_shutdown(CONFIG.address.clone().parse().unwrap(), async {
                 if tokio::signal::ctrl_c().await.is_err() {
                     tracing::warn!("graceful_shutdown");
                 }

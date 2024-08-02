@@ -121,7 +121,7 @@ impl OtelGuard {
     pub fn new() -> super::Result<Self> {
         init_panic_hook();
 
-        let level = match CONFIG.log_level {
+        let level = match CONFIG.log {
             0 => Level::TRACE,
             1 => Level::DEBUG,
             2 => Level::INFO,
