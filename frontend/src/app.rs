@@ -20,7 +20,7 @@ pub fn App() -> impl IntoView {
                     <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
                     <Title text="MDOJ"/>
 
-                    <div class="bg-slate-950 w-full min-h-screen flex flex-col text-text">
+                    <div class="bg-slate-950 w-full min-h-dvh flex flex-col text-text">
                         <Navbar/>
                         <Pages/>
                         <Footer/>
