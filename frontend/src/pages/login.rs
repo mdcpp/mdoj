@@ -64,7 +64,9 @@ pub fn Login() -> impl IntoView {
                 "You try too many times, please wait and try again".to_owned()
             }
             _ => {
-                toast(view! { <p>{err.to_string()}</p> });
+                let toast = use_toast();
+
+                toast(view! { <p>{err.to_string()}</p> }.into_view());
                 "".to_owned()
             }
         }

@@ -1,5 +1,5 @@
 use leptos::*;
-use tailwind_fuse::tw_merge;
+use tailwind_fuse::tw_join;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SelectedValue(ReadSignal<String>);
@@ -16,7 +16,7 @@ pub fn Select(
     provide_context(SelectedValue(get));
     view! {
         <select
-            class=tw_merge!(class, "text-text bg-background rounded-md p-2")
+            class=tw_join!(class, "text-text bg-slate-800 rounded-md p-2")
             id=id
             on:change=move |e| set(event_target_value(&e))
         >

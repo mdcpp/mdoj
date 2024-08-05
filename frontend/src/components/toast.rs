@@ -28,13 +28,15 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     }
 }
 
-pub fn toast(v: impl IntoView) {
+pub fn use_toast() -> impl Fn(View) {
     let toaster: RwSignal<Toaster> = expect_context();
 
-    toaster.update(move |toaster| {
-        toaster.toasts.push((toaster.id, v.into_view()));
-        toaster.id = toaster.id.wrapping_add(1);
-    });
+    move |v| {
+        toaster.update(move |toaster| {
+            toaster.toasts.push((toaster.id, v));
+            toaster.id = toaster.id.wrapping_add(1);
+        });
+    }
 }
 
 #[derive(Debug, Default, Clone)]

@@ -11,7 +11,7 @@ pub enum InputVariant {
 
 #[component]
 pub fn Input(
-    #[prop(into)] value: RwSignal<String>,
+    value: RwSignal<String>,
     #[prop(into, optional)] variant: InputVariant,
     #[prop(into, default = "".into())] class: String,
     #[prop(attrs)] attrs: Vec<(&'static str, Attribute)>,
