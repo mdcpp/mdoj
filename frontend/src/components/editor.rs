@@ -1,14 +1,13 @@
-use std::{collections::HashMap, path};
-
-use gloo::console::console;
-use js_sys::{Object, Reflect};
-use leptos::{leptos_dom::logging::console_log, *};
+use js_sys::{Function, Object, Reflect};
+use leptos::*;
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
 
+use crate::config::frontend_config;
+
 #[wasm_bindgen]
 extern "C" {
-    fn require(modules: Vec<String>, on_load: &Closure<dyn FnMut()>);
+    fn require(modules: Vec<String>, on_load: &Function);
 
     #[wasm_bindgen(js_namespace = require, js_name="config")]
     fn loader_config(config: Object);
@@ -26,6 +25,8 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     fn editor(this: &Monaco) -> MonacoEditor;
 
+    pub type Editor;
+
     /// Create a new editor under `domElement`.
     /// `domElement` should be empty (not contain other dom nodes).
     /// The editor will read the size of `domElement`.
@@ -34,13 +35,30 @@ extern "C" {
         this: &MonacoEditor,
         el: web_sys::HtmlElement,
         config: Option<Object>,
+    ) -> Editor;
+
+    type ITextModel;
+
+    #[wasm_bindgen(method, js_name = "setModelLanguage")]
+    fn set_model_language(
+        this: &MonacoEditor,
+        model: ITextModel,
+        mime_type_or_language_id: String,
     );
+
+    #[wasm_bindgen(method, js_name = "getValue")]
+    pub fn get_value(this: &Editor) -> String;
+
+    #[wasm_bindgen(method, js_name = "getModel")]
+    pub fn get_model(this: &Editor) -> Option<ITextModel>;
+
 }
 
 #[component]
 pub fn Editor(
-    #[prop(into, default = "".to_owned().into())] language: MaybeSignal<String>,
-    #[prop(into, default = "".to_owned())] class: String,
+    #[prop(into, optional)] lang_ext: MaybeSignal<String>,
+    #[prop(into, optional)] class: String,
+    #[prop(optional)] editor_ref: RwSignal<Option<Editor>>,
 ) -> impl IntoView {
     let node_ref = create_node_ref::<html::Div>();
     let on_load = move |_| {
@@ -50,7 +68,8 @@ pub fn Editor(
             &*paths,
             &"vs".into(),
             &"https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs".into(),
-        ).unwrap();
+        )
+        .unwrap();
         Reflect::set(&*c, &"paths".into(), &*paths).unwrap();
         loader_config(c);
 
@@ -58,16 +77,41 @@ pub fn Editor(
         Reflect::set(&*config, &"theme".into(), &"vs-dark".into()).unwrap();
         Reflect::set(&*config, &"language".into(), &"rust".into()).unwrap();
 
-        let init_monaco = Closure::once(move || {
-            MONACO.editor().create_editor(
+        let init_monaco = Closure::once_into_js(move || {
+            let editor = MONACO.editor().create_editor(
                 (**(node_ref.get_untracked().unwrap())).clone(),
                 Some(config),
             );
+            editor_ref.set(Some(editor))
         });
 
-        require(vec!["vs/editor/editor.main".into()], &init_monaco);
-        init_monaco.forget();
+        require(
+            vec!["vs/editor/editor.main".into()],
+            init_monaco.unchecked_ref(),
+        );
     };
+
+    create_effect(move |_| {
+        editor_ref.with(|editor| {
+            let Some(model) = editor.as_ref().map(|e| e.get_model()).flatten()
+            else {
+                return;
+            };
+
+            let lang_ext = lang_ext();
+            let Some(lang) = frontend_config()
+                .extension_language_mappings
+                .iter()
+                .find(|lang| lang.extension.contains(&lang_ext))
+                .map(|lang| lang.language.clone())
+            else {
+                return;
+            };
+
+            MONACO.editor().set_model_language(model, lang);
+        });
+    });
+
     view! {
         <div node_ref=node_ref class=class></div>
         <DynamicLoad
@@ -88,10 +132,4 @@ fn DynamicLoad(
         set_load_src(Some(src));
     });
     view! { <script on:load=on_load src=load_src node_ref=node_ref></script> }
-}
-
-pub fn get_editor_code() -> Option<String> {
-    js_sys::eval("editor_inject_1083hdkjla.getValue()")
-        .ok()?
-        .as_string()
 }
