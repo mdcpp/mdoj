@@ -786,8 +786,6 @@ message TokenInfo {
   required google.protobuf.Timestamp expiry = 3;
 }
 
-message Tokens { repeated string list = 1; }
-
 message LoginRequest {
   required string username = 1;
   required string password = 2;
@@ -806,8 +804,23 @@ message RefreshRequest {
   optional uint64 expiry = 2;
 }
 
+message ListTokenRequest {
+  oneof request {
+    Order create = 1;
+    string paginator = 2;
+  }
+  required uint64 size = 3;
+  required int64 offset = 4;
+}
+
+message ListTokenResponse {
+  repeated TokenInfo list = 1;
+  required string paginator = 2;
+  required uint64 remain = 3;
+}
+
 service Token {
-  rpc List(Id) returns (Tokens);
+  rpc List(ListTokenRequest) returns (ListTokenResponse);
 
   rpc Create(LoginRequest) returns (TokenInfo);
   rpc Refresh(RefreshRequest) returns (TokenInfo);

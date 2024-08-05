@@ -60,7 +60,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.list",
+        name = "oj.backend.Contest/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -103,7 +103,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.full_info",
+        name = "oj.backend.Contest/full_info",
         err(level = "debug", Display)
     )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ContestFullInfo>, Status> {
@@ -124,7 +124,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.create",
+        name = "oj.backend.Contest/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateContestRequest>) -> Result<Response<Id>, Status> {
@@ -175,7 +175,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.update",
+        name = "oj.backend.Contest/update",
         err(level = "debug", Display)
     )]
     async fn update(&self, req: Request<UpdateContestRequest>) -> Result<Response<()>, Status> {
@@ -231,7 +231,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.remove",
+        name = "oj.backend.Contest/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -260,7 +260,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.join",
+        name = "oj.backend.Contest/join",
         err(level = "debug", Display)
     )]
     async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
@@ -310,7 +310,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.publish",
+        name = "oj.backend.Contest/publish",
         err(level = "debug", Display)
     )]
     async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
@@ -343,7 +343,7 @@ impl Contest for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Contest.unpublish",
+        name = "oj.backend.Contest/unpublish",
         err(level = "debug", Display)
     )]
     async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {

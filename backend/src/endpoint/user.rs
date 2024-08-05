@@ -38,7 +38,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.list",
+        name = "oj.backend.User/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -81,7 +81,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.full_info",
+        name = "oj.backend.User/full_info",
         err(level = "debug", Display)
     )]
     async fn full_info(&self, _req: Request<Id>) -> Result<Response<UserFullInfo>, Status> {
@@ -90,7 +90,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.create",
+        name = "oj.backend.User/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateUserRequest>) -> Result<Response<Id>, Status> {
@@ -144,7 +144,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.update",
+        name = "oj.backend.User/update",
         err(level = "debug", Display)
     )]
     async fn update(&self, req: Request<UpdateUserRequest>) -> Result<Response<()>, Status> {
@@ -196,7 +196,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.remove",
+        name = "oj.backend.User/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -224,7 +224,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.update_password",
+        name = "oj.backend.User/update_password",
         err(level = "debug", Display)
     )]
     async fn update_password(
@@ -267,7 +267,7 @@ impl User for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.User.my_info",
+        name = "oj.backend.User/my_info",
         err(level = "debug", Display)
     )]
     async fn my_info(&self, req: Request<()>) -> Result<Response<UserFullInfo>, Status> {

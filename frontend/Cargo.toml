@@ -11,7 +11,7 @@ actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
 console_error_panic_hook = "0.1"
 http = { version = "0.2", optional = true }
-leptos = { version = "0.6", features = ["nightly"] }
+leptos = { version = "0.6", features = ["nightly", "serde-lite"], default-features = false }
 leptos_meta = { version = "0.6", features = ["nightly"] }
 leptos_actix = { version = "0.6", optional = true }
 leptos_router = { version = "0.6", features = ["nightly"] }
@@ -33,6 +33,7 @@ wasm-bindgen-futures = "0.4.42"
 icondata = "0.3.1"
 turf = "0.9.2"
 leptos_animated_for = "0.4.7"
+lol_alloc = "0.4.1"
 
 [dependencies.uuid]
 version = "1.7.0"

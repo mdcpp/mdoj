@@ -36,7 +36,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.list",
+        name = "oj.backend.Education/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -80,7 +80,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.create",
+        name = "oj.backend.Education/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateEducationRequest>) -> Result<Response<Id>, Status> {
@@ -115,7 +115,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.update",
+        name = "oj.backend.Education/update",
         err(level = "debug", Display)
     )]
     async fn update(&self, req: Request<UpdateEducationRequest>) -> Result<Response<()>, Status> {
@@ -149,7 +149,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.remove",
+        name = "oj.backend.Education/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -178,7 +178,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.add_to_problem",
+        name = "oj.backend.Education/add_to_problem",
         err(level = "debug", Display)
     )]
     async fn add_to_problem(
@@ -216,7 +216,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Education.remove_from_problem",
+        name = "oj.backend.Education/remove_from_problem",
         err(level = "debug", Display)
     )]
     async fn remove_from_problem(
@@ -255,7 +255,7 @@ impl Education for ArcServer {
     #[instrument(
         skip_all,
         level = "info",full_info_by_problem
-        name = "endpoint.Education.list",
+        name = "oj.backend.Education/list",
         err(level = "debug", Display)
     )]
     async fn full_info_by_problem(

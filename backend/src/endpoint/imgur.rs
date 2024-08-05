@@ -7,7 +7,7 @@ impl Image for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Image.upload",
+        name = "oj.backend.Image/upload",
         err(level = "debug", Display)
     )]
     async fn upload(

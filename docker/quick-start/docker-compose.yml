@@ -14,7 +14,8 @@ services:
     image: ghcr.io/mdcpp/mdoj/backend:staging
     depends_on:
       - judger
-      - jaeger
+    ports:
+      - "8081:8080"
     volumes:
       - ./backend.toml:/backend.toml
       - ./database:/database
@@ -22,7 +23,6 @@ services:
       - CONFIG_PATH=/backend.toml
     networks:
       - judger
-      - jaeger
   judger:
     container_name: mdoj-judger
     privileged: true
@@ -41,4 +41,3 @@ services:
 networks:
   judger:
   backend:
-  jaeger:

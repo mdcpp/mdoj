@@ -5,7 +5,7 @@ use super::*;
 
 use grpc::backend::token_server::*;
 
-use crate::entity::token::*;
+use crate::entity::token::{Paginator, *};
 use crate::{entity::user, util::rate_limit::RateLimit};
 
 const TOKEN_LIMIT: u64 = 16;
@@ -19,40 +19,58 @@ impl From<Model> for String {
     }
 }
 
+impl From<Model> for TokenInfo {
+    fn from(value: Model) -> Self {
+        TokenInfo {
+            role: value.permission,
+            expiry: into_prost(value.expiry),
+            token: value.into(),
+        }
+    }
+}
+
 #[async_trait]
 impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.list",
+        name = "oj.backend.Token/list",
         err(level = "debug", Display)
     )]
-    async fn list(&self, req: Request<Id>) -> Result<Response<Tokens>, Status> {
+    async fn list(
+        &self,
+        req: Request<ListTokenRequest>,
+    ) -> Result<Response<ListTokenResponse>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, perm) = auth.assume_login()?;
 
-        if req.id != user_id {
-            perm.admin()?;
-        }
+        req.bound_check()?;
 
-        let tokens = Entity::find()
-            .filter(Column::Id.eq(user_id))
-            .limit(TOKEN_LIMIT)
-            .all(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?;
+        let paginator = match req.request.ok_or(Error::NotInPayload("request"))? {
+            list_token_request::Request::Create(order) => {
+                Paginator::new(order == Order::Descend as i32)
+            }
+            list_token_request::Request::Paginator(x) => self.crypto.decode(x)?,
+        };
+        let mut paginator = paginator.with_auth(&auth).with_db(&self.db);
 
-        tracing::trace!(token_count = tokens.len(), "retrieve_token");
+        let list = paginator
+            .fetch(req.size, req.offset)
+            .in_current_span()
+            .await?;
+        let remain = paginator.remain().in_current_span().await?;
 
-        Ok(Response::new(Tokens {
-            list: tokens.into_iter().map(Into::into).collect(),
+        let paginator = paginator.into_inner();
+
+        Ok(Response::new(ListTokenResponse {
+            list: list.into_iter().map(Into::into).collect(),
+            paginator: self.crypto.encode(paginator)?,
+            remain,
         }))
     }
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.create",
+        name = "oj.backend.Token/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
@@ -88,7 +106,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.refresh",
+        name = "oj.backend.Token/refresh",
         err(level = "debug", Display)
     )]
     async fn refresh(&self, req: Request<RefreshRequest>) -> Result<Response<TokenInfo>, Status> {
@@ -131,7 +149,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.logouy",
+        name = "oj.backend.Token/logouy",
         err(level = "debug", Display)
     )]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {

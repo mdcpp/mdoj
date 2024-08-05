@@ -7,6 +7,13 @@ pub mod pages;
 pub mod session;
 
 use cfg_if::cfg_if;
+#[cfg(target_arch = "wasm32")]
+use lol_alloc::{AssumeSingleThreaded, FreeListAllocator};
+
+#[cfg(target_arch = "wasm32")]
+#[global_allocator]
+static ALLOCATOR: AssumeSingleThreaded<FreeListAllocator> =
+    unsafe { AssumeSingleThreaded::new(FreeListAllocator::new()) };
 
 cfg_if! {
 if #[cfg(feature = "hydrate")] {

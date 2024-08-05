@@ -53,7 +53,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.list",
+        name = "oj.backend.Announcement/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -99,7 +99,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.full_info",
+        name = "oj.backend.Announcement/full_info",
         err(level = "debug", Display)
     )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<AnnouncementFullInfo>, Status> {
@@ -120,7 +120,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.full_info_by_contest",
+        name = "oj.backend.Announcement/full_info_by_contest",
         err(level = "debug", Display)
     )]
     async fn full_info_by_contest(
@@ -148,7 +148,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.create",
+        name = "oj.backend.Announcement/create",
         err(level = "debug", Display)
     )]
     async fn create(
@@ -186,7 +186,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.update",
+        name = "oj.backend.Announcement/update",
         err(level = "debug", Display)
     )]
     async fn update(
@@ -224,7 +224,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.remove",
+        name = "oj.backend.Announcement/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -253,7 +253,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.add_to_contest",
+        name = "oj.backend.Announcement/add_to_contest",
         err(level = "debug", Display)
     )]
     async fn add_to_contest(
@@ -276,6 +276,9 @@ impl Announcement for ArcServer {
 
             contest.ok_or(Error::NotInDB)?;
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            if let ActiveValue::Set(Some(v)) = model.contest_id {
+                return Err(Error::AlreadyExist("announcement already linked"));
+            }
 
             model.contest_id = ActiveValue::Set(Some(req.contest_id));
             model
@@ -291,7 +294,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.remove_from_contest",
+        name = "oj.backend.Announcement/remove_from_contest",
         err(level = "debug", Display)
     )]
     async fn remove_from_contest(
@@ -327,7 +330,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.publish",
+        name = "oj.backend.Announcement/publish",
         err(level = "debug", Display)
     )]
     async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
@@ -361,7 +364,7 @@ impl Announcement for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Announcement.unpublish",
+        name = "oj.backend.Announcement/unpublish",
         err(level = "debug", Display)
     )]
     async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
