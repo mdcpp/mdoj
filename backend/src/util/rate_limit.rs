@@ -125,6 +125,7 @@ impl_list_rate_limit!(Submit);
 impl_list_rate_limit!(Education);
 impl_list_rate_limit!(Testcase);
 impl_list_rate_limit!(Announcement);
+impl_list_rate_limit!(Token);
 
 impl RateLimit for ListUserRequest {
     fn get_cost(&self) -> u32 {

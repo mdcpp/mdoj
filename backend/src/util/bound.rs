@@ -80,6 +80,16 @@ list_paginator_request!(Contest);
 list_paginator_request!(Education);
 list_paginator_request!(User);
 
+impl BoundCheck for ListTokenRequest {
+    fn check(&self) -> bool {
+        if let Some(list_token_request::Request::Paginator(x)) = &self.request {
+            x.len() > 512
+        } else {
+            false
+        }
+    }
+}
+
 impl BoundCheck for ListChatRequest {
     fn check(&self) -> bool {
         self.offset == 0 || self.offset > 4096 || self.size > 128
