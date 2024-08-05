@@ -82,12 +82,12 @@ list_paginator_request!(User);
 
 impl BoundCheck for ListChatRequest {
     fn check(&self) -> bool {
-        self.offset==0||self.offset > 4096 || self.size > 128
+        self.offset == 0 || self.offset > 4096 || self.size > 128
     }
 }
 impl BoundCheck for ListSubmitRequest {
     fn check(&self) -> bool {
-        if self.offset==0{
+        if self.offset == 0 {
             true
         } else if let Some(list_submit_request::Request::Paginator(x)) = &self.request {
             x.len() > 512

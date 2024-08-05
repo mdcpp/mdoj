@@ -195,6 +195,9 @@ impl Testcase for ArcServer {
 
             problem.ok_or(Error::NotInDB)?;
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            if let ActiveValue::Set(Some(v)) = model.problem_id {
+                return Err(Error::AlreadyExist("testcase already linked"));
+            }
 
             model.problem_id = ActiveValue::Set(Some(req.problem_id));
             model

@@ -234,9 +234,10 @@ impl Problem for ArcServer {
             contest.ok_or(Error::NotInDB)?;
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
-            if let Some(x) = model.contest_id.into_value() {
-                tracing::debug!(old_id = x.to_string());
+            if let ActiveValue::Set(Some(v)) = model.contest_id {
+                return Err(Error::AlreadyExist("problem already linked"));
             }
+
             model.contest_id = ActiveValue::Set(Some(req.problem_id));
             model
                 .save(self.db.deref())
