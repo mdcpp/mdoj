@@ -52,7 +52,7 @@ impl Submit for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Submit.list",
+        name = "oj.backend.Submit/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -105,7 +105,7 @@ impl Submit for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Submit.create",
+        name = "oj.backend.Submit/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateSubmitRequest>) -> Result<Response<Id>, Status> {
@@ -168,7 +168,7 @@ impl Submit for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Submit.remove",
+        name = "oj.backend.Submit/remove",
         err(level = "debug", Display)
     )]
     async fn remove(
@@ -203,7 +203,7 @@ impl Submit for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Submit.follow",
+        name = "oj.backend.Submit/follow",
         err(level = "debug", Display)
     )]
     async fn follow(&self, req: Request<Id>) -> Result<Response<Self::FollowStream>, Status> {
@@ -223,7 +223,7 @@ impl Submit for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Submit.rejudge",
+        name = "oj.backend.Submit/rejudge",
         err(level = "debug", Display)
     )]
     async fn rejudge(&self, req: Request<RejudgeRequest>) -> Result<Response<()>, Status> {

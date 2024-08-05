@@ -26,7 +26,7 @@ impl Chat for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Chat.create",
+        name = "oj.backend.Chat/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<Id>, Status> {
@@ -62,7 +62,7 @@ impl Chat for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Chat.remove",
+        name = "oj.backend.Chat/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -91,7 +91,7 @@ impl Chat for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Chat.list",
+        name = "oj.backend.Chat/list",
         err(level = "debug", Display)
     )]
     async fn list(

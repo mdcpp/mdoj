@@ -37,7 +37,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.list",
+        name = "oj.backend.Testcase/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -78,7 +78,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.create",
+        name = "oj.backend.Testcase/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateTestcaseRequest>) -> Result<Response<Id>, Status> {
@@ -113,7 +113,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.update",
+        name = "oj.backend.Testcase/update",
         err(level = "debug", Display)
     )]
     async fn update(&self, req: Request<UpdateTestcaseRequest>) -> Result<Response<()>, Status> {
@@ -145,7 +145,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.remove",
+        name = "oj.backend.Testcase/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -173,7 +173,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.add_to_problem",
+        name = "oj.backend.Testcase/add_to_problem",
         err(level = "debug", Display)
     )]
     async fn add_to_problem(
@@ -210,7 +210,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.remove_from_problem",
+        name = "oj.backend.Testcase/remove_from_problem",
         err(level = "debug", Display)
     )]
     async fn remove_from_problem(
@@ -247,7 +247,7 @@ impl Testcase for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Testcase.full_info_by_problem",
+        name = "oj.backend.Testcase/full_info_by_problem",
         err(level = "debug", Display)
     )]
     async fn full_info_by_problem(

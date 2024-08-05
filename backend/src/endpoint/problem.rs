@@ -46,7 +46,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.list",
+        name = "oj.backend.Problem/list",
         err(level = "debug", Display)
     )]
     async fn list(
@@ -92,7 +92,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.full_info",
+        name = "oj.backend.Problem/full_info",
         err(level = "debug", Display)
     )]
     async fn full_info(&self, req: Request<Id>) -> Result<Response<ProblemFullInfo>, Status> {
@@ -113,7 +113,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.create",
+        name = "oj.backend.Problem/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateProblemRequest>) -> Result<Response<Id>, Status> {
@@ -150,7 +150,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.update",
+        name = "oj.backend.Problem/update",
         err(level = "debug", Display)
     )]
     async fn update(&self, req: Request<UpdateProblemRequest>) -> Result<Response<()>, Status> {
@@ -185,7 +185,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.remove",
+        name = "oj.backend.Problem/remove",
         err(level = "debug", Display)
     )]
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
@@ -211,7 +211,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.add_to_contest",
+        name = "oj.backend.Problem/add_to_contest",
         err(level = "debug", Display)
     )]
     async fn add_to_contest(
@@ -252,7 +252,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.remove_from_contest",
+        name = "oj.backend.Problem/remove_from_contest",
         err(level = "debug", Display)
     )]
     async fn remove_from_contest(
@@ -294,7 +294,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.publish",
+        name = "oj.backend.Problem/publish",
         err(level = "debug", Display)
     )]
     async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
@@ -327,7 +327,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.unpublish",
+        name = "oj.backend.Problem/unpublish",
         err(level = "debug", Display)
     )]
     async fn unpublish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
@@ -360,7 +360,7 @@ impl Problem for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Problem.full_info_by_contest",
+        name = "oj.backend.Problem/full_info_by_contest",
         err(level = "debug", Display)
     )]
     async fn full_info_by_contest(

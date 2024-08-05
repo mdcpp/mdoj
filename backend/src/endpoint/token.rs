@@ -24,7 +24,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.list",
+        name = "oj.backend.Token/list",
         err(level = "debug", Display)
     )]
     async fn list(&self, req: Request<Id>) -> Result<Response<Tokens>, Status> {
@@ -52,7 +52,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.create",
+        name = "oj.backend.Token/create",
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<LoginRequest>) -> Result<Response<TokenInfo>, Status> {
@@ -88,7 +88,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.refresh",
+        name = "oj.backend.Token/refresh",
         err(level = "debug", Display)
     )]
     async fn refresh(&self, req: Request<RefreshRequest>) -> Result<Response<TokenInfo>, Status> {
@@ -131,7 +131,7 @@ impl Token for ArcServer {
     #[instrument(
         skip_all,
         level = "info",
-        name = "endpoint.Token.logouy",
+        name = "oj.backend.Token/logouy",
         err(level = "debug", Display)
     )]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
