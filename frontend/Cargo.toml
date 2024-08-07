@@ -33,6 +33,7 @@ wasm-bindgen-futures = "0.4.42"
 icondata = "0.3.1"
 turf = "0.9.2"
 leptos_animated_for = "0.4.7"
+num-traits = "0.2.19"
 
 [dependencies.uuid]
 version = "1.7.0"
