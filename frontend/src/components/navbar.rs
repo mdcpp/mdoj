@@ -8,7 +8,7 @@ use crate::session::use_token;
 pub fn Navbar() -> impl IntoView {
     let token = use_token();
     view! {
-        <nav class="bg-slate-900 sticky top-0 p-2 flex flex-row justify-between border-b-2 border-secondary z-10">
+        <nav class="bg-black-900 sticky top-0 p-2 flex flex-row justify-between border-b-2 border-black-400 z-10">
             <div class="flex flex-row flex-nowrap">
                 <A href="/">
                     <img src="https://placehold.co/100" class="h-12 aspect-square mx-5"/>

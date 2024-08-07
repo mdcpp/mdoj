@@ -22,7 +22,7 @@ pub fn Input(
             <input
                 class=tw_merge!(
                     class,
-                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                    "text-text outline-none p-2 bg-black-800 border-b-2 border-black-800 focus:border-primary transition-colors duration-300",
                 )
 
                 type="text"
@@ -35,7 +35,7 @@ pub fn Input(
             <input
                 class=tw_merge!(
                     class,
-                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                    "text-text outline-none p-2 bg-black-800 border-b-2 border-black-800 focus:border-primary transition-colors duration-300",
                 )
 
                 type="password"
@@ -48,7 +48,7 @@ pub fn Input(
             <textarea
                 class=tw_merge!(
                     class,
-                    "text-text outline-none p-2 bg-slate-800 border-b-2 border-slate-800 focus:border-primary transition-colors duration-300",
+                    "text-text outline-none p-2 bg-black-800 border-b-2 border-black-800 focus:border-primary transition-colors duration-300",
                 )
 
                 prop:value=get

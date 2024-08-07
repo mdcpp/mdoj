@@ -11,7 +11,7 @@ module.exports = {
       'primary': '#427fdc',
       'secondary': '#264e8a',
       'accent': '#9bb4d9',
-      slate: colors.slate,
+      black: colors.stone,
       red: colors.red,
       yellow: colors.yellow,
       green: colors.green,

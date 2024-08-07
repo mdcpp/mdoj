@@ -1,5 +1,5 @@
 use leptos::*;
-use tailwind_fuse::tw_merge;
+use tailwind_fuse::*;
 
 #[component]
 pub fn Toggle(
@@ -12,7 +12,7 @@ pub fn Toggle(
 ) -> impl IntoView {
     let (get, set) = value.split();
     view! {
-        <label class=tw_merge!(class, "inline-flex items-center cursor-pointer")>
+        <label class=tw_join!(class, "inline-flex items-center cursor-pointer")>
             <input
                 type=kind
                 id=id

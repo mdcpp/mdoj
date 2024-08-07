@@ -7,15 +7,13 @@ pub enum ButtonVariant {
     Primary,
     #[tw(class = "text-background bg-secondary")]
     Secondary,
-    #[tw(class = "text-slate-950 bg-accent")]
+    #[tw(class = "text-black-950 bg-accent")]
     Accent,
 }
 
 #[component]
 pub fn Button(
-    #[prop(into, default = "button".to_owned().into())] type_: MaybeSignal<
-        String,
-    >,
+    #[prop(into, default = "button".to_owned().into())] type_: String,
     #[prop(into, optional)] variant: ButtonVariant,
     #[prop(into, optional)] disabled: MaybeSignal<bool>,
     #[prop(into, optional)] id: Option<AttributeValue>,

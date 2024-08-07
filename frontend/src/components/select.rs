@@ -16,7 +16,7 @@ pub fn Select(
     provide_context(SelectedValue(get));
     view! {
         <select
-            class=tw_join!(class, "text-text bg-slate-800 rounded-md p-2")
+            class=tw_join!(class, "text-text bg-black-800 p-2")
             id=id
             on:change=move |e| set(event_target_value(&e))
         >
