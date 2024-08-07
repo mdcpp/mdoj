@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_animated_for::AnimatedFor;
 use leptos_icons::*;
 use leptos_use::*;
-use tailwind_fuse::tw_join;
+use tailwind_fuse::*;
 
 turf::style_sheet!("src/components/toast.scss");
 
@@ -17,7 +17,14 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
             <AnimatedFor
                 each=toasts
                 key=|toast| toast.0
-                children=|(id, v)| view! { <Toast id>{v}</Toast> }
+                children=|(id, variant, v)| {
+                    view! {
+                        <Toast id variant>
+                            {v}
+                        </Toast>
+                    }
+                }
+
                 enter_from_class="translate-x-full"
                 enter_class="translate-x-0 transition-transform duration-300"
                 move_class="transition-all duration-300"
@@ -28,12 +35,12 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     }
 }
 
-pub fn use_toast() -> impl Fn(View) {
+pub fn use_toast() -> impl Fn(ToastVariant, View) {
     let toaster: RwSignal<Toaster> = expect_context();
 
-    move |v| {
+    move |variant, v| {
         toaster.update(move |toaster| {
-            toaster.toasts.push((toaster.id, v));
+            toaster.toasts.push((toaster.id, variant, v));
             toaster.id = toaster.id.wrapping_add(1);
         });
     }
@@ -41,7 +48,7 @@ pub fn use_toast() -> impl Fn(View) {
 
 #[derive(Debug, Default, Clone)]
 struct Toaster {
-    toasts: Vec<(usize, View)>,
+    toasts: Vec<(usize, ToastVariant, View)>,
     id: usize,
 }
 
@@ -51,16 +58,45 @@ impl Toaster {
             .toasts
             .iter()
             .enumerate()
-            .find_map(|(i, (toast_id, _))| (id == *toast_id).then_some(i))
+            .find_map(|(i, (toast_id, ..))| (id == *toast_id).then_some(i))
         else {
+            logging::error!("cannot remove id `{id}`");
             return;
         };
         let _ = self.toasts.remove(i);
     }
 }
 
+#[derive(Debug, TwVariant, PartialEq, Eq)]
+pub enum ToastVariant {
+    #[tw(default, class = "border-secondary")]
+    Info,
+    #[tw(class = "border-green-500")]
+    Success,
+    #[tw(class = "border-yellow-300")]
+    Warning,
+    #[tw(class = "border-red-500")]
+    Error,
+}
+
+#[derive(Debug, TwVariant, PartialEq, Eq)]
+enum CountdownVariant {
+    #[tw(default, class = "before:bg-secondary")]
+    Info,
+    #[tw(class = "before:bg-green-500")]
+    Success,
+    #[tw(class = "before:bg-yellow-300")]
+    Warning,
+    #[tw(class = "before:bg-red-500")]
+    Error,
+}
+
 #[component]
-fn Toast(id: usize, children: Children) -> impl IntoView {
+fn Toast(
+    id: usize,
+    variant: ToastVariant,
+    children: Children,
+) -> impl IntoView {
     let list: RwSignal<Toaster> = expect_context();
     let close = move || list.update(move |list: &mut Toaster| list.remove(id));
     let UseTimeoutFnReturn {
@@ -85,16 +121,29 @@ fn Toast(id: usize, children: Children) -> impl IntoView {
             stop();
         }
     });
+
+    let countdown_variant = match variant {
+        ToastVariant::Info => CountdownVariant::Info,
+        ToastVariant::Success => CountdownVariant::Success,
+        ToastVariant::Warning => CountdownVariant::Warning,
+        ToastVariant::Error => CountdownVariant::Error,
+    };
+
     let countdown_class = move || {
         tw_join!(
             "w-full h-0 relative before:absolute before:bottom-0 \
-             before:right-0 before:h-1 before:w-full before:bg-primary",
+             before:right-0 before:h-1 before:w-full",
+            countdown_variant,
             is_pending().then_some(ClassName::COUNTDOWN),
         )
     };
+
     view! {
         <div node_ref=node_ref class="pr-2 pb-2">
-            <div class="z-10 flex flex-row justify-between p-2 text-text bg-slate-800 border-2 border-secondary ">
+            <div class=tw_join!(
+                "z-10 flex flex-row justify-between p-2 text-text bg-black-800 border-2 border-b-0",
+                variant
+            )>
                 <div class="text-sm">{children()}</div>
                 <button class="w-6 h-6 pl-2" on:click=move |_| close()>
                     <Icon icon=icondata::AiCloseOutlined/>

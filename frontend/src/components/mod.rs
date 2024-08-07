@@ -15,7 +15,7 @@ pub mod toggle;
 
 pub use badge::Badge;
 pub use button::{Button, ButtonVariant};
-pub use editor::Editor;
+pub use editor::{create_editor_ref, Editor};
 pub use footer::Footer;
 pub use highlight::Highlight;
 pub use input::{Input, InputVariant};
@@ -25,4 +25,4 @@ pub use modal::{Modal, ModalLevel};
 pub use navbar::Navbar;
 pub use redirect_if::RedirectIf;
 pub use select::{Select, SelectOption};
-pub use toast::{use_toast, ProvideToast};
+pub use toast::{use_toast, ProvideToast, ToastVariant};

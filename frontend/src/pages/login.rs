@@ -49,7 +49,9 @@ pub fn Login() -> impl IntoView {
         });
 
     let disabled = Signal::derive(move || {
-        submit.pending()() || username().is_empty() || password().is_empty()
+        submit.pending()()
+            || username.with(|v| v.is_empty())
+            || password.with(|v| v.is_empty())
     });
 
     let error_msg = move || {
@@ -66,7 +68,7 @@ pub fn Login() -> impl IntoView {
             _ => {
                 let toast = use_toast();
 
-                toast(view! { <p>{err.to_string()}</p> }.into_view());
+                toast(ToastVariant::Error, err.to_string().into_view());
                 "".to_owned()
             }
         }
@@ -75,7 +77,7 @@ pub fn Login() -> impl IntoView {
     view! {
         <main class="grow flex items-center justify-center">
             <form
-                class="flex flex-col flex-nowrap justify-center min-w-80 w-1/4 p-4 bg-slate-900"
+                class="flex flex-col flex-nowrap justify-center min-w-80 w-1/4 p-4 bg-black-900"
                 on:submit=move |e| {
                     e.prevent_default();
                     submit.dispatch((username(), password()));
@@ -99,7 +101,7 @@ pub fn Login() -> impl IntoView {
                     </label>
                     <Input variant=InputVariant::Password attr:id="password" value=password/>
                 </div>
-                <p class="w-full text-red text-center">{error_msg}</p>
+                <p class="w-full text-red-500 text-center">{error_msg}</p>
                 <div class="pt-4 w-full">
                     <Button type_="submit" class="w-full" disabled>
                         Login
@@ -107,5 +109,6 @@ pub fn Login() -> impl IntoView {
                 </div>
             </form>
         </main>
+        <Footer/>
     }
 }
