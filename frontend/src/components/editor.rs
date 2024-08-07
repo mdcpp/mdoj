@@ -27,9 +27,9 @@ extern "C" {
 
     pub type Editor;
 
-    /// Create a new editor under `domElement`.
-    /// `domElement` should be empty (not contain other dom nodes).
-    /// The editor will read the size of `domElement`.
+    /// Create a new editor under `el`.
+    /// `el` should be empty (not contain other dom nodes).
+    /// The editor will read the size of `el`.
     #[wasm_bindgen(method, js_name = "create")]
     fn create_editor(
         this: &MonacoEditor,
@@ -54,6 +54,10 @@ extern "C" {
 
 }
 
+pub fn create_editor_ref() -> RwSignal<Option<Editor>> {
+    create_rw_signal(None)
+}
+
 #[component]
 pub fn Editor(
     #[prop(into, optional)] lang_ext: MaybeSignal<String>,
@@ -75,7 +79,8 @@ pub fn Editor(
 
         let config = Object::new();
         Reflect::set(&*config, &"theme".into(), &"vs-dark".into()).unwrap();
-        Reflect::set(&*config, &"language".into(), &"rust".into()).unwrap();
+        Reflect::set(&*config, &"automaticLayout".into(), &true.into())
+            .unwrap();
 
         let init_monaco = Closure::once_into_js(move || {
             let editor = MONACO.editor().create_editor(
