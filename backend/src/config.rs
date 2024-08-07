@@ -14,7 +14,7 @@ lazy_static::lazy_static! {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
 #[repr(i32)]
 pub enum ConfigRole {
     User = 1,
@@ -24,6 +24,7 @@ pub enum ConfigRole {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
     #[serde(default = "default_bind_address")]
     pub address: String,
@@ -59,6 +60,7 @@ fn default_judger() -> Vec<Judger> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Database {
     pub path: String,
     pub salt: String,
@@ -79,6 +81,7 @@ impl Default for Database {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Judger {
     pub name: String,
     pub secret: Option<String>,
@@ -86,7 +89,7 @@ pub struct Judger {
     pub judger_type: JudgerType,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum JudgerType {
     Docker,
     Static,
@@ -100,6 +103,7 @@ impl Default for JudgerType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct GrpcOption {
     pub public_pem: Option<PathBuf>,
     pub private_pem: Option<PathBuf>,
@@ -118,6 +122,7 @@ impl Default for GrpcOption {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct Imgur {
     pub client_id: String,
     pub client_secret: String,

@@ -49,6 +49,7 @@ fn default_ratio_memory() -> f64 {
 }
 
 #[derive(Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct Ratio {
     #[serde(default = "default_ratio_cpu")]
     pub cpu: f64,

@@ -35,8 +35,8 @@ pub enum Error {
     NumberTooLarge,
     // #[error("Buffer `{0}` too large")]
     // BufferTooLarge(&'static str),
-    #[error("Already exist")]
-    AlreadyExist(String),
+    #[error("`{0}` Already exist")]
+    AlreadyExist(&'static str),
     #[error("require permission `{0}`")]
     RequirePermission(RoleLv),
     #[error("rate limit reached")]
@@ -62,12 +62,12 @@ impl From<Error> for Status {
     fn from(value: Error) -> Self {
         match value {
             Error::PermissionDeny(x) => {
-                tracing::debug!(hint = x, "permission_invaild");
+                tracing::debug!(hint = x, "permission_invalid");
                 Status::permission_denied(x)
             }
             Error::DBErr(x) => report_internal!(error, "{}", x),
             Error::BadArgument(x) => {
-                tracing::trace!(miss_type = x, "argument_invaild");
+                tracing::trace!(miss_type = x, "argument_invalid");
                 Status::invalid_argument(x)
             }
             Error::NotInPayload(x) => {
@@ -75,7 +75,7 @@ impl From<Error> for Status {
                 Status::invalid_argument(format!("payload.{} is not found", x))
             }
             Error::Unauthenticated => {
-                tracing::trace!("Client sent invaild or no token");
+                tracing::trace!("Client sent invalid or no token");
                 Status::unauthenticated("")
             }
             Error::NotInDB => {
@@ -87,16 +87,12 @@ impl From<Error> for Status {
                 Status::out_of_range("")
             }
             Error::InvaildUUID(err) => {
-                tracing::trace!(reason=?err,"requestid_invaild");
                 Status::invalid_argument("Invaild request_id(should be a client generated UUIDv4)")
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),
             Error::NumberTooLarge => Status::invalid_argument("number too large"),
             // Error::BufferTooLarge(x) => Status::invalid_argument(format!("{} too large", x)),
-            Error::AlreadyExist(x) => {
-                tracing::trace!(username = x, "entity_exist");
-                Status::already_exists(format!("{} already exist", x))
-            }
+            Error::AlreadyExist(x) => Status::already_exists(format!("{} already exist", x)),
             Error::RequirePermission(x) => {
                 Status::permission_denied(format!("require permission {}", x))
             }

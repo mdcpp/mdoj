@@ -1899,6 +1899,7 @@ dependencies = [
  "leptos_icons",
  "leptos_meta",
  "leptos_router",
+ "lol_alloc",
  "num-traits",
  "prost",
  "pulldown-cmark",
@@ -3406,6 +3407,7 @@ dependencies = [
  "rustc-hash",
  "self_cell",
  "serde",
+ "serde-lite",
  "serde-wasm-bindgen",
  "serde_json",
  "slotmap",
@@ -3583,6 +3585,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 dependencies = [
  "value-bag",
+]
+
+[[package]]
+name = "lol_alloc"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83e5106554cabc97552dcadf54f57560ae6af3276652f82ca2be06120dc4c5dc"
+dependencies = [
+ "spin",
 ]
 
 [[package]]
@@ -5486,6 +5497,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc76f558e0cbb2a839d37354c575f1dc3fdc6546b5be373ba43d95f231bf7c12"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-lite"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9e8277ab91a9f0d9ba8d626675f18b456372bccbf642db35d36a8f011ae016c"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
