@@ -22,6 +22,7 @@ fn fallback(errors: RwSignal<Errors>) -> impl IntoView {
                 }
                 ErrorKind::PermissionDenied => todo!(),
                 ErrorKind::Browser => todo!(),
+                ErrorKind::MalformedUrl => todo!(),
             }
         })
     };

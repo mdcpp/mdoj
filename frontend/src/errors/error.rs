@@ -1,5 +1,6 @@
 use std::fmt::{self, Display};
 
+use leptos::logging;
 use serde::{Deserialize, Serialize};
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -38,6 +39,9 @@ pub enum ErrorKind {
     Network,
     Browser,
     Internal,
+
+    /// User error
+    MalformedUrl,
 }
 
 impl Display for ErrorKind {
@@ -51,6 +55,7 @@ impl Display for ErrorKind {
             ErrorKind::Network => write!(f, "Network Error"),
             ErrorKind::Browser => write!(f, "Browser Error"),
             ErrorKind::Internal => write!(f, "Internal Error"),
+            ErrorKind::MalformedUrl => write!(f, "Malformed Url"),
         }
     }
 }
@@ -74,7 +79,10 @@ impl From<tonic::Status> for Error {
             Code::PermissionDenied => ErrorKind::PermissionDenied,
             Code::DeadlineExceeded | Code::Unavailable => ErrorKind::Network,
             Code::OutOfRange => ErrorKind::OutOfRange,
-            _ => ErrorKind::Internal,
+            code => {
+                logging::error!("{code}");
+                ErrorKind::Internal
+            }
         };
         let context = value.message().to_owned();
 
@@ -87,6 +95,19 @@ impl From<std::io::Error> for Error {
         Self {
             kind: ErrorKind::Internal,
             context: value.to_string(),
+        }
+    }
+}
+
+impl From<leptos_router::ParamsError> for Error {
+    fn from(value: leptos_router::ParamsError) -> Self {
+        let context = match value {
+            leptos_router::ParamsError::MissingParam(err) => err,
+            leptos_router::ParamsError::Params(err) => err.to_string(),
+        };
+        Self {
+            kind: ErrorKind::MalformedUrl,
+            context,
         }
     }
 }
