@@ -6,7 +6,10 @@ release-docker:
 
 release:
     cargo build
-    
+
+update-backend:
+    cd ../docker/dev && sudo docker compose pull
+
 setup-backend:
     cd ../docker/dev && sudo docker compose --profile migration up
     cd ../docker/dev && sudo docker compose --profile frontend-dev up

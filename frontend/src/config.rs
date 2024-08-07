@@ -28,6 +28,9 @@ pub struct FrontendConfig {
 
     #[serde(default = "default_extension_language_mappings")]
     pub extension_language_mappings: Vec<ExtensionLanguageMapping>,
+
+    #[serde(default = "default_page_size")]
+    pub page_size: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
@@ -46,6 +49,10 @@ fn default_image_providers() -> Vec<String> {
 
 fn default_extension_language_mappings() -> Vec<ExtensionLanguageMapping> {
     vec![
+        ExtensionLanguageMapping {
+            extension: vec!["md".to_owned()],
+            language: "markdown".to_owned(),
+        },
         ExtensionLanguageMapping {
             extension: vec!["js".to_owned()],
             language: "javascript".to_owned(),
@@ -70,12 +77,17 @@ fn default_extension_language_mappings() -> Vec<ExtensionLanguageMapping> {
     ]
 }
 
+fn default_page_size() -> usize {
+    50
+}
+
 impl Default for FrontendConfig {
     fn default() -> Self {
         Self {
             image_providers: default_image_providers(),
             api_server: default_api_server(),
             extension_language_mappings: default_extension_language_mappings(),
+            page_size: default_page_size(),
         }
     }
 }
