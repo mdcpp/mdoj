@@ -13,7 +13,6 @@ use contests::Contests;
 use home::Home;
 use login::Login;
 pub use pages::Pages;
-use problem::Problem;
 use problems::Problems;
 use rank::Rank;
 use submission::Submission;

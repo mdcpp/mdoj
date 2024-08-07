@@ -1,4 +1,3 @@
-use gloo::utils::format::JsValueSerdeExt;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
@@ -20,10 +19,9 @@ pub fn App() -> impl IntoView {
                     <Stylesheet id="leptos" href="/pkg/mdoj.css"/>
                     <Title text="MDOJ"/>
 
-                    <div class="bg-slate-950 w-full min-h-dvh flex flex-col text-text">
+                    <div class="bg-black-950 w-full min-h-dvh flex flex-col text-text">
                         <Navbar/>
                         <Pages/>
-                        <Footer/>
                     </div>
                 </Router>
             </ProvideToast>
