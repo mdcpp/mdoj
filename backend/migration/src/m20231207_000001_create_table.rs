@@ -115,6 +115,7 @@ enum Testcase {
     Input,
     Output,
     Score,
+    Order,
 }
 #[derive(Iden)]
 enum Token {
@@ -487,6 +488,12 @@ impl MigrationTrait for Migration {
                             .unsigned()
                             .not_null()
                             .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Testcase::Order)
+                            .float()
+                            .not_null()
+                            .default(0.0),
                     )
                     .to_owned(),
             )
