@@ -22,7 +22,7 @@ use tonic::*;
 use tracing::*;
 use uuid::Uuid;
 
-use crate::entity::util::filter::*;
+use crate::entity::util::{filter::*, order::*};
 use crate::util::with::*;
 use crate::util::{auth::RoleLv, bound::BoundCheck, duplicate::*, error::Error, time::*};
 use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
