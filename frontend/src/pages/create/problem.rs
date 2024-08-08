@@ -131,7 +131,5 @@ pub fn Problem() -> impl IntoView {
             </form>
 
         </main>
-
-        <Footer/>
     }
 }

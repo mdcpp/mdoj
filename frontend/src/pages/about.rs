@@ -6,6 +6,5 @@ use crate::components::*;
 pub fn About() -> impl IntoView {
     view! {
         <h1>About</h1>
-        <Footer/>
     }
 }

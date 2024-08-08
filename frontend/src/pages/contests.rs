@@ -6,6 +6,5 @@ use crate::components::*;
 pub fn Contests() -> impl IntoView {
     view! {
         <h1>Contest</h1>
-        <Footer/>
     }
 }

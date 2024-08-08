@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-use crate::{components::*, config::ProvideConfig, pages::Pages};
+use crate::{components::ProvideToast, config::ProvideConfig, pages::Pages};
 // use tracing_subscriber::fmt::format::Pretty;
 // use tracing_subscriber::prelude::*;
 // use tracing_web::{performance_layer, MakeWebConsoleWriter};
@@ -20,7 +20,6 @@ pub fn App() -> impl IntoView {
                     <Title text="MDOJ"/>
 
                     <div class="bg-black-950 w-full min-h-dvh flex flex-col text-text">
-                        <Navbar/>
                         <Pages/>
                     </div>
                 </Router>

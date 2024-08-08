@@ -7,7 +7,5 @@ use crate::components::*;
 pub fn Problems() -> impl IntoView {
     view! {
         <div class="container flex items-center justify-between text-lg"></div>
-
-        <Footer/>
     }
 }

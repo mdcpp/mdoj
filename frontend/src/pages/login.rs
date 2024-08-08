@@ -109,6 +109,5 @@ pub fn Login() -> impl IntoView {
                 </div>
             </form>
         </main>
-        <Footer/>
     }
 }
