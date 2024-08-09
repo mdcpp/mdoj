@@ -1,4 +1,6 @@
-//! a collection of helper function
+//! a collection of helper function for low level sql query
+//!
+//! This module use extensively of [`sea_query`], which make it extreme unsafe to use
 
 use std::ops::Deref;
 

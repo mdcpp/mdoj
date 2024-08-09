@@ -27,7 +27,7 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 ENV LEPTOS_OUTPUT_NAME="mdoj"
 ENV LEPTOS_BIN_TARGET_TRIPLE=${ARCH}-unknown-linux-musl
 
-RUN cargo leptos build -p frontend --release --precompress -vv
+RUN cargo leptos build -p frontend --bin-features compress --release --precompress -vv
 
 FROM scratch
 WORKDIR /config

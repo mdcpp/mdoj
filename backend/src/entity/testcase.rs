@@ -1,7 +1,7 @@
 use super::*;
 
 // FIXME: use partial model
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "testcase")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -14,6 +14,7 @@ pub struct Model {
     #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
     pub output: Vec<u8>,
     pub score: u32,
+    pub order: f32,
 }
 
 #[derive(DerivePartialModel, FromQueryResult)]

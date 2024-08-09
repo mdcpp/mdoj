@@ -223,6 +223,7 @@ impl Problem for ArcServer {
         req.get_or_insert(|req| async move {
             let (contest, model) = tokio::try_join!(
                 contest::Entity::write_by_id(req.contest_id, &auth)?
+                    .into_partial_model()
                     .one(self.db.deref())
                     .instrument(debug_span!("find_parent").or_current()),
                 Entity::write_by_id(req.problem_id, &auth)?
@@ -231,12 +232,19 @@ impl Problem for ArcServer {
             )
             .map_err(Into::<Error>::into)?;
 
-            contest.ok_or(Error::NotInDB)?;
+            let contest: contest::IdModel = contest.ok_or(Error::NotInDB)?;
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
             if let ActiveValue::Set(Some(v)) = model.contest_id {
                 return Err(Error::AlreadyExist("problem already linked"));
             }
+
+            let order = contest
+                .with_db(self.db.deref())
+                .insert_last()
+                .await
+                .map_err(Into::<Error>::into)?;
+            model.order = ActiveValue::Set(order);
 
             model.contest_id = ActiveValue::Set(Some(req.problem_id));
             model
@@ -286,6 +294,51 @@ impl Problem for ArcServer {
                 .instrument(info_span!("update_child").or_current())
                 .await
                 .map_err(Into::<Error>::into)?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "oj.backend.Problem/insert",
+        err(level = "debug", Display)
+    )]
+    async fn insert(&self, req: Request<InsertProblemRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        auth.perm().super_user()?;
+
+        req.get_or_insert(|req| async move {
+            let contest: contest::IdModel = contest::Entity::find_by_id(req.contest_id)
+                .with_auth(&auth)
+                .write()?
+                .into_partial_model()
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
+
+            let order = match req.pivot_id {
+                None => contest.with_db(self.db.deref()).insert_front().await,
+                Some(id) => contest.with_db(self.db.deref()).insert_after(id).await,
+            }
+            .map_err(Into::<Error>::into)?;
+
+            Entity::write_filter(
+                Entity::update(ActiveModel {
+                    id: ActiveValue::Set(req.problem_id),
+                    order: ActiveValue::Set(order),
+                    ..Default::default()
+                }),
+                &auth,
+            )?
+            .exec(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
+
             Ok(())
         })
         .await
