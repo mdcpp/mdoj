@@ -114,3 +114,6 @@ create_cache!(AddEducationToProblemRequest, ());
 create_cache!(UploadRequest, UploadResponse);
 create_cache!(AddTestcaseToProblemRequest, ());
 create_cache!(AddProblemToContestRequest, ());
+
+create_cache!(InsertProblemRequest, ());
+create_cache!(InsertTestcaseRequest, ());

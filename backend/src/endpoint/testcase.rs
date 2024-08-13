@@ -185,6 +185,7 @@ impl Testcase for ArcServer {
         req.get_or_insert(|req| async move {
             let (problem, model) = tokio::try_join!(
                 problem::Entity::write_by_id(req.problem_id, &auth)?
+                    .into_partial_model()
                     .one(self.db.deref())
                     .instrument(debug_span!("find_parent").or_current()),
                 Entity::write_by_id(req.testcase_id, &auth)?
@@ -193,11 +194,19 @@ impl Testcase for ArcServer {
             )
             .map_err(Into::<Error>::into)?;
 
-            problem.ok_or(Error::NotInDB)?;
+            let problem: problem::IdModel = problem.ok_or(Error::NotInDB)?;
+
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
             if let ActiveValue::Set(Some(v)) = model.problem_id {
                 return Err(Error::AlreadyExist("testcase already linked"));
             }
+
+            let order = problem
+                .with_db(self.db.deref())
+                .insert_last()
+                .await
+                .map_err(Into::<Error>::into)?;
+            model.order = ActiveValue::Set(order);
 
             model.problem_id = ActiveValue::Set(Some(req.problem_id));
             model
@@ -241,6 +250,51 @@ impl Testcase for ArcServer {
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
                 .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "oj.backend.Testcase/insert",
+        err(level = "debug", Display)
+    )]
+    async fn insert(&self, req: Request<InsertTestcaseRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        auth.perm().super_user()?;
+
+        req.get_or_insert(|req| async move {
+            let problem: problem::IdModel = problem::Entity::find_by_id(req.problem_id)
+                .with_auth(&auth)
+                .write()?
+                .into_partial_model()
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
+
+            let order = match req.pivot_id {
+                None => problem.with_db(self.db.deref()).insert_front().await,
+                Some(id) => problem.with_db(self.db.deref()).insert_after(id).await,
+            }
+            .map_err(Into::<Error>::into)?;
+
+            Entity::write_filter(
+                Entity::update(ActiveModel {
+                    id: ActiveValue::Set(req.testcase_id),
+                    order: ActiveValue::Set(order),
+                    ..Default::default()
+                }),
+                &auth,
+            )?
+            .exec(self.db.deref())
+            .await
+            .map_err(Into::<Error>::into)?;
+
             Ok(())
         })
         .await

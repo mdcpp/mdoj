@@ -214,3 +214,14 @@ impl RateLimit for RefreshRequest {
         50
     }
 }
+
+impl RateLimit for InsertProblemRequest {
+    fn get_cost(&self) -> u32 {
+        3 + (self.pivot_id.is_some() as u32) * 2
+    }
+}
+impl RateLimit for InsertTestcaseRequest {
+    fn get_cost(&self) -> u32 {
+        3 + (self.pivot_id.is_some() as u32) * 2
+    }
+}
