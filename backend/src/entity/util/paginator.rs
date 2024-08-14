@@ -172,8 +172,8 @@ impl<S: Source, R: Reflect<S::Entity>> PaginateRaw for PrimaryKeyPaginator<S, R>
     async fn new_fetch(
         data: S::Data,
         auth: &Auth,
-        _size: u64,
-        _offset: u64,
+        size: u64,
+        offset: u64,
         abs_dir: bool,
         db: &DatabaseConnection,
     ) -> Result<(Self, Vec<R>), Error> {
@@ -181,7 +181,9 @@ impl<S: Source, R: Reflect<S::Entity>> PaginateRaw for PrimaryKeyPaginator<S, R>
             S::filter(auth, &data, db).await?,
             <S as Source>::ID,
             abs_dir,
-        );
+        )
+        .limit(size)
+        .offset(offset);
 
         let models = R::all(query, db).await?;
 
