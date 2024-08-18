@@ -9,9 +9,9 @@ pub struct Model {
     pub user_id: i32,
     #[sea_orm(nullable)]
     pub problem_id: Option<i32>,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
+    #[sea_orm(column_type = "Blob")]
     pub input: Vec<u8>,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
+    #[sea_orm(column_type = "Blob")]
     pub output: Vec<u8>,
     pub score: u32,
     pub order: f32,

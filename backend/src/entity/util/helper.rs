@@ -5,7 +5,7 @@
 use std::ops::Deref;
 
 use sea_orm::*;
-use sea_query::*;
+use sea_orm::sea_query::*;
 use tracing::instrument;
 
 use crate::util::error::Error;
