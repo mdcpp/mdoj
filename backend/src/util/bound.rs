@@ -53,7 +53,7 @@ macro_rules! list_paginator_request {
         paste::paste! {
             impl BoundCheck for [<List $n Request>] {
                 fn check(&self) -> bool {
-                    if self.size==0{
+                    if self.size == 0 || self.size >= i32::MAX as u64 || self.offset.unsigned_abs() >= i32::MAX as u64{
                         true
                     }else if let Some(x) = &self.request {
                         (match x {
@@ -82,7 +82,12 @@ list_paginator_request!(User);
 
 impl BoundCheck for ListTokenRequest {
     fn check(&self) -> bool {
-        if let Some(list_token_request::Request::Paginator(x)) = &self.request {
+        if self.size == 0
+            || self.size >= i32::MAX as u64
+            || self.offset.unsigned_abs() >= i32::MAX as u64
+        {
+            true
+        } else if let Some(list_token_request::Request::Paginator(x)) = &self.request {
             x.len() > 512
         } else {
             false
@@ -92,12 +97,15 @@ impl BoundCheck for ListTokenRequest {
 
 impl BoundCheck for ListChatRequest {
     fn check(&self) -> bool {
-        self.offset == 0 || self.offset > 4096 || self.size > 128
+        self.offset == 0 || self.offset.unsigned_abs() > 4096 || self.size > 128
     }
 }
 impl BoundCheck for ListSubmitRequest {
     fn check(&self) -> bool {
-        if self.offset == 0 {
+        if self.size == 0
+            || self.size >= i32::MAX as u64
+            || self.offset.unsigned_abs() >= i32::MAX as u64
+        {
             true
         } else if let Some(list_submit_request::Request::Paginator(x)) = &self.request {
             x.len() > 512
@@ -108,7 +116,12 @@ impl BoundCheck for ListSubmitRequest {
 }
 impl BoundCheck for ListTestcaseRequest {
     fn check(&self) -> bool {
-        if let Some(list_testcase_request::Request::Paginator(x)) = &self.request {
+        if self.size == 0
+            || self.size >= i32::MAX as u64
+            || self.offset.unsigned_abs() >= i32::MAX as u64
+        {
+            true
+        } else if let Some(list_testcase_request::Request::Paginator(x)) = &self.request {
             x.len() > 512
         } else {
             false

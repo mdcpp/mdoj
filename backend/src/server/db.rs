@@ -48,7 +48,9 @@ pub async fn init(
 #[cfg(feature = "standalone")]
 /// Run migration
 async fn migrate(db: &DatabaseConnection) -> super::Result<()> {
-    <::migration::Migrator as migration::MigratorTrait>::up(db,None).await.map_err(InitError::AutoMigrate)
+    <::migration::Migrator as migration::MigratorTrait>::up(db, None)
+        .await
+        .map_err(InitError::AutoMigrate)
 }
 
 #[instrument(skip_all, name = "construct_admin")]
