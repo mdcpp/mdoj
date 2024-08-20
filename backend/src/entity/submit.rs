@@ -17,7 +17,7 @@ pub struct Model {
     pub accuracy: Option<i64>,
     pub committed: bool,
     pub lang: String,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
+    #[sea_orm(column_type = "Blob")]
     pub code: Vec<u8>,
     #[sea_orm(nullable)]
     pub memory: Option<i64>,

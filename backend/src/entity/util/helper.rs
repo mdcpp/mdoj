@@ -4,8 +4,8 @@
 
 use std::ops::Deref;
 
+use sea_orm::sea_query::*;
 use sea_orm::*;
-use sea_query::*;
 use tracing::instrument;
 
 use crate::util::error::Error;
@@ -188,5 +188,23 @@ impl<E: EntityTrait> MaxCount<E> {
             Some(res) => res.try_get::<i32>("", "num_items")? as u64,
             None => 0,
         })
+    }
+}
+
+/// convert sized span to single-direction span
+///
+/// Return None if span cannot be converted(cross boundary).
+///
+/// It panics if overflow(u64 to i64).
+///
+/// See `dev.md` for sized span and single-direction span.
+pub(super) fn to_inner_size_offset(size: u64, offset: i64) -> Option<(i64, u64)> {
+    // cross boundary
+    if offset.is_negative() && size > offset.unsigned_abs() {
+        return None;
+    }
+    match offset.is_negative() {
+        true => Some((-(size as i64), offset.unsigned_abs() - size)),
+        false => Some((size as i64, offset as u64)),
     }
 }

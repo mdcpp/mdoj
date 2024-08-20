@@ -8,7 +8,7 @@ pub enum InitError {
     OptimizeDB(sea_orm::DbErr),
     #[cfg(feature = "standalone")]
     #[error("Fail to run auto migration: `{0}`")]
-    AutoMigrate(Box<dyn std::error::Error>),
+    AutoMigrate(sea_orm::DbErr),
     #[error("Fail to create initial user: `{0}`")]
     UserCreation(sea_orm::DbErr),
     #[error("Fail to parse config: `{0}`")]

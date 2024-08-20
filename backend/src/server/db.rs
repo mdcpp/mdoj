@@ -48,15 +48,9 @@ pub async fn init(
 #[cfg(feature = "standalone")]
 /// Run migration
 async fn migrate(db: &DatabaseConnection) -> super::Result<()> {
-    sea_orm_migration::cli::run_migrate(
-        ::migration::Migrator,
-        db,
-        Some(sea_orm_cli::cli::MigrateSubcommands::Up { num: None }),
-        false,
-    )
-    .await
-    .map_err(InitError::AutoMigrate)?;
-    Ok(())
+    <::migration::Migrator as migration::MigratorTrait>::up(db, None)
+        .await
+        .map_err(InitError::AutoMigrate)
 }
 
 #[instrument(skip_all, name = "construct_admin")]

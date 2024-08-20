@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 
 use crate::util::error::Error;
 
-const PAGINATE_GUARANTEE: u64 = 96;
+const PAGINATE_GUARANTEE: u64 = 256;
 
 #[async_trait]
 pub trait PaginateRaw
@@ -362,6 +362,14 @@ impl<S: SortSource<R>, R: Reflect<S::Entity>> PaginateRaw for ColumnPaginator<S,
     }
 }
 
+/// A paginator that may be initialized
+///
+/// Key-set Paginator requires information from last fetched column
+/// (sometimes called trailing information) to be initialized.
+///
+/// **Can only be serialized or deserialized when initialized.**
+///
+/// **Calling fetch with size 0 doesn't initialize it!**
 #[derive(Serialize, Default)]
 pub enum UninitPaginator<P: PaginateRaw> {
     #[serde(skip)]
@@ -390,9 +398,15 @@ impl<'de, P: PaginateRaw> Deserialize<'de> for UninitPaginator<P> {
 }
 
 impl<P: PaginateRaw> UninitPaginator<P> {
+    /// construct a paginator with its initial query argument.
     pub fn new(data: <P::Source as PagerData>::Data, start_from_end: bool) -> Self {
         Self::Uninit(data, start_from_end)
     }
+    /// fetch some entries
+    ///
+    /// Return `Error::BadArgument` when
+    /// 1. offset is when paginator has yet to be initialized and offset is negative
+    /// 2. span crosses the boundary,
     pub async fn fetch(
         &mut self,
         size: u64,
@@ -401,17 +415,8 @@ impl<P: PaginateRaw> UninitPaginator<P> {
         db: &DatabaseConnection,
     ) -> Result<Vec<P::Reflect>, Error> {
         if let UninitPaginator::Init(x) = self {
-            let size = size.min((i64::MAX - 1) as u64) as i64;
-            let offset = offset.max(i64::MIN + 1);
-            let (size, offset) = match offset < 0 {
-                true => (
-                    -size,
-                    (-offset)
-                        .checked_sub(size)
-                        .ok_or(Error::BadArgument("size"))? as u64,
-                ),
-                false => (size, offset as u64),
-            };
+            let (size, offset) =
+                to_inner_size_offset(size, offset).ok_or(Error::BadArgument("size"))?;
             x.fetch(auth, size, offset, db).await.map(|mut x| {
                 if size.is_negative() {
                     x.reverse();
@@ -419,14 +424,22 @@ impl<P: PaginateRaw> UninitPaginator<P> {
                 x
             })
         } else if let UninitPaginator::Uninit(x, start_from_end) = std::mem::take(self) {
+            if offset.is_negative() {
+                return Err(Error::BadArgument("offset"));
+            }
             let (paginator, list) =
-                P::new_fetch(x, auth, size, offset.max(0) as u64, start_from_end, db).await?;
+                P::new_fetch(x, auth, size, offset as u64, start_from_end, db).await?;
             *self = UninitPaginator::Init(paginator);
             Ok(list)
         } else {
             unreachable!("Cannot in middle state")
         }
     }
+    /// get how many column are remaining the **absolute forward** direction of paginator
+    ///
+    /// If more than [`PAGINATE_GUARANTEE`], it returns [`PAGINATE_GUARANTEE`].
+    ///
+    /// It passes [`sea_orm::DbErr`] to the callee.
     pub async fn remain(&self, auth: &Auth, db: &DatabaseConnection) -> Result<u64, Error>
     where
         P: Remain,
