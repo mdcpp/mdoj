@@ -19,7 +19,10 @@ pub fn use_token_info(
 ) -> (Signal<Option<TokenInfo>>, WriteSignal<Option<TokenInfo>>) {
     use_cookie_with_options::<_, JsonCodec>(
         "token_info",
-        UseCookieOptions::default().max_age(60 * 60 * 1000),
+        UseCookieOptions::default()
+            .max_age(60 * 60 * 1000)
+            .path("/")
+            .same_site(cookie::SameSite::Strict),
     )
 }
 
