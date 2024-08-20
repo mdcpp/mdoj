@@ -9,7 +9,7 @@ pub fn ProblemContent(
     full_info: grpc::ProblemFullInfo,
 ) -> impl IntoView {
     view! {
-        <div class=tw_join!("p-3 rounded h-full flex flex-col", class)>
+        <div class=tw_join!("p-3 rounded h-full w-full flex flex-col", class)>
             <ul class="flex flex-row space-x-4 p-4 pt-0 mb-2 border-b-2 border-accent">
                 <li>Problem</li>
                 <li>Solution</li>

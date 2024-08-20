@@ -48,7 +48,7 @@ pub fn ProblemEditor(
     let disabled = Signal::derive(move || select_lang.with(|v| v.is_empty()));
 
     view! {
-        <form class=tw_join!("flex flex-col h-full bg-lighten p-3 rounded", class) on:submit=submit>
+        <form class=tw_join!("flex flex-col h-full w-full bg-lighten p-3 rounded", class) on:submit=submit>
 
             <ul class="flex flex-row justify-between p-2 pt-0 mb-2 border-b-2 border-accent">
                 <li>Code</li>

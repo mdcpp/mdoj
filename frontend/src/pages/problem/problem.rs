@@ -16,7 +16,7 @@ struct ProblemParams {
 #[component(transparent)]
 pub fn ProblemRouter() -> impl IntoView {
     view! {
-        <Route path="problem/:id" view=Problem>
+        <Route path="/problem/:id" view=Problem>
             <Route path="" view=Content/>
         </Route>
     }
@@ -45,9 +45,7 @@ fn Problem() -> impl IntoView {
             v.map(|langs| {
                 let id = params()?.id;
 
-                Result::<_>::Ok(
-                    view! { <ProblemEditor id langs class="col-span-2 col-start-4"/> },
-                )
+                Result::<_>::Ok(view! { <ProblemEditor id langs/> })
             })
         })
     };
@@ -55,11 +53,13 @@ fn Problem() -> impl IntoView {
     view! {
         <main class="grow grid grid-cols-5 grid-flow-row gap-4">
             <Outlet/>
-            <Suspense fallback=|| {
-                view! { <p>loading</p> }
-            }>
-                <ErrorFallback>{editor}</ErrorFallback>
-            </Suspense>
+            <div class="col-span-2 col-start-4">
+                <Suspense fallback=|| {
+                    view! { <p>loading</p> }
+                }>
+                    <ErrorFallback>{editor}</ErrorFallback>
+                </Suspense>
+            </div>
         </main>
     }
 }
@@ -86,15 +86,17 @@ fn Content() -> impl IntoView {
     let content = move || {
         full_info().map(|v| {
             v.map(|full_info| {
-                view! { <ProblemContent full_info class="col-span-3"/> }
+                view! { <ProblemContent full_info/> }
             })
         })
     };
     view! {
-        <Suspense fallback=|| {
-            view! { <p>loading</p> }
-        }>
-            <ErrorFallback>{content}</ErrorFallback>
-        </Suspense>
+        <div class="col-span-3">
+            <Suspense fallback=|| {
+                view! { <p>loading</p> }
+            }>
+                <ErrorFallback>{content}</ErrorFallback>
+            </Suspense>
+        </div>
     }
 }

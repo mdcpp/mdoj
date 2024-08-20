@@ -83,7 +83,7 @@ pub fn Problem() -> impl IntoView {
     });
 
     view! {
-        <main class="container grow flex items-center justify-center py-4">
+        <main class="container grow flex items-center justify-center py-10">
             <form class="flex flex-col flex-nowrap justify-center p-4 gap-4" on:submit=submit>
                 <h1 class="text-xl">Create a new problem</h1>
 
