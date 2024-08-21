@@ -33,8 +33,6 @@ pub enum Error {
     Unreachable(&'static str),
     #[error("Number too large(or small)")]
     NumberTooLarge,
-    // #[error("Buffer `{0}` too large")]
-    // BufferTooLarge(&'static str),
     #[error("`{0}` Already exist")]
     AlreadyExist(&'static str),
     #[error("require permission `{0}`")]
@@ -47,6 +45,8 @@ pub enum Error {
     Judger(#[from] judger::Error),
     #[error("token error: `{0}`")]
     Token(#[from] token::Error),
+    #[error("retry later")]
+    Retry,
 }
 
 impl From<sea_orm::DbErr> for Error {
@@ -103,6 +103,7 @@ impl From<Error> for Status {
             Error::Image(x) => report_internal!(error, "{}", x),
             Error::Judger(x) => x.into(),
             Error::Token(x) => x.into(),
+            Error::Retry => Status::aborted("Should retry"),
         }
     }
 }
@@ -110,7 +111,7 @@ impl From<Error> for Status {
 /// Tracing information for error
 ///
 /// useful to log the tracing information to client
-/// without exposing the server's internal erro
+/// without exposing the server's internal error
 pub struct Tracing {
     trace_id: TraceId,
     span_id: SpanId,

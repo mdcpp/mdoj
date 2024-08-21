@@ -1,9 +1,9 @@
 use super::*;
-
 use crate::entity::{
     contest::{Paginator, *},
-    *,
+    problem, *,
 };
+use sea_orm::sea_query::Expr;
 
 use grpc::backend::contest_server::*;
 
@@ -238,6 +238,8 @@ impl Contest for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.get_or_insert(|req| async move {
+            let txn = self.db.begin().await?;
+
             let result = Entity::delete_by_id(req.id)
                 .with_auth(&auth)
                 .write()?
@@ -246,12 +248,20 @@ impl Contest for ArcServer {
                 .await
                 .map_err(Into::<Error>::into)?;
 
+            problem::Entity::update_many()
+                .col_expr(problem::Column::ContestId, Expr::value(Value::Int(None)))
+                .filter(crate::entity::testcase::Column::ProblemId.eq(req.id))
+                .exec(&txn)
+                .instrument(info_span!("remove_child"))
+                .await?;
+
+            txn.commit().await.map_err(|_| Error::Retry)?;
+
             if result.rows_affected == 0 {
-                Err(Error::NotInDB)
-            } else {
-                tracing::info!(counter.contest = -1, id = req.id);
-                Ok(())
+                return Err(Error::NotInDB);
             }
+            tracing::info!(counter.contest = -1, id = req.id);
+            Ok(())
         })
         .await
         .with_grpc()
