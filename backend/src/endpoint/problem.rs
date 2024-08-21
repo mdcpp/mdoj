@@ -140,7 +140,7 @@ impl Problem for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.problem = 1, id = id);
+            info!(count.problem = 1, id = id);
 
             Ok(id.into())
         })
@@ -213,7 +213,7 @@ impl Problem for ArcServer {
             if result.rows_affected == 0 {
                 return Err(Error::NotInDB);
             }
-            tracing::info!(count.problem = -1, id = req.id);
+            info!(count.problem = -1, id = req.id);
             Ok(())
         })
         .await
@@ -298,7 +298,7 @@ impl Problem for ArcServer {
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
             if let Some(x) = model.contest_id.into_value() {
-                tracing::debug!(old_id = x.to_string());
+                debug!(old_id = x.to_string());
             }
             model.contest_id = ActiveValue::Set(None);
             model

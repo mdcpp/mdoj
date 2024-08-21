@@ -102,7 +102,7 @@ impl Testcase for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.testcase = 1, id = id);
+            info!(count.testcase = 1, id = id);
 
             Ok(id.into())
         })
@@ -121,7 +121,7 @@ impl Testcase for ArcServer {
         req.bound_check()?;
 
         req.get_or_insert(|req| async move {
-            tracing::trace!(id = req.id);
+            trace!(id = req.id);
             let mut model = Entity::write_filter(Entity::find_by_id(req.id), &auth)?
                 .one(self.db.deref())
                 .instrument(info_span!("fetch").or_current())
@@ -162,7 +162,7 @@ impl Testcase for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.testcase = -1, id = req.id);
+                info!(counter.testcase = -1, id = req.id);
                 Ok(())
             }
         })
@@ -197,6 +197,7 @@ impl Testcase for ArcServer {
             let problem: problem::IdModel = problem.ok_or(Error::NotInDB)?;
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
+            // FIXME: use is_set(), be sure to know what Option<T> in sea_orm said
             if let ActiveValue::Set(Some(v)) = model.problem_id {
                 return Err(Error::AlreadyExist("testcase already linked"));
             }
