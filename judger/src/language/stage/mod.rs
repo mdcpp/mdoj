@@ -11,7 +11,7 @@ pub use run::Runner;
 
 /// internal status code, use to decouple the grpc status code
 ///
-/// Status code is commonly use in OJ, it include example such as: AC, WA...
+/// Status code is commonly use in OJ, it includes example such as: AC, WA...
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum StatusCode {
     Accepted,
@@ -27,7 +27,7 @@ pub enum StatusCode {
 
 /// internal assertion mode, use to decouple the grpc status code
 ///
-/// Assertion mode reperesent how the output is compared
+/// Assertion mode represent how the output is compared
 #[derive(Clone, Copy)]
 pub enum AssertionMode {
     /// Skip single space and newline
@@ -36,10 +36,10 @@ pub enum AssertionMode {
     ///
     /// `a\nb` and `a\n\nb` are different
     SkipSpace,
-    /// Skip continous space and newline
+    /// Skip continuous space and newline
     ///
     /// `ab`, `a\nb` and `a\n\nb` are the same
-    SkipContinousSpace,
+    SkipContinuousSpace,
     /// Exact match
     Exact,
 }
@@ -56,7 +56,7 @@ impl From<JudgeMatchRule> for AssertionMode {
         match rule {
             JudgeMatchRule::ExactSame => AssertionMode::Exact,
             JudgeMatchRule::IgnoreSnl => AssertionMode::SkipSpace,
-            JudgeMatchRule::SkipSnl => AssertionMode::SkipContinousSpace,
+            JudgeMatchRule::SkipSnl => AssertionMode::SkipContinuousSpace,
         }
     }
 }

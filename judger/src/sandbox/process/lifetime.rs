@@ -9,7 +9,7 @@ use tokio::{
     process::*,
     time,
 };
-/// A unlaunched process that is mounted with a filesystem
+/// A not yet launched process that is mounted with a filesystem
 struct MountedProcess<C: Context> {
     context: C,
     fs: C::FS,
@@ -84,10 +84,9 @@ impl<C: Context> Process<C> {
         let root = self.fs.get_path();
         // FIXME: check spec before unwrap
         let jail = self.context.get_args().next().unwrap();
-        let unjailed = [root.as_ref().as_os_str(), jail].join(OsStr::new(""));
-        let unjailed = PathBuf::from(unjailed);
+        let real_path = PathBuf::from([root.as_ref().as_os_str(), jail].join(OsStr::new("")));
 
-        let mut ancestors = unjailed.ancestors();
+        let mut ancestors = real_path.ancestors();
         ancestors.next().unwrap();
         ancestors.next().unwrap().as_os_str().to_os_string()
     }

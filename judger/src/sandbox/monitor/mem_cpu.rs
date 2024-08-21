@@ -126,7 +126,7 @@ impl super::Monitor for Monitor {
     /// get the final resource usage
     ///
     /// Please remember thatActively limit(notify) cpu resource is achieved
-    /// by polling the cgroup, therefore the delay requirespecial attention,
+    /// by polling the cgroup, therefore the delay require special attention,
     /// it is only guaranteed to below limitation provided + [`MONITOR_ACCURACY`].
     async fn stat(self) -> Self::Resource {
         // FIXME: check running process, this line is commented out because of uncollected process

@@ -107,7 +107,7 @@ impl Spec {
         let mut raw: Raw = toml::from_str(content).unwrap();
         raw.fill();
 
-        // FIXME: use compsition instead
+        // FIXME: use composition instead
         Self {
             info: LangInfo::from(&raw),
             id: raw.id,

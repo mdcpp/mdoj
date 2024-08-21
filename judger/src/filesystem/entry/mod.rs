@@ -136,7 +136,7 @@ where
     pub async fn write(&mut self, offset: u64, data: &[u8], resource: &Resource) -> Option<u32> {
         // FIXME: consume logic should move somewhere else
         let required_size = data.len() as u64 + offset;
-        resource.comsume_other(required_size.saturating_sub(self.get_size()))?;
+        resource.consume_other(required_size.saturating_sub(self.get_size()))?;
 
         match self {
             Self::MemFile(block) => Some(block.write(offset, data).await.unwrap()),

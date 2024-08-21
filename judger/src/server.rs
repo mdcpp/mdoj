@@ -16,7 +16,7 @@ use crate::{
 
 const PLUGIN_PATH: &str = "plugins";
 
-fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
+fn check_secret<T>(req: Request<T>) -> Result<T, Status> {
     let (meta, _, payload) = req.into_parts();
     if CONFIG.secret.is_none() {
         return Ok(payload);
@@ -24,13 +24,13 @@ fn check_secret<T>(req: tonic::Request<T>) -> Result<T, Status> {
     let secret = CONFIG.secret.as_ref().unwrap();
     if let Some(header) = meta.get("Authorization") {
         let secret = ["basic ", secret].concat().into_bytes();
-        let vaild = header
+        let valid = header
             .as_bytes()
             .iter()
             .zip(secret.iter())
             .map(|(&a, &b)| a == b)
             .reduce(|a, b| a && b);
-        if vaild.unwrap_or(false) {
+        if valid.unwrap_or(false) {
             return Ok(payload);
         }
     }
@@ -64,12 +64,12 @@ impl Judger for Server {
         let cpu = payload.time;
         let source = payload.code;
         let uuid =
-            Uuid::from_str(&payload.lang_uid).map_err(|_| ClientError::InvaildLanguageUuid)?;
+            Uuid::from_str(&payload.lang_uid).map_err(|_| ClientError::InvalidLanguageUuid)?;
 
         let plugin = self
             .plugins
             .get(&uuid)
-            .ok_or(ClientError::InvaildLanguageUuid)?;
+            .ok_or(ClientError::InvalidLanguageUuid)?;
         let resource: u32 = plugin
             .get_memory_reserved(payload.memory)
             .try_into()
@@ -106,7 +106,7 @@ impl Judger for Server {
         })))
     }
 
-    async fn judger_info(&self, req: tonic::Request<()>) -> Result<Response<JudgeInfo>, Status> {
+    async fn judger_info(&self, req: Request<()>) -> Result<Response<JudgeInfo>, Status> {
         check_secret(req)?;
         let list = self
             .plugins
@@ -123,10 +123,7 @@ impl Judger for Server {
 
     type ExecStream = tokio_stream::Once<Result<ExecResult, Status>>;
 
-    async fn exec(
-        &self,
-        req: Request<ExecRequest>,
-    ) -> Result<Response<Self::ExecStream>, tonic::Status> {
+    async fn exec(&self, req: Request<ExecRequest>) -> Result<Response<Self::ExecStream>, Status> {
         let payload = check_secret(req)?;
 
         let memory = payload.memory;
@@ -136,12 +133,12 @@ impl Judger for Server {
         let input = payload.input;
 
         let uuid =
-            Uuid::from_str(&payload.lang_uid).map_err(|_| ClientError::InvaildLanguageUuid)?;
+            Uuid::from_str(&payload.lang_uid).map_err(|_| ClientError::InvalidLanguageUuid)?;
 
         let plugin = self
             .plugins
             .get(&uuid)
-            .ok_or(ClientError::InvaildLanguageUuid)?;
+            .ok_or(ClientError::InvalidLanguageUuid)?;
 
         let resource: u32 = plugin
             .get_memory_reserved(payload.memory)
