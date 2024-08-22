@@ -77,7 +77,7 @@ impl Token for ArcServer {
         // FIXME: add request_id
         let (_, req) = self.rate_limit(req).in_current_span().await?;
 
-        tracing::debug!(username = req.username);
+        debug!(username = req.username);
 
         let model = user::Entity::find()
             .filter(user::Column::Username.eq(req.username))
@@ -99,7 +99,7 @@ impl Token for ArcServer {
                 expiry: into_prost(expiry),
             }))
         } else {
-            tracing::trace!("password_mismatch");
+            trace!("password_mismatch");
             Err(Error::PermissionDeny("wrong password").into())
         }
     }
@@ -164,7 +164,7 @@ impl Token for ArcServer {
                 .remove(token.to_string())
                 .in_current_span()
                 .await?;
-            tracing::event!(Level::TRACE, token = token);
+            event!(Level::TRACE, token = token);
 
             return Ok(Response::new(()));
         }

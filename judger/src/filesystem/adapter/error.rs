@@ -20,17 +20,17 @@ pub enum FuseError {
     #[error("unimplemented")]
     Unimplemented,
     #[error("missed inode")]
-    InvaildIno,
+    InvalidIno,
     #[error("missed handle")]
     HandleNotFound,
-    #[error("underlaying file error")]
-    Underlaying,
+    #[error("underlying file error")]
+    Underlying,
     #[error("invalid path")]
     InvalidPath,
     #[error("permission deny")]
     PermissionDeny,
     #[error("invalid argument")]
-    InvialdArg,
+    InvalidArg,
     #[error("Already exist")]
     AlreadyExist,
 }
@@ -47,9 +47,9 @@ impl From<FuseError> for fuse3::Errno {
                 log::info!("out of resource");
                 libc::ENOMEM
             }
-            FuseError::InvalidPath | FuseError::InvaildIno => libc::ENOENT,
+            FuseError::InvalidPath | FuseError::InvalidIno => libc::ENOENT,
             FuseError::PermissionDeny => libc::EACCES,
-            FuseError::InvialdArg => libc::EINVAL,
+            FuseError::InvalidArg => libc::EINVAL,
             FuseError::AlreadyExist => libc::EEXIST,
             err => {
                 log::warn!("FUSE driver broken: {}", err);

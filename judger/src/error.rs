@@ -8,8 +8,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("sandbox error: {0}")]
     Sandbox(#[from] SandboxError),
-    /// the program is running on a 32 bit platform,
-    /// and have a object reached [`u32::MAX`]
+    /// the program is running on a 32-bit platform,
+    /// and have an object reached [`u32::MAX`]
     #[error("32 bit problem")]
     Platform,
 }
@@ -23,10 +23,10 @@ impl From<Error> for Status {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ClientError {
-    #[error("invaild secret")]
-    InvaildSecret,
-    #[error("invaild language uuid")]
-    InvaildLanguageUuid,
+    #[error("invalid secret")]
+    InvalidSecret,
+    #[error("invalid language uuid")]
+    InvalidLanguageUuid,
     #[error("impossible memory requirement")]
     ImpossibleMemoryRequirement,
 }
@@ -34,9 +34,9 @@ pub enum ClientError {
 impl From<ClientError> for Status {
     fn from(value: ClientError) -> Self {
         match value {
-            ClientError::InvaildSecret => Status::permission_denied("Invaild secret"),
-            ClientError::InvaildLanguageUuid => {
-                Status::failed_precondition("Invaild language uuid")
+            ClientError::InvalidSecret => Status::permission_denied("Invalid secret"),
+            ClientError::InvalidLanguageUuid => {
+                Status::failed_precondition("Invalid language uuid")
             }
             ClientError::ImpossibleMemoryRequirement => {
                 Status::failed_precondition("Impossible memory requirement")

@@ -14,7 +14,7 @@ pub trait Argument {
     fn get_args(self) -> impl Iterator<Item = Cow<'static, OsStr>>;
 }
 
-/// factory pattern for conbinating arguments
+/// factory pattern for combining arguments
 #[derive(Default)]
 pub struct ArgFactory {
     args: Vec<Cow<'static, OsStr>>,
@@ -31,7 +31,7 @@ impl ArgFactory {
     }
 }
 
-/// base auguments for nsjail
+/// base arguments for nsjail
 pub struct BaseArg;
 
 impl Argument for BaseArg {

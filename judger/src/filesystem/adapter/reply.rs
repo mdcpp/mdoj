@@ -1,4 +1,4 @@
-//! collection of function that fill the value of
+//! collection of function that fill with the value of
 //! reply packets back to fuse connection
 use std::{ffi::OsString, time::Duration};
 

@@ -51,7 +51,7 @@ impl Chat for ArcServer {
                 .map_err(Into::<Error>::into)?;
 
             let id = *model.id.as_ref();
-            tracing::debug!(id = id, "chat_created");
+            debug!(id = id, "chat_created");
 
             Ok(id.into())
         })
@@ -80,7 +80,7 @@ impl Chat for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.chat = -1, id = req.id);
+                info!(counter.chat = -1, id = req.id);
                 Ok(())
             }
         })

@@ -1,7 +1,8 @@
 use super::*;
 use grpc::backend::problem_server::*;
+use sea_orm::sea_query::Expr;
 
-use crate::entity::{contest, problem::Paginator, problem::*};
+use crate::entity::{contest, problem::Paginator, problem::*, testcase};
 
 impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {
@@ -139,7 +140,7 @@ impl Problem for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.problem = 1, id = id);
+            info!(count.problem = 1, id = id);
 
             Ok(id.into())
         })
@@ -191,17 +192,28 @@ impl Problem for ArcServer {
     async fn remove(&self, req: Request<RemoveRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.get_or_insert(|req| async move {
+            let txn = self.db.begin().await?;
+
             let result = Entity::delete_by_id(req.id)
                 .with_auth(&auth)
                 .write()?
-                .exec(self.db.deref())
+                .exec(&txn)
                 .instrument(info_span!("remove").or_current())
-                .await
-                .map_err(Into::<Error>::into)?;
+                .await?;
+
+            testcase::Entity::update_many()
+                .col_expr(testcase::Column::ProblemId, Expr::value(Value::Int(None)))
+                .filter(testcase::Column::ProblemId.eq(req.id))
+                .exec(&txn)
+                .instrument(info_span!("remove_child"))
+                .await?;
+
+            txn.commit().await.map_err(|_| Error::Retry)?;
 
             if result.rows_affected == 0 {
                 return Err(Error::NotInDB);
             }
+            info!(count.problem = -1, id = req.id);
             Ok(())
         })
         .await
@@ -286,7 +298,7 @@ impl Problem for ArcServer {
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
             if let Some(x) = model.contest_id.into_value() {
-                tracing::debug!(old_id = x.to_string());
+                debug!(old_id = x.to_string());
             }
             model.contest_id = ActiveValue::Set(None);
             model

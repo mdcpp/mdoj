@@ -1,6 +1,6 @@
-//! A module that provides a way to setup environment for a process and run.
+//! A module that provides a way to set up environment for a process and run.
 //!
-//! Using this module should be SAFE(can't launching a process without
+//! Using this module should be SAFE(can't launch a process without
 //! explicit resource limitation)
 //!
 //! ```norun

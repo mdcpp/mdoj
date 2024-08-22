@@ -118,7 +118,7 @@ impl User for ArcServer {
 
             let mut model: ActiveModel = Default::default();
 
-            tracing::debug!(username = req.info.username);
+            debug!(username = req.info.username);
 
             let hash = self.crypto.hash(req.info.password.as_str());
 
@@ -133,7 +133,7 @@ impl User for ArcServer {
                 .map_err(Into::<Error>::into)?;
 
             let id = *model.id.as_ref();
-            tracing::info!(counter.user = 1, id = id);
+            info!(counter.user = 1, id = id);
 
             Ok(id.into())
         })
@@ -213,7 +213,7 @@ impl User for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.announcement = -1, id = req.id);
+                info!(counter.announcement = -1, id = req.id);
                 Ok(())
             }
         })
