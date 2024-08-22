@@ -43,7 +43,7 @@ where
     }
 
     fn convert_to_type(s: &str) -> Option<Self::Output> {
-        s.parse().ok().map(|n| T::try_from(n).ok()).flatten()
+        s.parse().ok().and_then(|n| T::try_from(n).ok())
     }
 
     fn convert_to_string(o: Self::Output) -> String {
@@ -57,7 +57,7 @@ where
 
 impl<T: QueryType> Clone for ParamsMapKey<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -75,7 +75,7 @@ impl<T: QueryType> Clone for InnerParamsMapKey<T> {
         Self {
             key: self.key,
             default: self.default.clone(),
-            _maker: self._maker.clone(),
+            _maker: self._maker,
         }
     }
 }
@@ -136,7 +136,7 @@ impl MemoParamsMapExtra for Memo<ParamsMap> {
         &self,
         f: impl Fn(&mut ParamsMap) + 'static,
     ) -> Signal<String> {
-        let map = self.clone();
+        let map = *self;
         Signal::derive(move || {
             let mut map = map();
             f(&mut map);
@@ -159,7 +159,7 @@ impl MemoParamsMapExtra for Memo<ParamsMap> {
         &self,
         query: ParamsMapKey<T>,
     ) -> Signal<Option<T::Output>> {
-        let map = self.clone();
+        let map = *self;
         Signal::derive(move || map().get_query(query))
     }
 
@@ -167,7 +167,7 @@ impl MemoParamsMapExtra for Memo<ParamsMap> {
         &self,
         query: ParamsMapKey<T>,
     ) -> Signal<T::Output> {
-        let map = self.clone();
+        let map = *self;
         Signal::derive(move || map().get_query_with_default(query))
     }
 }
@@ -196,9 +196,7 @@ impl ParamsMapExtra for ParamsMap {
     where
         T: QueryType,
     {
-        self.get(query.key())
-            .map(|v| T::convert_to_type(v))
-            .flatten()
+        self.get(query.key()).and_then(|v| T::convert_to_type(v))
     }
 
     fn get_query_with_default<T>(&self, query: ParamsMapKey<T>) -> T::Output
@@ -213,11 +211,9 @@ impl ParamsMapExtra for ParamsMap {
     where
         T: QueryType,
     {
-        let value = value
-            .map(move |v| {
-                query.0.with_value(|query| v != query.default).then_some(v)
-            })
-            .flatten();
+        let value = value.and_then(move |v| {
+            query.0.with_value(|query| v != query.default).then_some(v)
+        });
         match value {
             Some(value) => {
                 self.insert(query.key().to_owned(), T::convert_to_string(value))

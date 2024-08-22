@@ -80,7 +80,7 @@ fn PaginateNavbarButton(
             class=move || {
                 tw_join!(
                     "size-8",
-                    disabled().then_some("bg-primary disabled").unwrap_or("bg-black-900")
+                    if disabled() { "bg-primary disabled" } else { "bg-black-900" }
                 )
             }
         >

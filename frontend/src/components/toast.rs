@@ -105,7 +105,7 @@ fn Toast(
         is_pending,
         ..
     } = {
-        let close = close.clone();
+        let close = close;
         use_timeout_fn(move |_| close(), 4.0 * 1000.0)
     };
 

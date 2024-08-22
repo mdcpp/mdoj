@@ -91,16 +91,10 @@ impl Default for FrontendConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, Default)]
 pub struct BackendConfig {
     #[serde(default)]
     pub trust_xff: bool,
-}
-
-impl Default for BackendConfig {
-    fn default() -> Self {
-        Self { trust_xff: false }
-    }
 }
 
 #[cfg(feature = "ssr")]
