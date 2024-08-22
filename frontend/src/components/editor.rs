@@ -3,7 +3,7 @@ use leptos::*;
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
 
-use crate::config::frontend_config;
+use crate::utils::*;
 
 #[wasm_bindgen]
 extern "C" {

@@ -2,7 +2,7 @@ pub use grpc::backend::*;
 use leptos::*;
 use tonic::{metadata::MetadataMap, IntoRequest, Request};
 
-use crate::config::frontend_config;
+use super::frontend_config;
 
 #[cfg(not(feature = "ssr"))]
 pub fn new_client() -> tonic_web_wasm_client::Client {

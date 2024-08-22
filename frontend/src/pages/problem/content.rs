@@ -1,7 +1,7 @@
 use leptos::*;
 use tailwind_fuse::tw_join;
 
-use crate::{components::*, grpc};
+use crate::{components::*, utils::*};
 
 #[component]
 pub fn ProblemContent(
@@ -20,10 +20,10 @@ pub fn ProblemContent(
             <h1 class="text-2xl my-2">{full_info.info.title}</h1>
 
             <div class="flex-grow relative overflow-y-auto bg-black-900">
-                <Markdown content=full_info.content class="absolute h-full w-full top-0 left-0"/>
+                <Markdown content=full_info.content class="absolute h-full w-full top-0 left-0" />
             </div>
 
-            <hr class="border-t-2 border-accent mx-1"/>
+            <hr class="border-t-2 border-accent mx-1" />
 
             <ul class="flex flex-row justify-center space-x-4 p-1">
                 <li>Memory : {full_info.memory}</li>

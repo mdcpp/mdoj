@@ -1,12 +1,7 @@
 use leptos::*;
 use leptos_router::*;
 
-use crate::{
-    components::*,
-    errors::*,
-    grpc::{self, WithToken},
-    session::*,
-};
+use crate::{components::*, utils::*};
 
 #[component]
 pub fn Problem() -> impl IntoView {
@@ -89,25 +84,25 @@ pub fn Problem() -> impl IntoView {
 
                 <div class="flex flex-col">
                     <label class="text-text pb-2">Title</label>
-                    <Input value=title/>
+                    <Input value=title />
                 </div>
                 <div class="flex flex-col">
                     <label class="text-text pb-2">Tags</label>
-                    <Input value=tags/>
+                    <Input value=tags />
                 </div>
 
                 <div class="w-full flex-wrap flex flex-row flex-1 gap-4 justify-evenly">
                     <div class="flex flex-col min-w-fit flex-grow">
                         <label class="text-text pb-2">Difficulty</label>
-                        <InputNumber value=difficulty/>
+                        <InputNumber value=difficulty />
                     </div>
                     <div class="flex flex-col min-w-fit flex-grow">
                         <label class="text-text pb-2">Time (nanosecond)</label>
-                        <InputNumber value=time/>
+                        <InputNumber value=time />
                     </div>
                     <div class="flex flex-col min-w-fit flex-grow">
                         <label class="text-text pb-2">Memory (byte)</label>
-                        <InputNumber value=memory/>
+                        <InputNumber value=memory />
                     </div>
                     <div class="flex flex-col min-w-fit flex-grow">
                         <label class="text-text pb-2">Match Rule</label>
@@ -121,7 +116,7 @@ pub fn Problem() -> impl IntoView {
 
                 <div class="w-full">
                     <label class="text-text pb-2">Content</label>
-                    <Editor class="w-full h-full min-h-80" lang_ext="md" editor_ref/>
+                    <Editor class="w-full h-full min-h-80" lang_ext="md" editor_ref />
                 </div>
                 <div class="w-full">
                     <Button type_="submit" class="w-full" disabled>

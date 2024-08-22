@@ -2,11 +2,7 @@ use leptos::*;
 use leptos_router::*;
 
 use super::{ProblemContent, ProblemEditor};
-use crate::{
-    errors::*,
-    grpc::{self, WithToken},
-    session::*,
-};
+use crate::{components::*, utils::*};
 
 #[derive(Params, PartialEq, Clone, Copy)]
 struct ProblemParams {
@@ -17,7 +13,7 @@ struct ProblemParams {
 pub fn ProblemRouter() -> impl IntoView {
     view! {
         <Route path="/problem/:id" view=Problem>
-            <Route path="" view=Content/>
+            <Route path="" view=Content />
         </Route>
     }
 }
@@ -45,14 +41,14 @@ fn Problem() -> impl IntoView {
             v.map(|langs| {
                 let id = params()?.id;
 
-                Result::<_>::Ok(view! { <ProblemEditor id langs/> })
+                Result::<_>::Ok(view! { <ProblemEditor id langs /> })
             })
         })
     };
 
     view! {
         <main class="grow grid grid-cols-5 grid-flow-row gap-4">
-            <Outlet/>
+            <Outlet />
             <div class="col-span-2 col-start-4">
                 <Suspense fallback=|| {
                     view! { <p>loading</p> }
@@ -86,7 +82,7 @@ fn Content() -> impl IntoView {
     let content = move || {
         full_info().map(|v| {
             v.map(|full_info| {
-                view! { <ProblemContent full_info/> }
+                view! { <ProblemContent full_info /> }
             })
         })
     };

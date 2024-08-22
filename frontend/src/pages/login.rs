@@ -1,12 +1,7 @@
 use leptos::*;
 use leptos_router::use_navigate;
 
-use crate::{
-    components::*,
-    errors::*,
-    grpc,
-    session::{use_token_info, TokenInfo},
-};
+use crate::{components::*, utils::*};
 
 #[component]
 pub fn Login() -> impl IntoView {
@@ -86,20 +81,20 @@ pub fn Login() -> impl IntoView {
             >
 
                 <div class="flex justify-center">
-                    <img src="https://placehold.co/200" alt="Logo" class="max-w-64"/>
+                    <img src="https://placehold.co/200" alt="Logo" class="max-w-64" />
                 </div>
 
                 <div class="pt-4 flex flex-col">
                     <label for="username" class="text-text pb-2">
                         Username
                     </label>
-                    <Input attr:id="username" value=username/>
+                    <Input attr:id="username" value=username />
                 </div>
                 <div class="pt-4 flex flex-col">
                     <label for="password" class="text-text pb-2">
                         Password
                     </label>
-                    <Input variant=InputVariant::Password attr:id="password" value=password/>
+                    <Input variant=InputVariant::Password attr:id="password" value=password />
                 </div>
                 <p class="w-full text-red-500 text-center">{error_msg}</p>
                 <div class="pt-4 w-full">

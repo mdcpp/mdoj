@@ -1,9 +1,13 @@
 use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
-use problem::ProblemRouter;
 
-use crate::{components::*, errors::NotFound, grpc, pages::*, session::*};
+use super::{
+    about::About, contests::Contests, create, home::Home, login::Login,
+    problem::ProblemRouter, problems::Problems, rank::Rank,
+    submission::Submission,
+};
+use crate::{components::*, utils::*};
 
 /// |Permission|Root|Admin|SuperUser|User|Guest
 /// |:-|:-:|:-:|:-:|:-:|:-:|
@@ -36,10 +40,10 @@ pub fn Pages() -> impl IntoView {
     };
     let page_wrapper = move || {
         view! {
-            <Navbar/>
-            <Outlet/>
+            <Navbar />
+            <Outlet />
             <Show when=show_footer fallback=|| ()>
-                <Footer/>
+                <Footer />
             </Show>
         }
     };
@@ -47,13 +51,13 @@ pub fn Pages() -> impl IntoView {
     view! {
         <Routes>
             <Route path="" view=page_wrapper>
-                <Route path="" view=Home/>
-                <Route path="/problems" view=Problems/>
-                <Route path="/submissions" view=Submission/>
-                <Route path="/contests" view=Contests/>
-                <Route path="/about" view=About/>
-                <Route path="/rank" view=Rank/>
-                <ProblemRouter/>
+                <Route path="" view=Home />
+                <Route path="/problems" view=Problems ssr=SsrMode::Async />
+                <Route path="/submissions" view=Submission />
+                <Route path="/contests" view=Contests />
+                <Route path="/about" view=About />
+                <Route path="/rank" view=Rank />
+                <ProblemRouter />
 
                 <ProtectedRoute
                     path="/login"
@@ -69,7 +73,7 @@ pub fn Pages() -> impl IntoView {
                 />
 
                 // Fallback
-                <Route path="/*any" view=NotFound/>
+                <Route path="/*any" view=NotFound />
             </Route>
         </Routes>
     }

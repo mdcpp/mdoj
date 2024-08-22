@@ -1,7 +1,7 @@
 use leptos::*;
 use tailwind_fuse::tw_join;
 
-use crate::{components::*, errors::*, grpc};
+use crate::{components::*, utils::*};
 
 #[component]
 pub fn ProblemEditor(
@@ -9,9 +9,13 @@ pub fn ProblemEditor(
     id: i32,
     langs: grpc::Languages,
 ) -> impl IntoView {
-    let select_option = langs.list.into_iter().map(|lang| {
+    let select_option = langs
+        .list
+        .into_iter()
+        .map(|lang| {
             view! { <SelectOption value=lang.lang_ext>{lang.lang_name}</SelectOption> }
-        }).collect_view();
+        })
+        .collect_view();
     let select_lang = create_rw_signal("".to_owned());
     let editor_ref = create_editor_ref();
 
@@ -48,7 +52,10 @@ pub fn ProblemEditor(
     let disabled = Signal::derive(move || select_lang.with(|v| v.is_empty()));
 
     view! {
-        <form class=tw_join!("flex flex-col h-full w-full bg-lighten p-3 rounded", class) on:submit=submit>
+        <form
+            class=tw_join!("flex flex-col h-full w-full bg-lighten p-3 rounded", class)
+            on:submit=submit
+        >
 
             <ul class="flex flex-row justify-between p-2 pt-0 mb-2 border-b-2 border-accent">
                 <li>Code</li>
@@ -58,7 +65,7 @@ pub fn ProblemEditor(
                     </Select>
                 </li>
             </ul>
-            <Editor lang_ext=select_lang editor_ref class="h-full"/>
+            <Editor lang_ext=select_lang editor_ref class="h-full" />
             <Button class="mt-auto" type_="submit" disabled>
                 Submit
             </Button>

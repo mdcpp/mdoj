@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // use frontend::{app::*, config};
     use frontend::{
         app::*,
-        config::{backend_config, init_config},
+        utils::config::{backend_config, init_config},
     };
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};

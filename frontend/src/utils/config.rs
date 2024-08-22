@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::*;
+use super::error::*;
 
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<Config> = OnceLock::new();
