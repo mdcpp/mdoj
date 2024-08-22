@@ -26,8 +26,7 @@ pub fn Highlight() -> impl IntoView {
                     logging::log!("change");
                     set_value(event_target_value(&e));
                 }
-            >
-            </textarea>
+            ></textarea>
             <div inner_html=html></div>
         </div>
     }
