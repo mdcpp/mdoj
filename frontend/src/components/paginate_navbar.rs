@@ -6,7 +6,7 @@ use crate::utils::*;
 
 #[component]
 /// There are 4 different case
-/// ```
+/// ```text
 /// let right_half = size / 2
 /// let left_half  = size - right_half
 ///
