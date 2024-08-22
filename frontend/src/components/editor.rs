@@ -69,17 +69,17 @@ pub fn Editor(
         let c = Object::new();
         let paths = Object::new();
         Reflect::set(
-            &*paths,
+            &paths,
             &"vs".into(),
             &"https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs".into(),
         )
         .unwrap();
-        Reflect::set(&*c, &"paths".into(), &*paths).unwrap();
+        Reflect::set(&c, &"paths".into(), &paths).unwrap();
         loader_config(c);
 
         let config = Object::new();
-        Reflect::set(&*config, &"theme".into(), &"vs-dark".into()).unwrap();
-        Reflect::set(&*config, &"automaticLayout".into(), &true.into())
+        Reflect::set(&config, &"theme".into(), &"vs-dark".into()).unwrap();
+        Reflect::set(&config, &"automaticLayout".into(), &true.into())
             .unwrap();
 
         let init_monaco = Closure::once_into_js(move || {

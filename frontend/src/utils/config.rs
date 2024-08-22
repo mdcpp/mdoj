@@ -3,6 +3,7 @@ use std::sync::OnceLock;
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "ssr")]
 use super::error::*;
 
 #[cfg(feature = "ssr")]

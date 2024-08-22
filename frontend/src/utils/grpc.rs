@@ -1,5 +1,4 @@
 pub use grpc::backend::*;
-use leptos::*;
 use tonic::{metadata::MetadataMap, IntoRequest, Request};
 
 use super::frontend_config;

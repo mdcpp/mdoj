@@ -1,6 +1,6 @@
 use leptos::*;
 
-use crate::components::*;
+// use crate::components::*;
 
 #[component]
 pub fn Contests() -> impl IntoView {
