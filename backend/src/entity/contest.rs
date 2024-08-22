@@ -21,7 +21,7 @@ pub struct Model {
     pub title: String,
     pub content: String,
     pub tags: String,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))", nullable)]
+    #[sea_orm(column_type = "Blob", nullable)]
     pub password: Option<Vec<u8>>,
     #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,

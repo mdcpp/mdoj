@@ -1,5 +1,5 @@
-//! Filesystem module that is mountable(actuallly mount and
-//! is accessible for user in this operation system)
+//! Filesystem module that is mountable(actually mount and
+//! is accessible for user in this operating system)
 mod adapter;
 mod entry;
 mod handle;

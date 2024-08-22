@@ -43,7 +43,7 @@ impl Judger {
                     }
                 }
             }
-            AssertionMode::SkipContinousSpace => {
+            AssertionMode::SkipContinuousSpace => {
                 // skip space and newline, continous space is consider same
                 let output = output.iter().map(|x| match x {
                     b'\n' | b' ' => b' ',

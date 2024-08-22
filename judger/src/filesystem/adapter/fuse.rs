@@ -3,7 +3,6 @@ use std::{ffi::OsStr, num::NonZeroU32, path::Path, sync::Arc};
 use bytes::Bytes;
 use futures_core::Future;
 use spin::Mutex;
-use tokio::fs::metadata;
 use tokio::io::{AsyncRead, AsyncSeek};
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -87,7 +86,7 @@ where
 
     async fn lookup(&self, req: Request, parent: u64, name: &OsStr) -> FuseResult<ReplyEntry> {
         let tree = self.tree.lock();
-        let parent_node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let parent_node = tree.get(parent as usize).ok_or(FuseError::InvalidIno)?;
         let node = parent_node
             .get_by_component(name)
             .ok_or(FuseError::InvalidPath)?;
@@ -122,7 +121,7 @@ where
     }
     async fn opendir(&self, _: Request, inode: u64, flags: u32) -> FuseResult<ReplyOpen> {
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
         if node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
         }
@@ -135,7 +134,7 @@ where
         // ignore write permission, because some application may open files
         // with write permission but never write
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
         if node.get_value().kind() == FileType::Directory {
             return Err(FuseError::IsDir.into());
         }
@@ -152,7 +151,7 @@ where
         offset: i64,
     ) -> FuseResult<ReplyDirectory<Self::DirEntryStream<'_>>> {
         let tree = self.tree.lock();
-        let node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(parent as usize).ok_or(FuseError::InvalidIno)?;
 
         if node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
@@ -201,7 +200,7 @@ where
         _: u64,
     ) -> FuseResult<ReplyDirectoryPlus<Self::DirEntryPlusStream<'_>>> {
         let tree = self.tree.lock();
-        let node = tree.get(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(parent as usize).ok_or(FuseError::InvalidIno)?;
 
         if node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
@@ -322,7 +321,7 @@ where
         _: u32,
     ) -> FuseResult<()> {
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
 
         match node.get_value().kind() {
             FileType::Directory | FileType::NamedPipe | FileType::CharDevice => {
@@ -342,7 +341,7 @@ where
         _: u32,
     ) -> FuseResult<ReplyAttr> {
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
         // FIXME: unsure about the inode
         Ok(reply_attr(&req, node.get_value(), inode))
     }
@@ -354,7 +353,7 @@ where
         _: SetAttr,
     ) -> FuseResult<ReplyAttr> {
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
         Ok(reply_attr(&req, node.get_value(), inode))
     }
     async fn create(
@@ -366,7 +365,7 @@ where
         flags: u32,
     ) -> FuseResult<ReplyCreated> {
         let mut tree = self.tree.lock();
-        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvalidIno)?;
         if parent_node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
         }
@@ -389,7 +388,7 @@ where
         _: u32,
     ) -> FuseResult<ReplyEntry> {
         let mut tree = self.tree.lock();
-        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvalidIno)?;
         if parent_node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
         }
@@ -401,18 +400,18 @@ where
     }
     async fn readlink(&self, _: Request, inode: Inode) -> FuseResult<ReplyData> {
         let tree = self.tree.lock();
-        let node = tree.get(inode as usize).ok_or(FuseError::InvaildIno)?;
+        let node = tree.get(inode as usize).ok_or(FuseError::InvalidIno)?;
         let link = node
             .get_value()
             .get_symlink()
-            .ok_or(FuseError::InvialdArg)?;
+            .ok_or(FuseError::InvalidArg)?;
         Ok(ReplyData {
             data: Bytes::copy_from_slice(link.as_encoded_bytes()),
         })
     }
     async fn unlink(&self, _: Request, parent: Inode, name: &OsStr) -> FuseResult<()> {
         let mut tree = self.tree.lock();
-        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvaildIno)?;
+        let mut parent_node = tree.get_mut(parent as usize).ok_or(FuseError::InvalidIno)?;
         if parent_node.get_value().kind() != FileType::Directory {
             return Err(FuseError::NotDir.into());
         }

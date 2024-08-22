@@ -66,9 +66,9 @@ impl<'a> CgroupWrapper<'a> {
     /// get memory usage(statistics)
     pub fn memory(&self) -> Memory {
         let controller = self.0.controller_of::<MemController>().unwrap();
-        let kusage = controller.kmem_stat();
+        let kernel_usage = controller.kmem_stat();
 
-        let kernel = kusage.max_usage_in_bytes;
+        let kernel = kernel_usage.max_usage_in_bytes;
         let user = controller.memory_stat().max_usage_in_bytes;
         let total = kernel + user;
 
@@ -96,7 +96,7 @@ impl CgroupWrapperOwned {
     }
     /// poll until cgroup is deleted
     ///
-    /// After the cgroup is empty(`tasks` is empty), the cgroup is can be delete safely
+    /// After the cgroup is empty(`tasks` is empty), the cgroup is can be deleted safely
     ///
     /// However, in some rare cases, the monitor is reading file in cgroup
     /// when the cgroup is about to be deleted, this will cause the cgroup to stay busy

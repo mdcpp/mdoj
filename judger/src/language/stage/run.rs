@@ -46,7 +46,7 @@ impl Runner {
 /// See [`Context`] for more information
 struct RunCtx {
     spec: Arc<Spec>,
-    path: std::path::PathBuf,
+    path: PathBuf,
     limit: Stat,
 }
 

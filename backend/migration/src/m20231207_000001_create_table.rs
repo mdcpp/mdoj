@@ -668,17 +668,25 @@ impl MigrationTrait for Migration {
         index!(manager, Problem, AcceptCount);
         index!(manager, Problem, Difficulty);
         index!(manager, Problem, Order);
+        index!(manager, Problem, Content);
+        index!(manager, Problem, Title);
+
         index!(manager, Submit, Committed);
         index!(manager, Submit, Time);
         index!(manager, Submit, Memory);
+        index!(manager, Submit, UserId);
+
         index!(manager, Contest, Hoster);
         index!(manager, Contest, Public);
         index!(manager, Contest, End);
         index!(manager, Contest, Begin);
+
         index!(manager, User, Score);
         index!(manager, User, Username);
+
         index!(manager, Token, Rand);
         index!(manager, Token, Expiry);
+
         index!(manager, Chat, CreateAt);
 
         manager

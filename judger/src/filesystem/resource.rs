@@ -11,7 +11,7 @@ impl Resource {
         Self(AtomicU64::new(cap))
     }
     /// consume some amount of resource
-    pub fn comsume(&self, size: u32) -> Option<()> {
+    pub fn consume(&self, size: u32) -> Option<()> {
         let a = self.0.fetch_sub(size as u64, Ordering::AcqRel);
         if (a & (1 << 63)) != 0 {
             None
@@ -23,8 +23,8 @@ impl Resource {
     ///
     /// return None if the resource is not enough or the size
     /// is out of range (greater than[`u32::MAX`])
-    pub fn comsume_other<T: TryInto<u32>>(&self, size: T) -> Option<()> {
+    pub fn consume_other<T: TryInto<u32>>(&self, size: T) -> Option<()> {
         let size = size.try_into().ok()?;
-        self.comsume(size)
+        self.consume(size)
     }
 }

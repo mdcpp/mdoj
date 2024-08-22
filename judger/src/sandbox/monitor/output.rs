@@ -82,7 +82,7 @@ mod test {
 
     #[tokio::test]
     async fn monitor_output_limit() {
-        let (mut stdin, stdout) = tokio::io::duplex(1024);
+        let (mut stdin, stdout) = duplex(1024);
         let mut monitor = Monitor::inner_new(9, stdout);
         stdin.write_all(b"1234567890").await.unwrap();
         assert_eq!(

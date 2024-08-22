@@ -175,7 +175,7 @@ impl Announcement for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.announcement = 1, id = id);
+            info!(count.announcement = 1, id = id);
 
             Ok(id.into())
         })
@@ -197,7 +197,7 @@ impl Announcement for ArcServer {
         req.bound_check()?;
 
         req.get_or_insert(|req| async move {
-            tracing::trace!(id = req.id);
+            trace!(id = req.id);
 
             let mut model = Entity::find_by_id(req.id)
                 .with_auth(&auth)
@@ -242,7 +242,7 @@ impl Announcement for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.announcement = -1, id = req.id);
+                info!(counter.announcement = -1, id = req.id);
                 Ok(())
             }
         })

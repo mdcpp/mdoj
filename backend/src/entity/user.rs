@@ -13,7 +13,7 @@ pub struct Model {
     pub permission: i32,
     pub score: i64,
     pub username: String,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
+    #[sea_orm(column_type = "Blob")]
     pub password: Vec<u8>,
     #[sea_orm(column_type = "Time")]
     pub create_at: chrono::NaiveDateTime,

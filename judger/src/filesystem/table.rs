@@ -294,7 +294,7 @@ mod test {
     use super::*;
     #[test]
     fn test_adj_table() {
-        let mut table = super::AdjTable::new();
+        let mut table = AdjTable::new();
         let mut root = table.insert_root(0);
         root.insert(OsStr::new("a").into(), 1);
         let mut b = root.insert(OsStr::new("b").into(), 2).unwrap();
@@ -306,7 +306,7 @@ mod test {
     }
     #[test]
     fn get_or_insert() {
-        let mut table = super::AdjTable::new();
+        let mut table = AdjTable::new();
         table.insert_root(0);
         table.insert_by_path(
             vec!["abc", "efg", "123", "456"]
@@ -325,7 +325,7 @@ mod test {
     }
     #[test]
     fn parent_child_insert() {
-        let mut table = super::AdjTable::new();
+        let mut table = AdjTable::new();
         let mut root = table.insert_root(0); // inode 1
         assert_eq!(root.get_id(), 1);
         let mut a = root.insert(OsStr::new("a").into(), 1).unwrap(); // inode 2

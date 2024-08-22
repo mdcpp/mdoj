@@ -91,11 +91,11 @@ impl Submit for ArcServer {
     async fn info(&self, req: Request<Id>) -> Result<Response<SubmitInfo>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
-        tracing::debug!(id = req.id);
+        debug!(id = req.id);
 
         let model = Entity::read_filter(Entity::find_by_id(req.id), &auth)?
             .one(self.db.deref())
-            .instrument(tracing::debug_span!("fetch").or_current())
+            .instrument(debug_span!("fetch").or_current())
             .await
             .map_err(Into::<Error>::into)?
             .ok_or(Error::NotInDB)?;
@@ -156,7 +156,7 @@ impl Submit for ArcServer {
                 .instrument(info_span!("construct_submit").or_current())
                 .await?;
 
-            tracing::info!(counter.submit = 1, id = id);
+            info!(counter.submit = 1, id = id);
 
             Ok(id.into())
         })
@@ -189,7 +189,7 @@ impl Submit for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.submit = -1, id = req.id);
+                info!(counter.submit = -1, id = req.id);
                 Ok(())
             }
         })

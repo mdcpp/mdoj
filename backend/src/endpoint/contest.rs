@@ -1,9 +1,9 @@
 use super::*;
-
 use crate::entity::{
     contest::{Paginator, *},
-    *,
+    problem, *,
 };
+use sea_orm::sea_query::Expr;
 
 use grpc::backend::contest_server::*;
 
@@ -164,7 +164,7 @@ impl Contest for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.contest = 1, id = id);
+            info!(count.contest = 1, id = id);
 
             Ok(id.into())
         })
@@ -185,7 +185,7 @@ impl Contest for ArcServer {
         let (_, perm) = auth.assume_login()?;
 
         req.get_or_insert(|req| async move {
-            tracing::trace!(id = req.id);
+            trace!(id = req.id);
 
             let mut model = Entity::find_by_id(req.id).with_auth(&auth).write()?
             .one(self.db.deref())
@@ -238,6 +238,8 @@ impl Contest for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.get_or_insert(|req| async move {
+            let txn = self.db.begin().await?;
+
             let result = Entity::delete_by_id(req.id)
                 .with_auth(&auth)
                 .write()?
@@ -246,61 +248,19 @@ impl Contest for ArcServer {
                 .await
                 .map_err(Into::<Error>::into)?;
 
+            problem::Entity::update_many()
+                .col_expr(problem::Column::ContestId, Expr::value(Value::Int(None)))
+                .filter(crate::entity::testcase::Column::ProblemId.eq(req.id))
+                .exec(&txn)
+                .instrument(info_span!("remove_child"))
+                .await?;
+
+            txn.commit().await.map_err(|_| Error::Retry)?;
+
             if result.rows_affected == 0 {
-                Err(Error::NotInDB)
-            } else {
-                tracing::info!(counter.contest = -1, id = req.id);
-                Ok(())
+                return Err(Error::NotInDB);
             }
-        })
-        .await
-        .with_grpc()
-        .into()
-    }
-    #[instrument(
-        skip_all,
-        level = "info",
-        name = "oj.backend.Contest/join",
-        err(level = "debug", Display)
-    )]
-    async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
-        let (auth, req) = self.rate_limit(req).in_current_span().await?;
-        let (user_id, _) = auth.assume_login()?;
-
-        req.get_or_insert(|req| async move {
-            let model = Entity::find_by_id(req.id)
-                .with_auth(&auth)
-                .read()?
-                .one(self.db.deref())
-                .instrument(info_span!("fetch").or_current())
-                .await
-                .map_err(Into::<Error>::into)?
-                .ok_or(Error::NotInDB)?;
-            // FIXME: abstract away password checking logic
-
-            if let Some(tar) = model.password {
-                let password = req
-                    .password
-                    .as_ref()
-                    .ok_or(Error::NotInPayload("password"))?;
-                if !self.crypto.hash_eq(password, &tar) {
-                    return Err(Error::PermissionDeny("mismatched password"));
-                }
-            }
-
-            let pivot = user_contest::ActiveModel {
-                user_id: ActiveValue::Set(user_id),
-                contest_id: ActiveValue::Set(model.id),
-                ..Default::default()
-            };
-
-            pivot
-                .save(self.db.deref())
-                .instrument(info_span!("insert_pviot").or_current())
-                .await
-                .map_err(Into::<Error>::into)?;
-
-            tracing::debug!(user_id = user_id, contest_id = req.id);
+            info!(counter.contest = -1, id = req.id);
             Ok(())
         })
         .await
@@ -367,6 +327,56 @@ impl Contest for ArcServer {
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
                 .await?;
+            Ok(())
+        })
+        .await
+        .with_grpc()
+        .into()
+    }
+    #[instrument(
+        skip_all,
+        level = "info",
+        name = "oj.backend.Contest/join",
+        err(level = "debug", Display)
+    )]
+    async fn join(&self, req: Request<JoinContestRequest>) -> Result<Response<()>, Status> {
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
+        let (user_id, _) = auth.assume_login()?;
+
+        req.get_or_insert(|req| async move {
+            let model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .read()?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
+            // FIXME: abstract away password checking logic
+
+            if let Some(tar) = model.password {
+                let password = req
+                    .password
+                    .as_ref()
+                    .ok_or(Error::NotInPayload("password"))?;
+                if !self.crypto.hash_eq(password, &tar) {
+                    return Err(Error::PermissionDeny("mismatched password"));
+                }
+            }
+
+            let pivot = user_contest::ActiveModel {
+                user_id: ActiveValue::Set(user_id),
+                contest_id: ActiveValue::Set(model.id),
+                ..Default::default()
+            };
+
+            pivot
+                .save(self.db.deref())
+                .instrument(info_span!("insert_pviot").or_current())
+                .await
+                .map_err(Into::<Error>::into)?;
+
+            debug!(user_id = user_id, contest_id = req.id);
             Ok(())
         })
         .await

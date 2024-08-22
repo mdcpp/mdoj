@@ -19,7 +19,7 @@ impl Image for ArcServer {
         req.get_or_insert(|req| async move {
             let url = self.imgur.upload(req.data).await?;
 
-            tracing::debug!(counter.image = 1, uri = url);
+            debug!(counter.image = 1, uri = url);
             Ok(UploadResponse { url })
         })
         .await

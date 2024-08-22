@@ -104,7 +104,7 @@ impl Education for ArcServer {
 
             let id = *model.id.as_ref();
 
-            tracing::info!(count.education = 1, id = id);
+            info!(count.education = 1, id = id);
 
             Ok(id.into())
         })
@@ -123,7 +123,7 @@ impl Education for ArcServer {
         req.bound_check()?;
 
         req.get_or_insert(|req| async move {
-            tracing::trace!(id = req.id);
+            trace!(id = req.id);
             let mut model = Entity::find_by_id(req.id)
                 .with_auth(&auth)
                 .write()?
@@ -167,7 +167,7 @@ impl Education for ArcServer {
             if result.rows_affected == 0 {
                 Err(Error::NotInDB)
             } else {
-                tracing::info!(counter.education = -1, id = req.id);
+                info!(counter.education = -1, id = req.id);
                 Ok(())
             }
         })
