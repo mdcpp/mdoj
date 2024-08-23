@@ -3,7 +3,8 @@ FROM rustlang/rust:nightly-bullseye AS builder
 RUN apt update -y \
     && apt install musl-tools protobuf-compiler pkg-config make -y
 
-RUN cargo install just cargo-leptos
+RUN cargo install just cargo-leptos \
+    && cargo install --version 0.2.17 cargo-leptos
 
 RUN rustup target add wasm32-unknown-unknown
 
@@ -27,7 +28,7 @@ RUN rustup target add ${ARCH}-unknown-linux-musl
 ENV LEPTOS_OUTPUT_NAME="mdoj"
 ENV LEPTOS_BIN_TARGET_TRIPLE=${ARCH}-unknown-linux-musl
 
-RUN cargo leptos build -p frontend --bin-features compress --release --precompress -vv
+RUN cargo leptos build -p frontend --bin-features compress,ssr --release --precompress -vv
 
 FROM scratch
 WORKDIR /config

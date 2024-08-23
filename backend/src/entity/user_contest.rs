@@ -1,3 +1,4 @@
+use super::*;
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -17,7 +18,7 @@ pub enum Relation {
         from = "Column::ContestId",
         to = "super::contest::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Contest,
     #[sea_orm(
@@ -25,18 +26,18 @@ pub enum Relation {
         from = "Column::UserId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     User,
 }
 
-impl Related<super::contest::Entity> for Entity {
+impl Related<contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Contest.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }

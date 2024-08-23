@@ -35,7 +35,7 @@ pub enum Relation {
         from = "Column::ProblemId",
         to = "super::problem::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Problem,
     #[sea_orm(
@@ -43,18 +43,17 @@ pub enum Relation {
         from = "Column::UserId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     User,
 }
-
-impl Related<super::problem::Entity> for Entity {
+impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Problem.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }
@@ -62,7 +61,7 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.assume_login()?;
         Ok(match perm {
@@ -127,7 +126,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
-    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+    fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {
         data.1
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
@@ -163,7 +162,7 @@ impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(_data: &Self::Data) -> impl ColumnTrait {
         Column::Score
     }
-    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+    fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {
         *data
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {

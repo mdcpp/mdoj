@@ -4,7 +4,8 @@ prepare:
 
 # Apply the migration and generate the entity code for manual inspection
 entity-codegen:
-    rm database/*
+    rm -r database
+    mkdir -p database
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
     sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o src/pending
 
