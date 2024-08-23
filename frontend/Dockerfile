@@ -3,7 +3,8 @@ FROM rustlang/rust:nightly-bullseye AS builder
 RUN apt update -y \
     && apt install musl-tools protobuf-compiler pkg-config make -y
 
-RUN cargo install just cargo-leptos
+RUN cargo install just cargo-leptos \
+    && cargo install --version 0.2.17 cargo-leptos
 
 RUN rustup target add wasm32-unknown-unknown
 
