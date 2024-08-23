@@ -192,14 +192,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-announcement-contest")
                             .from(Announcement::Table, Announcement::ContestId)
-                            .to(Contest::Table, Contest::Id),
+                            .to(Contest::Table, Contest::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Announcement::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-announcement-user")
                             .from(Announcement::Table, Announcement::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .col(
                         ColumnDef::new(Announcement::CreateAt)
@@ -233,7 +235,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-announcement-user-hoster")
                             .from(Contest::Table, Contest::Hoster)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .col(ColumnDef::new(Contest::Begin).date_time().not_null())
                     .col(ColumnDef::new(Contest::End).date_time().not_null())
@@ -284,14 +287,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-education-problem")
                             .from(Education::Table, Education::ProblemId)
-                            .to(Problem::Table, Problem::Id),
+                            .to(Problem::Table, Problem::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .col(ColumnDef::new(Education::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-education-user")
                             .from(Education::Table, Education::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .col(
                         ColumnDef::new(Education::Tags)
@@ -326,14 +331,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-problem-user")
                             .from(Problem::Table, Problem::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
-                    .col(ColumnDef::new(Problem::ContestId).integer())
+                    .col(ColumnDef::new(Problem::ContestId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-problem-contest")
                             .from(Problem::Table, Problem::ContestId)
-                            .to(Contest::Table, Contest::Id),
+                            .to(Contest::Table, Contest::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .col(
                         ColumnDef::new(Problem::AcceptCount)
@@ -409,14 +416,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-submit-user")
                             .from(Submit::Table, Submit::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Submit::ProblemId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-submit-problem")
                             .from(Submit::Table, Submit::ProblemId)
-                            .to(Problem::Table, Problem::Id),
+                            .to(Problem::Table, Problem::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
                         ColumnDef::new(Submit::UploadAt)
@@ -473,14 +482,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-test-user")
                             .from(Testcase::Table, Testcase::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Testcase::ProblemId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-test-user")
                             .from(Testcase::Table, Testcase::ProblemId)
-                            .to(Problem::Table, Problem::Id),
+                            .to(Problem::Table, Problem::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Testcase::Input).binary().not_null())
                     .col(ColumnDef::new(Testcase::Output).binary().not_null())
@@ -516,7 +527,8 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-token-user")
                             .from(Token::Table, Token::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Token::Rand).binary().not_null())
                     .col(
@@ -586,14 +598,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-pivot-contest-user")
                             .from(UserContest::Table, UserContest::ContestId)
-                            .to(Contest::Table, Contest::Id),
+                            .to(Contest::Table, Contest::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(UserContest::UserId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-pivot-user-contest")
                             .from(UserContest::Table, UserContest::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
                         ColumnDef::new(UserContest::Score)
@@ -622,14 +636,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-chat-user")
                             .from(Chat::Table, Chat::UserId)
-                            .to(User::Table, User::Id),
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(Chat::ProblemId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-chat-problem")
                             .from(Chat::Table, Chat::ProblemId)
-                            .to(Problem::Table, Problem::Id),
+                            .to(Problem::Table, Problem::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
                         ColumnDef::new(Chat::CreateAt)
