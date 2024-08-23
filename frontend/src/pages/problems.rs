@@ -44,16 +44,16 @@ pub fn Problems() -> impl IntoView {
 
     let info = Signal::derive(move || {
         params_map.with(|map| lp_req::Create {
-            order: map.get_query_with_default(order).into(),
+            order: map.get_key_with_default(order).into(),
             query: Some(lp_req::Query {
                 contest_id: None,
-                sort_by: map.get_query(sort).map(|v| v.into()),
-                text: map.get_query(text),
+                sort_by: map.get_key(sort).map(|v| v.into()),
+                text: map.get_key(text),
             }),
         })
     });
 
-    let page_value = params_map.use_query_with_default(page);
+    let page_value = params_map.use_key_with_default(page);
 
     let query_result = problem_query.query(move || (page_value(), info()));
     let table = move || {
@@ -70,10 +70,10 @@ pub fn Problems() -> impl IntoView {
         e.prevent_default();
         let mut map = params_map.get_untracked();
         if search.is_empty() {
-            map.set_query(text, None);
+            map.set_key(text, None);
         } else {
-            map.set_query(text, Some(search));
-            map.set_query(page, None);
+            map.set_key(text, Some(search));
+            map.set_key(page, None);
         }
 
         navigate(

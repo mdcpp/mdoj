@@ -22,7 +22,7 @@ pub fn PaginateNavbar(
 ) -> impl IntoView {
     let left_half = size / 2;
     let right_half = size - left_half;
-    let page_index = use_query_map().use_query_with_default(page);
+    let page_index = use_query_map().use_key_with_default(page);
 
     view! {
         <nav class="grid grid-flow-col auto-cols-max gap-1 text-center">
@@ -71,8 +71,8 @@ fn PaginateNavbarButton(
 ) -> impl IntoView {
     let query_map = use_query_map();
     let href =
-        query_map.with_query_map(move |map| map.set_query(page, Some(i())));
-    let page = query_map.use_query_with_default(page);
+        query_map.with_key_map(move |map| map.set_key(page, Some(i())));
+    let page = query_map.use_key_with_default(page);
     let disabled = create_memo(move |_| page() == i());
     view! {
         <A

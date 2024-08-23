@@ -13,7 +13,7 @@ pub fn PaginateTable<const N: usize, S, H>(
     #[prop(into)] order: ParamsMapKey<GrpcEnum<grpc::Order>>,
 ) -> impl IntoView
 where
-    S: QueryType + 'static,
+    S: ParamsMapValue + 'static,
     H: ToHref + 'static,
 {
     let query_map = use_query_map();
@@ -24,16 +24,16 @@ where
                 return;
             };
             let mut query_map = query_map.get_untracked();
-            if s == query_map.get_query_with_default(sort) {
-                let toggle_order = match query_map.get_query_with_default(order)
+            if s == query_map.get_key_with_default(sort) {
+                let toggle_order = match query_map.get_key_with_default(order)
                 {
                     grpc::Order::Ascend => grpc::Order::Descend,
                     grpc::Order::Descend => grpc::Order::Ascend,
                 };
-                query_map.set_query(order, Some(toggle_order));
+                query_map.set_key(order, Some(toggle_order));
             } else {
-                query_map.set_query(order, None);
-                query_map.set_query(sort, Some(s));
+                query_map.set_key(order, None);
+                query_map.set_key(sort, Some(s));
             }
             navigate(
                 &query_map.to_url(),
