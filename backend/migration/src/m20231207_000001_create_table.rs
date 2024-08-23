@@ -67,7 +67,7 @@ enum Education {
     Content,
 }
 #[derive(Iden)]
-enum Problem {
+pub enum Problem {
     Table,
     Id,
     UserId,
@@ -178,6 +178,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(Announcement::Public)
                             .boolean()
+                            .not_null()
                             .default(false),
                     )
                     .col(

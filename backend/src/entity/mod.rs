@@ -8,6 +8,8 @@ pub mod contest;
 pub mod education;
 pub mod problem;
 pub mod submit;
+pub mod tag;
+pub mod tag_problem;
 pub mod testcase;
 pub mod token;
 pub mod user;

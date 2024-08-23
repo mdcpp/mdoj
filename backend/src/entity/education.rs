@@ -43,13 +43,13 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::problem::Entity> for Entity {
+impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Problem.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }
@@ -57,7 +57,7 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, perm) = auth.assume_login()?;
         Ok(match perm {

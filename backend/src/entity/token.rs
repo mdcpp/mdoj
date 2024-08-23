@@ -29,7 +29,7 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }
@@ -37,7 +37,7 @@ impl Related<super::user::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         let (user_id, role) = auth.assume_login()?;
         Ok(match role {
@@ -94,7 +94,7 @@ impl SortSource<Model> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         Column::Expiry
     }
-    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+    fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {
         data.to_string()
     }
     fn save_val(data: &mut Self::Data, model: &Model) {

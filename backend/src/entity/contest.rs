@@ -92,37 +92,37 @@ pub enum Relation {
     Hoster,
 }
 
-impl Related<super::announcement::Entity> for Entity {
+impl Related<announcement::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Announcement.def()
     }
 }
 
-impl Related<super::user_contest::Entity> for Entity {
+impl Related<user_contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserContest.def()
     }
 }
 
-impl Related<super::problem::Entity> for Entity {
+impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Problem.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_contest::Relation::User.def()
+        user_contest::Relation::User.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_contest::Relation::Contest.def().rev())
+        Some(user_contest::Relation::Contest.def().rev())
     }
 }
 
 impl ActiveModelBehavior for ActiveModel {}
 
 #[tonic::async_trait]
-impl super::ParentalTrait<IdModel> for Entity {
+impl ParentalTrait<IdModel> for Entity {
     #[instrument(skip_all, level = "info")]
     async fn related_read_by_id(
         auth: &Auth,
@@ -168,7 +168,7 @@ impl super::ParentalTrait<IdModel> for Entity {
     }
 }
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         Ok(match auth.perm() {
             RoleLv::Guest => query.filter(Column::Public.eq(true)),

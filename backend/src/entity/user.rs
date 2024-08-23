@@ -69,54 +69,54 @@ pub enum Relation {
     PublicProblem,
 }
 
-impl Related<super::announcement::Entity> for Entity {
+impl Related<announcement::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Announcement.def()
     }
 }
 
-impl Related<super::education::Entity> for Entity {
+impl Related<education::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Education.def()
     }
 }
 
-impl Related<super::problem::Entity> for Entity {
+impl Related<problem::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Problem.def()
     }
 }
 
-impl Related<super::submit::Entity> for Entity {
+impl Related<submit::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Submit.def()
     }
 }
 
-impl Related<super::testcase::Entity> for Entity {
+impl Related<testcase::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Test.def()
     }
 }
 
-impl Related<super::token::Entity> for Entity {
+impl Related<token::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Token.def()
     }
 }
 
-impl Related<super::user_contest::Entity> for Entity {
+impl Related<user_contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserContest.def()
     }
 }
 
-impl Related<super::contest::Entity> for Entity {
+impl Related<contest::Entity> for Entity {
     fn to() -> RelationDef {
-        super::user_contest::Relation::Contest.def()
+        user_contest::Relation::Contest.def()
     }
     fn via() -> Option<RelationDef> {
-        Some(super::user_contest::Relation::User.def().rev())
+        Some(user_contest::Relation::User.def().rev())
     }
 }
 
@@ -138,7 +138,7 @@ impl Linked for UserToProblem {
     }
 }
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
         Ok(query)
@@ -225,7 +225,7 @@ impl SortSource<Model> for ColPagerTrait {
             Sort::CreateDate => Column::CreateAt,
         }
     }
-    fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
+    fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {
         &data.1
     }
     fn save_val(data: &mut Self::Data, model: &Model) {
@@ -260,7 +260,7 @@ fn to_order(raw: bool) -> sea_query::Order {
 }
 
 #[async_trait]
-impl util::paginator::PaginateRaw for ParentPaginator {
+impl PaginateRaw for ParentPaginator {
     type Source = ParentSource;
     type Reflect = Model;
 

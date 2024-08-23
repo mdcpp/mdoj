@@ -97,6 +97,8 @@ pub enum Relation {
     Chat,
     #[sea_orm(has_many = "super::testcase::Entity")]
     Test,
+    #[sea_orm(has_many = "super::tag_problem::Entity")]
+    TagProblem,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
@@ -146,6 +148,15 @@ impl Related<super::user::Entity> for Entity {
 impl Related<super::contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Contest.def()
+    }
+}
+
+impl Related<tag::Entity> for Entity {
+    fn to() -> RelationDef {
+        tag_problem::Relation::Tag.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(tag_problem::Relation::Problem.def().rev())
     }
 }
 
