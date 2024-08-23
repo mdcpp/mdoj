@@ -1,9 +1,13 @@
 use leptos::*;
 use leptos_router::*;
 use leptos_use::*;
-use problem::ProblemRouter;
 
-use crate::{errors::NotFound, grpc, pages::*, session::*};
+use super::{
+    about::About, contests::Contests, create, home::Home, login::Login,
+    problem::ProblemRouter, problems::Problems, rank::Rank,
+    submission::Submission,
+};
+use crate::{components::*, utils::*};
 
 /// |Permission|Root|Admin|SuperUser|User|Guest
 /// |:-|:-:|:-:|:-:|:-:|:-:|
@@ -29,26 +33,48 @@ pub fn Pages() -> impl IntoView {
         })
     };
 
+    let show_footer = move || {
+        !use_location()
+            .pathname
+            .with(|path| path.starts_with("/problem/"))
+    };
+    let page_wrapper = move || {
+        view! {
+            <Navbar />
+            <Outlet />
+            <Show when=show_footer fallback=|| ()>
+                <Footer />
+            </Show>
+        }
+    };
+
     view! {
         <Routes>
-            <Route path="" view=Home/>
-            <Route path="/problems" view=Problems/>
-            <Route path="/submissions" view=Submission/>
-            <Route path="/contests" view=Contests/>
-            <Route path="/about" view=About/>
-            <Route path="/rank" view=Rank/>
-            <ProblemRouter/>
+            <Route path="" view=page_wrapper>
+                <Route path="" view=Home />
+                <Route path="/problems" view=Problems ssr=SsrMode::Async />
+                <Route path="/submissions" view=Submission />
+                <Route path="/contests" view=Contests />
+                <Route path="/about" view=About />
+                <Route path="/rank" view=Rank />
+                <ProblemRouter />
 
-            <ProtectedRoute path="/login" redirect_path="/" condition=is_none(token) view=Login/>
-            <ProtectedRoute
-                path="/create/problem"
-                redirect_path="/login"
-                condition=can_create_problem_or_contest
-                view=create::Problem
-            />
+                <ProtectedRoute
+                    path="/login"
+                    redirect_path="/"
+                    condition=is_none(token)
+                    view=Login
+                />
+                <ProtectedRoute
+                    path="/create/problem"
+                    redirect_path="/login"
+                    condition=can_create_problem_or_contest
+                    view=create::Problem
+                />
 
-            // Fallback
-            <Route path="/*any" view=NotFound/>
+                // Fallback
+                <Route path="/*any" view=NotFound />
+            </Route>
         </Routes>
     }
 }

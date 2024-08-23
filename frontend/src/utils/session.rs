@@ -19,7 +19,10 @@ pub fn use_token_info(
 ) -> (Signal<Option<TokenInfo>>, WriteSignal<Option<TokenInfo>>) {
     use_cookie_with_options::<_, JsonCodec>(
         "token_info",
-        UseCookieOptions::default().max_age(60 * 60 * 1000),
+        UseCookieOptions::default()
+            .max_age(60 * 60 * 1000)
+            .path("/")
+            .same_site(cookie::SameSite::Strict),
     )
 }
 
@@ -30,5 +33,5 @@ pub fn use_token() -> Signal<Option<String>> {
 
 pub fn use_role() -> Signal<Option<Role>> {
     let (user_info, _) = use_token_info();
-    (move || user_info().as_ref().map(|s| s.role.clone())).into_signal()
+    (move || user_info().as_ref().map(|s| s.role)).into_signal()
 }

@@ -12,6 +12,5 @@ pub fn Home() -> impl IntoView {
             ToastVariant::Error,
             view! { "This is a error message............." }.into_view(),
         )>Click Me</Button>
-        <Footer/>
     }
 }

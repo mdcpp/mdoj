@@ -105,7 +105,7 @@ fn Toast(
         is_pending,
         ..
     } = {
-        let close = close.clone();
+        let close = close;
         use_timeout_fn(move |_| close(), 4.0 * 1000.0)
     };
 
@@ -145,8 +145,8 @@ fn Toast(
                 variant
             )>
                 <div class="text-sm">{children()}</div>
-                <button class="w-6 h-6 pl-2" on:click=move |_| close()>
-                    <Icon icon=icondata::AiCloseOutlined/>
+                <button class="size-6 pl-2" on:click=move |_| close()>
+                    <Icon icon=icondata::AiCloseOutlined />
                 </button>
             </div>
             <style>{STYLE_SHEET}</style>

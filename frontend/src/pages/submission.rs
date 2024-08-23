@@ -1,11 +1,8 @@
 use leptos::*;
 
-use crate::components::*;
+// use crate::components::*;
 
 #[component]
 pub fn Submission() -> impl IntoView {
-    view! {
-        <h1>Submission</h1>
-        <Footer/>
-    }
+    view! { <h1>Submission</h1> }
 }

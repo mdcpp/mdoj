@@ -1,11 +1,10 @@
-use std::rc::Rc;
-#[cfg(feature = "ssr")]
 use std::sync::OnceLock;
 
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::*;
+#[cfg(feature = "ssr")]
+use super::error::*;
 
 #[cfg(feature = "ssr")]
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -78,7 +77,7 @@ fn default_extension_language_mappings() -> Vec<ExtensionLanguageMapping> {
 }
 
 fn default_page_size() -> usize {
-    50
+    20
 }
 
 impl Default for FrontendConfig {
@@ -92,23 +91,19 @@ impl Default for FrontendConfig {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, Default)]
 pub struct BackendConfig {
     #[serde(default)]
     pub trust_xff: bool,
 }
 
-impl Default for BackendConfig {
-    fn default() -> Self {
-        Self { trust_xff: false }
-    }
-}
-
 #[cfg(feature = "ssr")]
 pub async fn init_config() -> Result<()> {
     let config = load_config().await?;
-    let _ = CONFIG.set(config);
-    Ok(())
+    CONFIG.set(config).map_err(|_| Error {
+        kind: ErrorKind::Internal,
+        context: "Cannot init config, already set".into(),
+    })
 }
 
 #[cfg(feature = "ssr")]
@@ -149,8 +144,11 @@ pub fn frontend_config() -> &'static FrontendConfig {
 }
 
 #[cfg(not(feature = "ssr"))]
-pub fn frontend_config() -> Rc<FrontendConfig> {
-    expect_context()
+static FRONTEND_CONFIG: OnceLock<FrontendConfig> = OnceLock::new();
+
+#[cfg(not(feature = "ssr"))]
+pub fn frontend_config() -> &'static FrontendConfig {
+    FRONTEND_CONFIG.get().expect("config is not init!")
 }
 
 #[cfg(feature = "ssr")]
@@ -166,7 +164,6 @@ pub fn backend_config() -> &'static BackendConfig {
 pub fn ProvideConfig(children: Children) -> impl IntoView {
     let json =
         serde_json::to_string(frontend_config()).expect("Cannot to json");
-    provide_context(Rc::new(frontend_config().to_owned()));
     view! {
         <script id="config" type="application/json">
             {json}
@@ -185,7 +182,11 @@ pub fn ProvideConfig(children: Children) -> impl IntoView {
         .unwrap();
 
     let config: FrontendConfig = serde_json::from_str(&json).unwrap();
-    provide_context(Rc::new(config));
+    FRONTEND_CONFIG
+        .set(config)
+        .map_err(|_| "Cannot init config, already set".to_owned())
+        .unwrap();
+
     view! {
         <script id="config" type="application/json">
             {json}

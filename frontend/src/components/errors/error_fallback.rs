@@ -1,6 +1,7 @@
 use leptos::*;
 
-use super::{Error, ErrorKind, InternalServerError, NotFound};
+use super::*;
+use crate::utils::*;
 
 #[component]
 pub fn ErrorFallback(children: Children) -> impl IntoView {
@@ -12,13 +13,13 @@ fn fallback(errors: RwSignal<Errors>) -> impl IntoView {
         errors().into_iter().next().map(|(_, err)| {
             let err: Error = err.into();
             match err.kind {
-                ErrorKind::NotFound => view! { <NotFound/> }.into_view(),
+                ErrorKind::NotFound => view! { <NotFound /> }.into_view(),
                 ErrorKind::RateLimit => todo!(),
                 ErrorKind::Unauthenticated => todo!(),
-                ErrorKind::OutOfRange => view! { <NotFound/> }.into_view(),
+                ErrorKind::OutOfRange => view! { <NotFound /> }.into_view(),
                 ErrorKind::Network => todo!(),
                 ErrorKind::Internal => {
-                    view! { <InternalServerError/> }.into_view()
+                    view! { <InternalServerError /> }.into_view()
                 }
                 ErrorKind::PermissionDenied => todo!(),
                 ErrorKind::Browser => todo!(),

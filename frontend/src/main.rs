@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // use frontend::{app::*, config};
     use frontend::{
         app::*,
-        config::{backend_config, init_config},
+        utils::config::{backend_config, init_config},
     };
     use leptos::*;
     use leptos_actix::{generate_route_list, LeptosRoutes};
@@ -16,9 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     let conf = get_configuration(None).await?;
     let addr = conf.leptos_options.site_addr;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(App);
+    let routes =
+        leptos_query::with_query_suppression(|| generate_route_list(App));
     println!("listening on http://{}", &addr);
-    init_config().await?;
 
     HttpServer::new(move || {
         let leptos_options: &LeptosOptions = &conf.leptos_options;
