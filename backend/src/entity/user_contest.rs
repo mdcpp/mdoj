@@ -1,3 +1,4 @@
+use super::*;
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
@@ -30,13 +31,13 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::contest::Entity> for Entity {
+impl Related<contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Contest.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }

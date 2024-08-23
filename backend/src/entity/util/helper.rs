@@ -142,7 +142,7 @@ impl<PK: ColumnTrait, E: EntityTrait> Paginate<E> for PaginatePk<PK> {
 ///
 /// It's fast and cost `O(max(n,max))` to compute, but inaccurate if there is more than `max`
 ///
-/// It actually build sql query like this
+/// It actually builds sql queries like this
 ///
 /// ```sql
 /// SELECT CASE
