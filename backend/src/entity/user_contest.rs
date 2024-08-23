@@ -18,7 +18,7 @@ pub enum Relation {
         from = "Column::ContestId",
         to = "super::contest::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Contest,
     #[sea_orm(
@@ -26,7 +26,7 @@ pub enum Relation {
         from = "Column::UserId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     User,
 }

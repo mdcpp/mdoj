@@ -65,14 +65,16 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk-pivot-problem-tag")
                             .from(TagProblem::Table, TagProblem::ProblemId)
-                            .to(Problem::Table, Problem::Id),
+                            .to(Problem::Table, Problem::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(TagProblem::TagId).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-pivot-tag-problem")
                             .from(TagProblem::Table, TagProblem::TagId)
-                            .to(Tag::Table, Tag::Id),
+                            .to(Tag::Table, Tag::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

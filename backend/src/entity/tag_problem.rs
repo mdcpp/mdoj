@@ -18,7 +18,7 @@ pub enum Relation {
         from = "Column::ProblemId",
         to = "super::problem::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Problem,
     #[sea_orm(
@@ -26,7 +26,7 @@ pub enum Relation {
         from = "Column::TagId",
         to = "super::tag::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Tag,
 }

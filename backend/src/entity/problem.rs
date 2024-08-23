@@ -89,30 +89,32 @@ impl IdModel {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::chat::Entity")]
+    Chat,
+    #[sea_orm(
+        belongs_to = "super::contest::Entity",
+        from = "Column::ContestId",
+        to = "super::contest::Column::Id",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Contest,
     #[sea_orm(has_many = "super::education::Entity")]
     Education,
     #[sea_orm(has_many = "super::submit::Entity")]
     Submit,
-    #[sea_orm(has_many = "super::chat::Entity")]
-    Chat,
-    #[sea_orm(has_many = "super::testcase::Entity")]
-    Test,
     #[sea_orm(has_many = "super::tag_problem::Entity")]
     TagProblem,
+    #[sea_orm(has_many = "super::testcase::Entity")]
+    Testcase,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::UserId",
         to = "super::user::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "SetNull"
     )]
     User,
-    #[sea_orm(
-        belongs_to = "super::contest::Entity",
-        from = "Column::ContestId",
-        to = "super::contest::Column::Id"
-    )]
-    Contest,
 }
 
 impl Related<super::education::Entity> for Entity {
@@ -135,7 +137,7 @@ impl Related<super::chat::Entity> for Entity {
 
 impl Related<super::testcase::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Test.def()
+        Relation::Testcase.def()
     }
 }
 
