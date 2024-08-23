@@ -238,6 +238,8 @@ impl Contest for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.get_or_insert(|req| async move {
+            let txn = self.db.begin().await?;
+
             let result = Entity::delete_by_id(req.id)
                 .with_auth(&auth)
                 .write()?
@@ -245,6 +247,15 @@ impl Contest for ArcServer {
                 .instrument(info_span!("remove").or_current())
                 .await
                 .map_err(Into::<Error>::into)?;
+
+            problem::Entity::update_many()
+                .col_expr(problem::Column::ContestId, Expr::value(Value::Int(None)))
+                .filter(crate::entity::testcase::Column::ProblemId.eq(req.id))
+                .exec(&txn)
+                .instrument(info_span!("remove_child"))
+                .await?;
+
+            txn.commit().await.map_err(|_| Error::Retry)?;
 
             if result.rows_affected == 0 {
                 return Err(Error::NotInDB);

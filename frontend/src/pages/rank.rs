@@ -1,11 +1,8 @@
 use leptos::*;
 
-use crate::components::*;
+// use crate::components::*;
 
 #[component]
 pub fn Rank() -> impl IntoView {
-    view! {
-        <h1>Rank</h1>
-        <Footer/>
-    }
+    view! { <h1>Rank</h1> }
 }

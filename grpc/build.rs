@@ -25,6 +25,14 @@ fn main() {
             ".",
             r#"#[cfg_attr(feature = "extra_trait", derive(derive_more::IsVariant, derive_more::Unwrap))]"#,
         )
+        .message_attribute(
+            "Create",
+            r#"#[cfg_attr(feature = "extra_trait", derive(Hash))]"#,
+        )
+        .message_attribute(
+            "Query",
+            r#"#[cfg_attr(feature = "extra_trait", derive(Hash))]"#,
+        )
         .extern_path(".google.protobuf.Any", "::prost_wkt_types::Any")
         .extern_path(".google.protobuf.Timestamp", "::prost_wkt_types::Timestamp")
         .extern_path(".google.protobuf.Value", "::prost_wkt_types::Value")
