@@ -79,7 +79,6 @@ pub enum Problem {
     Time,
     Difficulty,
     Public,
-    Tags,
     Title,
     Content,
     CreateAt,
@@ -334,7 +333,7 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::SetNull),
                     )
-                    .col(ColumnDef::new(Problem::ContestId).integer().not_null())
+                    .col(ColumnDef::new(Problem::ContestId).integer().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-problem-contest")
@@ -374,7 +373,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Problem::Tags).text().not_null().default(""))
                     .col(ColumnDef::new(Problem::Title).text().not_null())
                     .col(
                         ColumnDef::new(Problem::Content)
@@ -658,16 +656,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx-problem-text")
-                    .table(Problem::Table)
-                    .col(Problem::Tags)
-                    .col(Problem::Title)
-                    .to_owned(),
-            )
-            .await?;
         manager
             .create_index(
                 Index::create()
