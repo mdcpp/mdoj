@@ -49,8 +49,7 @@ impl Filter for Entity {
         Self::read_filter(query, auth)
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        Some(model.id)==auth.user_id()
-        || auth.perm() == RoleLv::Root
+        Some(model.id) == auth.user_id() || auth.perm() == RoleLv::Root
     }
 }
 
