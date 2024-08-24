@@ -20,6 +20,8 @@ where
     Self: EntityTrait,
 {
     /// shortcut for empty `find` with read filter applied
+    #[allow(dead_code)]
+    // FIXME: this function is partially unused
     fn read_find(auth: &Auth) -> Result<Select<Self>, Error> {
         Self::read_filter(Self::find(), auth)
     }
@@ -45,7 +47,7 @@ where
     {
         Self::write_filter(Self::find_by_id(id), auth)
     }
-    fn writable(model: &Self::Model, auth: &Auth) -> bool {
+    fn writable(_: &Self::Model, _: &Auth) -> bool {
         false
     }
 }
@@ -58,7 +60,9 @@ macro_rules! impl_filter_with_auth {
         paste::paste! {
             pub trait [<FilterAuth $t Trait>]{
                 type Entity: EntityTrait;
+                #[allow(dead_code)]
                 fn read(&self)->Result<$t<Self::Entity>, Error>;
+                #[allow(dead_code)]
                 fn write(&self)->Result<$t<Self::Entity>,Error>;
             }
 

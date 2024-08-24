@@ -7,8 +7,6 @@ use crate::sandbox::{Cpu, Memory, Stat};
 
 use self::raw::Raw;
 
-mod compile;
-mod judge;
 mod raw;
 
 /// multiplier for cpu limit

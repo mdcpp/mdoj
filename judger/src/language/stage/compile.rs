@@ -11,9 +11,9 @@ use super::Runner;
 
 /// First stage, compile the source code
 ///
-/// Note that by compile, we doesn't mean the traditional compile process
+/// Note that by compiles, we don't mean the traditional compile process
 /// it could be any process that prepare the code to be ready for execution,
-/// or do nothing(iterpreted language)
+/// or do nothing(interpreted language)
 pub struct Compiler {
     spec: Arc<Spec>,
     handle: MountHandle,

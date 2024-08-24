@@ -86,7 +86,7 @@ impl From<Error> for Status {
                 tracing::trace!("database_notfound");
                 Status::out_of_range("")
             }
-            Error::InvaildUUID(err) => {
+            Error::InvaildUUID(_) => {
                 Status::invalid_argument("Invaild request_id(should be a client generated UUIDv4)")
             }
             Error::Unreachable(x) => report_internal!(error, "{}", x),

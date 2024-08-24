@@ -74,12 +74,36 @@ macro_rules! list_paginator_request {
     };
 }
 
-list_paginator_request!(Problem);
 list_paginator_request!(Announcement);
 list_paginator_request!(Contest);
 list_paginator_request!(Education);
 list_paginator_request!(User);
 
+impl BoundCheck for ListProblemRequest {
+    fn check(&self) -> bool {
+        if self.size == 0
+            || self.size >= i32::MAX as u64
+            || self.offset.unsigned_abs() >= i32::MAX as u64
+        {
+            true
+        } else if let Some(x) = &self.request {
+            (match x {
+                list_problem_request::Request::Create(x) => x
+                    .query
+                    .as_ref()
+                    .map(|x| {
+                        x.tags.len() * 20
+                            + x.tags.iter().map(String::len).sum::<usize>()
+                            + x.text.as_ref().map(String::len).unwrap_or_default()
+                    })
+                    .unwrap_or_default(),
+                list_problem_request::Request::Paginator(x) => x.len(),
+            } > 512)
+        } else {
+            false
+        }
+    }
+}
 impl BoundCheck for ListTokenRequest {
     fn check(&self) -> bool {
         if self.size == 0
@@ -192,7 +216,7 @@ impl BoundCheck for UpdateProblemRequest {
             .map(String::len)
             .unwrap_or_default()
             > 128
-            || self.info.tags.as_ref().map(String::len).unwrap_or_default() > 1024
+            || self.info.tags.iter().map(String::len).sum::<usize>() > 1024
             || self
                 .info
                 .content

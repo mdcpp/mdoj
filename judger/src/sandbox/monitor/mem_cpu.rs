@@ -110,8 +110,7 @@ impl super::Monitor for Monitor {
     ///
     /// This method is cancellation safe
     async fn wait_exhaust(&mut self) -> MonitorKind {
-        let reason = self.monitor_task.as_mut().unwrap().await.unwrap();
-        reason
+        self.monitor_task.as_mut().unwrap().await.unwrap()
     }
     fn poll_exhaust(&mut self) -> Option<MonitorKind> {
         let wrapper = wrapper::CgroupWrapper::new(&self.cgroup);

@@ -1,8 +1,8 @@
 use super::*;
 use grpc::backend::problem_server::*;
-use sea_orm::sea_query::Expr;
+use std::sync::Arc;
 
-use crate::entity::{contest, problem::Paginator, problem::*, testcase};
+use crate::entity::{contest, problem::Paginator, problem::*};
 
 impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {
@@ -10,7 +10,7 @@ impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
         let writable = Entity::writable(&model, value.0);
         ProblemFullInfo {
             content: model.content.clone(),
-            tags: model.tags.clone(),
+            tags: vec![],
             difficulty: model.difficulty,
             public: model.public,
             time: model.time as u64,
@@ -64,6 +64,8 @@ impl Problem for ArcServer {
                 let start_from_end = create.order == Order::Descend as i32;
                 if let Some(text) = query.text {
                     Paginator::new_text(text, start_from_end)
+                } else if !query.tags.is_empty() {
+                    Paginator::new_tag(query.tags.into_iter(), start_from_end)
                 } else if let Some(sort) = query.sort_by {
                     Paginator::new_sort(sort.try_into().unwrap_or_default(), start_from_end)
                 } else if let Some(parent) = query.contest_id {
@@ -129,16 +131,31 @@ impl Problem for ArcServer {
             model.user_id = ActiveValue::Set(user_id);
 
             fill_active_model!(
-                model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
+                model, req.info, title, difficulty, time, memory, content, match_rule, order
             );
 
+            let txn = self
+                .db
+                .begin_with_config(Some(IsolationLevel::ReadCommitted), None)
+                .await?;
+
             let model = model
-                .save(self.db.deref())
+                .save(&txn)
                 .instrument(info_span!("save").or_current())
                 .await
                 .map_err(Into::<Error>::into)?;
 
-            let id = *model.id.as_ref();
+            let txn = Arc::new(txn);
+
+            let id = model.id.unwrap();
+
+            insert_tag(txn.clone(), req.info.tags.into_iter(), id).await?;
+
+            Arc::try_unwrap(txn)
+                .unwrap()
+                .commit()
+                .await
+                .map_err(|_| Error::Retry)?;
 
             info!(count.problem = 1, id = id);
 
@@ -170,8 +187,9 @@ impl Problem for ArcServer {
                 .into_active_model();
 
             fill_exist_active_model!(
-                model, req.info, title, difficulty, time, memory, tags, content, match_rule, order
+                model, req.info, title, difficulty, time, memory, content, match_rule, order
             );
+            // FIXME: fill tag
 
             model
                 .update(self.db.deref())
@@ -236,7 +254,7 @@ impl Problem for ArcServer {
             let contest: contest::IdModel = contest.ok_or(Error::NotInDB)?;
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
-            if let ActiveValue::Set(Some(v)) = model.contest_id {
+            if let ActiveValue::Set(Some(_)) = model.contest_id {
                 return Err(Error::AlreadyExist("problem already linked"));
             }
 

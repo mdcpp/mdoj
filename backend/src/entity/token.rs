@@ -49,7 +49,7 @@ impl Filter for Entity {
         Self::read_filter(query, auth)
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
-        auth.perm() == RoleLv::Root
+        Some(model.id) == auth.user_id() || auth.perm() == RoleLv::Root
     }
 }
 
@@ -78,8 +78,6 @@ impl PagerData for ColPagerTrait {
 impl Source for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
-    const TYPE_NUMBER: u8 = 8;
-
     async fn filter(
         auth: &Auth,
         _data: &Self::Data,
@@ -91,7 +89,7 @@ impl Source for ColPagerTrait {
 
 #[async_trait]
 impl SortSource<Model> for ColPagerTrait {
-    fn sort_col(data: &Self::Data) -> impl ColumnTrait {
+    fn sort_col(_: &Self::Data) -> impl ColumnTrait {
         Column::Expiry
     }
     fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {

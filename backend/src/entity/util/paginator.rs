@@ -65,7 +65,6 @@ where
 {
     const ID: <Self::Entity as EntityTrait>::Column;
     type Entity: EntityTrait;
-    const TYPE_NUMBER: u8;
     /// filter reconstruction
     async fn filter(
         auth: &Auth,

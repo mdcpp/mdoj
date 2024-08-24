@@ -1,3 +1,4 @@
+use std::collections::btree_map::Entry;
 use std::{
     collections::BTreeMap,
     ffi::{OsStr, OsString},
@@ -110,18 +111,21 @@ impl<V> AdjTable<V> {
     {
         let mut idx: usize = self.get_first().idx;
         for name in path {
-            if self.by_id[idx].children.contains_key(&name) {
-                idx = self.by_id[idx].children[&name];
-            } else {
-                let new_idx = self.by_id.len();
-                self.by_id.push(Node {
-                    parent_idx: idx,
-                    value: default_value(),
-                    children: BTreeMap::new(),
-                });
-                // FIXME!
-                idx = new_idx;
-                self.by_id[idx].children.insert(name, new_idx);
+            match self.by_id[idx].children.entry(name.clone()) {
+                Entry::Vacant(_) => {
+                    let new_idx = self.by_id.len();
+                    self.by_id.push(Node {
+                        parent_idx: idx,
+                        value: default_value(),
+                        children: BTreeMap::new(),
+                    });
+                    // FIXME!
+                    idx = new_idx;
+                    self.by_id[idx].children.insert(name, new_idx);
+                }
+                Entry::Occupied(x) => {
+                    idx = *x.get();
+                }
             }
         }
         NodeWrapperMut { table: self, idx }

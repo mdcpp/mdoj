@@ -28,7 +28,7 @@ impl Judger {
         let input = self.corpse.stdout();
         match mode {
             AssertionMode::SkipSpace => {
-                // skip space and newline, continous space and single space is consider different
+                // skip space and newline, continuous space and single space is consider different
                 let output = output.iter().map(|x| match x {
                     b'\n' | b' ' => b' ',
                     x => *x,
@@ -44,7 +44,7 @@ impl Judger {
                 }
             }
             AssertionMode::SkipContinuousSpace => {
-                // skip space and newline, continous space is consider same
+                // skip space and newline, continuous space is consider same
                 let output = output.iter().map(|x| match x {
                     b'\n' | b' ' => b' ',
                     x => *x,
