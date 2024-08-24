@@ -34,6 +34,7 @@ pub enum ErrorKind {
     Unauthenticated,
     PermissionDenied,
     OutOfRange,
+    ApiNotMatch,
 
     /// runtime error
     Network,
@@ -42,13 +43,16 @@ pub enum ErrorKind {
 
     /// User error
     MalformedUrl,
+
+    /// Other
+    Unimplemented,
 }
 
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ErrorKind::NotFound => write!(f, "Not Found"),
-            ErrorKind::RateLimit => write!(f, ""),
+            ErrorKind::RateLimit => write!(f, "Rate limited"),
             ErrorKind::Unauthenticated => write!(f, "Unauthenticated"),
             ErrorKind::PermissionDenied => write!(f, "Permission Denied"),
             ErrorKind::OutOfRange => write!(f, "Out Of Range"),
@@ -56,6 +60,10 @@ impl Display for ErrorKind {
             ErrorKind::Browser => write!(f, "Browser Error"),
             ErrorKind::Internal => write!(f, "Internal Error"),
             ErrorKind::MalformedUrl => write!(f, "Malformed Url"),
+            ErrorKind::ApiNotMatch => {
+                write!(f, "Cannot call API, please check API version")
+            }
+            ErrorKind::Unimplemented => write!(f, "Unimplemented right now"),
         }
     }
 }
@@ -79,6 +87,8 @@ impl From<tonic::Status> for Error {
             Code::PermissionDenied => ErrorKind::PermissionDenied,
             Code::DeadlineExceeded | Code::Unavailable => ErrorKind::Network,
             Code::OutOfRange => ErrorKind::OutOfRange,
+            // this happened when grpc cannot find the rpc
+            Code::Unimplemented => ErrorKind::ApiNotMatch,
             code => {
                 logging::error!("{code}");
                 ErrorKind::Internal
