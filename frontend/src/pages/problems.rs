@@ -49,6 +49,8 @@ pub fn Problems() -> impl IntoView {
                 contest_id: None,
                 sort_by: map.get_key(sort).map(|v| v.into()),
                 text: map.get_key(text),
+                // TODO: add to search when API finish
+                tags: vec![],
             }),
         })
     });

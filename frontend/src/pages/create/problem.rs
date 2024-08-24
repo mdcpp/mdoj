@@ -55,7 +55,7 @@ pub fn Problem() -> impl IntoView {
             difficulty: difficulty(),
             time: time(),
             memory: memory(),
-            tags: tags(),
+            tags: tags().split_whitespace().map(|s| s.into()).collect(),
             content: editor_ref.with(|e| {
                 e.as_ref().map(|e| e.get_value()).unwrap_or_default()
             }),
