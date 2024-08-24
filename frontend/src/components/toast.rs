@@ -104,10 +104,7 @@ fn Toast(
         stop,
         is_pending,
         ..
-    } = {
-        let close = close;
-        use_timeout_fn(move |_| close(), 4.0 * 1000.0)
-    };
+    } = { use_timeout_fn(move |_| close(), 4.0 * 1000.0) };
 
     let node_ref = create_node_ref::<html::Div>();
     let hover = use_element_hover(node_ref);

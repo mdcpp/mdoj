@@ -57,7 +57,7 @@ where
 
 impl<T: ParamsMapValue> Clone for ParamsMapKey<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
@@ -181,11 +181,8 @@ pub trait ParamsMapExtra {
     where
         T: ParamsMapValue;
 
-    fn set_key<T>(
-        &mut self,
-        query: ParamsMapKey<T>,
-        value: Option<T::Output>,
-    ) where
+    fn set_key<T>(&mut self, query: ParamsMapKey<T>, value: Option<T::Output>)
+    where
         T: ParamsMapValue;
 
     fn to_url(&self) -> String;
@@ -203,8 +200,7 @@ impl ParamsMapExtra for ParamsMap {
     where
         T: ParamsMapValue,
     {
-        self.get_key(query)
-            .unwrap_or_else(move || query.default())
+        self.get_key(query).unwrap_or_else(move || query.default())
     }
 
     fn set_key<T>(&mut self, query: ParamsMapKey<T>, value: Option<T::Output>)

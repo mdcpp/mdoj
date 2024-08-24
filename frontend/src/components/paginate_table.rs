@@ -25,8 +25,7 @@ where
             };
             let mut query_map = query_map.get_untracked();
             if s == query_map.get_key_with_default(sort) {
-                let toggle_order = match query_map.get_key_with_default(order)
-                {
+                let toggle_order = match query_map.get_key_with_default(order) {
                     grpc::Order::Ascend => grpc::Order::Descend,
                     grpc::Order::Descend => grpc::Order::Ascend,
                 };

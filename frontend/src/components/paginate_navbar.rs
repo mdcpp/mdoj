@@ -70,8 +70,7 @@ fn PaginateNavbarButton(
     #[prop(into)] page: ParamsMapKey<u32>,
 ) -> impl IntoView {
     let query_map = use_query_map();
-    let href =
-        query_map.with_key_map(move |map| map.set_key(page, Some(i())));
+    let href = query_map.with_key_map(move |map| map.set_key(page, Some(i())));
     let page = query_map.use_key_with_default(page);
     let disabled = create_memo(move |_| page() == i());
     view! {
