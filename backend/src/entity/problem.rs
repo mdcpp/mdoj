@@ -374,7 +374,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
 pub struct ColPagerTrait;
 
