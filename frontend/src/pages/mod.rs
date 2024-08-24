@@ -8,4 +8,5 @@ mod problem;
 mod problems;
 mod rank;
 mod submission;
+mod contest;
 pub use pages::*;

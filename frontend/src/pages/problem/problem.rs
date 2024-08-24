@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_icons::*;
 use leptos_router::*;
 
-use super::{ProblemContent, ProblemEditor};
+use super::*;
 use crate::{components::*, utils::*};
 
 #[derive(Params, PartialEq, Clone, Copy)]
@@ -14,7 +14,10 @@ struct ProblemParams {
 pub fn ProblemRouter() -> impl IntoView {
     view! {
         <Route path="/problem/:id" view=Problem>
-            <Route path="" view=Content />
+            <Route path="" view=Content ssr=SsrMode::Async />
+            <Route path="/education" view=ProblemEducation ssr=SsrMode::Async />
+            <Route path="/discussion" view=ProblemDiscussion />
+            <Route path="/submission" view=ProblemSubmission />
         </Route>
     }
 }
@@ -68,7 +71,7 @@ fn Problem() -> impl IntoView {
 #[component]
 fn VerticalNavbar() -> impl IntoView {
     view! {
-        <ul class="grid auto-rows-min gap-y-4 p-2 my-auto bg-black-900">
+        <ul class="grid auto-rows-min gap-y-8 p-2 my-auto bg-black-900">
             <VerticalNavbarButton icon=icondata::BsBook href="">
                 Problem
             </VerticalNavbarButton>

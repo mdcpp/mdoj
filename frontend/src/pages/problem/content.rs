@@ -10,13 +10,6 @@ pub fn ProblemContent(
 ) -> impl IntoView {
     view! {
         <div class=tw_join!("p-3 rounded h-full w-full flex flex-col", class)>
-            <ul class="flex flex-row space-x-4 p-4 pt-0 mb-2 border-b-2 border-accent">
-                <li>Problem</li>
-                <li>Solution</li>
-                <li>Discussion</li>
-                <li>Submission</li>
-            </ul>
-
             <h1 class="text-2xl my-2">{full_info.info.title}</h1>
 
             <div class="flex-grow relative overflow-y-auto bg-black-900">

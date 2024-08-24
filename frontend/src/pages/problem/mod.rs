@@ -1,7 +1,12 @@
 mod content;
+mod discussion;
 mod editor;
+mod education;
 mod problem;
-
+mod submission;
 pub use content::ProblemContent;
+pub use discussion::ProblemDiscussion;
 pub use editor::ProblemEditor;
+pub use education::ProblemEducation;
 pub use problem::ProblemRouter;
+pub use submission::ProblemSubmission;

@@ -3,8 +3,8 @@ use leptos_router::*;
 use leptos_use::*;
 
 use super::{
-    about::About, contests::Contests, create, home::Home, login::Login,
-    problem::ProblemRouter, problems::Problems, rank::Rank,
+    about::About, contest::Contest, contests::Contests, create, home::Home,
+    login::Login, problem::ProblemRouter, problems::Problems, rank::Rank,
     submission::Submission,
 };
 use crate::{components::*, utils::*};
@@ -55,6 +55,7 @@ pub fn Pages() -> impl IntoView {
                 <Route path="/problems" view=Problems ssr=SsrMode::Async />
                 <Route path="/submissions" view=Submission />
                 <Route path="/contests" view=Contests />
+                <Route path="/contest" view=Contest />
                 <Route path="/about" view=About />
                 <Route path="/rank" view=Rank />
                 <ProblemRouter />

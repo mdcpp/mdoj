@@ -3,6 +3,6 @@ use leptos::*;
 use crate::components::*;
 
 #[component]
-pub fn Contests() -> impl IntoView {
+pub fn ProblemEducation() -> impl IntoView {
     view! { <Unimplemented /> }
 }
