@@ -276,7 +276,7 @@ impl Announcement for ArcServer {
 
             contest.ok_or(Error::NotInDB)?;
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
-            if let ActiveValue::Set(Some(v)) = model.contest_id {
+            if let ActiveValue::Set(Some(_)) = model.contest_id {
                 return Err(Error::AlreadyExist("announcement already linked"));
             }
 

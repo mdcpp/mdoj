@@ -316,8 +316,6 @@ impl Reflect<Entity> for PartialModel {
     }
 }
 
-struct PagerTrait;
-
 pub struct TextPagerTrait;
 
 impl PagerData for TextPagerTrait {
@@ -339,7 +337,7 @@ impl Source for TextPagerTrait {
 
 type TextPaginator = UninitPaginator<PrimaryKeyPaginator<TextPagerTrait, PartialModel>>;
 
-struct ParentPagerTrait;
+pub struct ParentPagerTrait;
 
 impl PagerData for ParentPagerTrait {
     type Data = (i32, f32);
@@ -439,7 +437,7 @@ impl Source for TagPagerTrait {
     async fn filter(
         auth: &Auth,
         data: &Self::Data,
-        db: &DatabaseConnection,
+        _: &DatabaseConnection,
     ) -> Result<Select<Self::Entity>, Error> {
         let len = data.len();
         let query = problem::Entity::find()

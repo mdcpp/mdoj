@@ -92,6 +92,7 @@ impl From<Code> for SubmitStatus {
     }
 }
 
+#[allow(dead_code)]
 pub struct PlaygroundPayload {
     pub input: Vec<u8>,
     pub code: Vec<u8>,
