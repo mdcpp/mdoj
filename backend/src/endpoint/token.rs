@@ -8,8 +8,6 @@ use grpc::backend::token_server::*;
 use crate::entity::token::{Paginator, *};
 use crate::{entity::user, util::rate_limit::RateLimit};
 
-const TOKEN_LIMIT: u64 = 16;
-
 impl From<Model> for String {
     fn from(value: Model) -> Self {
         base64::Engine::encode(

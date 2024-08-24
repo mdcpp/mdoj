@@ -3,7 +3,6 @@ use crate::union;
 use grpc::backend::list_problem_request::Sort;
 use sea_orm::{ActiveValue, QuerySelect, Statement};
 use sea_query::JoinType;
-use spin::{RwLock, RwLockReadGuard};
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::task::JoinSet;
@@ -222,7 +221,7 @@ pub async fn insert_tag<C: ConnectionTrait + 'static + Send>(
             .await
         });
     }
-    while let Some(Ok((x))) = set.join_next().await {
+    while let Some(Ok(x)) = set.join_next().await {
         x?;
     }
     Ok(())
@@ -319,7 +318,7 @@ impl Reflect<Entity> for PartialModel {
 
 struct PagerTrait;
 
-struct TextPagerTrait;
+pub struct TextPagerTrait;
 
 impl PagerData for TextPagerTrait {
     type Data = String;
@@ -377,7 +376,7 @@ impl SortSource<PartialModel> for ParentPagerTrait {
 
 type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
-struct ColPagerTrait;
+pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
     type Data = (Sort, String);

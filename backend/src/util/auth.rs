@@ -123,7 +123,7 @@ impl Auth {
     /// destruct the Auth into user id and permission level
     pub fn into_inner(self) -> Option<(i32, RoleLv)> {
         match self {
-            Auth::User(x) => Some(x.clone()),
+            Auth::User(x) => Some(x),
             _ => None,
         }
     }

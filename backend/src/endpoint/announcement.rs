@@ -26,7 +26,7 @@ impl<'a> From<WithAuth<'a, Model>> for AnnouncementFullInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 impl From<Model> for AnnouncementInfo {
     fn from(value: Model) -> Self {

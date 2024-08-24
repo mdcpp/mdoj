@@ -19,7 +19,7 @@ impl<'a> From<WithAuth<'a, Model>> for ChatInfo {
     }
 }
 
-impl<'a> WithAuthTrait for Model {}
+impl WithAuthTrait for Model {}
 
 #[tonic::async_trait]
 impl Chat for ArcServer {

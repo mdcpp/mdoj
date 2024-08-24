@@ -1,9 +1,8 @@
 use super::*;
 use grpc::backend::problem_server::*;
-use sea_orm::sea_query::Expr;
 use std::sync::Arc;
 
-use crate::entity::{contest, problem::Paginator, problem::*, testcase};
+use crate::entity::{contest, problem::Paginator, problem::*};
 
 impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {

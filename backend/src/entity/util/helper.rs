@@ -9,8 +9,6 @@ use sea_orm::sea_query::*;
 use sea_orm::*;
 use tracing::instrument;
 
-const MAX_TAG: usize = 16;
-
 pub(super) trait Paginate<E: EntityTrait> {
     /// Apply pagination effect on a Select(sea_orm)
     ///

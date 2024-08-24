@@ -27,9 +27,9 @@ pub enum Error {
     #[error("judger temporarily unavailable")]
     JudgerResourceExhausted,
     #[error("`{0}`")]
-    JudgerError(Status),
+    Judger(Status),
     #[error("`{0}`")]
-    JudgerProto(&'static str),
+    JudgerProtoChanged(&'static str),
     #[error("payload.`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("language not found")]
@@ -50,7 +50,7 @@ impl From<Status> for Error {
     fn from(value: Status) -> Self {
         match value.code() {
             tonic::Code::ResourceExhausted => Error::JudgerResourceExhausted,
-            _ => Error::JudgerError(value),
+            _ => Error::Judger(value),
         }
     }
 }
@@ -61,8 +61,8 @@ impl From<Error> for Status {
             Error::JudgerResourceExhausted => Status::resource_exhausted("no available judger"),
             Error::BadArgument(x) => Status::invalid_argument(format!("bad argument: {}", x)),
             Error::LangNotFound => Status::not_found("languaue not found"),
-            Error::JudgerError(x) => report_internal!(info, "`{}`", x),
-            Error::JudgerProto(x) => report_internal!(info, "`{}`", x),
+            Error::Judger(x) => report_internal!(info, "`{}`", x),
+            Error::JudgerProtoChanged(x) => report_internal!(info, "`{}`", x),
             Error::Database(x) => report_internal!(warn, "{}", x),
             Error::TransportLayer(x) => report_internal!(info, "{}", x),
             Error::RateLimit => Status::resource_exhausted("resource limit imposed by backend"),
@@ -138,7 +138,7 @@ impl Judger {
                 .next()
                 .in_current_span()
                 .await
-                .ok_or(Error::JudgerProto("Expected as many case as inputs"))??;
+                .ok_or(Error::JudgerProtoChanged("Expected as many case as inputs"))??;
             total_memory += res.memory;
             total_time += res.time;
             total_score += score;
