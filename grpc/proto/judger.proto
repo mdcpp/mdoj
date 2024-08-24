@@ -5,19 +5,24 @@ package oj.judger;
 import "google/protobuf/empty.proto";
 
 message JudgeRequest {
+  // lanuguage uuid
   required string lang_uid = 1;
+  // user submitted code
   required bytes code = 2;
   // memory limit in byte
   required uint64 memory = 3;
   // time limit in nanosecond
   required uint64 time = 4;
+  // maching rule, see JudgeMatchRule
   required JudgeMatchRule rule = 5;
   // len must > 0
   repeated TestIO tests = 6;
 }
 
 message ExecRequest {
+  // language uuid
   required string lang_uid = 1;
+  // user submitted code
   required bytes code = 2;
   // memory limit in byte
   required uint64 memory = 3;
@@ -28,7 +33,9 @@ message ExecRequest {
 }
 
 message Log{
+  // Log severity
   required uint32 level = 1;
+  // message
   required string msg = 2;
 }
 
@@ -40,6 +47,11 @@ message ExecResult {
   }
 }
 
+// part of testcase
+// 
+// an testcase in judger is a collection of input/output pair
+//
+// TestIO is a single input/out pair
 message TestIO {
   required bytes input = 1;
   required bytes output = 2;
@@ -89,6 +101,10 @@ enum JudgeMatchRule {
   SkipSNL = 2;
 }
 
+// @deprecated
+// list of languages
+//
+// will be replaced by embedding `repeated`/`stream` directly in response
 message Langs { repeated LangInfo list = 1; }
 
 // info of a language(extension)

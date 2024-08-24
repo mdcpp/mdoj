@@ -1,9 +1,11 @@
-use std::ops::Deref;
-
 use super::*;
-use crate::{entity::util::helper::tag_cond, union};
+use crate::union;
 use grpc::backend::list_problem_request::Sort;
-use sea_orm::Statement;
+use sea_orm::{ActiveValue, QuerySelect, Statement};
+use sea_query::JoinType;
+use std::ops::Deref;
+use std::sync::Arc;
+use tokio::task::JoinSet;
 use tracing::{instrument, Instrument};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -22,7 +24,6 @@ pub struct Model {
     pub time: i64,
     pub difficulty: u32,
     pub public: bool,
-    pub tags: String,
     pub title: String,
     pub content: String,
     #[sea_orm(column_type = "Time")]
@@ -61,7 +62,7 @@ pub struct IdModel {
 }
 
 impl IdModel {
-    /// create new model with only id(foreign and pirmary), useful for query
+    /// create new model with only ids(foreign and primary), useful for query
     ///
     /// Be careful never save it
     pub fn upgrade(self) -> Model {
@@ -76,7 +77,6 @@ impl IdModel {
             time: Default::default(),
             difficulty: Default::default(),
             public: self.public,
-            tags: Default::default(),
             title: Default::default(),
             content: Default::default(),
             create_at: Default::default(),
@@ -117,37 +117,37 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::education::Entity> for Entity {
+impl Related<education::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Education.def()
     }
 }
 
-impl Related<super::submit::Entity> for Entity {
+impl Related<submit::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Submit.def()
     }
 }
 
-impl Related<super::chat::Entity> for Entity {
+impl Related<chat::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Chat.def()
     }
 }
 
-impl Related<super::testcase::Entity> for Entity {
+impl Related<testcase::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Testcase.def()
     }
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
     }
 }
 
-impl Related<super::contest::Entity> for Entity {
+impl Related<contest::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Contest.def()
     }
@@ -164,8 +164,71 @@ impl Related<tag::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
+pub async fn insert_tag<C: ConnectionTrait + 'static + Send>(
+    db: Arc<C>,
+    tags: impl Iterator<Item = String>,
+    id: i32,
+) -> Result<(), DbErr> {
+    let tags = tags.collect::<Vec<_>>();
+    let mut tag_ids = Vec::new();
+    let mut set = JoinSet::new();
+    for tag in tags.clone() {
+        let db = db.clone();
+        set.spawn(async move {
+            tag::ActiveModel {
+                name: ActiveValue::set(tag),
+                ..Default::default()
+            }
+            .save(db.deref())
+            .await
+            .map(|x| Some(x.id.unwrap()))
+        });
+    }
+    for tag in tags {
+        let db = db.clone();
+        set.spawn(async move {
+            tag::Entity::find()
+                .filter(tag::Column::Name.eq(tag))
+                .one(db.deref())
+                .await
+                .map(|x| x.map(|x| x.id))
+        });
+    }
+    while let Some(Ok(x)) = set.join_next().await {
+        if let Ok(Some(x)) = x {
+            tag_ids.push(x);
+        }
+    }
+
+    tag_ids.sort_unstable();
+    tag_ids.dedup();
+
+    tag_problem::Entity::delete_many()
+        .filter(tag_problem::Column::ProblemId.eq(id))
+        .exec(db.deref())
+        .await?;
+
+    let mut set = JoinSet::new();
+    for tag_id in tag_ids {
+        let db = db.clone();
+        set.spawn(async move {
+            tag_problem::ActiveModel {
+                tag_id: ActiveValue::set(tag_id),
+                problem_id: ActiveValue::set(id),
+                ..Default::default()
+            }
+            .save(db.deref())
+            .await
+        });
+    }
+    while let Some(Ok(x)) = set.join_next().await {
+        x?;
+    }
+    Ok(())
+}
+
 #[async_trait]
-impl super::ParentalTrait<IdModel> for Entity {
+impl ParentalTrait<IdModel> for Entity {
     #[instrument(skip_all, level = "info")]
     async fn related_read_by_id(
         auth: &Auth,
@@ -212,7 +275,7 @@ impl super::ParentalTrait<IdModel> for Entity {
     }
 }
 
-impl super::Filter for Entity {
+impl Filter for Entity {
     fn read_filter<S: QueryFilter + Send>(query: S, auth: &Auth) -> Result<S, Error> {
         Ok(match auth.perm() {
             RoleLv::Guest => query.filter(Column::Public.eq(true)),
@@ -253,9 +316,7 @@ impl Reflect<Entity> for PartialModel {
     }
 }
 
-struct PagerTrait;
-
-struct TextPagerTrait;
+pub struct TextPagerTrait;
 
 impl PagerData for TextPagerTrait {
     type Data = String;
@@ -265,26 +326,18 @@ impl PagerData for TextPagerTrait {
 impl Source for TextPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
-    const TYPE_NUMBER: u8 = 4;
-
     async fn filter(
         auth: &Auth,
         data: &Self::Data,
         _db: &DatabaseConnection,
     ) -> Result<Select<Self::Entity>, Error> {
-        Entity::read_filter(Entity::find(), auth).map(|x| {
-            x.filter(
-                Column::Title
-                    .contains(data)
-                    .or(tag_cond(Column::Tags, data.as_str())),
-            )
-        })
+        Entity::read_filter(Entity::find(), auth).map(|x| x.filter(Column::Title.contains(data)))
     }
 }
 
 type TextPaginator = UninitPaginator<PrimaryKeyPaginator<TextPagerTrait, PartialModel>>;
 
-struct ParentPagerTrait;
+pub struct ParentPagerTrait;
 
 impl PagerData for ParentPagerTrait {
     type Data = (i32, f32);
@@ -294,8 +347,6 @@ impl PagerData for ParentPagerTrait {
 impl Source for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
-    const TYPE_NUMBER: u8 = 8;
-
     async fn filter(
         auth: &Auth,
         data: &Self::Data,
@@ -321,9 +372,9 @@ impl SortSource<PartialModel> for ParentPagerTrait {
     }
 }
 
-type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
+pub type ParentPaginator = UninitPaginator<ColumnPaginator<ParentPagerTrait, PartialModel>>;
 
-struct ColPagerTrait;
+pub struct ColPagerTrait;
 
 impl PagerData for ColPagerTrait {
     type Data = (Sort, String);
@@ -333,8 +384,6 @@ impl PagerData for ColPagerTrait {
 impl Source for ColPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
-    const TYPE_NUMBER: u8 = 8;
-
     async fn filter(
         auth: &Auth,
         _data: &Self::Data,
@@ -375,11 +424,40 @@ impl SortSource<PartialModel> for ColPagerTrait {
 
 type ColPaginator = UninitPaginator<ColumnPaginator<ColPagerTrait, PartialModel>>;
 
+pub struct TagPagerTrait;
+
+impl PagerData for TagPagerTrait {
+    type Data = Vec<String>;
+}
+
+#[async_trait]
+impl Source for TagPagerTrait {
+    const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
+    type Entity = Entity;
+    async fn filter(
+        auth: &Auth,
+        data: &Self::Data,
+        _: &DatabaseConnection,
+    ) -> Result<Select<Self::Entity>, Error> {
+        let len = data.len();
+        let query = problem::Entity::find()
+            .join(JoinType::Join, problem::Relation::TagProblem.def())
+            .join(JoinType::Join, tag::Relation::TagProblem.def().rev())
+            .filter(tag::Column::Name.is_in(data))
+            .group_by(problem::Column::Id)
+            .having(Expr::col(tag::Column::Name).count_distinct().eq(len as i32));
+        Entity::read_filter(query, auth)
+    }
+}
+
+type TagPaginator = UninitPaginator<PrimaryKeyPaginator<TagPagerTrait, PartialModel>>;
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Paginator {
     Text(TextPaginator),
     Parent(ParentPaginator),
     Col(ColPaginator),
+    Tag(TagPaginator),
 }
 
 impl WithAuthTrait for Paginator {}
@@ -401,6 +479,9 @@ impl Paginator {
             start_from_end,
         ))
     }
+    pub fn new_tag(tag: impl Iterator<Item = String>, start_from_end: bool) -> Self {
+        Self::Tag(TagPaginator::new(tag.collect(), start_from_end))
+    }
     pub fn new(start_from_end: bool) -> Self {
         Self::new_sort(Sort::SubmitCount, start_from_end)
     }
@@ -414,6 +495,7 @@ impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
             Paginator::Text(ref mut x) => x.fetch(size, offset, auth, db).await,
             Paginator::Parent(ref mut x) => x.fetch(size, offset, auth, db).await,
             Paginator::Col(ref mut x) => x.fetch(size, offset, auth, db).await,
+            Paginator::Tag(ref mut x) => x.fetch(size, offset, auth, db).await,
         }
     }
     pub async fn remain(&self) -> Result<u64, Error> {
@@ -423,6 +505,7 @@ impl<'a, 'b> WithDB<'a, WithAuth<'b, Paginator>> {
             Paginator::Text(x) => x.remain(auth, db).await,
             Paginator::Parent(x) => x.remain(auth, db).await,
             Paginator::Col(x) => x.remain(auth, db).await,
+            Paginator::Tag(x) => x.remain(auth, db).await,
         }
     }
 }

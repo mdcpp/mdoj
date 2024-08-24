@@ -198,7 +198,7 @@ impl Testcase for ArcServer {
 
             let mut model = model.ok_or(Error::NotInDB)?.into_active_model();
             // FIXME: use is_set(), be sure to know what Option<T> in sea_orm said
-            if let ActiveValue::Set(Some(v)) = model.problem_id {
+            if let ActiveValue::Set(Some(_)) = model.problem_id {
                 return Err(Error::AlreadyExist("testcase already linked"));
             }
 

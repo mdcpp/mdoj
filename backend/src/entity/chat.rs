@@ -87,8 +87,6 @@ impl PagerData for ParentPagerTrait {
 impl Source for ParentPagerTrait {
     const ID: <Self::Entity as EntityTrait>::Column = Column::Id;
     type Entity = Entity;
-    const TYPE_NUMBER: u8 = 8;
-
     async fn filter(
         auth: &Auth,
         data: &Self::Data,

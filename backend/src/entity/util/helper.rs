@@ -4,13 +4,10 @@
 
 use std::ops::Deref;
 
+use crate::util::error::Error;
 use sea_orm::sea_query::*;
 use sea_orm::*;
 use tracing::instrument;
-
-use crate::util::error::Error;
-
-const MAX_TAG: usize = 16;
 
 pub(super) trait Paginate<E: EntityTrait> {
     /// Apply pagination effect on a Select(sea_orm)
@@ -19,21 +16,21 @@ pub(super) trait Paginate<E: EntityTrait> {
     fn apply(self, query: Select<E>) -> Select<E>;
 }
 
-/// aggregate conditions for tags(separated by whitespace) with or
-///
-/// return a `Expr::val("1").eq("0")` if tags is empty
-#[inline]
-pub fn tag_cond(col: impl ColumnTrait, tags: &str) -> SimpleExpr {
-    let mut expr = Expr::val("1").eq("0");
-    for tag in tags
-        .split_whitespace()
-        .take(MAX_TAG)
-        .filter(|&x| !x.is_empty())
-    {
-        expr = expr.or(col.contains(tag));
-    }
-    expr
-}
+// /// aggregate conditions for tags(separated by whitespace) with or
+// ///
+// /// return a `Expr::val("1").eq("0")` if tags is empty
+// #[inline]
+// pub fn tag_cond(col: impl ColumnTrait, tags: &str) -> SimpleExpr {
+//     let mut expr = Expr::val("1").eq("0");
+//     for tag in tags
+//         .split_whitespace()
+//         .take(MAX_TAG)
+//         .filter(|&x| !x.is_empty())
+//     {
+//         expr = expr.or(col.contains(tag));
+//     }
+//     expr
+// }
 
 /// bool to order
 #[inline]
@@ -208,3 +205,28 @@ pub(super) fn to_inner_size_offset(size: u64, offset: i64) -> Option<(i64, u64)>
         false => Some((size as i64, offset as u64)),
     }
 }
+
+// /// construct query with tag(specified by `tags`)
+// ///
+// /// It actually builds sql queries like this
+// /// ```sql
+// /// SELECT * FROM posts
+// ///   JOIN post_tags ON post_id = post_tags.post_id
+// ///   JOIN tag ON post_tags.tag_id = tag_id
+// /// WHERE tag.name IN ('tag1', 'tag2', 'tag3')
+// ///   GROUP BY id
+// /// HAVING COUNT(DISTINCT t.name) = 3;
+// ///```
+// pub(super) fn tag_select(
+//     tags: &[impl AsRef<str>],
+// ) -> Select<super::super::problem::Entity> {
+//     use super::super::*;
+//
+//     let len=tags.len();
+//     problem::Entity::find()
+//         .join(JoinType::Join, problem::Relation::TagProblem.def())
+//         .join(JoinType::Join, tag::Relation::TagProblem.def())
+//         .filter(tag::Column::Name.is_in(tags))
+//         .group_by(problem::Column::Id)
+//         .having(Expr::col(tag::Column::Name).count_distinct().eq(len as i32))
+// }

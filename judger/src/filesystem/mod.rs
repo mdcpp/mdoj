@@ -7,5 +7,5 @@ mod mkdtemp;
 mod resource;
 mod table;
 
-pub use adapter::{Filesystem, Template};
+pub use adapter::Template;
 pub use handle::MountHandle;

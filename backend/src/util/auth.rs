@@ -86,7 +86,7 @@ impl RoleLv {
 ///
 /// The difference between [`Auth`] and [`RoleLv`] is that
 /// [`Auth`] contain user id, and [`RoleLv`] is just permmision
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Auth {
     Guest,
     User((i32, RoleLv)),
@@ -121,15 +121,15 @@ impl Auth {
         }
     }
     /// destruct the Auth into user id and permission level
-    pub fn into_inner(&self) -> Option<(i32, RoleLv)> {
+    pub fn into_inner(self) -> Option<(i32, RoleLv)> {
         match self {
-            Auth::User(x) => Some(*x),
+            Auth::User(x) => Some(x),
             _ => None,
         }
     }
     /// short hand for `self.into_inner().ok_or(Error::PermissionDeny)`
     pub fn assume_login(&self) -> Result<(i32, RoleLv), Error> {
-        self.into_inner().ok_or(Error::PermissionDeny(
+        self.clone().into_inner().ok_or(Error::PermissionDeny(
             "Only signed in user is allow in this endpoint",
         ))
     }

@@ -32,11 +32,13 @@ lazy_static::lazy_static! {
     pub static ref CONFIG: Config=Config::default();
 }
 
+/// method to load cpu usage from control group
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub enum Accounting {
     #[default]
     Auto,
+    #[allow(clippy::enum_variant_names)]
     CpuAccounting,
     Cpu,
 }
@@ -48,6 +50,7 @@ fn default_ratio_memory() -> f64 {
     1.0
 }
 
+/// Ratio for resource multiplier
 #[derive(Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Ratio {

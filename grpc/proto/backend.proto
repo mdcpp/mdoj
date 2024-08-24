@@ -94,12 +94,10 @@ message CreateProblemRequest {
     required uint64 time = 4;
     // in byte (8 bits)
     required uint64 memory = 5;
-    // tags split by unicode whitespace
-    // https://doc.rust-lang.org/std/primitive.str.html#method.split_whitespace
-    required string tags = 6;
     required string content = 7;
     required MatchRule match_rule = 9;
     required float order = 10;
+    repeated string tags = 11;
   };
   required Info info = 1;
   // can prevent duplicate request.
@@ -123,12 +121,10 @@ message UpdateProblemRequest {
     optional uint64 time = 4;
     // in byte (8 bits)
     optional uint64 memory = 5;
-    // tags split by unicode whitespace
-    // https://doc.rust-lang.org/std/primitive.str.html#method.split_whitespace
-    optional string tags = 6;
     optional string content = 7;
     optional MatchRule match_rule = 10;
     optional float order = 11;
+    repeated string tags = 12;
   };
   required Info info = 1;
   required int32 id = 2;
@@ -157,7 +153,7 @@ message ProblemFullInfo {
   required ProblemInfo info = 1;
   required string content = 2;
   // tags are split by ascii whitespace
-  required string tags = 8;
+  repeated string tags = 11;
   // 0    -  500 easy
   // 500  - 1000 easy+
   // 1000 - 1500 medium
@@ -187,6 +183,7 @@ message ListProblemRequest {
     optional int32 contest_id = 1;
     optional Sort sort_by = 2;
     optional string text = 3;
+    repeated string tags = 4;
   }
   message Create {
     required Order order = 1;

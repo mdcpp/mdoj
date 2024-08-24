@@ -37,7 +37,7 @@ impl Runner {
         };
         let process = Process::new(ctx)?;
         let corpse = process.wait(input).await?;
-        Ok(Streamer::new(self.spec.clone(), corpse))
+        Ok(Streamer::new(corpse))
     }
 }
 
