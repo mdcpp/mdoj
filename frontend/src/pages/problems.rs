@@ -87,7 +87,7 @@ pub fn Problems() -> impl IntoView {
         )
     };
     view! {
-        <div class="container min-h-full flex flex-col items-center gap-4 py-10">
+        <div class="container grow flex flex-col items-center justify-between gap-4 py-10">
             <nav class="self-end">
                 <SearchBar submit />
             </nav>

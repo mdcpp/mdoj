@@ -18,7 +18,7 @@ pub fn InternalServerError() -> impl IntoView {
     }
 
     view! {
-        <main class="grow flex items-center justify-center">
+        <main class="grow size-full flex items-center justify-center">
             <h1 class="text-9xl text-text">"Something is broken"</h1>
         </main>
     }
