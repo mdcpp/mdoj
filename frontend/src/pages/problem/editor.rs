@@ -53,22 +53,18 @@ pub fn ProblemEditor(
 
     view! {
         <form
-            class=tw_join!("flex flex-col h-full w-full bg-lighten p-3 rounded", class)
+            class=tw_join!("flex flex-col gap-4 h-full w-full bg-lighten p-3 rounded", class)
             on:submit=submit
         >
-
-            <ul class="flex flex-row justify-between p-2 pt-0 mb-2 border-b-2 border-accent">
-                <li>Code</li>
-                <li>
-                    <Select value=select_lang placeholder="Language">
-                        {select_option}
-                    </Select>
-                </li>
-            </ul>
             <Editor lang_ext=select_lang editor_ref class="h-full" />
-            <Button class="mt-auto" type_="submit" disabled>
-                Submit
-            </Button>
+            <nav class="flex flex-row gap-4">
+                <Select value=select_lang placeholder="Language">
+                    {select_option}
+                </Select>
+                <Button class="grow" type_="submit" disabled>
+                    Submit
+                </Button>
+            </nav>
         </form>
     }
 }
