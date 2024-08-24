@@ -116,7 +116,7 @@ impl Plugin<File> {
         let spec_source = template
             .read_by_path("spec.toml")
             .await
-            .unwrap_or_else(|| panic!("sepc.toml not found in plugin {}", path.as_ref().display()));
+            .unwrap_or_else(|| panic!("spec.toml not found in plugin {}", path.as_ref().display()));
         let spec = Arc::new(Spec::from_str(&spec_source.to_string_lossy()));
 
         Ok(Self { spec, template })
@@ -143,7 +143,7 @@ where
     }
     /// judge
     ///
-    /// The porcess can be described as:
+    /// The process can be described as:
     /// 1. compile the source code
     /// 2. run the compiled code
     /// 3. compare the output

@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
 use crate::{
-    language::{spec::Spec, ExecuteResult},
+    language::ExecuteResult,
     sandbox::{Corpse, MonitorKind},
 };
 
@@ -9,13 +7,12 @@ use super::StatusCode;
 
 /// Third stage of exec, stream execution result to client
 pub struct Streamer {
-    spec: Arc<Spec>,
     corpse: Corpse,
 }
 
 impl Streamer {
-    pub fn new(spec: Arc<Spec>, corpse: Corpse) -> Self {
-        Self { spec, corpse }
+    pub fn new(corpse: Corpse) -> Self {
+        Self { corpse }
     }
     pub fn get_code(&self) -> StatusCode {
         match self.corpse.status() {

@@ -2,7 +2,7 @@ use super::*;
 use crate::union;
 use grpc::backend::list_problem_request::Sort;
 use sea_orm::{ActiveValue, QuerySelect, Statement};
-use sea_query::{Alias, JoinType};
+use sea_query::{JoinType};
 use spin::{RwLock, RwLockReadGuard};
 use std::ops::Deref;
 use std::sync::Arc;

@@ -1,4 +1,6 @@
 //! collection of steps for judge and execute
+//!
+//! It's chain or responsibility
 
 mod compile;
 mod judge;
