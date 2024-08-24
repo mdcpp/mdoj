@@ -38,6 +38,7 @@ lazy_static::lazy_static! {
 pub enum Accounting {
     #[default]
     Auto,
+    #[allow(clippy::enum_variant_names)]
     CpuAccounting,
     Cpu,
 }
