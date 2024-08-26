@@ -4,7 +4,7 @@ use leptos::logging;
 use serde::{Deserialize, Serialize};
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Error {
     pub kind: ErrorKind,
     pub context: String,
@@ -26,7 +26,7 @@ impl Display for Error {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ErrorKind {
     /// api error
     NotFound,

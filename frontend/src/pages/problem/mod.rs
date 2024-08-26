@@ -9,12 +9,13 @@ pub use editor::ProblemEditor;
 pub use education::ProblemEducation;
 use leptos::*;
 use leptos_icons::*;
+use leptos_query::*;
 use leptos_router::*;
 pub use submission::ProblemSubmission;
 
 use crate::{components::*, utils::*};
 
-#[derive(Params, PartialEq, Clone, Copy)]
+#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
 struct ProblemParams {
     id: i32,
 }
@@ -115,27 +116,26 @@ fn VerticalNavbarButton(
     }
 }
 
+async fn fetcher(
+    (params, token): (Result<ProblemParams>, Option<String>),
+) -> Result<grpc::ProblemFullInfo> {
+    let mut client =
+        grpc::problem_client::ProblemClient::new(grpc::new_client());
+    let id: grpc::Id = params?.id.into();
+    let full_info = client.full_info(id.with_optional_token(token)).await?;
+    Result::<_>::Ok(full_info.into_inner())
+}
+
 #[component]
 fn Content() -> impl IntoView {
     let params = use_params::<ProblemParams>();
     let token = use_token();
-
-    let full_info = create_resource(
-        move || (params(), token()),
-        |(params, token)| {
-            let mut client =
-                grpc::problem_client::ProblemClient::new(grpc::new_client());
-            async move {
-                let id: grpc::Id = params?.id.into();
-                let full_info =
-                    client.full_info(id.with_optional_token(token)).await?;
-                Result::<_>::Ok(full_info.into_inner())
-            }
-        },
-    );
+    let scope = create_query(fetcher, Default::default());
+    let result =
+        scope.use_query(move || (params().map_err(|e| e.into()), token()));
 
     let content = move || {
-        full_info().map(|v| {
+        result.data.get().map(|v| {
             v.map(|full_info| {
                 view! { <ProblemContent full_info /> }
             })
