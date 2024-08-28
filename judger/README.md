@@ -1,5 +1,7 @@
 # MDOJ judger
 
+[![staging-judger-publish](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml/badge.svg?branch=staging)](https://github.com/mdcpp/mdoj/actions/workflows/judger.yml)
+
 From high level, the judger is a grpc server that provide `JudgeService`, which is defined in `/proto/judge.proto`.
 
 The interface should provide ability to
