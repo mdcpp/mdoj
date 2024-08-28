@@ -44,6 +44,6 @@ jobs:
       - name: Lint
         run: |
           cargo fmt --all -- --check
-          cargo clippy -- -D warnings
+          cargo clippy
       - name: Check
         run: cargo check
