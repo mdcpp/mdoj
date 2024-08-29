@@ -35,13 +35,13 @@ pub fn ProvideToast(children: Children) -> impl IntoView {
     }
 }
 
-pub fn use_toast() -> impl Fn(ToastVariant, View) {
+pub fn use_toast() -> impl Fn(ToastVariant, View) + Copy {
     let toaster: RwSignal<Toaster> = expect_context();
 
     move |variant, v| {
         toaster.update(move |toaster| {
             toaster.toasts.push((toaster.id, variant, v));
-            toaster.id = toaster.id.wrapping_add(1);
+            toaster.id += 1;
         });
     }
 }
@@ -54,12 +54,7 @@ struct Toaster {
 
 impl Toaster {
     fn remove(&mut self, id: usize) {
-        let Some(i) = self
-            .toasts
-            .iter()
-            .enumerate()
-            .find_map(|(i, (toast_id, ..))| (id == *toast_id).then_some(i))
-        else {
+        let Ok(i) = self.toasts.binary_search_by(|(i, ..)| i.cmp(&id)) else {
             logging::error!("cannot remove id `{id}`");
             return;
         };
