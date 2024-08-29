@@ -136,7 +136,7 @@ impl Problem for ArcServer {
 
             let txn = self
                 .db
-                .begin_with_config(Some(IsolationLevel::ReadCommitted), None)
+                .begin()
                 .await?;
 
             let model = model
