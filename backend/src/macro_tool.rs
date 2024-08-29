@@ -22,7 +22,7 @@ macro_rules! report_internal {
     }};
 }
 
-/// Log error message to infarstructure and report a error id to frontend
+/// Log error message to infrastructure and report an error id to frontend
 ///
 /// It doesn't contain sensitive information either on infrastructure or frontend
 #[macro_export]
@@ -33,14 +33,14 @@ macro_rules! report_internal {
         tracing::$level!(uuid = uuid.to_string(), $pattern);
         tonic::Status::unknown(msg.report())
     }};
-    ($level:ident,$pattern:expr) => {{
+    ($level:ident,$error:expr) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
-        tracing::$level!(uuid = uuid.to_string(), "{}", $pattern);
+        tracing::$level!(uuid = uuid.to_string(), "{}", $error);
         tonic::Status::unknown(msg.report())
     }};
     ($level:ident,$pattern:literal, $error:expr) => {{
         let (msg, uuid) = crate::util::error::Tracing::random();
-        tracing::$level!(uuid = uuid.to_string(), "{}", $pattern);
+        tracing::$level!(uuid = uuid.to_string(), $pattern, $error);
         tonic::Status::unknown(msg.report())
     }};
 }

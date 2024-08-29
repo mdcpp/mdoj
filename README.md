@@ -69,3 +69,17 @@ Performance-oriented contest management system for IOI like contest
 
 > [!TIP]
 > Set `CONFIG_PATH` to change the path to config file, default value is `config.toml`
+
+See wiki for more detail
+
+## Development
+
+MDOJ contain three service:
+1. Frontend: Render first time html, serve wasm.
+2. Backend: Serve both frontend and web client(chrome...)
+3. judger: run user-submitted code and return resource usage(and output)
+
+> [!TIP]
+> See `DEV.md` to understand how to get started. 
+
+See `/backend/README.md`, `judger/README.md`, `frontend/README.md` for more detail.

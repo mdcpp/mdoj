@@ -1,4 +1,5 @@
-prepare:
+# run migration with sea-orm-cli
+migration:
     mkdir -p database
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
 
@@ -9,16 +10,10 @@ entity-codegen:
     sea-orm-cli migrate -u sqlite://database/backend.sqlite?mode=rwc
     sea-orm-cli generate entity -u sqlite://database/backend.sqlite?mode=rwc -o src/pending
 
-dev:
-    just prepare
-    cargo run
-
+# run release binary with standalone feature
 run-release:
-    cargo run --release
+    cargo run --release --features standalone
 
-ci-test:
-    just prepare
-    cargo test
-
-setup-judger:
+# run other service(backend depends on) from docker compose
+setup-service:
     cd ../docker/dev && sudo docker compose --profile backend-dev up

@@ -29,10 +29,10 @@ pub mod testcase {
                 .filter(Column::ProblemId.eq(self.1.id))
                 .select_only()
                 .column_as(Column::Order.max(), RetValue::default())
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .one(self.0)
                 .await
-                .map(|x: Option<f32>| x.unwrap_or_default() + 1.0)
+                .map(|x: Option<Option<f32>>| x.flatten().unwrap_or_default() + 1.0)
         }
         async fn insert_after(self, pivot: i32) -> Result<f32, DbErr> {
             let vals: Vec<f32> = Entity::find()
@@ -41,7 +41,7 @@ pub mod testcase {
                 .select_only()
                 .column_as(Column::Order.min(), RetValue::default())
                 .limit(2)
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .all(self.0)
                 .await?;
             Ok(match vals.len() {
@@ -55,10 +55,10 @@ pub mod testcase {
                 .filter(Column::ProblemId.eq(self.1.id))
                 .select_only()
                 .column_as(Column::Order.min(), RetValue::default())
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .one(self.0)
                 .await
-                .map(|x: Option<f32>| x.unwrap_or_default() - 1.0)
+                .map(|x: Option<Option<f32>>| x.flatten().unwrap_or_default() - 1.0)
         }
     }
 }
@@ -76,10 +76,10 @@ pub mod contest {
                 .filter(Column::ContestId.eq(self.1.id))
                 .select_only()
                 .column_as(Column::Order.max(), RetValue::default())
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .one(self.0)
                 .await
-                .map(|x: Option<f32>| x.unwrap_or_default() + 1.0)
+                .map(|x: Option<Option<f32>>| x.flatten().unwrap_or_default() + 1.0)
         }
         async fn insert_after(self, pivot: i32) -> Result<f32, DbErr> {
             let vals: Vec<f32> = Entity::find()
@@ -88,7 +88,7 @@ pub mod contest {
                 .select_only()
                 .column_as(Column::Order.min(), RetValue::default())
                 .limit(2)
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .all(self.0)
                 .await?;
             Ok(match vals.len() {
@@ -102,10 +102,10 @@ pub mod contest {
                 .filter(Column::ContestId.eq(self.1.id))
                 .select_only()
                 .column_as(Column::Order.min(), RetValue::default())
-                .into_values::<_, RetValue>()
+                .into_tuple()
                 .one(self.0)
                 .await
-                .map(|x: Option<f32>| x.unwrap_or_default() - 1.0)
+                .map(|x: Option<Option<f32>>| x.flatten().unwrap_or_default() - 1.0)
         }
     }
 }

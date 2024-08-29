@@ -112,12 +112,14 @@ impl From<Error> for Status {
 ///
 /// useful to log the tracing information to client
 /// without exposing the server's internal error
+#[cfg(not(feature = "insecure-print"))]
 pub struct Tracing {
     trace_id: TraceId,
     span_id: SpanId,
     log_id: Uuid,
 }
 
+#[cfg(not(feature = "insecure-print"))]
 impl Tracing {
     pub fn random() -> (Self, Uuid) {
         let log_id = Uuid::new_v4();
