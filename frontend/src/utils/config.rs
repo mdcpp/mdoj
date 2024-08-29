@@ -67,7 +67,7 @@ fn default_extension_language_mappings() -> Vec<ExtensionLanguageMapping> {
                 "cp".to_owned(),
                 "cxx".to_owned(),
             ],
-            language: "javascript".to_owned(),
+            language: "cpp".to_owned(),
         },
         ExtensionLanguageMapping {
             extension: vec!["lua".to_owned()],
