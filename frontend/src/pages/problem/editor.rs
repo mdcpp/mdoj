@@ -9,13 +9,11 @@ pub fn ProblemEditor(
     id: i32,
     langs: grpc::Languages,
 ) -> impl IntoView {
-    let select_option = langs
+    let options = langs
         .list
         .into_iter()
-        .map(|lang| {
-            view! { <SelectOption value=lang.lang_ext>{lang.lang_name}</SelectOption> }
-        })
-        .collect_view();
+        .map(|lang| (lang.lang_ext, lang.lang_name.into_view()))
+        .collect();
     let select_lang = create_rw_signal("".to_owned());
     let editor_ref = create_editor_ref();
 
@@ -58,9 +56,7 @@ pub fn ProblemEditor(
         >
             <Editor lang_ext=select_lang editor_ref class="h-full" />
             <nav class="flex flex-row gap-4">
-                <Select value=select_lang placeholder="Language">
-                    {select_option}
-                </Select>
+                <Select value=select_lang placeholder="Language" options></Select>
                 <Button class="grow" type_="submit" disabled>
                     Submit
                 </Button>

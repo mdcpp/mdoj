@@ -6,7 +6,7 @@ struct SelectedValue(ReadSignal<String>);
 
 #[component]
 pub fn Select(
-    children: Children,
+    options: Vec<(String, View)>,
     #[prop(into)] value: RwSignal<String>,
     #[prop(into, optional)] placeholder: Option<String>,
     #[prop(into, optional)] id: Option<AttributeValue>,
@@ -14,6 +14,14 @@ pub fn Select(
 ) -> impl IntoView {
     let (get, set) = value.split();
     provide_context(SelectedValue(get));
+
+    let children = options
+        .into_iter()
+        .map(|(value, children)| {
+            view! { <SelectOption value>{children}</SelectOption> }
+        })
+        .collect_view();
+
     view! {
         <select
             class=tw_join!(class, "text-text text-center bg-black-800 p-2")
@@ -23,17 +31,15 @@ pub fn Select(
             <option selected disabled hidden>
                 {placeholder}
             </option>
-            {children()}
+            {children}
         </select>
     }
 }
 
 #[component]
-pub fn SelectOption(
-    children: Children,
-    #[prop(into)] value: String,
-) -> impl IntoView {
+fn SelectOption(children: Children, value: String) -> impl IntoView {
     let selected_value = expect_context::<SelectedValue>().0;
+
     view! {
         <option value=value.clone() selected=move || selected_value() == value>
             {children()}
