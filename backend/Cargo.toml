@@ -97,7 +97,7 @@ features = ["json"]
 
 [dependencies.tracing]
 workspace = true
-features = ["async-await", "log", "release_max_level_off"]
+features = ["async-await", "log", "release_max_level_debug"]
 
 [dependencies.tokio]
 workspace = true
