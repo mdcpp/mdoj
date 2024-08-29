@@ -9,6 +9,7 @@ release:
 
 update-backend:
     cd ../docker/dev && sudo docker compose pull
+    cd ../docker/dev && sudo docker compose --profile migration pull
 
 setup-backend:
     cd ../docker/dev && sudo docker compose --profile migration up
