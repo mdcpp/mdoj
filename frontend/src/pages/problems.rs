@@ -120,7 +120,7 @@ fn Table(
                 [
                     format!("{:04}", info.id).into_view(),
                     info.title.into_view(),
-                    info.difficulty.into_view(),
+                    view! { <Badge difficulty=info.difficulty /> }.into_view(),
                     info.submit_count.into_view(),
                     format!("{:.2}", info.ac_rate * 100.0).into_view(),
                 ],

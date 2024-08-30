@@ -67,7 +67,9 @@ fn Row<const N: usize>(
     cols: [View; N],
     href: impl ToHref + 'static,
 ) -> impl IntoView {
-    let cols = cols.map(|v| view! { <td>{v}</td> }).collect_view();
+    let cols = cols
+        .map(|v| view! { <td class="my-auto">{v}</td> })
+        .collect_view();
     view! {
         <A class="grid col-span-full grid-cols-subgrid even:bg-black-900 text-sm p-4" href>
             <tr class="grid col-span-full grid-cols-subgrid">{cols}</tr>
