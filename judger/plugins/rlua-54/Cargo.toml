@@ -4,14 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[profile.release]
-strip = "symbols"
-opt-level = "s"
-panic = 'abort'
 
 [dependencies]
 libc = "0.2.150"
 
 [dependencies.rlua]
 version = "0.19.7"
-features = ["builtin-lua54","lua-no-oslib"]
+features = ["builtin-lua54", "lua-no-oslib"]

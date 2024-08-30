@@ -1,3 +1,6 @@
+cargo-features = ["codegen-backend"]
+
+
 [workspace]
 resolver = "2"
 members = [
@@ -8,6 +11,7 @@ members = [
     "backend/migration",
     "grpc",
     "judger/plugins/rlua-54",
+    "tools",
 ]
 
 [workspace.dependencies]
@@ -52,6 +56,15 @@ codegen-units = 1
 panic = "abort"
 
 [profile.release]
-opt-level = "s"
 panic = 'abort'
 lto = true
+
+[profile.release.package.frontend]
+opt-level = "s"
+
+[profile.dev.package.backend]
+codegen-backend = "cranelift"
+
+[profile.release.package.rlua-54]
+strip = "symbols"
+opt-level = "s"

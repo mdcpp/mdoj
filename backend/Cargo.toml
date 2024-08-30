@@ -5,9 +5,6 @@ name = "backend"
 version = "0.1.0"
 edition = "2021"
 
-[profile.dev]
-codegen-backend = "cranelift"
-
 [dependencies]
 tikv-jemallocator = { workspace = true }
 paste = "1.0.12"
