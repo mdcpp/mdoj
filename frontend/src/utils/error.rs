@@ -81,6 +81,7 @@ impl From<tonic::Status> for Error {
     fn from(value: tonic::Status) -> Self {
         use tonic::Code;
 
+        let context = value.message().to_owned();
         let kind = match value.code() {
             Code::NotFound => ErrorKind::NotFound,
             Code::Unauthenticated => ErrorKind::Unauthenticated,
@@ -90,11 +91,10 @@ impl From<tonic::Status> for Error {
             // this happened when grpc cannot find the rpc
             Code::Unimplemented => ErrorKind::ApiNotMatch,
             code => {
-                logging::error!("{code}");
+                logging::error!("unknown grpc error: {code}, {context}");
                 ErrorKind::Internal
             }
         };
-        let context = value.message().to_owned();
 
         Self { kind, context }
     }
