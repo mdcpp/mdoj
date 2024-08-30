@@ -134,10 +134,7 @@ impl Problem for ArcServer {
                 model, req.info, title, difficulty, time, memory, content, match_rule, order
             );
 
-            let txn = self
-                .db
-                .begin()
-                .await?;
+            let txn = self.db.begin().await?;
 
             let model = model
                 .save(&txn)
