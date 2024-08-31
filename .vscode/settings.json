@@ -4,6 +4,7 @@
         "Backend",
         "Judger",
         "Testsuit",
-        "Grpc"
+        "Grpc",
+        "Tools"
     ]
 }
