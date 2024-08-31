@@ -25,19 +25,22 @@ pub trait WithToken: Sized {
     /// this will add a optional token to request.
     ///
     /// Will do nothing if token is `None`
-    fn with_optional_token(self, token: Option<String>) -> Request<Self>;
+    fn with_optional_token<S: AsRef<str>>(
+        self,
+        token: Option<S>,
+    ) -> Request<Self>;
 
     /// this will add token to request.
-    fn with_token(self, token: String) -> Request<Self>;
+    fn with_token(self, token: impl AsRef<str>) -> Request<Self>;
 }
 
 impl<T> WithToken for T
 where
     T: IntoRequest<T>,
 {
-    fn with_token(self, token: String) -> Request<Self> {
+    fn with_token(self, token: impl AsRef<str>) -> Request<Self> {
         let mut req = self.into_request();
-        let Ok(token) = token.parse() else {
+        let Ok(token) = token.as_ref().parse() else {
             return req;
         };
         let mut metadata = MetadataMap::new();
@@ -48,7 +51,10 @@ where
         req
     }
 
-    fn with_optional_token(self, token: Option<String>) -> Request<Self> {
+    fn with_optional_token<S: AsRef<str>>(
+        self,
+        token: Option<S>,
+    ) -> Request<Self> {
         let Some(token) = token else {
             return self.into_request();
         };
