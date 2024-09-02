@@ -235,7 +235,7 @@ impl BoundCheck for CreateSubmitRequest {
 
 impl BoundCheck for CreateTestcaseRequest {
     fn check(&self) -> bool {
-        self.info.input.len() > 256 * 1024 || self.info.output.len() > 256 * 1024
+        self.info.input.len() > 16 * 1024 * 1024 || self.info.output.len() > 16 * 1024 * 1024
     }
 }
 

@@ -1,5 +1,4 @@
 use crate::m20231207_000001_create_table::Problem;
-use sea_orm::{DatabaseBackend, Statement};
 use sea_orm_migration::prelude::*;
 
 #[derive(Iden)]

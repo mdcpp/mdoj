@@ -1,6 +1,6 @@
 address = "0.0.0.0:8080"
-log = 0
-opentelemetry = "grpc://jaeger:4317"
+log = 1
+# opentelemetry = "http://jaeger:4317"
 default_role = "user"
 
 [database]
