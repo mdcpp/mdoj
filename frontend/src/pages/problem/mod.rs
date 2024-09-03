@@ -15,16 +15,11 @@ pub use submission::ProblemSubmission;
 
 use crate::{components::*, utils::*};
 
-#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
-struct ProblemParams {
-    id: i32,
-}
-
 #[component(transparent)]
 pub fn ProblemRouter() -> impl IntoView {
     view! {
         <Route path="/problem/:id" view=Problem>
-            <Route path="" view=Content ssr=SsrMode::Async />
+            <Route path="" view=ProblemContent ssr=SsrMode::Async />
             <Route path="/education" view=ProblemEducation ssr=SsrMode::Async />
             <Route path="/discussion" view=ProblemDiscussion />
             <Route path="/submission" view=ProblemSubmission />
@@ -32,48 +27,27 @@ pub fn ProblemRouter() -> impl IntoView {
     }
 }
 
+#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
+struct ProblemParams {
+    id: i32,
+}
+
 #[component]
 fn Problem() -> impl IntoView {
-    let params = use_params::<ProblemParams>();
-    let token = use_token();
-
-    let langs = create_resource(
-        move || token.get_untracked(),
-        |token| {
-            let mut client =
-                grpc::submit_client::SubmitClient::new(grpc::new_client());
-            async move {
-                let langs =
-                    client.list_lang(().with_optional_token(token)).await?;
-                Result::<_>::Ok(langs.into_inner())
-            }
-        },
-    );
-
-    let editor = move || {
-        langs().map(|v| {
-            v.map(|langs| {
-                let id = params()?.id;
-
-                Result::<_>::Ok(view! { <ProblemEditor id langs /> })
-            })
-        })
-    };
-
+    let params_error = use_params::<ProblemParams>()().map(|_| ());
     view! {
         <main class="grow grid grid-cols-5 grid-flow-row gap-4">
-
-            <div class="col-span-3 flex flex-row">
-                <VerticalNavbar />
-                <Outlet />
-            </div>
-            <div class="col-span-2 col-start-4">
-                <Suspense fallback=|| {
-                    view! { <p>loading</p> }
-                }>
-                    <ErrorFallback>{editor}</ErrorFallback>
-                </Suspense>
-            </div>
+            <ErrorFallback>
+                <div class="col-span-3 flex flex-row">
+                    <VerticalNavbar />
+                    <Outlet />
+                </div>
+                <div class="col-span-2 col-start-4">
+                    <ProblemEditor />
+                </div>
+                // error report
+                {params_error}
+            </ErrorFallback>
         </main>
     }
 }
@@ -113,39 +87,5 @@ fn VerticalNavbarButton(
                 {children()}
             </span>
         </li>
-    }
-}
-
-async fn fetcher(
-    (params, token): (Result<ProblemParams>, Option<String>),
-) -> Result<grpc::ProblemFullInfo> {
-    let mut client =
-        grpc::problem_client::ProblemClient::new(grpc::new_client());
-    let id: grpc::Id = params?.id.into();
-    let full_info = client.full_info(id.with_optional_token(token)).await?;
-    Result::<_>::Ok(full_info.into_inner())
-}
-
-#[component]
-fn Content() -> impl IntoView {
-    let params = use_params::<ProblemParams>();
-    let token = use_token();
-    let scope = create_query(fetcher, Default::default());
-    let result =
-        scope.use_query(move || (params().map_err(|e| e.into()), token()));
-
-    let content = move || {
-        result.data.get().map(|v| {
-            v.map(|full_info| {
-                view! { <ProblemContent full_info /> }
-            })
-        })
-    };
-    view! {
-        <Suspense fallback=|| {
-            view! { <p>loading</p> }
-        }>
-            <ErrorFallback>{content}</ErrorFallback>
-        </Suspense>
     }
 }

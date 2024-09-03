@@ -1,10 +1,48 @@
 use leptos::*;
+use leptos_query::*;
+use leptos_router::{use_params, Params};
 use tailwind_fuse::tw_join;
 
 use crate::{components::*, utils::*};
 
+#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
+struct EditorParams {
+    id: i32,
+}
+
+async fn fetcher(token: Option<String>) -> Result<grpc::Languages> {
+    let mut client = grpc::submit_client::SubmitClient::new(grpc::new_client());
+    let langs = client.list_lang(().with_optional_token(token)).await?;
+    Ok(langs.into_inner())
+}
+
 #[component]
-pub fn ProblemEditor(
+pub fn ProblemEditor() -> impl IntoView {
+    let params = use_params::<EditorParams>();
+    let token = use_token();
+    let scope = create_query(fetcher, Default::default());
+    let query = scope.use_query(move || token());
+
+    let editor = move || {
+        query.data.get().map(|v| {
+            v.map(|langs| {
+                let id = params()?.id;
+                Result::<_>::Ok(view! { <InnerProblemEditor id langs /> })
+            })
+        })
+    };
+
+    view! {
+        <Suspense fallback=|| {
+            view! { <p>loading</p> }
+        }>
+            <ErrorFallback>{editor}</ErrorFallback>
+        </Suspense>
+    }
+}
+
+#[component]
+pub fn InnerProblemEditor(
     #[prop(into, optional)] class: String,
     id: i32,
     langs: grpc::Languages,

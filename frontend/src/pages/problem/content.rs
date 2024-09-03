@@ -1,10 +1,51 @@
 use leptos::*;
-use tailwind_fuse::tw_join;
+use leptos_query::*;
+use leptos_router::{use_params, Params};
+use tailwind_fuse::*;
 
 use crate::{components::*, utils::*};
 
+#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
+struct ContentParams {
+    id: i32,
+}
+
+async fn fetcher(
+    (params, token): (Result<ContentParams>, Option<String>),
+) -> Result<grpc::ProblemFullInfo> {
+    let mut client =
+        grpc::problem_client::ProblemClient::new(grpc::new_client());
+    let id: grpc::Id = params?.id.into();
+    let full_info = client.full_info(id.with_optional_token(token)).await?;
+    Result::<_>::Ok(full_info.into_inner())
+}
+
 #[component]
-pub fn ProblemContent(
+pub fn ProblemContent() -> impl IntoView {
+    let params = use_params::<ContentParams>();
+    let token = use_token();
+    let scope = create_query(fetcher, Default::default());
+    let result =
+        scope.use_query(move || (params().map_err(|e| e.into()), token()));
+
+    let content = move || {
+        result.data.get().map(|v| {
+            v.map(|full_info| {
+                view! { <InnerProblemContent full_info /> }
+            })
+        })
+    };
+    view! {
+        <Suspense fallback=|| {
+            view! { <p>loading</p> }
+        }>
+            <ErrorFallback>{content}</ErrorFallback>
+        </Suspense>
+    }
+}
+
+#[component]
+pub fn InnerProblemContent(
     #[prop(into, optional)] class: String,
     full_info: grpc::ProblemFullInfo,
 ) -> impl IntoView {
