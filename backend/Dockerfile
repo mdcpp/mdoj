@@ -14,9 +14,6 @@ WORKDIR /compiler
 COPY . .
 RUN --mount=type=cache,target=target
 
-RUN sed -i '/mold/d' backend/Cargo.toml
-RUN sed -i '/codegen-backend/d' backend/Cargo.toml
-
 ARG ARCH=x86_64
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
