@@ -21,7 +21,7 @@ pub fn ProblemEditor() -> impl IntoView {
     let params = use_params::<EditorParams>();
     let token = use_token();
     let scope = create_query(fetcher, Default::default());
-    let query = scope.use_query(move || token());
+    let query = scope.use_query(token);
 
     let editor = move || {
         query.data.get().map(|v| {

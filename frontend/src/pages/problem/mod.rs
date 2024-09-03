@@ -9,7 +9,6 @@ pub use editor::ProblemEditor;
 pub use education::ProblemEducation;
 use leptos::*;
 use leptos_icons::*;
-use leptos_query::*;
 use leptos_router::*;
 pub use submission::ProblemSubmission;
 
