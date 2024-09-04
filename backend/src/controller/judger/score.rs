@@ -131,12 +131,14 @@ impl ScoreUpload {
 
         let now = Local::now().naive_local();
 
-        if contest.end < now {
-            tracing::trace!(reason = "contest ended", "score_contest");
-            return Ok(());
+        if let Some(end) = contest.end {
+            if end < now {
+                tracing::trace!(reason = "contest ended", "score_contest");
+                return Ok(());
+            }
         }
 
-        if contest.hoster == self.user_id {
+        if contest.host == self.user_id {
             tracing::trace!(reason = "owner score bypass", "score_contest");
             return Ok(());
         }

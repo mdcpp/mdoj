@@ -200,6 +200,7 @@ impl RateLimit for LoginRequest {
 impl RateLimit for () {}
 impl RateLimit for RemoveRequest {}
 impl RateLimit for PublishRequest {}
+impl RateLimit for PublishContestRequest {}
 impl RateLimit for ListAnnouncementByContestRequest {}
 impl RateLimit for ListEducationByProblemRequest {}
 impl RateLimit for UploadRequest {

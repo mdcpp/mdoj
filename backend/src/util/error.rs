@@ -1,9 +1,6 @@
 use crate::controller::{imgur as image, judger, token};
 use crate::report_internal;
-use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
 use tonic::Status;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
-use uuid::Uuid;
 
 use super::auth::RoleLv;
 
@@ -108,41 +105,51 @@ impl From<Error> for Status {
     }
 }
 
-/// Tracing information for error
-///
-/// useful to log the tracing information to client
-/// without exposing the server's internal error
 #[cfg(not(feature = "insecure-print"))]
-pub struct Tracing {
-    trace_id: TraceId,
-    span_id: SpanId,
-    log_id: Uuid,
-}
 
-#[cfg(not(feature = "insecure-print"))]
-impl Tracing {
-    pub fn random() -> (Self, Uuid) {
-        let log_id = Uuid::new_v4();
-        (Self::new(log_id), log_id)
+pub mod insecure_print {
+    use super::*;
+    use opentelemetry::trace::{SpanId, TraceContextExt, TraceId};
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+    use uuid::Uuid;
+
+    /// Tracing information for error
+    ///
+    /// useful to log the tracing information to client
+    /// without exposing the server's internal error
+    pub struct Tracing {
+        trace_id: TraceId,
+        span_id: SpanId,
+        log_id: Uuid,
     }
-    pub fn new(log_id: Uuid) -> Self {
-        let span = tracing::error_span!("report");
-        let ctx = span.context();
-        let span_ref = ctx.span();
-        let span_ctx = span_ref.span_context();
-        let trace_id = span_ctx.trace_id();
-        let span_id = span_ctx.span_id();
 
-        Self {
-            trace_id,
-            span_id,
-            log_id,
+    impl Tracing {
+        pub fn random() -> (Self, Uuid) {
+            let log_id = Uuid::new_v4();
+            (Self::new(log_id), log_id)
+        }
+        pub fn new(log_id: Uuid) -> Self {
+            let span = tracing::error_span!("report");
+            let ctx = span.context();
+            let span_ref = ctx.span();
+            let span_ctx = span_ref.span_context();
+            let trace_id = span_ctx.trace_id();
+            let span_id = span_ctx.span_id();
+
+            Self {
+                trace_id,
+                span_id,
+                log_id,
+            }
+        }
+        pub fn report(self) -> String {
+            format!(
+                "trace_id: {}, span_id: {}, log_id: {}",
+                self.trace_id, self.span_id, self.log_id
+            )
         }
     }
-    pub fn report(self) -> String {
-        format!(
-            "trace_id: {}, span_id: {}, log_id: {}",
-            self.trace_id, self.span_id, self.log_id
-        )
-    }
 }
+
+#[cfg(not(feature = "insecure-print"))]
+pub use insecure_print::Tracing;
