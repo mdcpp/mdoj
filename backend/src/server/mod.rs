@@ -27,7 +27,7 @@ use tonic_web::GrpcWebLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::Instrument;
 
-const MAX_FRAME_SIZE: u32 = 1024 * 1024 * 8;
+const MAX_TESTCASE_CODEX_SIZE: usize = 1024 * 1024 * 16;
 
 // from https://docs.rs/tonic-web/0.11.0/src/tonic_web/lib.rs.html#140
 const DEFAULT_EXPOSED_HEADERS: [&str; 3] =
@@ -143,13 +143,16 @@ impl Server {
         server
             .layer(cors)
             .layer(GrpcWebLayer::new())
-            .max_frame_size(Some(MAX_FRAME_SIZE))
             .add_service(ProblemServer::new(self_.clone()))
             .add_service(EducationServer::new(self_.clone()))
             .add_service(UserServer::new(self_.clone()))
             .add_service(TokenServer::new(self_.clone()))
             .add_service(ContestServer::new(self_.clone()))
-            .add_service(TestcaseServer::new(self_.clone()))
+            .add_service(
+                TestcaseServer::new(self_.clone())
+                    .max_decoding_message_size(MAX_TESTCASE_CODEX_SIZE)
+                    .max_encoding_message_size(MAX_TESTCASE_CODEX_SIZE),
+            )
             .add_service(SubmitServer::new(self_.clone()))
             .add_service(ChatServer::new(self_.clone()))
             .add_service(AnnouncementServer::new(self_.clone()))
