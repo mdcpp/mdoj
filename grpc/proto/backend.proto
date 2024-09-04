@@ -609,6 +609,13 @@ message ListContestResponse {
 message CreateContestRequest {
   message Info {
     required string title = 1;
+    // if begin is set, the contest will be open automatically even if contest is private
+    //
+    // try to close contest when it's open bacause of time reached will result in end being set to current time
+    //
+    // if contest was made public after end, both begin and end timer would be cancel and contest would be immediately visible to anyone
+    //
+    // if contest end before it begin, the contest would be public
     required google.protobuf.Timestamp begin = 2;
     required google.protobuf.Timestamp end = 3;
     required string tags = 6;
@@ -697,6 +704,7 @@ service Contest {
   rpc Update(UpdateContestRequest) returns (google.protobuf.Empty);
   rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
+  // public means the contest itself is visible, it may be guarded by password or so
   rpc Publish(PublishRequest) returns (google.protobuf.Empty);
   rpc Unpublish(PublishRequest) returns (google.protobuf.Empty);
 
@@ -711,8 +719,8 @@ message UserInfo {
 
 message UserFullInfo {
   required UserInfo info = 1;
-  required bytes hashed_pwd = 2;
   required bool writable = 3;
+  // require string description = 4;
 }
 
 message ListUserResponse {
@@ -726,6 +734,7 @@ message CreateUserRequest {
     required string username = 1;
     required string password = 2;
     required Role role = 4;
+    // required string description = 5;
   }
   required Info info = 1;
   // can prevent duplicate request.
@@ -739,6 +748,7 @@ message UpdateUserRequest {
     optional string username = 1;
     optional string password = 2;
     optional Role role = 3;
+    // optional string description = 4;
   }
   required Info info = 1;
   required int32 id = 2;

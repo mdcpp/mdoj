@@ -13,7 +13,6 @@ impl<'a> From<WithAuth<'a, Model>> for UserFullInfo {
         let model = value.1;
         let writable = Entity::writable(&model, value.0);
         UserFullInfo {
-            hashed_pwd: model.password.clone(),
             info: model.into(),
             writable,
         }
