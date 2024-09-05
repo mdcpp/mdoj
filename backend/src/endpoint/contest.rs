@@ -142,12 +142,10 @@ impl Contest for ArcServer {
 
             fill_active_model!(model, req.info, title, content, tags);
 
-            let password: Vec<u8> = req
-                .info
-                .password
-                .map(|a| self.crypto.hash(&a))
-                .ok_or(Error::NotInPayload("password"))?;
-            model.password = ActiveValue::Set(Some(password));
+            if let Some(password) = req.info.password {
+                let password: Vec<u8> = self.crypto.hash(password.as_str());
+                model.password = ActiveValue::Set(Some(password));
+            }
 
             model.end = req.info.end.map(into_chrono).into_active_value();
 
