@@ -1,58 +1,19 @@
 use leptos::*;
 use leptos_query::*;
 use leptos_router::{use_params, Params};
-use tailwind_fuse::tw_join;
 
 use crate::{components::*, utils::*};
 
-#[derive(Params, Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Params, Debug, PartialEq, Eq, Clone, Hash, Default)]
 struct EditorParams {
     id: i32,
-}
-
-async fn fetcher(token: Option<String>) -> Result<grpc::Languages> {
-    let mut client = grpc::submit_client::SubmitClient::new(grpc::new_client());
-    let langs = client.list_lang(().with_optional_token(token)).await?;
-    Ok(langs.into_inner())
 }
 
 #[component]
 pub fn ProblemEditor() -> impl IntoView {
     let params = use_params::<EditorParams>();
-    let token = use_token();
-    let scope = create_query(fetcher, Default::default());
-    let query = scope.use_query(token);
 
-    let editor = move || {
-        query.data.get().map(|v| {
-            v.map(|langs| {
-                let id = params()?.id;
-                Result::<_>::Ok(view! { <InnerProblemEditor id langs /> })
-            })
-        })
-    };
-
-    view! {
-        <Suspense fallback=|| {
-            view! { <p>loading</p> }
-        }>
-            <ErrorFallback>{editor}</ErrorFallback>
-        </Suspense>
-    }
-}
-
-#[component]
-pub fn InnerProblemEditor(
-    #[prop(into, optional)] class: String,
-    id: i32,
-    langs: grpc::Languages,
-) -> impl IntoView {
-    let options = langs
-        .list
-        .into_iter()
-        .map(|lang| (lang.lang_ext, lang.lang_name.into_view()))
-        .collect();
-    let select_lang = create_rw_signal("".to_owned());
+    let select_lang = create_rw_signal::<Option<grpc::Language>>(None);
     let editor_ref = create_editor_ref();
 
     let submit_problem =
@@ -66,7 +27,7 @@ pub fn InnerProblemEditor(
                 let id = client
                     .create(grpc::CreateSubmitRequest {
                         lang_uid,
-                        problem_id: id,
+                        problem_id: params.get_untracked()?.id,
                         code,
                         request_id: None,
                     })
@@ -78,27 +39,69 @@ pub fn InnerProblemEditor(
     let submit = move |e: ev::SubmitEvent| {
         e.prevent_default();
         submit_problem.dispatch((
-            select_lang(),
+            select_lang.with(|v| v.as_ref().unwrap().lang_uid.clone()),
             editor_ref
                 .with(|e| e.as_ref().map(|e| e.get_value()))
                 .unwrap_or_default(),
         ));
     };
 
-    let disabled = Signal::derive(move || select_lang.with(|v| v.is_empty()));
+    let disabled = Signal::derive(move || select_lang.with(|v| v.is_none()));
 
     view! {
-        <form
-            class=tw_join!("flex flex-col gap-4 h-full w-full bg-lighten p-3 rounded", class)
-            on:submit=submit
-        >
-            <Editor lang_ext=select_lang editor_ref class="h-full" />
+        <form class="flex flex-col gap-4 h-full w-full bg-lighten p-3 rounded" on:submit=submit>
+            <Editor
+                lang_ext=(move || {
+                    select_lang.with(|v| v.as_ref().map(|v| v.lang_ext.clone()).unwrap_or_default())
+                })
+                    .into_signal()
+                editor_ref
+                class="h-full"
+            />
             <nav class="flex flex-row gap-4">
-                <Select value=select_lang placeholder="Language" options></Select>
+                <LangSelect select_lang />
                 <Button class="grow" type_="submit" disabled>
                     Submit
                 </Button>
             </nav>
         </form>
+    }
+}
+
+async fn fetcher(token: Option<String>) -> Result<grpc::Languages> {
+    let mut client = grpc::submit_client::SubmitClient::new(grpc::new_client());
+    let langs = client.list_lang(().with_optional_token(token)).await?;
+    Ok(langs.into_inner())
+}
+
+#[component]
+fn LangSelect(select_lang: RwSignal<Option<grpc::Language>>) -> impl IntoView {
+    let scope = create_query(fetcher, Default::default());
+    let token = use_token();
+    let query = scope.use_query(token);
+
+    let select = move || {
+        query.data.get().map(|v|v.map(|v|{
+            let options = v
+                .list
+                .into_iter()
+                .map(|lang| {
+                    let option=lang.lang_name.clone().into_view();
+                    (
+                        Some(lang),
+                        option,
+                    )
+                })
+                .collect();
+
+            view! { <Select value=select_lang placeholder="Language".into_view() options></Select> }
+        }))
+    };
+    view! {
+        <Suspense fallback=|| {
+            view! { <p>loading</p> }
+        }>
+            <ErrorFallback>{select}</ErrorFallback>
+        </Suspense>
     }
 }
