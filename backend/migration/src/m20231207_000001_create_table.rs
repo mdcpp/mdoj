@@ -45,7 +45,7 @@ enum Announcement {
 enum Contest {
     Table,
     Id,
-    Hoster,
+    Host,
     Begin,
     End,
     Title,
@@ -229,16 +229,16 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Contest::Hoster).integer().not_null())
+                    .col(ColumnDef::new(Contest::Host).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-announcement-user-hoster")
-                            .from(Contest::Table, Contest::Hoster)
+                            .name("fk-announcement-user-host")
+                            .from(Contest::Table, Contest::Host)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::SetNull),
                     )
-                    .col(ColumnDef::new(Contest::Begin).date_time().not_null())
-                    .col(ColumnDef::new(Contest::End).date_time().not_null())
+                    .col(ColumnDef::new(Contest::Begin).date_time().null())
+                    .col(ColumnDef::new(Contest::End).date_time().null())
                     .col(ColumnDef::new(Contest::Title).text().not_null())
                     .col(
                         ColumnDef::new(Contest::Content)
@@ -681,7 +681,7 @@ impl MigrationTrait for Migration {
         index!(manager, Submit, Memory);
         index!(manager, Submit, UserId);
 
-        index!(manager, Contest, Hoster);
+        index!(manager, Contest, Host);
         index!(manager, Contest, Public);
         index!(manager, Contest, End);
         index!(manager, Contest, Begin);

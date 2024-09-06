@@ -72,7 +72,7 @@ macro_rules! create_cache {
                     F: FnOnce(Self) -> Fut,
                     Fut: Future<Output = Result<Self::Item>>,
                 {
-                    match &self.request_id{
+                    match &self.    request_id{
                         Some(x) => [<$t CacheInstance>]
                             .get(Uuid::parse_str(&x)?, || f(self))
                             .await,
@@ -88,6 +88,7 @@ create_cache!(PublishRequest, ());
 create_cache!(JoinContestRequest, ());
 create_cache!(RemoveRequest, ());
 create_cache!(RejudgeRequest, ());
+create_cache!(PublishContestRequest, ());
 
 create_cache!(RefreshRequest, TokenInfo, 8);
 create_cache!(LoginRequest, TokenInfo, 8);

@@ -115,7 +115,8 @@ impl Submit for ArcServer {
         let (user_id, _) = auth.assume_login()?;
 
         req.get_or_insert(|req| async move {
-            let lang = Uuid::parse_str(req.lang_uid.as_str()).map_err(Into::<Error>::into)?;
+            let lang = Uuid::parse_str(req.lang_uid.as_str())
+                .map_err(|_| Error::BadArgument("lang_uid"))?;
 
             let problem = problem::Entity::find_by_id(req.problem_id)
                 .one(self.db.deref())
