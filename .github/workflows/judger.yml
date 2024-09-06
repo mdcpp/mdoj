@@ -1,4 +1,4 @@
-name: staging-judger-publish
+name: Publish staging build for judger
 
 on:
   push:

@@ -5,6 +5,8 @@
         "Judger",
         "Testsuit",
         "Grpc",
-        "Tools"
-    ]
+        "Tools",
+        "Docs"
+    ],
+    "deno.enable": true
 }

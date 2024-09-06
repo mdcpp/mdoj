@@ -1,4 +1,4 @@
-name: staging-backend-publish
+name: Publish staging build for backend
 
 on:
   push:
