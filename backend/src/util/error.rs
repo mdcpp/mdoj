@@ -14,7 +14,7 @@ pub enum Error {
     PermissionDeny(&'static str),
     #[error("seaorm error: `{0}`")]
     DBErr(sea_orm::DbErr),
-    #[error("payload.`{0}` is not a vaild argument")]
+    #[error("`{0}` is not a vaild argument")]
     BadArgument(&'static str),
     #[error("Not in payload: `{0}`")]
     NotInPayload(&'static str),
