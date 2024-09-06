@@ -13,11 +13,11 @@ use super::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub hoster: i32,
-    #[sea_orm(column_type = "Time")]
-    pub begin: chrono::NaiveDateTime,
-    #[sea_orm(column_type = "Time")]
-    pub end: chrono::NaiveDateTime,
+    pub host: i32,
+    #[sea_orm(column_type = "Time", nullable)]
+    pub begin: Option<chrono::NaiveDateTime>,
+    #[sea_orm(column_type = "Time", nullable)]
+    pub end: Option<chrono::NaiveDateTime>,
     pub title: String,
     pub content: String,
     pub tags: String,
@@ -34,9 +34,9 @@ pub struct Model {
 #[sea_orm(entity = "Entity")]
 pub struct PartialModel {
     pub id: i32,
-    pub hoster: i32,
-    pub begin: chrono::NaiveDateTime,
-    pub end: chrono::NaiveDateTime,
+    pub host: i32,
+    pub begin: Option<chrono::NaiveDateTime>,
+    pub end: Option<chrono::NaiveDateTime>,
     pub title: String,
     pub password: Option<Vec<u8>>,
     pub public: bool,
@@ -51,7 +51,7 @@ pub struct PartialModel {
 #[sea_orm(entity = "Entity")]
 pub struct IdModel {
     pub id: i32,
-    pub hoster: i32,
+    pub host: i32,
     pub public: bool,
 }
 
@@ -62,7 +62,7 @@ impl IdModel {
     pub fn upgrade(self) -> Model {
         Model {
             id: self.id,
-            hoster: self.hoster,
+            host: self.host,
             begin: Default::default(),
             end: Default::default(),
             title: Default::default(),
@@ -84,7 +84,7 @@ pub enum Relation {
     Problem,
     #[sea_orm(
         belongs_to = "super::user::Entity",
-        from = "Column::Hoster",
+        from = "Column::Host",
         to = "super::user::Column::Id",
         on_update = "NoAction",
         on_delete = "SetNull"
@@ -138,12 +138,10 @@ impl ParentalTrait<IdModel> for Entity {
                     let now = Local::now().naive_local();
 
                     union!(
-                        [Column::Id, Column::Hoster, Column::Public, Column::Begin],
+                        [Column::Id, Column::Host, Column::Public, Column::Begin],
                         user.find_related(Entity),
-                        Entity::find()
-                            .filter(Column::Public.eq(true))
-                            .filter(Column::Begin.lte(now)),
-                        Entity::find().filter(Column::Hoster.eq(user.id))
+                        Entity::find().filter(Column::Public.eq(true).and(Column::Begin.lte(now))),
+                        Entity::find().filter(Column::Host.eq(user.id))
                     )
                     .and_where(Column::Id.eq(id))
                     .build_any(builder.deref())
@@ -177,7 +175,7 @@ impl Filter for Entity {
             RoleLv::User | RoleLv::Super => query.filter(
                 Column::Public
                     .eq(true)
-                    .or(Column::Hoster.eq(auth.user_id().unwrap())),
+                    .or(Column::Host.eq(auth.user_id().unwrap())),
             ),
             RoleLv::Admin | RoleLv::Root => query,
         })
@@ -186,12 +184,12 @@ impl Filter for Entity {
         let (user_id, perm) = auth.assume_login()?;
         Ok(match perm {
             RoleLv::Admin | RoleLv::Root => query,
-            _ => query.filter(Column::Hoster.eq(user_id)),
+            _ => query.filter(Column::Host.eq(user_id)),
         })
     }
     fn writable(model: &Self::Model, auth: &Auth) -> bool {
         auth.perm() >= RoleLv::Admin
-            || (Some(model.hoster) == auth.user_id() && auth.perm() != RoleLv::User)
+            || (Some(model.host) == auth.user_id() && auth.perm() != RoleLv::User)
     }
 }
 
@@ -268,8 +266,8 @@ impl SortSource<PartialModel> for ColPagerTrait {
         data.1 = match data.0 {
             Sort::UpdateDate => model.update_at.to_string(),
             Sort::CreateDate => model.create_at.to_string(),
-            Sort::Begin => model.begin.to_string(),
-            Sort::End => model.end.to_string(),
+            Sort::Begin => model.begin.unwrap().to_string(),
+            Sort::End => model.end.unwrap().to_string(),
             Sort::Public => model.public.to_string(),
         }
     }

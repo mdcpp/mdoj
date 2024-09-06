@@ -1,4 +1,5 @@
 use super::error::Error;
+use grpc::backend::update_contest_request::info::Password;
 use grpc::backend::*;
 use tracing::instrument;
 
@@ -175,6 +176,11 @@ impl BoundCheck for CreateContestRequest {
 }
 impl BoundCheck for UpdateContestRequest {
     fn check(&self) -> bool {
+        if let Some(Password::PasswordSet(password)) = &self.info.password {
+            if password.len() > 256 {
+                return true;
+            }
+        }
         self.info
             .title
             .as_ref()
@@ -189,13 +195,6 @@ impl BoundCheck for UpdateContestRequest {
                 .map(String::len)
                 .unwrap_or_default()
                 > 128 * 1024
-            || self
-                .info
-                .password
-                .as_ref()
-                .map(String::len)
-                .unwrap_or_default()
-                > 256
     }
 }
 

@@ -204,7 +204,7 @@ message ListProblemResponse {
   required uint64 remain = 3;
 }
 
-message InsertProblemRequest{
+message InsertProblemRequest {
   optional string request_id = 1;
   optional int32 pivot_id = 2;
   required int32 problem_id = 3;
@@ -560,7 +560,7 @@ message ListTestcaseRequest {
   required int64 offset = 4;
 }
 
-message InsertTestcaseRequest{
+message InsertTestcaseRequest {
   optional string request_id = 1;
   optional int32 pivot_id = 2;
   required int32 testcase_id = 3;
@@ -588,8 +588,8 @@ service Testcase {
 message ContestInfo {
   required int32 id = 1;
   required string title = 2;
-  required google.protobuf.Timestamp begin = 4;
-  required google.protobuf.Timestamp end = 5;
+  optional google.protobuf.Timestamp begin = 4;
+  optional google.protobuf.Timestamp end = 5;
   required bool need_password = 6;
 }
 
@@ -609,15 +609,7 @@ message ListContestResponse {
 message CreateContestRequest {
   message Info {
     required string title = 1;
-    // if begin is set, the contest will be open automatically even if contest is private
-    //
-    // try to close contest when it's open bacause of time reached will result in end being set to current time
-    //
-    // if contest was made public after end, both begin and end timer would be cancel and contest would be immediately visible to anyone
-    //
-    // if contest end before it begin, the contest would be public
-    required google.protobuf.Timestamp begin = 2;
-    required google.protobuf.Timestamp end = 3;
+    optional google.protobuf.Timestamp end = 3;
     required string tags = 6;
     required string content = 4;
     optional string password = 5;
@@ -632,14 +624,18 @@ message CreateContestRequest {
 message UpdateContestRequest {
   message Info {
     optional string title = 1;
-    optional google.protobuf.Timestamp begin = 2;
-    optional google.protobuf.Timestamp end = 3;
+
     optional string content = 4;
     optional string tags = 6;
-    // if there is password: enter original password to disable password, null
-    // to keep password. if there isn't: enter new password to set password,
-    // null to keep it password disable
-    optional string password = 5;
+    oneof password {
+      // enter original password
+      google.protobuf.Empty PASSWORD_UNSET = 9;
+      string PASSWORD_SET = 10;
+    }
+    oneof end {
+      google.protobuf.Timestamp END_SET = 7;
+      google.protobuf.Empty END_UNSET = 8;
+    }
   }
   required Info info = 1;
   required int32 id = 2;
@@ -694,7 +690,15 @@ message ListContestRequest {
   required int64 offset = 4;
 }
 
-message Users { repeated UserRank list = 1; }
+// message Users { repeated UserRank list = 1; }
+
+message PublishContestRequest {
+  required int32 id = 1;
+  // if set, user can only join after this timestamp(admin can bypass
+  // restriction
+  optional google.protobuf.Timestamp begin = 4;
+  optional string request_id = 5;
+}
 
 service Contest {
   rpc List(ListContestRequest) returns (ListContestResponse);
@@ -704,8 +708,9 @@ service Contest {
   rpc Update(UpdateContestRequest) returns (google.protobuf.Empty);
   rpc Remove(RemoveRequest) returns (google.protobuf.Empty);
 
-  // public means the contest itself is visible, it may be guarded by password or so
-  rpc Publish(PublishRequest) returns (google.protobuf.Empty);
+  // public means the contest itself is visible, it may be guarded by password
+  // or so
+  rpc Publish(PublishContestRequest) returns (google.protobuf.Empty);
   rpc Unpublish(PublishRequest) returns (google.protobuf.Empty);
 
   rpc Join(JoinContestRequest) returns (google.protobuf.Empty);
@@ -898,6 +903,7 @@ service Chat {
   rpc List(ListChatRequest) returns (ListChatResponse);
 }
 
+
 message UploadRequest {
   required bytes data = 1;
   // can prevent duplicate request.
@@ -921,3 +927,4 @@ message Language {
   required string lang_ext = 4;
 }
 message Languages { repeated Language list = 1; }
+

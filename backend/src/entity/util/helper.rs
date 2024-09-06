@@ -106,7 +106,7 @@ where
             left.or(right)
         };
 
-        let query = query.filter(left.and(right));
+        let query = query.filter(left.and(right).and(self.col.is_not_null()));
 
         let query = order_by_bool(query, self.pk, self.rev);
 

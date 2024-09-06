@@ -27,3 +27,16 @@ use crate::util::with::*;
 use crate::util::{auth::RoleLv, bound::BoundCheck, duplicate::*, error::Error, time::*};
 use crate::{fill_active_model, fill_exist_active_model, server::ArcServer, TonicStream};
 use tracing::{Instrument, Level};
+
+// trait OptionalActiveValue<T>{
+//     fn into_active_value(self) -> ActiveValue<T>;
+// }
+//
+// impl<T> OptionalActiveValue<T> for Option<T>{
+//     fn into_active_value(self) -> ActiveValue<T> {
+//         match self {
+//             Some(value) => ActiveValue::Set(value),
+//             None => ActiveValue::NotSet,
+//         }
+//     }
+// }

@@ -3,9 +3,11 @@ use crate::entity::{
     contest::{Paginator, *},
     problem, *,
 };
+use chrono::Local;
 use sea_orm::sea_query::Expr;
 
 use grpc::backend::contest_server::*;
+use grpc::backend::update_contest_request::info::{End, Password};
 
 impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
     fn from(value: WithAuth<'a, Model>) -> Self {
@@ -14,7 +16,7 @@ impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
         ContestFullInfo {
             info: model.clone().into(),
             content: model.content,
-            host: model.hoster,
+            host: model.host,
             writable,
         }
     }
@@ -36,8 +38,8 @@ impl From<Model> for ContestInfo {
         ContestInfo {
             id: value.id,
             title: value.title,
-            begin: into_prost(value.begin),
-            end: into_prost(value.end),
+            begin: value.begin.map(into_prost),
+            end: value.end.map(into_prost),
             need_password: value.password.is_some(),
         }
     }
@@ -48,8 +50,8 @@ impl From<PartialModel> for ContestInfo {
         ContestInfo {
             id: value.id,
             title: value.title,
-            begin: into_prost(value.begin),
-            end: into_prost(value.end),
+            begin: value.begin.map(into_prost),
+            end: value.end.map(into_prost),
             need_password: value.password.is_some(),
         }
     }
@@ -136,19 +138,16 @@ impl Contest for ArcServer {
 
         req.get_or_insert(|req| async {
             let mut model: ActiveModel = Default::default();
-            model.hoster = ActiveValue::Set(user_id);
+            model.host = ActiveValue::Set(user_id);
 
             fill_active_model!(model, req.info, title, content, tags);
 
-            let password: Vec<u8> = req
-                .info
-                .password
-                .map(|a| self.crypto.hash(&a))
-                .ok_or(Error::NotInPayload("password"))?;
-            model.password = ActiveValue::Set(Some(password));
+            if let Some(password) = req.info.password {
+                let password: Vec<u8> = self.crypto.hash(password.as_str());
+                model.password = ActiveValue::Set(Some(password));
+            }
 
-            model.begin = ActiveValue::Set(into_chrono(req.info.begin));
-            model.end = ActiveValue::Set(into_chrono(req.info.end));
+            model.end = req.info.end.map(into_chrono).into_active_value();
 
             let model = model
                 .save(self.db.deref())
@@ -182,47 +181,48 @@ impl Contest for ArcServer {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
         req.bound_check()?;
 
-        let (_, perm) = auth.assume_login()?;
+        let (_, _perm) = auth.assume_login()?;
 
         req.get_or_insert(|req| async move {
             trace!(id = req.id);
 
-            let mut model = Entity::find_by_id(req.id).with_auth(&auth).write()?
-            .one(self.db.deref())
-            .instrument(info_span!("fetch").or_current())
-            .await
-            .map_err(Into::<Error>::into)?
-            .ok_or(Error::NotInDB)?;
-
-            if let Some(src) = req.info.password {
-                if let Some(tar) = model.password.as_ref() {
-                    if perm.root().is_ok() || self.crypto.hash_eq(&src, tar) {
-                        let hash = self.crypto.hash(&src);
-                        model.password = Some(hash);
-                    } else {
-                        return Err(Error::PermissionDeny(
-                            "mismatch password(root can update password without entering original password)",
-                        ));
-                    }
+            let mut model = Entity::find_by_id(req.id)
+                .with_auth(&auth)
+                .write()?
+                .one(self.db.deref())
+                .instrument(info_span!("fetch").or_current())
+                .await
+                .map_err(Into::<Error>::into)?
+                .ok_or(Error::NotInDB)?;
+            match req.info.password {
+                Some(Password::PasswordUnset(_)) => {
+                    model.password = None;
                 }
+                Some(Password::PasswordSet(password)) => {
+                    let hash = self.crypto.hash(&password);
+                    model.password = Some(hash);
+                }
+                _ => {}
             }
 
             let mut model = model.into_active_model();
 
             fill_exist_active_model!(model, req.info, title, content, tags);
-            if let Some(x) = req.info.begin {
-                model.begin = ActiveValue::Set(into_chrono(x));
-            }
-            if let Some(x) = req.info.end {
-                model.end = ActiveValue::Set(into_chrono(x));
+            match req.info.end {
+                Some(End::EndSet(x)) => {
+                    model.end = ActiveValue::Set(Some(into_chrono(x)));
+                }
+                Some(End::EndUnset(_)) => {
+                    model.end = ActiveValue::NotSet;
+                }
+                _ => {}
             }
 
             model
                 .update(self.db.deref())
                 .instrument(info_span!("update").or_current())
-                .await
-                ?;
-                Ok(())
+                .await?;
+            Ok(())
         })
         .await
         .with_grpc()
@@ -273,7 +273,7 @@ impl Contest for ArcServer {
         name = "oj.backend.Contest/publish",
         err(level = "debug", Display)
     )]
-    async fn publish(&self, req: Request<PublishRequest>) -> Result<Response<()>, Status> {
+    async fn publish(&self, req: Request<PublishContestRequest>) -> Result<Response<()>, Status> {
         let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.get_or_insert(|req| async move {
@@ -289,6 +289,9 @@ impl Contest for ArcServer {
                 .into_active_model();
 
             model.public = ActiveValue::Set(true);
+            if let Some(begin) = req.begin.map(into_chrono) {
+                model.begin = ActiveValue::Set(Some(begin));
+            }
 
             model
                 .update(self.db.deref())
@@ -352,7 +355,6 @@ impl Contest for ArcServer {
                 .await
                 .map_err(Into::<Error>::into)?
                 .ok_or(Error::NotInDB)?;
-            // FIXME: abstract away password checking logic
 
             if let Some(tar) = model.password {
                 let password = req
@@ -361,6 +363,12 @@ impl Contest for ArcServer {
                     .ok_or(Error::NotInPayload("password"))?;
                 if !self.crypto.hash_eq(password, &tar) {
                     return Err(Error::PermissionDeny("mismatched password"));
+                }
+            }
+
+            if let Some(begin) = model.begin {
+                if begin > Local::now().naive_local() {
+                    return Err(Error::PermissionDeny("contest not begin"));
                 }
             }
 
