@@ -154,7 +154,7 @@ impl Problem for ArcServer {
                 .await
                 .map_err(|_| Error::Retry)?;
 
-            info!(count.problem = 1, id = id);
+            info!(count.problem.count = 1, id = id);
 
             Ok(id.into())
         })
@@ -217,7 +217,7 @@ impl Problem for ArcServer {
             if result.rows_affected == 0 {
                 return Err(Error::NotInDB);
             }
-            info!(count.problem = -1, id = req.id);
+            info!(count.problem.count = -1, id = req.id);
             Ok(())
         })
         .await

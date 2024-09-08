@@ -1,4 +1,5 @@
 use super::*;
+use tracing_futures::Instrument;
 
 use grpc::backend::chat_server::*;
 
@@ -30,10 +31,7 @@ impl Chat for ArcServer {
         err(level = "debug", Display)
     )]
     async fn create(&self, req: Request<CreateChatRequest>) -> Result<Response<Id>, Status> {
-        let (auth, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
         let (user_id, _) = auth.assume_login()?;
 
         req.bound_check()?;
@@ -98,13 +96,7 @@ impl Chat for ArcServer {
         &self,
         req: Request<ListChatRequest>,
     ) -> Result<Response<ListChatResponse>, Status> {
-        let (auth, req) = self
-            .parse_request_fn(req, |req| {
-                (req.size + req.offset.saturating_abs() as u64 / 5 + 2)
-                    .try_into()
-                    .unwrap_or(u32::MAX)
-            })
-            .await?;
+        let (auth, req) = self.rate_limit(req).in_current_span().await?;
 
         req.bound_check()?;
 

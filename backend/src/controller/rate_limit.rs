@@ -188,8 +188,13 @@ impl RateLimitController {
     /// - [`TrafficType::Blacklist`]: dedicated rate limit (because verify token take time)
     ///
     /// We identify [`TrafficType::Blacklist`] by ip blacklist,
-    /// whose entries is added when user fail to login or sent invaild token
-    #[instrument(skip_all, level = "debug", name = "rate_limit")]
+    /// whose entries is added when user fail to log in or sent invalid token
+    #[instrument(
+        skip_all,
+        level = "debug",
+        name = "check_traffic_type",
+        fields(traffic_type)
+    )]
     pub async fn check<'a, T, F, Fut>(
         &self,
         req: &'a tonic::Request<T>,
@@ -211,14 +216,13 @@ impl RateLimitController {
         {
             TrafficType::Login(x) => Bucket::Login((self.user_limiter.clone(), x)),
             TrafficType::Guest => Bucket::Guest((self.ip_limiter.clone(), addr)),
-            TrafficType::Blacklist(err) => {
-                tracing::warn!(msg = err.to_string(), "ip_blacklist");
+            TrafficType::Blacklist(_) => {
                 self.ip_blacklist.insert(addr, ());
                 Bucket::Blacklist(self.blacklist_limiter.clone())
             }
         };
 
-        debug!(traffic_type = res.get_name());
+        Span::current().record("traffic_type", &res.get_name());
 
         Ok(res)
     }

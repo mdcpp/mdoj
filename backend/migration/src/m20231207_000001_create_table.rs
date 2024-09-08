@@ -104,6 +104,7 @@ enum Submit {
     Status,
     Accept,
     Score,
+    Public
 }
 #[derive(Iden)]
 enum Testcase {
@@ -441,6 +442,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Submit::Lang).text().not_null())
                     .col(ColumnDef::new(Submit::Code).not_null().binary())
                     .col(ColumnDef::new(Submit::Memory).big_integer().null())
+                    .col(ColumnDef::new(Submit::Public).boolean().not_null())
                     .col(
                         ColumnDef::new(Submit::PassCase)
                             .integer()

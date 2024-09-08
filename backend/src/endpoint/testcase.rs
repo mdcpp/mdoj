@@ -102,7 +102,7 @@ impl Testcase for ArcServer {
 
             let id = *model.id.as_ref();
 
-            info!(count.testcase = 1, id = id);
+            info!(count.testcase.count = 1, id = id);
 
             Ok(id.into())
         })

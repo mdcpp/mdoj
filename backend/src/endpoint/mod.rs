@@ -14,7 +14,6 @@ mod testcase;
 mod token;
 mod user;
 
-use crate::NonZeroU32;
 use grpc::backend::{Id, Order, *};
 use sea_orm::{Value, *};
 use std::ops::Deref;
