@@ -208,10 +208,7 @@ impl Submit for ArcServer {
         err(level = "debug", Display)
     )]
     async fn follow(&self, req: Request<Id>) -> Result<Response<Self::FollowStream>, Status> {
-        let (_, req) = self
-            .parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        let (_, req) = self.rate_limit(req).in_current_span().await?;
 
         Ok(Response::new(self.judger.follow(req.id).unwrap_or_else(
             || {
@@ -273,9 +270,7 @@ impl Submit for ArcServer {
 
     #[instrument(skip_all, level = "debug")]
     async fn list_lang(&self, req: Request<()>) -> Result<Response<Languages>, Status> {
-        self.parse_request_n(req, NonZeroU32!(5))
-            .in_current_span()
-            .await?;
+        self.rate_limit(req).in_current_span().await?;
 
         let list: Vec<_> = self
             .judger

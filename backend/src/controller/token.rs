@@ -7,7 +7,7 @@ use sea_orm::*;
 use spin::Mutex;
 use std::{ops::Deref, sync::Arc};
 use tokio::time;
-use tracing::{instrument, Instrument};
+use tracing::{info, instrument, Instrument};
 
 use crate::report_internal;
 
@@ -115,6 +115,8 @@ impl TokenController {
         .in_current_span()
         .await?;
 
+        info!(monotonic_counter.token.count = 1);
+
         Ok((
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD_NO_PAD, rand),
             expiry,
@@ -144,9 +146,12 @@ impl TokenController {
         let token = match cache_result {
             Some(token) => {
                 tracing::trace!(user_id = token.user_id, "cache_hit");
+                info!(monotonic_counter.token.cache_hit.count = 1);
                 token
             }
             None => {
+                info!(monotonic_counter.token.cache_missed.count = 1);
+
                 let token: CachedToken = (token::Entity::find()
                     .filter(token::Column::Rand.eq(rand.to_vec()))
                     .one(self.db.deref())
@@ -154,8 +159,6 @@ impl TokenController {
                     .await?
                     .ok_or(Error::NonExist)?)
                 .into();
-
-                tracing::trace!(user_id = token.user_id, "cache_missed");
 
                 self.cache.insert(rand, token.clone());
 

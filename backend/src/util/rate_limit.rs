@@ -15,7 +15,7 @@ impl Server {
     /// It's useful for endpoints that require resolving identity
     /// before rate limiting, such as logout
     #[instrument(skip_all, level = "info")]
-    pub async fn parse_auth<T>(
+    pub async fn authenticate_user<T>(
         &self,
         req: &tonic::Request<T>,
     ) -> Result<(Auth, Bucket), tonic::Status> {
@@ -40,7 +40,6 @@ impl Server {
                         }
                     }
                 } else {
-                    tracing::debug!("token_missing");
                     TrafficType::Guest
                 }
             })
@@ -49,53 +48,21 @@ impl Server {
         tracing::info!(auth = %auth);
         Ok((auth, bucket))
     }
-    /// parse request for payload and immediately rate
-    /// limiting base on a const cost
-    #[inline]
-    #[instrument(skip_all, level = "info", name = "parse")]
-    pub async fn parse_request_n<T>(
-        &self,
-        req: tonic::Request<T>,
-        permit: NonZeroU32,
-    ) -> Result<(Auth, T), tonic::Status> {
-        let (auth, bucket) = self.parse_auth(&req).await?;
-
-        bucket.cost(permit)?;
-
-        Ok((auth, req.into_inner()))
-    }
-    /// parse request for payload and immediately rate
-    /// limiting base on a dynamic cost(calculated by a function)
-    #[inline]
-    pub async fn parse_request_fn<T, F>(
-        &self,
-        req: tonic::Request<T>,
-        f: F,
-    ) -> Result<(Auth, T), tonic::Status>
-    where
-        F: FnOnce(&T) -> u32,
-    {
-        let (auth, bucket) = self.parse_auth(&req).await?;
-        let req = req.into_inner();
-
-        if let Some(cost) = NonZeroU32::new(f(&req)) {
-            bucket.cost(cost)?;
-        }
-
-        Ok((auth, req))
-    }
-    #[instrument(skip_all, level = "info")]
+    #[instrument(skip_all, level = "info", fields(cost))]
     pub async fn rate_limit<T: RateLimit>(
         &self,
         req: tonic::Request<T>,
     ) -> Result<(Auth, T), tonic::Status> {
-        let (auth, bucket) = self.parse_auth(&req).in_current_span().await?;
+        let (auth, bucket) = self.authenticate_user(&req).in_current_span().await?;
         bucket.cost(NonZeroU32::new(3).unwrap())?;
         let req = req.into_inner();
         tracing::debug!(bucket = %bucket);
 
         if let Some(cost) = NonZeroU32::new(req.get_cost()) {
+            Span::current().record("cost", cost.saturating_add(3));
             bucket.cost(cost)?;
+        } else {
+            Span::current().record("cost", 3);
         }
 
         Ok((auth, req))

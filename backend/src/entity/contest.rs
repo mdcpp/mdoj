@@ -285,7 +285,6 @@ impl WithAuthTrait for Paginator {}
 
 impl Paginator {
     pub fn new_text(text: String, start_from_end: bool) -> Self {
-        // FIXME: check dup text
         Self::Text(TextPaginator::new(text, start_from_end))
     }
     pub fn new_sort(sort: Sort, start_from_end: bool) -> Self {
