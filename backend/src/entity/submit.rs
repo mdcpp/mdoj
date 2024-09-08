@@ -26,6 +26,7 @@ pub struct Model {
     pub status: Option<u32>,
     pub accept: bool,
     pub score: u32,
+    pub public: bool,
 }
 
 #[derive(DerivePartialModel, FromQueryResult)]
@@ -50,6 +51,7 @@ pub struct PartialModel {
     pub status: Option<u32>,
     pub accept: bool,
     pub score: u32,
+    pub public: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -89,7 +91,7 @@ impl ActiveModelBehavior for ActiveModel {}
 impl Filter for Entity {
     #[instrument(skip_all, level = "debug")]
     fn read_filter<S: QueryFilter + Send>(query: S, _: &Auth) -> Result<S, Error> {
-        Ok(query)
+        Ok(query.filter(Column::Public.eq(true)))
     }
 
     #[instrument(skip_all, level = "debug")]
