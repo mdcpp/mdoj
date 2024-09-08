@@ -14,7 +14,7 @@ use std::{
 use crossbeam_queue::SegQueue;
 use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
-use tracing::{debug_span, instrument, span, Instrument, Level};
+use tracing::{debug_span, instrument, Instrument};
 use uuid::Uuid;
 
 use crate::config::{self, Judger as JudgerConfig};
@@ -126,30 +126,23 @@ impl Drop for ConnGuard {
 /// keep discovering new Upstream from config(IE: docker swarm, static address)
 ///
 /// occupy future, should generally be spawn in a green thread
+#[instrument(skip(router), level = "info")]
 async fn discover<I: Routable + Send>(
     config: JudgerConfig,
     router: Weak<Router>,
 ) -> Result<(), Error> {
     let mut instance = I::new(config.clone())?;
-    let span = span!(Level::INFO, "service_discover", config_name = config.name);
     loop {
-        match instance
-            .discover()
-            .instrument(debug_span!(parent:span.clone(), "try advance"))
-            .in_current_span()
-            .await
-        {
+        match instance.discover().in_current_span().await {
             RouteStatus::NewConnection(detail) => {
-                let _span =
-                    span!(parent:span.clone(),Level::DEBUG,"upstream_connect",uri=detail.uri);
                 let router = match router.upgrade() {
                     Some(x) => x,
                     None => break,
                 };
+                let uri = detail.uri.clone();
                 let (upstream, langs) = Upstream::new(detail).in_current_span().await?;
+                let _ = debug_span!("connected", uri = uri).entered();
                 for (uuid, lang) in langs.into_iter() {
-                    let _ = tracing::span!(parent:&_span,Level::DEBUG,"lang_insert",uuid=?&uuid)
-                        .entered();
                     router.langs.insert(lang);
                     loop {
                         match router.routing_table.get(&uuid) {

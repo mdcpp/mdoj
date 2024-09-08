@@ -104,7 +104,7 @@ impl Education for ArcServer {
 
             let id = *model.id.as_ref();
 
-            info!(count.education = 1, id = id);
+            info!(count.education.count = 1, id = id);
 
             Ok(id.into())
         })

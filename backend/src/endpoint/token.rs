@@ -108,7 +108,7 @@ impl Token for ArcServer {
         err(level = "debug", Display)
     )]
     async fn refresh(&self, req: Request<RefreshRequest>) -> Result<Response<TokenInfo>, Status> {
-        let (_, bucket) = self.parse_auth(&req).in_current_span().await?;
+        let (_, bucket) = self.authenticate_user(&req).in_current_span().await?;
         let (meta, _, req) = req.into_parts();
         bucket.cost(NonZeroU32::new(req.get_cost()).unwrap())?;
 
@@ -151,7 +151,7 @@ impl Token for ArcServer {
         err(level = "debug", Display)
     )]
     async fn logout(&self, req: Request<()>) -> Result<Response<()>, Status> {
-        let (auth, bucket) = self.parse_auth(&req).in_current_span().await?;
+        let (auth, bucket) = self.authenticate_user(&req).in_current_span().await?;
         auth.assume_login()?;
         bucket.cost(NonZeroU32::new(10).unwrap())?;
 

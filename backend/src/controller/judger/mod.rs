@@ -195,6 +195,7 @@ impl Judger {
             lang: ActiveValue::Set(req.lang.clone().to_string()),
             code: ActiveValue::Set(req.code.clone()),
             memory: ActiveValue::Set(Some(req.memory_limit)),
+            public: ActiveValue::Set(problem.public),
             ..Default::default()
         }
         .save(db.as_ref())
