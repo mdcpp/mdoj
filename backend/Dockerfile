@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=target
 ARG ARCH=x86_64
 
 RUN rustup target add ${ARCH}-unknown-linux-musl
-RUN cargo install --no-default-features --target ${ARCH}-unknown-linux-musl --path backend
+RUN cargo install --target ${ARCH}-unknown-linux-musl --path backend
 
 FROM scratch
 # WORKDIR are used instead of mkdir
