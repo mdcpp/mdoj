@@ -2,7 +2,7 @@ mod content;
 mod discussion;
 mod editor;
 mod education;
-mod submission;
+mod submissions;
 pub use content::ProblemContent;
 pub use discussion::ProblemDiscussion;
 pub use editor::ProblemEditor;
@@ -10,7 +10,7 @@ pub use education::ProblemEducation;
 use leptos::*;
 use leptos_icons::*;
 use leptos_router::*;
-pub use submission::ProblemSubmission;
+pub use submissions::ProblemSubmissions;
 
 use crate::{components::*, utils::*};
 
@@ -21,7 +21,7 @@ pub fn ProblemRouter() -> impl IntoView {
             <Route path="" view=ProblemContent ssr=SsrMode::Async />
             <Route path="/education" view=ProblemEducation ssr=SsrMode::Async />
             <Route path="/discussion" view=ProblemDiscussion />
-            <Route path="/submission" view=ProblemSubmission />
+            <Route path="/submissions" view=ProblemSubmissions />
         </Route>
     }
 }
@@ -33,10 +33,10 @@ struct ProblemParams {
 
 #[component]
 fn Problem() -> impl IntoView {
-    let params_error = use_params::<ProblemParams>()().map(|_| ());
-    view! {
-        <main class="grow grid grid-cols-5 grid-flow-row gap-4">
-            <ErrorFallback>
+    let params = use_params::<ProblemParams>();
+    let params_error = move || {
+        params().map(|_| {
+            view! {
                 <div class="col-span-3 flex flex-row">
                     <VerticalNavbar />
                     <Outlet />
@@ -44,9 +44,12 @@ fn Problem() -> impl IntoView {
                 <div class="col-span-2 col-start-4">
                     <ProblemEditor />
                 </div>
-                // error report
-                {params_error}
-            </ErrorFallback>
+            }
+        })
+    };
+    view! {
+        <main class="grow grid grid-cols-5 grid-flow-row gap-4">
+            <ErrorFallback>{params_error}</ErrorFallback>
         </main>
     }
 }
@@ -64,7 +67,7 @@ fn VerticalNavbar() -> impl IntoView {
             <VerticalNavbarButton icon=icondata::BsChatLeftText href="discussion">
                 Discussion
             </VerticalNavbarButton>
-            <VerticalNavbarButton icon=icondata::ImUpload href="submission">
+            <VerticalNavbarButton icon=icondata::ImUpload href="submissions">
                 Submission
             </VerticalNavbarButton>
         </ul>
