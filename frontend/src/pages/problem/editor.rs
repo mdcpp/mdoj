@@ -1,6 +1,6 @@
 use leptos::*;
 use leptos_query::*;
-use leptos_router::{use_params, Params};
+use leptos_router::{use_navigate, use_params, Params};
 
 use crate::{components::*, utils::*};
 
@@ -12,7 +12,7 @@ struct EditorParams {
 #[component]
 pub fn ProblemEditor() -> impl IntoView {
     let params = use_params::<EditorParams>();
-
+    let token = use_token();
     let select_lang = create_rw_signal::<Option<grpc::Language>>(None);
     let editor_ref = create_editor_ref();
 
@@ -20,19 +20,23 @@ pub fn ProblemEditor() -> impl IntoView {
         create_action(move |(lang_uid, code): &(String, String)| {
             let lang_uid = lang_uid.clone();
             let code = code.as_bytes().to_vec();
-
+            let token = token().unwrap();
+            let problem_id = params().unwrap().id;
             let mut client =
                 grpc::submit_client::SubmitClient::new(grpc::new_client());
             async move {
                 let id = client
-                    .create(grpc::CreateSubmitRequest {
-                        lang_uid,
-                        problem_id: params.get_untracked()?.id,
-                        code,
-                        request_id: None,
-                    })
+                    .create(
+                        grpc::CreateSubmitRequest {
+                            lang_uid,
+                            problem_id,
+                            code,
+                            request_id: None,
+                        }
+                        .with_token(token),
+                    )
                     .await?;
-                Result::<_>::Ok(id.into_inner().id)
+                Result::<_>::Ok((id.into_inner().id, problem_id))
             }
         });
 
@@ -46,7 +50,27 @@ pub fn ProblemEditor() -> impl IntoView {
         ));
     };
 
-    let disabled = Signal::derive(move || select_lang.with(|v| v.is_none()));
+    let toast = use_toast();
+    let navigate = use_navigate();
+    create_effect(move |_| {
+        let Some(v) = submit_problem.value()() else {
+            return;
+        };
+        match v {
+            Ok((id, problem_id)) => {
+                toast(ToastVariant::Success, "Problem Submit".into_view());
+                navigate(&format!("/problem/{problem_id}/submission/{id}"), Default::default())
+            }
+            Err(err) => toast(
+                ToastVariant::Success,
+                format!("Submit error: {err}").into_view(),
+            ),
+        }
+    });
+
+    let disabled = Signal::derive(move || {
+        select_lang.with(|v| v.is_none()) || token.with(|v| v.is_none())
+    });
 
     view! {
         <form class="flex flex-col gap-4 h-full w-full bg-lighten p-3 rounded" on:submit=submit>
