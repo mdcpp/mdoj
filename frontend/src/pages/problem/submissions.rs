@@ -70,7 +70,6 @@ pub fn ProblemSubmissions() -> impl IntoView {
             v.map(|v| {
                 v.into_iter()
                     .map(|info| {
-                        
                         let when:DateTime<Utc>=info.upload_time.into();
                         (
                             format!("/submission/{}", info.id),

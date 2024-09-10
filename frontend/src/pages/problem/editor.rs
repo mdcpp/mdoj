@@ -59,7 +59,10 @@ pub fn ProblemEditor() -> impl IntoView {
         match v {
             Ok((id, problem_id)) => {
                 toast(ToastVariant::Success, "Problem Submit".into_view());
-                navigate(&format!("/problem/{problem_id}/submission/{id}"), Default::default())
+                navigate(
+                    &format!("/problem/{problem_id}/submission/{id}"),
+                    Default::default(),
+                )
             }
             Err(err) => toast(
                 ToastVariant::Success,

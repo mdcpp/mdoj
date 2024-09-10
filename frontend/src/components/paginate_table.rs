@@ -80,7 +80,6 @@ where
                 <p>No result</p>
             </tr>
         }.into_view()),
-        
         Err(v)=>Err(v),
         Ok(v) => Ok(v
             .into_iter()
