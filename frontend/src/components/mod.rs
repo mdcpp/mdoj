@@ -18,7 +18,7 @@ pub mod select;
 pub mod toast;
 pub mod toggle;
 
-pub use badge::Badge;
+pub use badge::{DifficultyBadge, StateBadge};
 pub use button::{Button, ButtonVariant};
 pub use editor::{create_editor_ref, Editor};
 pub use errors::*;
