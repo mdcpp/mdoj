@@ -12,7 +12,7 @@ pub fn SearchBar(
     let search = create_rw_signal("".to_owned());
     view! {
         <form on:submit=move |e| submit(e, search.get_untracked()) class=tw_join!("relative",class)>
-            <Input value=search class="flex-grow"></Input>
+            <Input value=search class="grow"></Input>
             <button type="submit" class="absolute right-4 top-0 h-full">
                 <Icon icon=icondata::BsSearch />
             </button>

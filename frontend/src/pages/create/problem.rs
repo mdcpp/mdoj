@@ -117,8 +117,8 @@ pub fn Problem() -> impl IntoView {
         let info = grpc::create_problem_request::Info {
             title: title(),
             difficulty: difficulty(),
-            time: time(),
-            memory: memory(),
+            time: time() * 1000,
+            memory: memory() << 20,
             tags: tags().split_whitespace().map(|s| s.into()).collect(),
             content: editor_ref.with(|e| {
                 e.as_ref().map(|e| e.get_value()).unwrap_or_default()
@@ -255,11 +255,11 @@ pub fn Problem() -> impl IntoView {
                         <InputNumber value=difficulty />
                     </div>
                     <div class="flex flex-col min-w-fit grow">
-                        <label class="text-text pb-2">Time (nanosecond)</label>
+                        <label class="text-text pb-2">Time (MS)</label>
                         <InputNumber value=time />
                     </div>
                     <div class="flex flex-col min-w-fit grow">
-                        <label class="text-text pb-2">Memory (byte)</label>
+                        <label class="text-text pb-2">Memory (MB)</label>
                         <InputNumber value=memory />
                     </div>
                     <div class="flex flex-col min-w-fit grow">

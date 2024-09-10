@@ -57,12 +57,44 @@ pub fn Problems() -> impl IntoView {
 
     let page_value = params_map.use_key_with_default(page);
 
+    let headers = [
+        (Some(lp_req::Sort::Order), "Id".into_view()),
+        (None, "Title".into_view()),
+        (Some(lp_req::Sort::Difficulty), "Difficulty".into_view()),
+        (Some(lp_req::Sort::SubmitCount), "Submit".into_view()),
+        (Some(lp_req::Sort::AcRate), "Ac Rate".into_view()),
+    ];
+
     let query_result = problem_query.query(move || (page_value(), info()));
     let table = move || {
-        query_result
-            .data
-            .get()
-            .map(|d| d.map(|infos| view! { <Table infos sort order></Table> }))
+        query_result.data.get().map(|v| {
+            v.map(|v| {
+                v.into_iter()
+                    .map(|info| {
+                        (
+                            format!("/problem/{}", info.id),
+                            [
+                                format!("{:04}", info.id).into_view(),
+                                info.title.into_view(),
+                                view! { <DifficultyBadge difficulty=info.difficulty /> }
+                                    .into_view(),
+                                info.submit_count.into_view(),
+                                format!("{:.2}", info.ac_rate * 100.0)
+                                    .into_view(),
+                            ],
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+        }).map(|rows|view! {
+            <PaginateTable
+                class="grid-cols-[max-content_1fr_max-content_max-content_max-content] w-full"
+                headers=headers.clone()
+                rows
+                sort
+                order
+            />
+        })
     };
 
     let max_page = query_result.max_page;
@@ -88,53 +120,15 @@ pub fn Problems() -> impl IntoView {
     };
     view! {
         <div class="container grow flex flex-col items-center justify-between gap-4 py-10">
-            <nav class="self-end">
-                <SearchBar submit />
-            </nav>
-            <Suspense fallback=|| view! { "loading" }>
-                <ErrorFallback>{table}</ErrorFallback>
-            </Suspense>
+            <div class="flex flex-col gap-4 w-full">
+                <nav class="self-end">
+                    <SearchBar submit />
+                </nav>
+                <Transition fallback=|| view! { "loading" }>
+                    <ErrorFallback clone:table>{table}</ErrorFallback>
+                </Transition>
+            </div>
             <PaginateNavbar size=4 page max_page />
         </div>
-    }
-}
-
-#[component]
-fn Table(
-    infos: Vec<grpc::ProblemInfo>,
-    sort: ParamsMapKey<GrpcEnum<lp_req::Sort>>,
-    order: ParamsMapKey<GrpcEnum<grpc::Order>>,
-) -> impl IntoView {
-    let headers = [
-        (Some(lp_req::Sort::Order), "Id".into_view()),
-        (None, "Title".into_view()),
-        (Some(lp_req::Sort::Difficulty), "Difficulty".into_view()),
-        (Some(lp_req::Sort::SubmitCount), "Submit".into_view()),
-        (Some(lp_req::Sort::AcRate), "Ac Rate".into_view()),
-    ];
-    let rows: Vec<_> = infos
-        .into_iter()
-        .map(|info| {
-            (
-                format!("/problem/{}", info.id),
-                [
-                    format!("{:04}", info.id).into_view(),
-                    info.title.into_view(),
-                    view! { <Badge difficulty=info.difficulty /> }.into_view(),
-                    info.submit_count.into_view(),
-                    format!("{:.2}", info.ac_rate * 100.0).into_view(),
-                ],
-            )
-        })
-        .collect();
-
-    view! {
-        <PaginateTable
-            class="grid-cols-[max-content_1fr_max-content_max-content_max-content]"
-            headers
-            rows
-            sort
-            order
-        />
     }
 }

@@ -7,7 +7,7 @@ mod login;
 mod problem;
 mod problems;
 mod rank;
-mod submission;
+mod submissions;
 
 use about::About;
 use contest::Contest;
@@ -20,7 +20,7 @@ use login::Login;
 use problem::ProblemRouter;
 use problems::Problems;
 use rank::Rank;
-use submission::Submission;
+use submissions::Submissions;
 
 use crate::{components::*, utils::*};
 
@@ -68,7 +68,7 @@ pub fn Pages() -> impl IntoView {
             <Route path="" view=page_wrapper>
                 <Route path="" view=Home />
                 <Route path="/problems" view=Problems ssr=SsrMode::Async />
-                <Route path="/submissions" view=Submission />
+                <Route path="/submissions" view=Submissions />
                 <Route path="/contests" view=Contests />
                 <Route path="/contest" view=Contest />
                 <Route path="/about" view=About />
