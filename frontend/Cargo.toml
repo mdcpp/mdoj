@@ -62,7 +62,6 @@ features = ["codegen", "prost", "channel"]
 
 [dependencies.tonic-web-wasm-client]
 version = "0.5.1"
-optional = true
 
 [dependencies.serde]
 workspace = true
@@ -87,7 +86,6 @@ workspace = true
 
 [features]
 csr = [
-  "dep:tonic-web-wasm-client",
   "leptos/csr",
   "leptos_meta/csr",
   "leptos_router/csr",
@@ -96,7 +94,6 @@ csr = [
   "leptos_query_devtools/csr",
 ]
 hydrate = [
-  "dep:tonic-web-wasm-client",
   "leptos/hydrate",
   "leptos_meta/hydrate",
   "leptos_router/hydrate",
