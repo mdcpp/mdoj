@@ -29,6 +29,25 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DummyParamsMapValue;
+
+impl ParamsMapValue for DummyParamsMapValue {
+    type Output = ();
+
+    fn inner(self) -> Self::Output {
+        panic!("dummy type should not be read")
+    }
+
+    fn convert_to_type(_: &str) -> Option<Self::Output> {
+        panic!("dummy type should not be read")
+    }
+
+    fn convert_to_string(_: Self::Output) -> String {
+        panic!("dummy type should not be read")
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GrpcEnum<T>(pub T);
 

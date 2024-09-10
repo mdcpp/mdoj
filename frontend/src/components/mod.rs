@@ -31,7 +31,7 @@ pub use markdown::Markdown;
 pub use modal::{Modal, ModalLevel};
 pub use navbar::Navbar;
 pub use paginate_navbar::PaginateNavbar;
-pub use paginate_table::PaginateTable;
+pub use paginate_table::{PaginateTable, PaginateTableWithoutSort};
 pub use redirect_if::RedirectIf;
 pub use search_bar::SearchBar;
 pub use select::Select;
