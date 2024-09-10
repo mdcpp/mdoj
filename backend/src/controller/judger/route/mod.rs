@@ -14,10 +14,10 @@ use std::{
 use crossbeam_queue::SegQueue;
 use dashmap::{DashMap, DashSet};
 use tonic::{service::Interceptor, *};
-use tracing::{debug_span, instrument, Instrument};
+use tracing::{debug_span, instrument, Instrument, Span};
 use uuid::Uuid;
 
-use crate::config::{self, Judger as JudgerConfig};
+use crate::config::{self, Judger as JudgeConfig};
 use grpc::judger::{judger_client::*, *};
 
 // TODO: add tracing
@@ -25,12 +25,12 @@ use grpc::judger::{judger_client::*, *};
 // about health score:
 //
 // health score is a number in range [-1,HEALTH_MAX_SCORE)
-// Upstream with negitive health score is consider unhealthy, and should disconnect immediately
+// Upstream with negative health score is consider unhealthy, and should disconnect immediately
 
 /// Max score a health Upstream can reach
 const HEALTH_MAX_SCORE: isize = 100;
 
-/// Judger Client intercepted by BasicAuthInterceptor
+/// Judge Client intercepted by BasicAuthInterceptor
 type AuthJudgerClient = JudgerClient<
     service::interceptor::InterceptedService<transport::Channel, BasicAuthInterceptor>,
 >;
@@ -54,12 +54,12 @@ impl Interceptor for BasicAuthInterceptor {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Info necessary to create connection, implement reuse logic
 pub struct ConnectionDetail {
     pub uri: String,
     pub secret: Option<String>,
-    // TODO: reuse logic shouldn't be binded with connection creation logic
+    // TODO: reuse logic shouldn't be bound with connection creation logic
     pub reuse: bool,
 }
 
@@ -128,9 +128,10 @@ impl Drop for ConnGuard {
 /// occupy future, should generally be spawn in a green thread
 #[instrument(skip(router), level = "info")]
 async fn discover<I: Routable + Send>(
-    config: JudgerConfig,
+    config: JudgeConfig,
     router: Weak<Router>,
 ) -> Result<(), Error> {
+    let parent = Span::current();
     let mut instance = I::new(config.clone())?;
     loop {
         match instance.discover().in_current_span().await {
@@ -141,7 +142,7 @@ async fn discover<I: Routable + Send>(
                 };
                 let uri = detail.uri.clone();
                 let (upstream, langs) = Upstream::new(detail).in_current_span().await?;
-                let _ = debug_span!("connected", uri = uri).entered();
+                let _ = debug_span!(parent: parent.clone(), "connected", uri = uri).entered();
                 for (uuid, lang) in langs.into_iter() {
                     router.langs.insert(lang);
                     loop {
@@ -175,8 +176,8 @@ pub struct Router {
 
 impl Router {
     // skip because config contain basic auth secret
-    #[instrument(name = "router_construct", level = "info", skip_all)]
-    pub fn new(config: Vec<JudgerConfig>) -> Result<Arc<Self>, Error> {
+    #[instrument(name = "router_construct", level = "debug", skip_all)]
+    pub fn new(config: Vec<JudgeConfig>) -> Result<Arc<Self>, Error> {
         let self_ = Arc::new(Self {
             routing_table: DashMap::default(),
             langs: DashSet::default(),
@@ -235,6 +236,7 @@ pub struct Upstream {
 
 impl Upstream {
     /// create new Upstream
+    #[instrument(name = "connecting_upstream", err, level = "info")]
     async fn new(detail: ConnectionDetail) -> Result<(Arc<Self>, Vec<(Uuid, LangInfo)>), Error> {
         let mut client = detail.connect().await?;
         let info = client.judger_info(()).await?;
@@ -245,7 +247,7 @@ impl Upstream {
             let uuid = match Uuid::parse_str(&lang.lang_uid) {
                 Ok(x) => x,
                 Err(err) => {
-                    log::warn!("invalid lang_uid from judger: {}", err);
+                    log::warn!("invalid lang_uid from judge: {}", err);
                     continue;
                 }
             };
@@ -304,7 +306,7 @@ where
     // return new connection when available, will immediately retry true is returned
     async fn route(&mut self) -> Result<RouteStatus, Error>;
     /// create from config
-    fn new(config: JudgerConfig) -> Result<Self, Error>;
+    fn new(config: JudgeConfig) -> Result<Self, Error>;
 }
 
 /// wrapper for Routable(Error handling)
