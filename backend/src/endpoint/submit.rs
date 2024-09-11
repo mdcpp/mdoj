@@ -1,5 +1,4 @@
 use super::*;
-use futures::{FutureExt, TryFutureExt};
 
 use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
@@ -16,9 +15,9 @@ impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
         let db_code: Code = value
             .status
-            .map(TryInto::try_into)
+            .map(|x| x.try_into().ok())
             .flatten()
-            .unwrap_or_else(Code::Unknown);
+            .unwrap_or(Code::Unknown);
         SubmitInfo {
             id: value.id,
             upload_time: into_prost(value.upload_at),

@@ -104,7 +104,7 @@ enum Submit {
     Status,
     Accept,
     Score,
-    Public
+    Public,
 }
 #[derive(Iden)]
 enum Testcase {
