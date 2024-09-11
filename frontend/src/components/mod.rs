@@ -18,7 +18,7 @@ pub mod select;
 pub mod toast;
 pub mod toggle;
 
-pub use badge::Badge;
+pub use badge::{DifficultyBadge, StateBadge};
 pub use button::{Button, ButtonVariant};
 pub use editor::{create_editor_ref, Editor};
 pub use errors::*;
@@ -31,7 +31,7 @@ pub use markdown::Markdown;
 pub use modal::{Modal, ModalLevel};
 pub use navbar::Navbar;
 pub use paginate_navbar::PaginateNavbar;
-pub use paginate_table::PaginateTable;
+pub use paginate_table::{PaginateTable, PaginateTableWithoutSort};
 pub use redirect_if::RedirectIf;
 pub use search_bar::SearchBar;
 pub use select::Select;

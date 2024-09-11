@@ -86,7 +86,7 @@ pub fn Problem() -> impl IntoView {
     let time = create_rw_signal(0u64);
     let memory = create_rw_signal(0u64);
     let tags = create_rw_signal("".to_owned());
-    let match_rule = create_rw_signal("".to_owned());
+    let match_rule = create_rw_signal::<Option<grpc::MatchRule>>(None);
     let editor_ref = create_editor_ref();
 
     type TestcaseType = (Uuid, String, RwSignal<u32>, Promise, Promise);
@@ -117,20 +117,13 @@ pub fn Problem() -> impl IntoView {
         let info = grpc::create_problem_request::Info {
             title: title(),
             difficulty: difficulty(),
-            time: time(),
-            memory: memory(),
+            time: time() * 1000,
+            memory: memory() << 20,
             tags: tags().split_whitespace().map(|s| s.into()).collect(),
             content: editor_ref.with(|e| {
                 e.as_ref().map(|e| e.get_value()).unwrap_or_default()
             }),
-            match_rule: match_rule
-                .with(|rule| match rule.as_str() {
-                    "EXACTLY" => grpc::MatchRule::MatchruleExactly,
-                    "IGNORE_SNL" => grpc::MatchRule::MatchruleIgnoreSnl,
-                    "SKIP_SNL" => grpc::MatchRule::MatchruleSkipSnl,
-                    _ => unreachable!(),
-                })
-                .into(),
+            match_rule: match_rule().unwrap().into(),
             // TODO: remove this when new API is complete
             order: 0.0,
         };
@@ -147,8 +140,8 @@ pub fn Problem() -> impl IntoView {
 
     let disabled = Signal::derive(move || {
         title.with(|v| v.is_empty())
-            || match_rule.with(|v| v.is_empty())
             || create.pending()()
+            || match_rule.with(|v| v.is_none())
     });
 
     let toast = use_toast();
@@ -228,12 +221,18 @@ pub fn Problem() -> impl IntoView {
     };
 
     let options = vec![
-        ("EXACTLY".to_owned(), "Exactly".into_view()),
         (
-            "IGNORE_SNL".to_owned(),
+            Some(grpc::MatchRule::MatchruleExactly),
+            "Exactly".into_view(),
+        ),
+        (
+            Some(grpc::MatchRule::MatchruleIgnoreSnl),
             "Ignore space and newline".into_view(),
         ),
-        ("SKIP_SNL".to_owned(), "Skip space and newline".into_view()),
+        (
+            Some(grpc::MatchRule::MatchruleSkipSnl),
+            "Skip space and newline".into_view(),
+        ),
     ];
 
     view! {
@@ -256,16 +255,16 @@ pub fn Problem() -> impl IntoView {
                         <InputNumber value=difficulty />
                     </div>
                     <div class="flex flex-col min-w-fit grow">
-                        <label class="text-text pb-2">Time (nanosecond)</label>
+                        <label class="text-text pb-2">Time (MS)</label>
                         <InputNumber value=time />
                     </div>
                     <div class="flex flex-col min-w-fit grow">
-                        <label class="text-text pb-2">Memory (byte)</label>
+                        <label class="text-text pb-2">Memory (MB)</label>
                         <InputNumber value=memory />
                     </div>
                     <div class="flex flex-col min-w-fit grow">
                         <label class="text-text pb-2">Match Rule</label>
-                        <Select value=match_rule placeholder="Match Rule" options />
+                        <Select value=match_rule placeholder="Match Rule".into_view() options />
                     </div>
                 </div>
 
