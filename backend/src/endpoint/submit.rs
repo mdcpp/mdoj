@@ -1,4 +1,5 @@
 use super::*;
+use futures::{FutureExt, TryFutureExt};
 
 use crate::controller::judger::SubmitBuilder;
 use crate::util::code::Code;
@@ -13,8 +14,11 @@ use tokio_stream::wrappers::ReceiverStream;
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
-        // TODO: solve devation and uncommitted submit!
-        let db_code: Code = value.status.unwrap().try_into().unwrap();
+        let db_code: Code = value
+            .status
+            .map(TryInto::try_into)
+            .flatten()
+            .unwrap_or_else(Code::Unknown);
         SubmitInfo {
             id: value.id,
             upload_time: into_prost(value.upload_at),
