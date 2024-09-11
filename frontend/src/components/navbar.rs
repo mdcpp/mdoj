@@ -11,7 +11,7 @@ pub fn Navbar() -> impl IntoView {
         <nav class="bg-black-900 sticky top-0 p-2 flex flex-row justify-between border-b-2 border-black-400 z-10">
             <div class="flex flex-row flex-nowrap">
                 <A href="/">
-                    <img src="https://placehold.co/100" class="h-12 aspect-square mx-5" />
+                    <img src="/assets/favicon.svg" class="h-12 aspect-square mx-5" />
                 </A>
                 <ul class="flex flex-row flex-nowrap justify-between items-center text-base">
                     <NavbarLink href="/problems">Problems</NavbarLink>
@@ -32,8 +32,7 @@ pub fn Navbar() -> impl IntoView {
                         }
                     }
                 >
-
-                    <img src="https://placehold.co/100" class="h-12 aspect-square mx-5" />
+                    Username Here
                 </Show>
             </div>
         </nav>

@@ -21,6 +21,8 @@ pub fn App() -> impl IntoView {
     view! {
         <Stylesheet id="leptos" href="/pkg/mdoj.css" />
         <Title text="MDOJ" />
+        <Link rel="icon" type_="image/svg+xml" href="/assets/favicon.svg" />
+        <Link rel="icon" type_="image/png" href="/assets/favicon.png" />
         <ProvideConfig>
             <ProvideToast>
                 <div class="bg-black-950 w-full min-h-dvh flex flex-col text-text">
