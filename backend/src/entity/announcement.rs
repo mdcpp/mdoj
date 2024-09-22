@@ -211,7 +211,6 @@ impl SortSource<PartialModel> for ColPagerTrait {
         match data.0 {
             Sort::UpdateDate => Column::UpdateAt,
             Sort::CreateDate => Column::CreateAt,
-            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<Value> + Clone + Send {
@@ -221,7 +220,6 @@ impl SortSource<PartialModel> for ColPagerTrait {
         data.1 = match data.0 {
             Sort::UpdateDate => model.update_at.to_string(),
             Sort::CreateDate => model.create_at.to_string(),
-            Sort::Public => model.public.to_string(),
         }
     }
 }

@@ -403,7 +403,6 @@ impl SortSource<PartialModel> for ColPagerTrait {
             Sort::SubmitCount => Column::SubmitCount,
             Sort::Difficulty => Column::Difficulty,
             Sort::Order => Column::Order,
-            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -417,7 +416,6 @@ impl SortSource<PartialModel> for ColPagerTrait {
             Sort::SubmitCount => model.submit_count.to_string(),
             Sort::Difficulty => model.difficulty.to_string(),
             Sort::Order => model.order.to_string(),
-            Sort::Public => model.public.to_string(),
         }
     }
 }

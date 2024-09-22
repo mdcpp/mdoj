@@ -19,18 +19,18 @@ impl<'a> From<WithAuth<'a, Model>> for UserFullInfo {
     }
 }
 
-impl WithAuthTrait for Model {}
-
 impl From<Model> for UserInfo {
     fn from(value: Model) -> Self {
-        UserInfo {
+        Self {
             username: value.username,
-            // FIXME: capture Error(database corruption?) instead!
-            score: value.score.try_into().unwrap_or_default(),
+            score: value.score as u64,
             id: value.id,
+            create_at: into_prost(value.create_at),
         }
     }
 }
+
+impl WithAuthTrait for Model {}
 
 #[async_trait]
 impl User for ArcServer {

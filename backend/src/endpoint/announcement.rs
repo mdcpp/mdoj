@@ -17,6 +17,7 @@ impl<'a> From<WithAuth<'a, Model>> for AnnouncementFullInfo {
                 id: model.id,
                 title: model.title,
                 update_date: into_prost(model.update_at),
+                create_date: into_prost(model.create_at),
             },
             author_id: model.user_id,
             content: model.content,
@@ -34,6 +35,7 @@ impl From<Model> for AnnouncementInfo {
             id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
+            create_date: into_prost(value.create_at),
         }
     }
 }
@@ -44,6 +46,7 @@ impl From<PartialModel> for AnnouncementInfo {
             id: value.id,
             title: value.title,
             update_date: into_prost(value.update_at),
+            create_date: into_prost(value.create_at),
         }
     }
 }

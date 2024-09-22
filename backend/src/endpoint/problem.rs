@@ -21,6 +21,9 @@ impl<'a> From<WithAuth<'a, Model>> for ProblemFullInfo {
                 submit_count: model.submit_count,
                 ac_rate: model.ac_rate,
                 difficulty: model.difficulty,
+                create_at: into_prost(model.create_at),
+                update_at: into_prost(model.update_at),
+                public: model.public,
             },
             author: model.user_id,
             writable,
@@ -38,6 +41,9 @@ impl From<PartialModel> for ProblemInfo {
             submit_count: value.submit_count,
             ac_rate: value.ac_rate,
             difficulty: value.difficulty,
+            create_at: into_prost(value.create_at),
+            update_at: into_prost(value.update_at),
+            public: value.public,
         }
     }
 }
