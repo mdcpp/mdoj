@@ -1,7 +1,7 @@
 use grpc::backend::StateCode as BackendCode;
 use grpc::judger::JudgerCode;
 
-/// Stablized JudgeResponse Code, store in database
+/// Stabilized JudgeResponse Code, store in database
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum Code {

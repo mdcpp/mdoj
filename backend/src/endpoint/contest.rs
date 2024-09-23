@@ -24,15 +24,6 @@ impl<'a> From<WithAuth<'a, Model>> for ContestFullInfo {
 
 impl WithAuthTrait for Model {}
 
-impl From<user_contest::Model> for UserRank {
-    fn from(value: user_contest::Model) -> Self {
-        UserRank {
-            user_id: value.user_id,
-            score: value.score,
-        }
-    }
-}
-
 impl From<Model> for ContestInfo {
     fn from(value: Model) -> Self {
         ContestInfo {
@@ -41,6 +32,7 @@ impl From<Model> for ContestInfo {
             begin: value.begin.map(into_prost),
             end: value.end.map(into_prost),
             need_password: value.password.is_some(),
+            public: value.public,
         }
     }
 }
@@ -53,6 +45,7 @@ impl From<PartialModel> for ContestInfo {
             begin: value.begin.map(into_prost),
             end: value.end.map(into_prost),
             need_password: value.password.is_some(),
+            public: value.public,
         }
     }
 }

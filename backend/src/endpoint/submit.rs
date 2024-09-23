@@ -13,8 +13,11 @@ use tokio_stream::wrappers::ReceiverStream;
 
 impl From<Model> for SubmitInfo {
     fn from(value: Model) -> Self {
-        // TODO: solve devation and uncommitted submit!
-        let db_code: Code = value.status.unwrap().try_into().unwrap();
+        let db_code: Code = value
+            .status
+            .map(|x| x.try_into().ok())
+            .flatten()
+            .unwrap_or(Code::Unknown);
         SubmitInfo {
             id: value.id,
             upload_time: into_prost(value.upload_at),

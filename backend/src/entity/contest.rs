@@ -252,11 +252,8 @@ impl Source for ColPagerTrait {
 impl SortSource<PartialModel> for ColPagerTrait {
     fn sort_col(data: &Self::Data) -> impl ColumnTrait {
         match data.0 {
-            Sort::UpdateDate => Column::UpdateAt,
-            Sort::CreateDate => Column::CreateAt,
             Sort::Begin => Column::Begin,
             Sort::End => Column::End,
-            Sort::Public => Column::Public,
         }
     }
     fn get_val(data: &Self::Data) -> impl Into<sea_orm::Value> + Clone + Send {
@@ -264,11 +261,8 @@ impl SortSource<PartialModel> for ColPagerTrait {
     }
     fn save_val(data: &mut Self::Data, model: &PartialModel) {
         data.1 = match data.0 {
-            Sort::UpdateDate => model.update_at.to_string(),
-            Sort::CreateDate => model.create_at.to_string(),
             Sort::Begin => model.begin.unwrap().to_string(),
             Sort::End => model.end.unwrap().to_string(),
-            Sort::Public => model.public.to_string(),
         }
     }
 }
@@ -294,7 +288,7 @@ impl Paginator {
         ))
     }
     pub fn new(start_from_end: bool) -> Self {
-        Self::new_sort(Sort::CreateDate, start_from_end)
+        Self::new_sort(Sort::Begin, start_from_end)
     }
 }
 

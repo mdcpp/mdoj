@@ -147,6 +147,9 @@ message ProblemInfo {
   // 3000 - inf  geek
   required uint32 difficulty = 5;
   required float ac_rate = 4;
+  required google.protobuf.Timestamp update_at = 6;
+  required google.protobuf.Timestamp create_at = 7;
+  required bool public = 8;
 }
 
 message ProblemFullInfo {
@@ -177,7 +180,7 @@ message ListProblemRequest {
     SORT_SUBMIT_COUNT = 3;
     SORT_DIFFICULTY = 4;
     SORT_ORDER = 5;
-    SORT_PUBLIC = 6;
+    // 6 is used
   }
   message Query {
     optional int32 contest_id = 1;
@@ -299,6 +302,7 @@ message AnnouncementInfo {
   required int32 id = 1;
   required string title = 2;
   required google.protobuf.Timestamp update_date = 3;
+  required google.protobuf.Timestamp create_date = 4;
 }
 
 message AnnouncementFullInfo {
@@ -358,7 +362,6 @@ message ListAnnouncementRequest {
   enum Sort {
     SORT_UPDATE_DATE = 0;
     SORT_CREATE_DATE = 1;
-    SORT_PUBLIC = 2;
   }
   message Query {
     optional Sort sort_by = 1;
@@ -591,6 +594,7 @@ message ContestInfo {
   optional google.protobuf.Timestamp begin = 4;
   optional google.protobuf.Timestamp end = 5;
   required bool need_password = 6;
+  required bool public = 7;
 }
 
 message ContestFullInfo {
@@ -645,17 +649,6 @@ message UpdateContestRequest {
   optional string request_id = 3;
 }
 
-message UserRank {
-  required int32 user_id = 1;
-  required uint32 score = 2;
-}
-
-message ListRankResponse {
-  repeated UserRank list = 1;
-  required string paginator = 2;
-  required uint64 remain = 3;
-}
-
 message JoinContestRequest {
   required int32 id = 1;
   optional string password = 2;
@@ -667,11 +660,9 @@ message JoinContestRequest {
 
 message ListContestRequest {
   enum Sort {
-    SORT_CREATE_DATE = 0;
-    SORT_UPDATE_DATE = 1;
     SORT_BEGIN = 2;
     SORT_END = 3;
-    SORT_PUBLIC = 4;
+    // leave 4, it's used 
   }
   message Query {
     optional Sort sort_by = 1;
@@ -720,6 +711,7 @@ message UserInfo {
   required string username = 1;
   required uint64 score = 4;
   required int32 id = 3;
+  required google.protobuf.Timestamp create_at = 5;
 }
 
 message UserFullInfo {
